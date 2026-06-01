@@ -21,6 +21,11 @@ public class User
     public string Telefone { get; set; } = null!;
 
     /// <summary>
+    /// Foto de perfil do usuario em data URL.
+    /// </summary>
+    public string? FotoPerfil { get; set; }
+
+    /// <summary>
     /// Email do usuário
     /// </summary>
     public string Email { get; set; } = null!;

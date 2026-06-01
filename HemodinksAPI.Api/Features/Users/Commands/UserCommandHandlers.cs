@@ -56,6 +56,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 Nome = request.Nome,
                 Email = request.Email,
                 Telefone = request.Telefone,
+                FotoPerfil = UserProfileRules.NormalizeFotoPerfil(request.FotoPerfil),
                 Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
                 DataNascimento = request.DataNascimento,
                 DataCadastro = DateTime.UtcNow,
@@ -75,6 +76,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 Nome = user.Nome,
                 Email = user.Email,
                 Telefone = user.Telefone,
+                FotoPerfil = user.FotoPerfil,
                 DataCadastro = user.DataCadastro,
                 DataNascimento = user.DataNascimento,
                 Ativo = user.Ativo,
@@ -139,6 +141,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 Nome = user.Nome,
                 Email = user.Email,
                 Token = token,
+                FotoPerfil = user.FotoPerfil,
                 PrecisaTrocarSenha = user.PrecisaTrocarSenha,
                 PerfilId = user.PerfilId,
                 PerfilNome = UserProfileRules.GetPerfilNome(user)
@@ -201,6 +204,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             user.Nome = request.Nome;
             user.Email = request.Email;
             user.Telefone = request.Telefone;
+            user.FotoPerfil = UserProfileRules.NormalizeFotoPerfil(request.FotoPerfil);
             user.DataNascimento = request.DataNascimento;
             user.Ativo = request.Ativo;
             user.PerfilId = perfilId;
@@ -213,6 +217,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 Nome = user.Nome,
                 Email = user.Email,
                 Telefone = user.Telefone,
+                FotoPerfil = user.FotoPerfil,
                 DataCadastro = user.DataCadastro,
                 DataNascimento = user.DataNascimento,
                 Ativo = user.Ativo,
@@ -404,6 +409,11 @@ internal static class UserProfileRules
     public static string GetPerfilNome(User user)
     {
         return user.Perfil?.Nome ?? string.Empty;
+    }
+
+    public static string? NormalizeFotoPerfil(string? fotoPerfil)
+    {
+        return string.IsNullOrWhiteSpace(fotoPerfil) ? null : fotoPerfil;
     }
 }
 

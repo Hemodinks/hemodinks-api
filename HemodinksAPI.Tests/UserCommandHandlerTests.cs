@@ -24,6 +24,7 @@ public class UserCommandHandlerTests
             Nome = "Novo Usuario",
             Email = "novo.usuario@email.com",
             Telefone = "+5511999999999",
+            FotoPerfil = "data:image/png;base64,avatar",
             DataNascimento = new DateTime(1990, 5, 15)
         }, CancellationToken.None);
 
@@ -33,6 +34,8 @@ public class UserCommandHandlerTests
         Assert.True(storedUser.Ativo);
         Assert.True(storedUser.PrecisaTrocarSenha);
         Assert.True(response.PrecisaTrocarSenha);
+        Assert.Equal("data:image/png;base64,avatar", storedUser.FotoPerfil);
+        Assert.Equal("data:image/png;base64,avatar", response.FotoPerfil);
         Assert.Equal(Perfil.MedicosId, storedUser.PerfilId);
         Assert.Equal(Perfil.MedicosId, response.PerfilId);
         Assert.Equal("Médicos", response.PerfilNome);
@@ -113,7 +116,8 @@ public class UserCommandHandlerTests
         context.Users.Add(CreateUser(
             email: "login@email.com",
             passwordHash: hasher.HashPassword("Senha@123"),
-            precisaTrocarSenha: true));
+            precisaTrocarSenha: true,
+            fotoPerfil: "data:image/png;base64,login"));
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
 
@@ -131,6 +135,7 @@ public class UserCommandHandlerTests
 
         Assert.Equal("login@email.com", response.Email);
         Assert.Equal("fake-token", response.Token);
+        Assert.Equal("data:image/png;base64,login", response.FotoPerfil);
         Assert.True(response.PrecisaTrocarSenha);
         Assert.Equal(Perfil.MedicosId, response.PerfilId);
         Assert.Equal("Médicos", response.PerfilNome);
@@ -158,12 +163,15 @@ public class UserCommandHandlerTests
             Nome = "Usuario Editado",
             Email = "edita@email.com",
             Telefone = "+5511555555555",
+            FotoPerfil = "data:image/jpeg;base64,editada",
             DataNascimento = new DateTime(1991, 7, 2),
             Ativo = true,
             PerfilId = Perfil.AdministradorId
         }, CancellationToken.None);
 
         var storedUser = await context.Users.SingleAsync(u => u.Id == user.Id);
+        Assert.Equal("data:image/jpeg;base64,editada", storedUser.FotoPerfil);
+        Assert.Equal("data:image/jpeg;base64,editada", response.FotoPerfil);
         Assert.Equal(Perfil.AdministradorId, storedUser.PerfilId);
         Assert.Equal(Perfil.AdministradorId, response.PerfilId);
         Assert.Equal("Administrador", response.PerfilNome);
@@ -319,7 +327,8 @@ public class UserCommandHandlerTests
         string email,
         string passwordHash,
         int id = 0,
-        bool precisaTrocarSenha = true)
+        bool precisaTrocarSenha = true,
+        string? fotoPerfil = null)
     {
         return new User
         {
@@ -332,6 +341,7 @@ public class UserCommandHandlerTests
             DataNascimento = new DateTime(1990, 1, 1),
             Ativo = true,
             PrecisaTrocarSenha = precisaTrocarSenha,
+            FotoPerfil = fotoPerfil,
             PerfilId = Perfil.MedicosId
         };
     }

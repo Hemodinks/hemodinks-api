@@ -62,6 +62,9 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(20);
 
+            entity.Property(e => e.FotoPerfil)
+                .HasColumnType("nvarchar(max)");
+
             entity.Property(e => e.Senha)
                 .IsRequired()
                 .HasMaxLength(500);
