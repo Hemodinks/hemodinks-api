@@ -181,7 +181,7 @@ Importar arquivo `API.http` na raiz do projeto ou usar as requisições manualme
    - **Server name:** `localhost` ou `.`
    - **Authentication:** Windows ou SQL Authentication
    - **Login:** sa (se Docker) / seu usuário (se local)
-   - **Password:** Hemodinks@2024! (se Docker)
+   - **Password:** valor definido em `MSSQL_SA_PASSWORD` no arquivo `.env` (se Docker)
 
 2. Expandir Databases → HemodinksDB → Tables → Users
 
@@ -261,17 +261,11 @@ Estrutura recomendada de revisão:
 
 ### 4. Modificar configurações
 
-Editar `appsettings.json`:
-```json
-{
-  "JwtSettings": {
-    "ExpirationMinutes": 120,  // Aumentar expiração
-    "SecretKey": "sua_chave_super_segura"  // Alterar chave
-  },
-  "ConnectionStrings": {
-    "DefaultConnection": "seu_connection_string"  // Outro banco
-  }
-}
+Configurar por User Secrets ou variaveis de ambiente:
+```bash
+dotnet user-secrets set "JwtSettings:ExpirationMinutes" "120"
+dotnet user-secrets set "JwtSettings:SecretKey" "definir_via_user_secrets_ou_variavel_de_ambiente"
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "seu_connection_string"
 ```
 
 ---

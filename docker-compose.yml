@@ -1,12 +1,10 @@
-version: '3.8'
-
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: hemodinks-mssql
     environment:
       ACCEPT_EULA: Y
-      SA_PASSWORD: "Hemodinks@2024!"
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}"
       MSSQL_PID: Developer
     ports:
       - "1433:1433"
@@ -15,7 +13,7 @@ services:
     networks:
       - hemodinks-network
     healthcheck:
-      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "Hemodinks@2024!", "-Q", "SELECT 1"]
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}", "-Q", "SELECT 1"]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -26,13 +24,13 @@ services:
       dockerfile: Dockerfile
     container_name: hemodinks-api
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
       ASPNETCORE_URLS: http://+:5000
-      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=HemodinksDB;User Id=sa;Password=Hemodinks@2024!;TrustServerCertificate=true;Encrypt=false"
-      JwtSettings__SecretKey: "sua_chave_secreta_super_segura_com_minimo_32_caracteres!"
-      JwtSettings__Issuer: "HemodinksAPI"
-      JwtSettings__Audience: "HemodinksAPI"
-      JwtSettings__ExpirationMinutes: "60"
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=${MSSQL_DATABASE:-HemodinksDB};User Id=sa;Password=${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env};TrustServerCertificate=true;Encrypt=false"
+      JwtSettings__SecretKey: "${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}"
+      JwtSettings__Issuer: "${JWT_ISSUER:-HemodinksAPI}"
+      JwtSettings__Audience: "${JWT_AUDIENCE:-HemodinksAPI}"
+      JwtSettings__ExpirationMinutes: "${JWT_EXPIRATION_MINUTES:-60}"
     ports:
       - "5000:5000"
     depends_on:

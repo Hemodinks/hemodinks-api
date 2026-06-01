@@ -214,7 +214,7 @@ curl -X GET http://localhost:5000/api/users \
 2. **Senha Padrão:** Todos os 50 usuários têm a senha `Senha@123` para teste
 3. **Banco de Dados:** O banco é criado automaticamente na primeira execução
 4. **Logs:** Verifique a pasta `logs/` para histórico de operações
-5. **Docker Compose:** O SQL Server usa senha `Hemodinks@2024!` (alterar em produção)
+5. **Docker Compose:** O SQL Server usa a variavel `MSSQL_SA_PASSWORD` definida no arquivo `.env`
 
 ---
 

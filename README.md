@@ -36,6 +36,11 @@ API robusta desenvolvida em **.NET 10** com arquitetura **CQRS**, autenticação
 # Ir para o diretório do projeto
 cd c:\George Marcone\GitHub\personal\HEMODINKS\hemodinks-api
 
+# Criar o arquivo local de variaveis, que nao deve ser versionado
+Copy-Item .env.example .env
+
+# Ajustar MSSQL_SA_PASSWORD e JWT_SECRET_KEY no arquivo .env
+
 # Executar com Docker Compose
 docker-compose up -d
 ```
@@ -44,7 +49,9 @@ A API estará disponível em: `http://localhost:5000`
 
 **Credenciais do SQL Server:**
 - Usuário: `sa`
-- Senha: `Hemodinks@2024!`
+- Senha: configurada em `.env`
+
+As credenciais do SQL Server e a chave JWT ficam fora do repositorio.
 
 ### Opção 2: Desenvolvimento Local
 
@@ -60,6 +67,10 @@ cd HemodinksAPI.Api
 
 # Restaurar dependências
 dotnet restore
+
+# Configurar secrets locais
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=.;Database=HemodinksDB;Integrated Security=true;TrustServerCertificate=true;Encrypt=false"
+dotnet user-secrets set "JwtSettings:SecretKey" "troque_por_uma_chave_com_32_caracteres_ou_mais"
 
 # Executar migrações
 dotnet ef database update
@@ -204,18 +215,16 @@ Os logs são armazenados em:
 
 ## 🔧 Configuração
 
-### Arquivo: `appsettings.json`
+### Variaveis de ambiente e User Secrets
 
-```json
-{
-  "ConnectionStrings": {
-    "DefaultConnection": "Server=.;Database=HemodinksDB;..."
-  },
-  "JwtSettings": {
-    "SecretKey": "sua_chave_secreta_super_segura...",
-    "ExpirationMinutes": 60
-  }
-}
+`appsettings.json` nao armazena segredos. Configure os valores por variaveis de ambiente, `.env` no Docker ou User Secrets no desenvolvimento local.
+
+```bash
+ConnectionStrings__DefaultConnection="Server=.;Database=HemodinksDB;Integrated Security=true;TrustServerCertificate=true;Encrypt=false"
+JwtSettings__SecretKey="troque_por_uma_chave_com_32_caracteres_ou_mais"
+JwtSettings__Issuer="HemodinksAPI"
+JwtSettings__Audience="HemodinksAPI"
+JwtSettings__ExpirationMinutes="60"
 ```
 
 ## 🛠️ Estrutura do Projeto
