@@ -1,6 +1,7 @@
 using HemodinksAPI.Api.Authentication;
 using HemodinksAPI.Api.Features.Users.Commands;
 using HemodinksAPI.Api.Models;
+using HemodinksAPI.Api.Services;
 using HemodinksAPI.Api.Storage;
 using HemodinksAPI.Api.Utils;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,7 @@ public class UserCommandHandlerTests
             context,
             hasher,
             new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
             NullLogger<CreateUserCommandHandler>.Instance);
 
         var response = await handler.Handle(new CreateUserCommand
@@ -26,6 +28,7 @@ public class UserCommandHandlerTests
             Nome = "Novo Usuario",
             Email = "novo.usuario@email.com",
             Telefone = "+5511999999999",
+            Cpf = "52998224725",
             FotoPerfil = "data:image/png;base64,avatar",
             DataNascimento = new DateTime(1990, 5, 15)
         }, CancellationToken.None);
@@ -53,6 +56,7 @@ public class UserCommandHandlerTests
             context,
             hasher,
             new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
             NullLogger<CreateUserCommandHandler>.Instance);
 
         var response = await handler.Handle(new CreateUserCommand
@@ -60,12 +64,16 @@ public class UserCommandHandlerTests
             Nome = "Paciente Teste",
             Email = "paciente@email.com",
             Telefone = "+5511777777777",
+            Cpf = "11144477735",
             DataNascimento = new DateTime(1992, 8, 10),
             PerfilId = Perfil.PacientesId
         }, CancellationToken.None);
 
         var storedUser = await context.Users.SingleAsync();
+        var storedPaciente = await context.Pacientes.SingleAsync();
         Assert.Equal(Perfil.PacientesId, storedUser.PerfilId);
+        Assert.Equal(storedUser.Id, storedPaciente.UserId);
+        Assert.Equal("Paciente Teste", storedPaciente.NomePaciente);
         Assert.Equal(Perfil.PacientesId, response.PerfilId);
         Assert.Equal("Pacientes", response.PerfilNome);
     }
@@ -78,6 +86,7 @@ public class UserCommandHandlerTests
             context,
             new PasswordHasher(),
             new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
             NullLogger<CreateUserCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
@@ -85,6 +94,7 @@ public class UserCommandHandlerTests
             Nome = "Perfil Invalido",
             Email = "perfil.invalido@email.com",
             Telefone = "+5511666666666",
+            Cpf = "93541134780",
             DataNascimento = new DateTime(1993, 4, 12),
             PerfilId = 999
         }, CancellationToken.None));
@@ -102,6 +112,7 @@ public class UserCommandHandlerTests
             context,
             hasher,
             new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
             NullLogger<CreateUserCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
@@ -109,6 +120,7 @@ public class UserCommandHandlerTests
             Nome = "Usuario Duplicado",
             Email = "duplicado@email.com",
             Telefone = "+5511888888888",
+            Cpf = "39864590827",
             DataNascimento = new DateTime(1995, 1, 20)
         }, CancellationToken.None));
     }
@@ -161,6 +173,7 @@ public class UserCommandHandlerTests
         var handler = new UpdateUserCommandHandler(
             context,
             new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
             NullLogger<UpdateUserCommandHandler>.Instance);
 
         var response = await handler.Handle(new UpdateUserCommand
@@ -169,6 +182,7 @@ public class UserCommandHandlerTests
             Nome = "Usuario Editado",
             Email = "edita@email.com",
             Telefone = "+5511555555555",
+            Cpf = "15350946056",
             FotoPerfil = "data:image/jpeg;base64,editada",
             DataNascimento = new DateTime(1991, 7, 2),
             Ativo = true,
@@ -342,6 +356,7 @@ public class UserCommandHandlerTests
             Nome = "Usuario Teste",
             Email = email,
             Telefone = "+5511999999999",
+            Cpf = "52998224725",
             Senha = passwordHash,
             DataCadastro = DateTime.UtcNow,
             DataNascimento = new DateTime(1990, 1, 1),

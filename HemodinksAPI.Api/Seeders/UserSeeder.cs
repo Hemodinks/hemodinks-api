@@ -1,4 +1,3 @@
-using HemodinksAPI.Api.Data;
 using HemodinksAPI.Api.Models;
 using HemodinksAPI.Api.Utils;
 
@@ -29,6 +28,7 @@ public class UserSeeder
             Nome = "George Marcone Morais dos Santos",
             Email = "gmarcone@gmail.com",
             Telefone = "+5581997236704",
+            Cpf = GenerateCpf(1),
             Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
             DataNascimento = new DateTime(1982, 2, 25),
             DataCadastro = DateTime.UtcNow,
@@ -85,7 +85,7 @@ public class UserSeeder
 
         var random = new Random();
 
-        for (int i = 0; i < 49; i++)
+        for (int i = 0; i < 9; i++)
         {
             var dataNascimento = new DateTime(
                 random.Next(1960, 2005),
@@ -98,6 +98,7 @@ public class UserSeeder
                 Nome = nomes[i],
                 Email = emails[i],
                 Telefone = telefones[i],
+                Cpf = GenerateCpf(i + 2),
                 Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
                 DataNascimento = dataNascimento,
                 DataCadastro = DateTime.UtcNow.AddDays(-random.Next(1, 365)),
@@ -107,6 +108,50 @@ public class UserSeeder
             });
         }
 
+        var pacientes = new[]
+        {
+            "Helena Oliveira", "Miguel Santos", "Laura Costa", "Arthur Lima", "Sophia Pereira",
+            "Davi Martins", "Alice Ferreira", "Gabriel Souza", "Manuela Rocha", "Bernardo Alves"
+        };
+
+        for (int i = 0; i < pacientes.Length; i++)
+        {
+            users.Add(new User
+            {
+                Nome = pacientes[i],
+                Email = $"paciente{i + 1}@hemodinks.com",
+                Telefone = $"+55819988{i + 1:00000}",
+                Cpf = GenerateCpf(i + 100),
+                Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
+                DataNascimento = new DateTime(1980 + i, (i % 12) + 1, (i % 27) + 1),
+                DataCadastro = DateTime.UtcNow.AddDays(-i),
+                Ativo = true,
+                PrecisaTrocarSenha = true,
+                PerfilId = Perfil.PacientesId
+            });
+        }
+
         return users;
+    }
+
+    private static string GenerateCpf(int seed)
+    {
+        var firstNineDigits = seed.ToString("000000000")[^9..];
+        var firstDigit = CalculateCpfDigit(firstNineDigits);
+        var secondDigit = CalculateCpfDigit($"{firstNineDigits}{firstDigit}");
+        return $"{firstNineDigits}{firstDigit}{secondDigit}";
+    }
+
+    private static int CalculateCpfDigit(string digits)
+    {
+        var sum = 0;
+
+        for (var i = 0; i < digits.Length; i++)
+        {
+            sum += (digits[i] - '0') * (digits.Length + 1 - i);
+        }
+
+        var remainder = sum % 11;
+        return remainder < 2 ? 0 : 11 - remainder;
     }
 }

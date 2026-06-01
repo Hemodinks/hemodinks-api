@@ -2,6 +2,7 @@ using HemodinksAPI.Api.Authentication;
 using HemodinksAPI.Api.Data;
 using HemodinksAPI.Api.Features.Users.Queries;
 using HemodinksAPI.Api.Models;
+using HemodinksAPI.Api.Services;
 using HemodinksAPI.Api.Storage;
 using HemodinksAPI.Api.Utils;
 using MediatR;
@@ -17,17 +18,20 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
     private readonly AppDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
+    private readonly IUserPatientSyncService _userPatientSyncService;
     private readonly ILogger<CreateUserCommandHandler> _logger;
 
     public CreateUserCommandHandler(
         AppDbContext context,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
+        IUserPatientSyncService userPatientSyncService,
         ILogger<CreateUserCommandHandler> logger)
     {
         _context = context;
         _passwordHasher = passwordHasher;
         _profilePhotoStorage = profilePhotoStorage;
+        _userPatientSyncService = userPatientSyncService;
         _logger = logger;
     }
 
@@ -43,6 +47,15 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
             if (emailAlreadyExists)
             {
                 throw new InvalidOperationException("Email ja cadastrado");
+            }
+
+            var cpf = UserProfileRules.NormalizeAndValidateCpf(request.Cpf);
+            var cpfAlreadyExists = await _context.Users
+                .AnyAsync(u => u.Cpf == cpf, cancellationToken);
+
+            if (cpfAlreadyExists)
+            {
+                throw new InvalidOperationException("CPF ja cadastrado");
             }
 
             var perfilId = UserProfileRules.NormalizePerfilId(request.PerfilId);
@@ -62,6 +75,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 Nome = request.Nome,
                 Email = request.Email,
                 Telefone = request.Telefone,
+                Cpf = cpf,
                 FotoPerfil = fotoPerfil,
                 Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
                 DataNascimento = request.DataNascimento,
@@ -74,6 +88,9 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
             _context.Users.Add(user);
             await _context.SaveChangesAsync(cancellationToken);
 
+            await _userPatientSyncService.EnsurePacienteForUserAsync(user, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+
             _logger.LogInformation("Usuario criado com sucesso. ID: {UserId}", user.Id);
 
             return new CreateUserResponse
@@ -82,6 +99,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 Nome = user.Nome,
                 Email = user.Email,
                 Telefone = user.Telefone,
+                Cpf = user.Cpf,
                 FotoPerfil = user.FotoPerfil,
                 DataCadastro = user.DataCadastro,
                 DataNascimento = user.DataNascimento,
@@ -147,6 +165,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 Nome = user.Nome,
                 Email = user.Email,
                 Token = token,
+                Cpf = user.Cpf,
                 FotoPerfil = user.FotoPerfil,
                 PrecisaTrocarSenha = user.PrecisaTrocarSenha,
                 PerfilId = user.PerfilId,
@@ -168,15 +187,18 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
 {
     private readonly AppDbContext _context;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
+    private readonly IUserPatientSyncService _userPatientSyncService;
     private readonly ILogger<UpdateUserCommandHandler> _logger;
 
     public UpdateUserCommandHandler(
         AppDbContext context,
         IProfilePhotoStorage profilePhotoStorage,
+        IUserPatientSyncService userPatientSyncService,
         ILogger<UpdateUserCommandHandler> logger)
     {
         _context = context;
         _profilePhotoStorage = profilePhotoStorage;
+        _userPatientSyncService = userPatientSyncService;
         _logger = logger;
     }
 
@@ -202,6 +224,15 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 throw new InvalidOperationException("Email ja cadastrado");
             }
 
+            var cpf = UserProfileRules.NormalizeAndValidateCpf(request.Cpf);
+            var cpfAlreadyExists = await _context.Users
+                .AnyAsync(u => u.Id != request.Id && u.Cpf == cpf, cancellationToken);
+
+            if (cpfAlreadyExists)
+            {
+                throw new InvalidOperationException("CPF ja cadastrado");
+            }
+
             var perfilId = UserProfileRules.NormalizePerfilId(request.PerfilId);
             var perfil = await _context.Perfis
                 .AsNoTracking()
@@ -217,10 +248,13 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             user.Nome = request.Nome;
             user.Email = request.Email;
             user.Telefone = request.Telefone;
+            user.Cpf = cpf;
             user.FotoPerfil = fotoPerfil;
             user.DataNascimento = request.DataNascimento;
             user.Ativo = request.Ativo;
             user.PerfilId = perfilId;
+
+            await _userPatientSyncService.EnsurePacienteForUserAsync(user, cancellationToken);
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -230,6 +264,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 Nome = user.Nome,
                 Email = user.Email,
                 Telefone = user.Telefone,
+                Cpf = user.Cpf,
                 FotoPerfil = user.FotoPerfil,
                 DataCadastro = user.DataCadastro,
                 DataNascimento = user.DataNascimento,
@@ -431,6 +466,15 @@ internal static class UserProfileRules
         return user.Perfil?.Nome ?? string.Empty;
     }
 
+    public static string NormalizeAndValidateCpf(string? cpf)
+    {
+        if (!CpfUtils.IsValid(cpf))
+        {
+            throw new InvalidOperationException("CPF invalido");
+        }
+
+        return CpfUtils.Normalize(cpf)!;
+    }
 }
 
 // Implementar MediatR IRequest para os comandos.

@@ -1,0 +1,62 @@
+using HemodinksAPI.Api.Features.Pacientes.Queries;
+using MediatR;
+
+namespace HemodinksAPI.Api.Features.Pacientes.Commands;
+
+public class CreatePacienteCommand : IRequest<PacienteDto>
+{
+    public DateTime? Data { get; set; }
+    public string NomePaciente { get; set; } = null!;
+    public string Cpf { get; set; } = null!;
+    public string Email { get; set; } = null!;
+    public string Telefone { get; set; } = null!;
+    public string? FotoPerfil { get; set; }
+    public DateTime DataNascimento { get; set; }
+    public string? Hospital { get; set; }
+    public string? Medico { get; set; }
+    public string? Convenio { get; set; }
+    public string? Procedimento { get; set; }
+    public string? Autorizacao { get; set; }
+    public string? Pagamento { get; set; }
+    public string? RepasseGlosa { get; set; }
+    public bool StatusPago { get; set; }
+    public bool Ativo { get; set; } = true;
+}
+
+public class UpdatePacienteCommand : IRequest<PacienteDto>
+{
+    public int Id { get; set; }
+    public DateTime? Data { get; set; }
+    public string NomePaciente { get; set; } = null!;
+    public string Cpf { get; set; } = null!;
+    public string Email { get; set; } = null!;
+    public string Telefone { get; set; } = null!;
+    public string? FotoPerfil { get; set; }
+    public DateTime DataNascimento { get; set; }
+    public string? Hospital { get; set; }
+    public string? Medico { get; set; }
+    public string? Convenio { get; set; }
+    public string? Procedimento { get; set; }
+    public string? Autorizacao { get; set; }
+    public string? Pagamento { get; set; }
+    public string? RepasseGlosa { get; set; }
+    public bool StatusPago { get; set; }
+    public bool Ativo { get; set; }
+}
+
+public class DeletePacienteCommand : IRequest
+{
+    public int Id { get; set; }
+}
+
+public class UploadPacienteArquivoCommand : IRequest<PacienteArquivoDto>
+{
+    public int PacienteId { get; set; }
+    public IFormFile File { get; set; } = null!;
+}
+
+public class DeletePacienteArquivoCommand : IRequest
+{
+    public int PacienteId { get; set; }
+    public int ArquivoId { get; set; }
+}

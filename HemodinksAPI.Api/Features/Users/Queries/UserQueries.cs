@@ -12,6 +12,7 @@ public class UserDto
     public string Nome { get; set; } = null!;
     public string Email { get; set; } = null!;
     public string Telefone { get; set; } = null!;
+    public string? Cpf { get; set; }
     public string? FotoPerfil { get; set; }
     public DateTime DataCadastro { get; set; }
     public DateTime DataNascimento { get; set; }

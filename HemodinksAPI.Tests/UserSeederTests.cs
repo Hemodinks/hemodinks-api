@@ -1,3 +1,4 @@
+using HemodinksAPI.Api.Models;
 using HemodinksAPI.Api.Seeders;
 using HemodinksAPI.Api.Utils;
 
@@ -13,8 +14,9 @@ public class UserSeederTests
 
         var users = seeder.GenerateUsers();
 
-        Assert.Equal(50, users.Count);
-        Assert.Equal(50, users.Select(user => user.Email).Distinct().Count());
+        Assert.Equal(20, users.Count);
+        Assert.Equal(20, users.Select(user => user.Email).Distinct().Count());
+        Assert.Equal(20, users.Select(user => user.Cpf).Distinct().Count());
         Assert.All(users, user =>
         {
             Assert.True(user.Ativo);
@@ -27,11 +29,9 @@ public class UserSeederTests
             user.Email == "gmarcone@gmail.com" &&
             user.Telefone == "+5581997236704" &&
             user.DataNascimento == new DateTime(1982, 2, 25) &&
-            user.PerfilId == HemodinksAPI.Api.Models.Perfil.AdministradorId);
+            user.PerfilId == Perfil.AdministradorId);
 
-        Assert.All(users.Where(user => user.Email != "gmarcone@gmail.com"), user =>
-        {
-            Assert.Equal(HemodinksAPI.Api.Models.Perfil.MedicosId, user.PerfilId);
-        });
+        Assert.Equal(9, users.Count(user => user.PerfilId == Perfil.MedicosId));
+        Assert.Equal(10, users.Count(user => user.PerfilId == Perfil.PacientesId));
     }
 }

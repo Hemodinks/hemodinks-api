@@ -2,7 +2,9 @@ using System.Text;
 using HemodinksAPI.Api;
 using HemodinksAPI.Api.Authentication;
 using HemodinksAPI.Api.Data;
+using HemodinksAPI.Api.Models;
 using HemodinksAPI.Api.Seeders;
+using HemodinksAPI.Api.Services;
 using HemodinksAPI.Api.Storage;
 using HemodinksAPI.Api.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -120,8 +122,22 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IUserPatientSyncService, UserPatientSyncService>();
 builder.Services.Configure<ProfilePhotoStorageOptions>(builder.Configuration.GetSection("AzureStorage"));
+builder.Services.Configure<PatientFileStorageOptions>(options =>
+{
+    var azureStorage = builder.Configuration.GetSection("AzureStorage");
+    options.ConnectionString = azureStorage["ConnectionString"];
+    options.ContainerName = azureStorage["PatientFilesContainerName"] ?? "patient-files";
+    options.PublicBaseUrl = azureStorage["PublicBaseUrl"];
+
+    if (long.TryParse(azureStorage["PatientFileMaxBytes"], out var maxBytes))
+    {
+        options.MaxBytes = maxBytes;
+    }
+});
 builder.Services.AddSingleton<IProfilePhotoStorage, AzureBlobProfilePhotoStorage>();
+builder.Services.AddSingleton<IPatientFileStorage, AzureBlobPatientFileStorage>();
 builder.Services.AddScoped<UserSeeder>();
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
@@ -151,6 +167,23 @@ using (var scope = app.Services.CreateScope())
             await dbContext.SaveChangesAsync();
             logger.LogInformation("Seed de {Count} usuarios concluido com sucesso", users.Count);
         }
+
+        var patientUsersWithoutRecord = await dbContext.Users
+            .Where(user => user.PerfilId == Perfil.PacientesId
+                && !dbContext.Pacientes.Any(paciente => paciente.UserId == user.Id))
+            .ToListAsync();
+
+        if (patientUsersWithoutRecord.Count > 0)
+        {
+            dbContext.Pacientes.AddRange(patientUsersWithoutRecord.Select(user => new Paciente
+            {
+                UserId = user.Id,
+                NomePaciente = user.Nome
+            }));
+
+            await dbContext.SaveChangesAsync();
+            logger.LogInformation("Sincronizados {Count} cadastros de pacientes", patientUsersWithoutRecord.Count);
+        }
     }
     catch (Exception ex)
     {
@@ -175,5 +208,6 @@ app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }))
     .AllowAnonymous();
 
 app.MapUserEndpoints();
+app.MapPacienteEndpoints();
 
 app.Run();

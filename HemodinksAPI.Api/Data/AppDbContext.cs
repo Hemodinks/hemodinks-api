@@ -15,6 +15,10 @@ public class AppDbContext : DbContext
 
     public DbSet<Perfil> Perfis { get; set; } = null!;
 
+    public DbSet<Paciente> Pacientes { get; set; } = null!;
+
+    public DbSet<PacienteArquivo> PacienteArquivos { get; set; } = null!;
+
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
@@ -62,6 +66,9 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(20);
 
+            entity.Property(e => e.Cpf)
+                .HasMaxLength(11);
+
             entity.Property(e => e.FotoPerfil)
                 .HasColumnType("nvarchar(max)");
 
@@ -95,12 +102,90 @@ public class AppDbContext : DbContext
             // Índice para telefone
             entity.HasIndex(e => e.Telefone);
 
+            entity.HasIndex(e => e.Cpf)
+                .IsUnique()
+                .HasFilter("[Cpf] IS NOT NULL");
+
             entity.HasIndex(e => e.PerfilId);
 
             entity.HasOne(e => e.Perfil)
                 .WithMany(e => e.Users)
                 .HasForeignKey(e => e.PerfilId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<Paciente>(entity =>
+        {
+            entity.ToTable("Pacientes");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.NomePaciente)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.Property(e => e.Hospital)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.Medico)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.Convenio)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.Procedimento)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.Autorizacao)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.Pagamento)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.RepasseGlosa)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.StatusPago)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.HasIndex(e => e.UserId)
+                .IsUnique();
+
+            entity.HasOne(e => e.User)
+                .WithOne(e => e.Paciente)
+                .HasForeignKey<Paciente>(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<PacienteArquivo>(entity =>
+        {
+            entity.ToTable("PacienteArquivos");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.NomeOriginal)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.Property(e => e.ContentType)
+                .IsRequired()
+                .HasMaxLength(120);
+
+            entity.Property(e => e.Url)
+                .IsRequired()
+                .HasMaxLength(2048);
+
+            entity.Property(e => e.DataUpload)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(e => e.PacienteId);
+
+            entity.HasOne(e => e.Paciente)
+                .WithMany(e => e.Arquivos)
+                .HasForeignKey(e => e.PacienteId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

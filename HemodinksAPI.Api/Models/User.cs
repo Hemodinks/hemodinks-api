@@ -20,6 +20,8 @@ public class User
     /// </summary>
     public string Telefone { get; set; } = null!;
 
+    public string? Cpf { get; set; }
+
     /// <summary>
     /// Foto de perfil do usuario em data URL.
     /// </summary>
@@ -58,4 +60,6 @@ public class User
     public int PerfilId { get; set; } = Perfil.MedicosId;
 
     public Perfil Perfil { get; set; } = null!;
+
+    public Paciente? Paciente { get; set; }
 }
