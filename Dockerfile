@@ -16,12 +16,11 @@ RUN dotnet publish "HemodinksAPI.Api.csproj" -c Release -o /app/publish /p:UseAp
 # Stage 3: Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
-EXPOSE 80
-EXPOSE 443
+EXPOSE 8080
 
 COPY --from=publish /app/publish .
 
 ENV ASPNETCORE_ENVIRONMENT=Production
-ENV ASPNETCORE_URLS=http://+:80;https://+:443
+ENV ASPNETCORE_URLS=http://+:8080
 
 ENTRYPOINT ["dotnet", "HemodinksAPI.Api.dll"]

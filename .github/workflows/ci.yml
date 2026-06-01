@@ -1,0 +1,36 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: Build and test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore ./HemodinksAPI.slnx
+
+      - name: Build
+        run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --verbosity normal

@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: hemodinks-api
+    runtime: docker
+    plan: free
+    region: oregon
+    branch: main
+    autoDeployTrigger: checksPass
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:10000
+      - key: ConnectionStrings__DefaultConnection
+        sync: false
+      - key: JwtSettings__SecretKey
+        sync: false
+      - key: JwtSettings__Issuer
+        value: HemodinksAPI
+      - key: JwtSettings__Audience
+        value: HemodinksAPI
+      - key: JwtSettings__ExpirationMinutes
+        value: 60
