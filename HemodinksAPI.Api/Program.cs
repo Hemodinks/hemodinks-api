@@ -94,7 +94,8 @@ var allowedOrigins = builder.Configuration
     {
         "http://localhost:3000",
         "http://localhost:5173",
-        "http://localhost:8080"
+        "http://localhost:8080",
+        "https://hemodinks-saude.vercel.app"
     };
 
 builder.Services.AddCors(options =>

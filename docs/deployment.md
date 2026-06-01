@@ -41,6 +41,7 @@ Secrets/variaveis para preencher no Render:
 
 - `ConnectionStrings__DefaultConnection`: connection string de um SQL Server externo.
 - `JwtSettings__SecretKey`: chave JWT com pelo menos 32 bytes.
+- `Cors__AllowedOrigins__0`: origem publica do frontend, por exemplo `https://hemodinks-saude.vercel.app`.
 
 Variaveis ja definidas no Blueprint:
 
