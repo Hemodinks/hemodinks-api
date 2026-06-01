@@ -1,0 +1,38 @@
+# Binários
+bin/
+obj/
+
+# IDE
+.vscode/
+.vs/
+*.swp
+*.swo
+*~
+*.user
+*.suo
+*.sln.docstates
+
+# Logs
+logs/
+*.log
+
+# Dependências
+packages/
+.nuget/
+
+# Build
+out/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Ambiente
+.env
+.env.local
+.env.*.local
+
+# Docker
+.dockerignore
+docker-compose.override.yml

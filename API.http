@@ -1,0 +1,76 @@
+@baseUrl = http://localhost:5000
+@contentType = application/json
+
+### ========================================
+### AUTENTICAÇÃO
+### ========================================
+
+### Autenticar como George Marcone
+POST {{baseUrl}}/api/users/authenticate
+Content-Type: {{contentType}}
+
+{
+  "email": "gmarcone@gmail.com",
+  "senha": "Senha@123"
+}
+
+### Armazenar token (usar a resposta acima)
+@token = seu_token_aqui
+
+---
+
+### ========================================
+### USUÁRIOS
+### ========================================
+
+### Criar novo usuário
+POST {{baseUrl}}/api/users
+Content-Type: {{contentType}}
+
+{
+  "nome": "João da Silva",
+  "email": "joao@example.com",
+  "telefone": "+5511987654321",
+  "senha": "Senha@123",
+  "dataNascimento": "1990-05-15T00:00:00Z"
+}
+
+### Listar todos os usuários
+GET {{baseUrl}}/api/users
+Authorization: Bearer {{token}}
+
+### Buscar usuário por ID
+GET {{baseUrl}}/api/users/1
+Authorization: Bearer {{token}}
+
+### Buscar usuário por Email
+GET {{baseUrl}}/api/users/email/gmarcone@gmail.com
+Authorization: Bearer {{token}}
+
+---
+
+### ========================================
+### EXEMPLOS DE RESPOSTA
+### ========================================
+
+# POST /api/users/authenticate (Sucesso)
+# {
+#   "id": 1,
+#   "nome": "George Marcone Morais dos Santos",
+#   "email": "gmarcone@gmail.com",
+#   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwi..."
+# }
+
+# GET /api/users (Sucesso)
+# [
+#   {
+#     "id": 1,
+#     "nome": "George Marcone Morais dos Santos",
+#     "email": "gmarcone@gmail.com",
+#     "telefone": "+5581997236704",
+#     "dataCadastro": "2026-06-01T10:00:00Z",
+#     "dataNascimento": "1982-02-25T00:00:00Z",
+#     "ativo": true
+#   },
+#   ...
+# ]
