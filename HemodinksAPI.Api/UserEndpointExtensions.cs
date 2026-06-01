@@ -16,8 +16,7 @@ public static class UserEndpointExtensions
     public static void MapUserEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/users")
-            .WithTags("Users")
-            .WithOpenApi();
+            .WithTags("Users");
 
         group.MapPost("/", CreateUser)
             .WithName("CreateUser")
