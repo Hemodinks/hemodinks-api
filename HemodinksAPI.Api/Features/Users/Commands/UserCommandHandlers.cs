@@ -287,6 +287,11 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
                 throw new UnauthorizedAccessException("Senha atual invalida");
             }
 
+            if (_passwordHasher.VerifyPassword(request.NovaSenha, user.Senha))
+            {
+                throw new InvalidOperationException("A nova senha nao pode ser igual a senha atual");
+            }
+
             user.Senha = _passwordHasher.HashPassword(request.NovaSenha);
             user.PrecisaTrocarSenha = false;
 
@@ -302,6 +307,59 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro ao alterar senha do usuario: {UserId}", request.UserId);
+            throw;
+        }
+    }
+}
+
+/// <summary>
+/// Handler para resetar a senha do usuario para a senha padrao.
+/// </summary>
+public class ResetUserPasswordCommandHandler : IRequestHandler<ResetUserPasswordCommand, ResetUserPasswordResponse>
+{
+    private readonly AppDbContext _context;
+    private readonly IPasswordHasher _passwordHasher;
+    private readonly ILogger<ResetUserPasswordCommandHandler> _logger;
+
+    public ResetUserPasswordCommandHandler(
+        AppDbContext context,
+        IPasswordHasher passwordHasher,
+        ILogger<ResetUserPasswordCommandHandler> logger)
+    {
+        _context = context;
+        _passwordHasher = passwordHasher;
+        _logger = logger;
+    }
+
+    public async Task<ResetUserPasswordResponse> Handle(ResetUserPasswordCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            _logger.LogInformation("Resetando senha do usuario: {UserId}", request.UserId);
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
+
+            if (user == null)
+            {
+                throw new KeyNotFoundException("Usuario nao encontrado");
+            }
+
+            user.Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value);
+            user.PrecisaTrocarSenha = true;
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return new ResetUserPasswordResponse
+            {
+                Id = user.Id,
+                PrecisaTrocarSenha = user.PrecisaTrocarSenha,
+                Message = "Senha resetada para a senha padrao"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao resetar senha do usuario: {UserId}", request.UserId);
             throw;
         }
     }
@@ -325,5 +383,9 @@ public partial class DeleteUserCommand : IRequest
 }
 
 public partial class ChangePasswordCommand : IRequest<ChangePasswordResponse>
+{
+}
+
+public partial class ResetUserPasswordCommand : IRequest<ResetUserPasswordResponse>
 {
 }

@@ -64,6 +64,12 @@ public static class UserEndpointExtensions
             .WithSummary("Alterar senha")
             .WithDescription("Altera a senha do usuario autenticado")
             .RequireAuthorization();
+
+        group.MapPut("/{id}/password/reset", ResetPassword)
+            .WithName("ResetPassword")
+            .WithSummary("Resetar senha")
+            .WithDescription("Reseta a senha do usuario para a senha padrao e obriga troca no proximo login")
+            .RequireAuthorization();
     }
 
     private static async Task<IResult> CreateUser(
@@ -243,6 +249,27 @@ public static class UserEndpointExtensions
         {
             logger.LogError(ex, "Erro ao alterar senha");
             return Results.BadRequest(new { message = "Erro ao alterar senha", error = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> ResetPassword(
+        int id,
+        IMediator mediator,
+        ILogger<Program> logger)
+    {
+        try
+        {
+            var result = await mediator.Send(new ResetUserPasswordCommand { UserId = id });
+            return Results.Ok(result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return Results.NotFound();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Erro ao resetar senha");
+            return Results.BadRequest(new { message = "Erro ao resetar senha", error = ex.Message });
         }
     }
 }

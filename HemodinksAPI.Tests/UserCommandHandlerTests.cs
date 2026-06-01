@@ -160,6 +160,78 @@ public class UserCommandHandlerTests
         }, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task ChangePassword_WhenNewPasswordMatchesCurrentPassword_ThrowsInvalidOperationException()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var hasher = new PasswordHasher();
+        var user = CreateUser(
+            id: 10,
+            email: "mesma.senha@email.com",
+            passwordHash: hasher.HashPassword("SenhaAtual@123"),
+            precisaTrocarSenha: true);
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var handler = new ChangePasswordCommandHandler(
+            context,
+            hasher,
+            NullLogger<ChangePasswordCommandHandler>.Instance);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new ChangePasswordCommand
+        {
+            UserId = user.Id,
+            SenhaAtual = "SenhaAtual@123",
+            NovaSenha = "SenhaAtual@123"
+        }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ResetUserPassword_WhenUserExists_SetsDefaultPasswordAndRequiresPasswordChange()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var hasher = new PasswordHasher();
+        var user = CreateUser(
+            id: 7,
+            email: "reset@email.com",
+            passwordHash: hasher.HashPassword("SenhaAntiga@123"),
+            precisaTrocarSenha: false);
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var handler = new ResetUserPasswordCommandHandler(
+            context,
+            hasher,
+            NullLogger<ResetUserPasswordCommandHandler>.Instance);
+
+        var response = await handler.Handle(new ResetUserPasswordCommand
+        {
+            UserId = user.Id
+        }, CancellationToken.None);
+
+        var storedUser = await context.Users.SingleAsync();
+        Assert.Equal(user.Id, response.Id);
+        Assert.True(response.PrecisaTrocarSenha);
+        Assert.True(storedUser.PrecisaTrocarSenha);
+        Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+        Assert.False(hasher.VerifyPassword("SenhaAntiga@123", storedUser.Senha));
+    }
+
+    [Fact]
+    public async Task ResetUserPassword_WhenUserDoesNotExist_ThrowsKeyNotFoundException()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new ResetUserPasswordCommandHandler(
+            context,
+            new PasswordHasher(),
+            NullLogger<ResetUserPasswordCommandHandler>.Instance);
+
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => handler.Handle(new ResetUserPasswordCommand
+        {
+            UserId = 999
+        }, CancellationToken.None));
+    }
+
     private static User CreateUser(
         string email,
         string passwordHash,

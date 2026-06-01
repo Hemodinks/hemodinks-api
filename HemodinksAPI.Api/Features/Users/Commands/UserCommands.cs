@@ -87,3 +87,21 @@ public class ChangePasswordResponse
     public bool PrecisaTrocarSenha { get; set; }
     public string Message { get; set; } = null!;
 }
+
+/// <summary>
+/// DTO para reset de senha do usuario.
+/// </summary>
+public partial class ResetUserPasswordCommand
+{
+    public int UserId { get; set; }
+}
+
+/// <summary>
+/// DTO para resposta de reset de senha.
+/// </summary>
+public class ResetUserPasswordResponse
+{
+    public int Id { get; set; }
+    public bool PrecisaTrocarSenha { get; set; }
+    public string Message { get; set; } = null!;
+}
