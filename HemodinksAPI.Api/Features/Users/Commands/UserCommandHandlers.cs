@@ -41,6 +41,16 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 throw new InvalidOperationException("Email ja cadastrado");
             }
 
+            var perfilId = UserProfileRules.NormalizePerfilId(request.PerfilId);
+            var perfil = await _context.Perfis
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == perfilId, cancellationToken);
+
+            if (perfil == null)
+            {
+                throw new InvalidOperationException("Perfil invalido");
+            }
+
             var user = new User
             {
                 Nome = request.Nome,
@@ -50,7 +60,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 DataNascimento = request.DataNascimento,
                 DataCadastro = DateTime.UtcNow,
                 Ativo = true,
-                PrecisaTrocarSenha = true
+                PrecisaTrocarSenha = true,
+                PerfilId = perfilId
             };
 
             _context.Users.Add(user);
@@ -67,7 +78,9 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 DataCadastro = user.DataCadastro,
                 DataNascimento = user.DataNascimento,
                 Ativo = user.Ativo,
-                PrecisaTrocarSenha = user.PrecisaTrocarSenha
+                PrecisaTrocarSenha = user.PrecisaTrocarSenha,
+                PerfilId = user.PerfilId,
+                PerfilNome = perfil.Nome
             };
         }
         catch (Exception ex)
@@ -107,6 +120,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
             _logger.LogInformation("Autenticando usuario: {Email}", request.Email);
 
             var user = await _context.Users
+                .Include(u => u.Perfil)
                 .FirstOrDefaultAsync(u => u.Email == request.Email && u.Ativo, cancellationToken);
 
             if (user == null || !_passwordHasher.VerifyPassword(request.Senha, user.Senha))
@@ -125,7 +139,9 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 Nome = user.Nome,
                 Email = user.Email,
                 Token = token,
-                PrecisaTrocarSenha = user.PrecisaTrocarSenha
+                PrecisaTrocarSenha = user.PrecisaTrocarSenha,
+                PerfilId = user.PerfilId,
+                PerfilNome = UserProfileRules.GetPerfilNome(user)
             };
         }
         catch (Exception ex)
@@ -172,11 +188,22 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 throw new InvalidOperationException("Email ja cadastrado");
             }
 
+            var perfilId = UserProfileRules.NormalizePerfilId(request.PerfilId);
+            var perfil = await _context.Perfis
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == perfilId, cancellationToken);
+
+            if (perfil == null)
+            {
+                throw new InvalidOperationException("Perfil invalido");
+            }
+
             user.Nome = request.Nome;
             user.Email = request.Email;
             user.Telefone = request.Telefone;
             user.DataNascimento = request.DataNascimento;
             user.Ativo = request.Ativo;
+            user.PerfilId = perfilId;
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -189,7 +216,9 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 DataCadastro = user.DataCadastro,
                 DataNascimento = user.DataNascimento,
                 Ativo = user.Ativo,
-                PrecisaTrocarSenha = user.PrecisaTrocarSenha
+                PrecisaTrocarSenha = user.PrecisaTrocarSenha,
+                PerfilId = user.PerfilId,
+                PerfilNome = perfil.Nome
             };
         }
         catch (Exception ex)
@@ -362,6 +391,19 @@ public class ResetUserPasswordCommandHandler : IRequestHandler<ResetUserPassword
             _logger.LogError(ex, "Erro ao resetar senha do usuario: {UserId}", request.UserId);
             throw;
         }
+    }
+}
+
+internal static class UserProfileRules
+{
+    public static int NormalizePerfilId(int perfilId)
+    {
+        return perfilId == 0 ? Perfil.MedicosId : perfilId;
+    }
+
+    public static string GetPerfilNome(User user)
+    {
+        return user.Perfil?.Nome ?? string.Empty;
     }
 }
 

@@ -16,6 +16,8 @@ public class UserDto
     public DateTime DataNascimento { get; set; }
     public bool Ativo { get; set; }
     public bool PrecisaTrocarSenha { get; set; }
+    public int PerfilId { get; set; }
+    public string PerfilNome { get; set; } = null!;
 }
 
 /// <summary>

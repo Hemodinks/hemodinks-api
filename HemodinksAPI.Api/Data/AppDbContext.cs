@@ -13,6 +13,8 @@ public class AppDbContext : DbContext
     /// </summary>
     public DbSet<User> Users { get; set; } = null!;
 
+    public DbSet<Perfil> Perfis { get; set; } = null!;
+
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
@@ -25,6 +27,25 @@ public class AppDbContext : DbContext
         base.OnModelCreating(modelBuilder);
 
         // Configuração da tabela Users
+        modelBuilder.Entity<Perfil>(entity =>
+        {
+            entity.ToTable("Perfis");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Nome)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.HasIndex(e => e.Nome)
+                .IsUnique();
+
+            entity.HasData(
+                new Perfil { Id = Perfil.AdministradorId, Nome = "Administrador" },
+                new Perfil { Id = Perfil.MedicosId, Nome = "Médicos" },
+                new Perfil { Id = Perfil.PacientesId, Nome = "Pacientes" });
+        });
+
         modelBuilder.Entity<User>(entity =>
         {
             entity.HasKey(e => e.Id);
@@ -60,12 +81,23 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue(true);
 
+            entity.Property(e => e.PerfilId)
+                .IsRequired()
+                .HasDefaultValue(Perfil.MedicosId);
+
             // Índice único para email
             entity.HasIndex(e => e.Email)
                 .IsUnique();
 
             // Índice para telefone
             entity.HasIndex(e => e.Telefone);
+
+            entity.HasIndex(e => e.PerfilId);
+
+            entity.HasOne(e => e.Perfil)
+                .WithMany(e => e.Users)
+                .HasForeignKey(e => e.PerfilId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

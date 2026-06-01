@@ -35,7 +35,9 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, List<Us
                     DataCadastro = u.DataCadastro,
                     DataNascimento = u.DataNascimento,
                     Ativo = u.Ativo,
-                    PrecisaTrocarSenha = u.PrecisaTrocarSenha
+                    PrecisaTrocarSenha = u.PrecisaTrocarSenha,
+                    PerfilId = u.PerfilId,
+                    PerfilNome = u.Perfil.Nome
                 })
                 .ToListAsync(cancellationToken);
 
@@ -83,7 +85,9 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, UserDto
                     DataCadastro = u.DataCadastro,
                     DataNascimento = u.DataNascimento,
                     Ativo = u.Ativo,
-                    PrecisaTrocarSenha = u.PrecisaTrocarSenha
+                    PrecisaTrocarSenha = u.PrecisaTrocarSenha,
+                    PerfilId = u.PerfilId,
+                    PerfilNome = u.Perfil.Nome
                 })
                 .FirstOrDefaultAsync(cancellationToken);
 
@@ -134,7 +138,9 @@ public class GetUserByEmailQueryHandler : IRequestHandler<GetUserByEmailQuery, U
                     DataCadastro = u.DataCadastro,
                     DataNascimento = u.DataNascimento,
                     Ativo = u.Ativo,
-                    PrecisaTrocarSenha = u.PrecisaTrocarSenha
+                    PrecisaTrocarSenha = u.PrecisaTrocarSenha,
+                    PerfilId = u.PerfilId,
+                    PerfilNome = u.Perfil.Nome
                 })
                 .FirstOrDefaultAsync(cancellationToken);
 

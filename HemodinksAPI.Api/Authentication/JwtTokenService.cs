@@ -43,6 +43,9 @@ public class JwtTokenService : IJwtTokenService
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim(ClaimTypes.Name, user.Nome),
+                new Claim(ClaimTypes.Role, user.Perfil?.Nome ?? string.Empty),
+                new Claim("perfilId", user.PerfilId.ToString()),
+                new Claim("perfilNome", user.Perfil?.Nome ?? string.Empty),
                 new Claim("precisaTrocarSenha", user.PrecisaTrocarSenha.ToString().ToLowerInvariant()),
             };
 

@@ -1,3 +1,5 @@
+using HemodinksAPI.Api.Models;
+
 namespace HemodinksAPI.Api.Features.Users.Commands;
 
 /// <summary>
@@ -9,6 +11,7 @@ public partial class CreateUserCommand
     public string Email { get; set; } = null!;
     public string Telefone { get; set; } = null!;
     public DateTime DataNascimento { get; set; }
+    public int PerfilId { get; set; } = Perfil.MedicosId;
 }
 
 /// <summary>
@@ -24,6 +27,8 @@ public class CreateUserResponse
     public DateTime DataNascimento { get; set; }
     public bool Ativo { get; set; }
     public bool PrecisaTrocarSenha { get; set; }
+    public int PerfilId { get; set; }
+    public string PerfilNome { get; set; } = null!;
 }
 
 /// <summary>
@@ -45,6 +50,8 @@ public class AuthenticateUserResponse
     public string Email { get; set; } = null!;
     public string Token { get; set; } = null!;
     public bool PrecisaTrocarSenha { get; set; }
+    public int PerfilId { get; set; }
+    public string PerfilNome { get; set; } = null!;
 }
 
 /// <summary>
@@ -58,6 +65,7 @@ public partial class UpdateUserCommand
     public string Telefone { get; set; } = null!;
     public DateTime DataNascimento { get; set; }
     public bool Ativo { get; set; }
+    public int PerfilId { get; set; } = Perfil.MedicosId;
 }
 
 /// <summary>

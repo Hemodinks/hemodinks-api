@@ -33,7 +33,54 @@ public class UserCommandHandlerTests
         Assert.True(storedUser.Ativo);
         Assert.True(storedUser.PrecisaTrocarSenha);
         Assert.True(response.PrecisaTrocarSenha);
+        Assert.Equal(Perfil.MedicosId, storedUser.PerfilId);
+        Assert.Equal(Perfil.MedicosId, response.PerfilId);
+        Assert.Equal("Médicos", response.PerfilNome);
         Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+    }
+
+    [Fact]
+    public async Task CreateUser_WhenPerfilIsProvided_AssignsPerfil()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var hasher = new PasswordHasher();
+        var handler = new CreateUserCommandHandler(
+            context,
+            hasher,
+            NullLogger<CreateUserCommandHandler>.Instance);
+
+        var response = await handler.Handle(new CreateUserCommand
+        {
+            Nome = "Paciente Teste",
+            Email = "paciente@email.com",
+            Telefone = "+5511777777777",
+            DataNascimento = new DateTime(1992, 8, 10),
+            PerfilId = Perfil.PacientesId
+        }, CancellationToken.None);
+
+        var storedUser = await context.Users.SingleAsync();
+        Assert.Equal(Perfil.PacientesId, storedUser.PerfilId);
+        Assert.Equal(Perfil.PacientesId, response.PerfilId);
+        Assert.Equal("Pacientes", response.PerfilNome);
+    }
+
+    [Fact]
+    public async Task CreateUser_WhenPerfilDoesNotExist_ThrowsInvalidOperationException()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new CreateUserCommandHandler(
+            context,
+            new PasswordHasher(),
+            NullLogger<CreateUserCommandHandler>.Instance);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
+        {
+            Nome = "Perfil Invalido",
+            Email = "perfil.invalido@email.com",
+            Telefone = "+5511666666666",
+            DataNascimento = new DateTime(1993, 4, 12),
+            PerfilId = 999
+        }, CancellationToken.None));
     }
 
     [Fact]
@@ -68,6 +115,7 @@ public class UserCommandHandlerTests
             passwordHash: hasher.HashPassword("Senha@123"),
             precisaTrocarSenha: true));
         await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
 
         var handler = new AuthenticateUserCommandHandler(
             context,
@@ -84,6 +132,41 @@ public class UserCommandHandlerTests
         Assert.Equal("login@email.com", response.Email);
         Assert.Equal("fake-token", response.Token);
         Assert.True(response.PrecisaTrocarSenha);
+        Assert.Equal(Perfil.MedicosId, response.PerfilId);
+        Assert.Equal("Médicos", response.PerfilNome);
+    }
+
+    [Fact]
+    public async Task UpdateUser_WhenPerfilIsValid_UpdatesPerfil()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var hasher = new PasswordHasher();
+        var user = CreateUser(
+            id: 25,
+            email: "edita@email.com",
+            passwordHash: hasher.HashPassword("Senha@123"));
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var handler = new UpdateUserCommandHandler(
+            context,
+            NullLogger<UpdateUserCommandHandler>.Instance);
+
+        var response = await handler.Handle(new UpdateUserCommand
+        {
+            Id = user.Id,
+            Nome = "Usuario Editado",
+            Email = "edita@email.com",
+            Telefone = "+5511555555555",
+            DataNascimento = new DateTime(1991, 7, 2),
+            Ativo = true,
+            PerfilId = Perfil.AdministradorId
+        }, CancellationToken.None);
+
+        var storedUser = await context.Users.SingleAsync(u => u.Id == user.Id);
+        Assert.Equal(Perfil.AdministradorId, storedUser.PerfilId);
+        Assert.Equal(Perfil.AdministradorId, response.PerfilId);
+        Assert.Equal("Administrador", response.PerfilNome);
     }
 
     [Fact]
@@ -248,7 +331,8 @@ public class UserCommandHandlerTests
             DataCadastro = DateTime.UtcNow,
             DataNascimento = new DateTime(1990, 1, 1),
             Ativo = true,
-            PrecisaTrocarSenha = precisaTrocarSenha
+            PrecisaTrocarSenha = precisaTrocarSenha,
+            PerfilId = Perfil.MedicosId
         };
     }
 

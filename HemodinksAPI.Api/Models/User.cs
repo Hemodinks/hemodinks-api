@@ -49,4 +49,8 @@ public class User
     /// Indica se o usuário precisa trocar a senha no próximo login
     /// </summary>
     public bool PrecisaTrocarSenha { get; set; } = true;
+
+    public int PerfilId { get; set; } = Perfil.MedicosId;
+
+    public Perfil Perfil { get; set; } = null!;
 }

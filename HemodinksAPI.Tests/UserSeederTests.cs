@@ -26,6 +26,12 @@ public class UserSeederTests
             user.Nome == "George Marcone Morais dos Santos" &&
             user.Email == "gmarcone@gmail.com" &&
             user.Telefone == "+5581997236704" &&
-            user.DataNascimento == new DateTime(1982, 2, 25));
+            user.DataNascimento == new DateTime(1982, 2, 25) &&
+            user.PerfilId == HemodinksAPI.Api.Models.Perfil.AdministradorId);
+
+        Assert.All(users.Where(user => user.Email != "gmarcone@gmail.com"), user =>
+        {
+            Assert.Equal(HemodinksAPI.Api.Models.Perfil.MedicosId, user.PerfilId);
+        });
     }
 }

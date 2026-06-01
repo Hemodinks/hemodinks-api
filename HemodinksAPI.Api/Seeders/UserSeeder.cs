@@ -33,7 +33,8 @@ public class UserSeeder
             DataNascimento = new DateTime(1982, 2, 25),
             DataCadastro = DateTime.UtcNow,
             Ativo = true,
-            PrecisaTrocarSenha = true
+            PrecisaTrocarSenha = true,
+            PerfilId = Perfil.AdministradorId
         });
 
         // Adicionar 49 usuários adicionais
@@ -101,7 +102,8 @@ public class UserSeeder
                 DataNascimento = dataNascimento,
                 DataCadastro = DateTime.UtcNow.AddDays(-random.Next(1, 365)),
                 Ativo = true,
-                PrecisaTrocarSenha = true
+                PrecisaTrocarSenha = true,
+                PerfilId = Perfil.MedicosId
             });
         }
 
