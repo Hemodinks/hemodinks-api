@@ -87,16 +87,24 @@ builder.Services.AddAuthentication(x =>
 
 builder.Services.AddAuthorization();
 
-var allowedOrigins = builder.Configuration
+var defaultAllowedOrigins = new[]
+{
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://localhost:8080",
+    "https://hemodinks-saude.vercel.app"
+};
+
+var configuredAllowedOrigins = builder.Configuration
     .GetSection("Cors:AllowedOrigins")
     .Get<string[]>()
-    ?? new[]
-    {
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://localhost:8080",
-        "https://hemodinks-saude.vercel.app"
-    };
+    ?? Array.Empty<string>();
+
+var allowedOrigins = defaultAllowedOrigins
+    .Concat(configuredAllowedOrigins)
+    .Where(origin => !string.IsNullOrWhiteSpace(origin))
+    .Distinct(StringComparer.OrdinalIgnoreCase)
+    .ToArray();
 
 builder.Services.AddCors(options =>
 {
