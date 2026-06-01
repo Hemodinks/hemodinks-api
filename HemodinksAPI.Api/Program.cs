@@ -129,7 +129,7 @@ builder.Services.Configure<PatientFileStorageOptions>(options =>
     var azureStorage = builder.Configuration.GetSection("AzureStorage");
     options.ConnectionString = azureStorage["ConnectionString"];
     options.ContainerName = azureStorage["PatientFilesContainerName"] ?? "patient-files";
-    options.PublicBaseUrl = azureStorage["PublicBaseUrl"];
+    options.PublicBaseUrl = azureStorage["PatientFilesPublicBaseUrl"];
 
     if (long.TryParse(azureStorage["PatientFileMaxBytes"], out var maxBytes))
     {

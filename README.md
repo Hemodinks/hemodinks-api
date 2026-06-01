@@ -230,6 +230,9 @@ AzureStorage__ConnectionString="DefaultEndpointsProtocol=https;AccountName=..."
 AzureStorage__ContainerName="profile-photos"
 AzureStorage__PublicBaseUrl="https://sua-storage-account.blob.core.windows.net/profile-photos"
 AzureStorage__MaxBytes="1048576"
+AzureStorage__PatientFilesContainerName="patient-files"
+AzureStorage__PatientFilesPublicBaseUrl="https://sua-storage-account.blob.core.windows.net/patient-files"
+AzureStorage__PatientFileMaxBytes="10485760"
 ```
 
 ## 🛠️ Estrutura do Projeto

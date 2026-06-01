@@ -113,7 +113,16 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
             return blobClient.Uri.ToString();
         }
 
-        return $"{_options.PublicBaseUrl.TrimEnd('/')}/{Uri.EscapeDataString(blobName).Replace("%2F", "/", StringComparison.OrdinalIgnoreCase)}";
+        var publicBaseUrl = _options.PublicBaseUrl.TrimEnd('/');
+        var encodedBlobName = Uri.EscapeDataString(blobName).Replace("%2F", "/", StringComparison.OrdinalIgnoreCase);
+
+        if (!Uri.TryCreate(publicBaseUrl, UriKind.Absolute, out var uri)
+            || uri.AbsolutePath.Trim('/').EndsWith(_options.ContainerName.Trim('/'), StringComparison.OrdinalIgnoreCase))
+        {
+            return $"{publicBaseUrl}/{encodedBlobName}";
+        }
+
+        return $"{publicBaseUrl}/{_options.ContainerName.Trim('/')}/{encodedBlobName}";
     }
 
     private string? GetBlobNameFromUrl(string? fileUrl)
@@ -129,7 +138,15 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
 
             if (fileUrl.StartsWith($"{publicBaseUrl}/", StringComparison.OrdinalIgnoreCase))
             {
-                return Uri.UnescapeDataString(fileUrl[(publicBaseUrl.Length + 1)..]);
+                var blobName = Uri.UnescapeDataString(fileUrl[(publicBaseUrl.Length + 1)..]);
+                var containerPrefix = $"{_options.ContainerName.Trim('/')}/";
+
+                if (blobName.StartsWith(containerPrefix, StringComparison.OrdinalIgnoreCase))
+                {
+                    return blobName[containerPrefix.Length..];
+                }
+
+                return blobName;
             }
         }
 

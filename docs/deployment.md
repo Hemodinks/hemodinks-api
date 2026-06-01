@@ -44,6 +44,7 @@ Secrets/variaveis para preencher no Render:
 - `Cors__AllowedOrigins__0`: origem publica do frontend, por exemplo `https://hemodinks-saude.vercel.app`.
 - `AzureStorage__ConnectionString`: connection string da Storage Account da Azure.
 - `AzureStorage__PublicBaseUrl`: URL publica base do container, por exemplo `https://<storage-account>.blob.core.windows.net/profile-photos`.
+- `AzureStorage__PatientFilesPublicBaseUrl`: URL publica base do container de anexos, por exemplo `https://<storage-account>.blob.core.windows.net/patient-files`.
 
 Variaveis ja definidas no Blueprint:
 
@@ -54,6 +55,8 @@ Variaveis ja definidas no Blueprint:
 - `JwtSettings__ExpirationMinutes=60`
 - `AzureStorage__ContainerName=profile-photos`
 - `AzureStorage__MaxBytes=1048576`
+- `AzureStorage__PatientFilesContainerName=patient-files`
+- `AzureStorage__PatientFileMaxBytes=10485760`
 
 Observacao: Render nao fornece SQL Server gerenciado. Use um SQL Server externo, por exemplo Azure SQL, SQL Server em VM, ou outro provider compativel.
 
@@ -68,6 +71,16 @@ A API recebe a foto em base64, publica no Azure Blob Storage e salva no banco ap
 5. No Render, preencha `AzureStorage__PublicBaseUrl` com `https://<storage-account>.blob.core.windows.net/profile-photos`.
 
 Se `AzureStorage__ConnectionString` nao estiver configurada, cadastro/edicao de usuario sem foto continua funcionando, mas qualquer upload de foto retorna erro de configuracao.
+
+## Azure Storage para anexos de pacientes
+
+Os anexos de pacientes sao enviados para o container `patient-files`. Para configurar:
+
+1. Crie ou permita que a API crie o container `patient-files`.
+2. Habilite acesso publico de leitura no nivel Blob para esse container.
+3. No Render, preencha `AzureStorage__PatientFilesPublicBaseUrl` com `https://<storage-account>.blob.core.windows.net/patient-files`.
+
+Se `AzureStorage__PatientFilesPublicBaseUrl` ficar vazio, a API usa a URL direta retornada pelo Azure Blob, apontando para o container configurado em `AzureStorage__PatientFilesContainerName`.
 
 ## Vercel
 
