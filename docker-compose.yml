@@ -31,6 +31,10 @@ services:
       JwtSettings__Issuer: "${JWT_ISSUER:-HemodinksAPI}"
       JwtSettings__Audience: "${JWT_AUDIENCE:-HemodinksAPI}"
       JwtSettings__ExpirationMinutes: "${JWT_EXPIRATION_MINUTES:-60}"
+      AzureStorage__ConnectionString: "${AZURE_STORAGE_CONNECTION_STRING:-}"
+      AzureStorage__ContainerName: "${AZURE_STORAGE_CONTAINER_NAME:-profile-photos}"
+      AzureStorage__PublicBaseUrl: "${AZURE_STORAGE_PUBLIC_BASE_URL:-}"
+      AzureStorage__MaxBytes: "${AZURE_STORAGE_MAX_BYTES:-1048576}"
     ports:
       - "5000:5000"
     depends_on:

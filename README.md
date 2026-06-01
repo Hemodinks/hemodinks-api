@@ -23,6 +23,7 @@ API robusta desenvolvida em **.NET 10** com arquitetura **CQRS**, autenticação
 | Nome | string(255) | Nome completo |
 | Email | string(255) | Email (Unique) |
 | Telefone | string(20) | Telefone com código de país |
+| FotoPerfil | string | URL da foto no Azure Blob Storage |
 | Senha | string(500) | Senha com hash PBKDF2 |
 | DataCadastro | datetime | Data de cadastro |
 | DataNascimento | datetime | Data de nascimento |
@@ -225,6 +226,10 @@ JwtSettings__SecretKey="troque_por_uma_chave_com_32_caracteres_ou_mais"
 JwtSettings__Issuer="HemodinksAPI"
 JwtSettings__Audience="HemodinksAPI"
 JwtSettings__ExpirationMinutes="60"
+AzureStorage__ConnectionString="DefaultEndpointsProtocol=https;AccountName=..."
+AzureStorage__ContainerName="profile-photos"
+AzureStorage__PublicBaseUrl="https://sua-storage-account.blob.core.windows.net/profile-photos"
+AzureStorage__MaxBytes="1048576"
 ```
 
 ## 🛠️ Estrutura do Projeto

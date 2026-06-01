@@ -2,6 +2,7 @@ using HemodinksAPI.Api.Authentication;
 using HemodinksAPI.Api.Data;
 using HemodinksAPI.Api.Features.Users.Queries;
 using HemodinksAPI.Api.Models;
+using HemodinksAPI.Api.Storage;
 using HemodinksAPI.Api.Utils;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -15,15 +16,18 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
 {
     private readonly AppDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
+    private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly ILogger<CreateUserCommandHandler> _logger;
 
     public CreateUserCommandHandler(
         AppDbContext context,
         IPasswordHasher passwordHasher,
+        IProfilePhotoStorage profilePhotoStorage,
         ILogger<CreateUserCommandHandler> logger)
     {
         _context = context;
         _passwordHasher = passwordHasher;
+        _profilePhotoStorage = profilePhotoStorage;
         _logger = logger;
     }
 
@@ -51,12 +55,14 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 throw new InvalidOperationException("Perfil invalido");
             }
 
+            var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, null, cancellationToken);
+
             var user = new User
             {
                 Nome = request.Nome,
                 Email = request.Email,
                 Telefone = request.Telefone,
-                FotoPerfil = UserProfileRules.NormalizeFotoPerfil(request.FotoPerfil),
+                FotoPerfil = fotoPerfil,
                 Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
                 DataNascimento = request.DataNascimento,
                 DataCadastro = DateTime.UtcNow,
@@ -161,11 +167,16 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
 public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserDto>
 {
     private readonly AppDbContext _context;
+    private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly ILogger<UpdateUserCommandHandler> _logger;
 
-    public UpdateUserCommandHandler(AppDbContext context, ILogger<UpdateUserCommandHandler> logger)
+    public UpdateUserCommandHandler(
+        AppDbContext context,
+        IProfilePhotoStorage profilePhotoStorage,
+        ILogger<UpdateUserCommandHandler> logger)
     {
         _context = context;
+        _profilePhotoStorage = profilePhotoStorage;
         _logger = logger;
     }
 
@@ -201,10 +212,12 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 throw new InvalidOperationException("Perfil invalido");
             }
 
+            var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, user.FotoPerfil, cancellationToken);
+
             user.Nome = request.Nome;
             user.Email = request.Email;
             user.Telefone = request.Telefone;
-            user.FotoPerfil = UserProfileRules.NormalizeFotoPerfil(request.FotoPerfil);
+            user.FotoPerfil = fotoPerfil;
             user.DataNascimento = request.DataNascimento;
             user.Ativo = request.Ativo;
             user.PerfilId = perfilId;
@@ -240,11 +253,16 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
 public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand>
 {
     private readonly AppDbContext _context;
+    private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly ILogger<DeleteUserCommandHandler> _logger;
 
-    public DeleteUserCommandHandler(AppDbContext context, ILogger<DeleteUserCommandHandler> logger)
+    public DeleteUserCommandHandler(
+        AppDbContext context,
+        IProfilePhotoStorage profilePhotoStorage,
+        ILogger<DeleteUserCommandHandler> logger)
     {
         _context = context;
+        _profilePhotoStorage = profilePhotoStorage;
         _logger = logger;
     }
 
@@ -262,8 +280,10 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand>
                 throw new KeyNotFoundException("Usuario nao encontrado");
             }
 
+            var fotoPerfil = user.FotoPerfil;
             _context.Users.Remove(user);
             await _context.SaveChangesAsync(cancellationToken);
+            await _profilePhotoStorage.DeleteAsync(fotoPerfil, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -411,10 +431,6 @@ internal static class UserProfileRules
         return user.Perfil?.Nome ?? string.Empty;
     }
 
-    public static string? NormalizeFotoPerfil(string? fotoPerfil)
-    {
-        return string.IsNullOrWhiteSpace(fotoPerfil) ? null : fotoPerfil;
-    }
 }
 
 // Implementar MediatR IRequest para os comandos.

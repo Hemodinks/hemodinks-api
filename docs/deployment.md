@@ -42,6 +42,8 @@ Secrets/variaveis para preencher no Render:
 - `ConnectionStrings__DefaultConnection`: connection string de um SQL Server externo.
 - `JwtSettings__SecretKey`: chave JWT com pelo menos 32 bytes.
 - `Cors__AllowedOrigins__0`: origem publica do frontend, por exemplo `https://hemodinks-saude.vercel.app`.
+- `AzureStorage__ConnectionString`: connection string da Storage Account da Azure.
+- `AzureStorage__PublicBaseUrl`: URL publica base do container, por exemplo `https://<storage-account>.blob.core.windows.net/profile-photos`.
 
 Variaveis ja definidas no Blueprint:
 
@@ -50,8 +52,22 @@ Variaveis ja definidas no Blueprint:
 - `JwtSettings__Issuer=HemodinksAPI`
 - `JwtSettings__Audience=HemodinksAPI`
 - `JwtSettings__ExpirationMinutes=60`
+- `AzureStorage__ContainerName=profile-photos`
+- `AzureStorage__MaxBytes=1048576`
 
 Observacao: Render nao fornece SQL Server gerenciado. Use um SQL Server externo, por exemplo Azure SQL, SQL Server em VM, ou outro provider compativel.
+
+## Azure Storage para fotos de perfil
+
+A API recebe a foto em base64, publica no Azure Blob Storage e salva no banco apenas a URL publica. Para configurar:
+
+1. Crie uma Storage Account no Azure.
+2. Crie ou permita que a API crie o container `profile-photos`.
+3. Habilite acesso publico de leitura no nivel Blob para o container, ou configure uma URL publica equivalente em `AzureStorage__PublicBaseUrl`.
+4. No Render, preencha `AzureStorage__ConnectionString` com a connection string da Storage Account.
+5. No Render, preencha `AzureStorage__PublicBaseUrl` com `https://<storage-account>.blob.core.windows.net/profile-photos`.
+
+Se `AzureStorage__ConnectionString` nao estiver configurada, cadastro/edicao de usuario sem foto continua funcionando, mas qualquer upload de foto retorna erro de configuracao.
 
 ## Vercel
 

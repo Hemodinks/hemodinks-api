@@ -24,3 +24,11 @@ services:
         value: HemodinksAPI
       - key: JwtSettings__ExpirationMinutes
         value: 60
+      - key: AzureStorage__ConnectionString
+        sync: false
+      - key: AzureStorage__ContainerName
+        value: profile-photos
+      - key: AzureStorage__PublicBaseUrl
+        sync: false
+      - key: AzureStorage__MaxBytes
+        value: 1048576

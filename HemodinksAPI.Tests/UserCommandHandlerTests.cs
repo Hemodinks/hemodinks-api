@@ -1,6 +1,7 @@
 using HemodinksAPI.Api.Authentication;
 using HemodinksAPI.Api.Features.Users.Commands;
 using HemodinksAPI.Api.Models;
+using HemodinksAPI.Api.Storage;
 using HemodinksAPI.Api.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -17,6 +18,7 @@ public class UserCommandHandlerTests
         var handler = new CreateUserCommandHandler(
             context,
             hasher,
+            new FakeProfilePhotoStorage(),
             NullLogger<CreateUserCommandHandler>.Instance);
 
         var response = await handler.Handle(new CreateUserCommand
@@ -34,8 +36,8 @@ public class UserCommandHandlerTests
         Assert.True(storedUser.Ativo);
         Assert.True(storedUser.PrecisaTrocarSenha);
         Assert.True(response.PrecisaTrocarSenha);
-        Assert.Equal("data:image/png;base64,avatar", storedUser.FotoPerfil);
-        Assert.Equal("data:image/png;base64,avatar", response.FotoPerfil);
+        Assert.Equal("https://storage.example/1.png", storedUser.FotoPerfil);
+        Assert.Equal("https://storage.example/1.png", response.FotoPerfil);
         Assert.Equal(Perfil.MedicosId, storedUser.PerfilId);
         Assert.Equal(Perfil.MedicosId, response.PerfilId);
         Assert.Equal("Médicos", response.PerfilNome);
@@ -50,6 +52,7 @@ public class UserCommandHandlerTests
         var handler = new CreateUserCommandHandler(
             context,
             hasher,
+            new FakeProfilePhotoStorage(),
             NullLogger<CreateUserCommandHandler>.Instance);
 
         var response = await handler.Handle(new CreateUserCommand
@@ -74,6 +77,7 @@ public class UserCommandHandlerTests
         var handler = new CreateUserCommandHandler(
             context,
             new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
             NullLogger<CreateUserCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
@@ -97,6 +101,7 @@ public class UserCommandHandlerTests
         var handler = new CreateUserCommandHandler(
             context,
             hasher,
+            new FakeProfilePhotoStorage(),
             NullLogger<CreateUserCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
@@ -117,7 +122,7 @@ public class UserCommandHandlerTests
             email: "login@email.com",
             passwordHash: hasher.HashPassword("Senha@123"),
             precisaTrocarSenha: true,
-            fotoPerfil: "data:image/png;base64,login"));
+            fotoPerfil: "https://storage.example/login.png"));
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
 
@@ -135,7 +140,7 @@ public class UserCommandHandlerTests
 
         Assert.Equal("login@email.com", response.Email);
         Assert.Equal("fake-token", response.Token);
-        Assert.Equal("data:image/png;base64,login", response.FotoPerfil);
+        Assert.Equal("https://storage.example/login.png", response.FotoPerfil);
         Assert.True(response.PrecisaTrocarSenha);
         Assert.Equal(Perfil.MedicosId, response.PerfilId);
         Assert.Equal("Médicos", response.PerfilNome);
@@ -155,6 +160,7 @@ public class UserCommandHandlerTests
 
         var handler = new UpdateUserCommandHandler(
             context,
+            new FakeProfilePhotoStorage(),
             NullLogger<UpdateUserCommandHandler>.Instance);
 
         var response = await handler.Handle(new UpdateUserCommand
@@ -170,8 +176,8 @@ public class UserCommandHandlerTests
         }, CancellationToken.None);
 
         var storedUser = await context.Users.SingleAsync(u => u.Id == user.Id);
-        Assert.Equal("data:image/jpeg;base64,editada", storedUser.FotoPerfil);
-        Assert.Equal("data:image/jpeg;base64,editada", response.FotoPerfil);
+        Assert.Equal("https://storage.example/1.png", storedUser.FotoPerfil);
+        Assert.Equal("https://storage.example/1.png", response.FotoPerfil);
         Assert.Equal(Perfil.AdministradorId, storedUser.PerfilId);
         Assert.Equal(Perfil.AdministradorId, response.PerfilId);
         Assert.Equal("Administrador", response.PerfilNome);
@@ -344,6 +350,32 @@ public class UserCommandHandlerTests
             FotoPerfil = fotoPerfil,
             PerfilId = Perfil.MedicosId
         };
+    }
+
+    private sealed class FakeProfilePhotoStorage : IProfilePhotoStorage
+    {
+        private int _saveCount;
+
+        public Task<string?> SaveAsync(string? fotoPerfil, string? currentFotoPerfil, CancellationToken cancellationToken)
+        {
+            if (string.IsNullOrWhiteSpace(fotoPerfil))
+            {
+                return Task.FromResult<string?>(null);
+            }
+
+            if (fotoPerfil.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase))
+            {
+                _saveCount++;
+                return Task.FromResult<string?>($"https://storage.example/{_saveCount}.png");
+            }
+
+            return Task.FromResult<string?>(fotoPerfil);
+        }
+
+        public Task DeleteAsync(string? fotoPerfil, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class StubJwtTokenService : IJwtTokenService

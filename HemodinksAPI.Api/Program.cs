@@ -3,6 +3,7 @@ using HemodinksAPI.Api;
 using HemodinksAPI.Api.Authentication;
 using HemodinksAPI.Api.Data;
 using HemodinksAPI.Api.Seeders;
+using HemodinksAPI.Api.Storage;
 using HemodinksAPI.Api.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
@@ -119,6 +120,8 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.Configure<ProfilePhotoStorageOptions>(builder.Configuration.GetSection("AzureStorage"));
+builder.Services.AddSingleton<IProfilePhotoStorage, AzureBlobProfilePhotoStorage>();
 builder.Services.AddScoped<UserSeeder>();
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
