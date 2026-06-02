@@ -454,6 +454,60 @@ public class ResetUserPasswordCommandHandler : IRequestHandler<ResetUserPassword
     }
 }
 
+/// <summary>
+/// Handler para resetar a senha do usuario pelo email.
+/// </summary>
+public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserPasswordByEmailCommand, ResetUserPasswordResponse>
+{
+    private readonly AppDbContext _context;
+    private readonly IPasswordHasher _passwordHasher;
+    private readonly ILogger<ResetUserPasswordByEmailCommandHandler> _logger;
+
+    public ResetUserPasswordByEmailCommandHandler(
+        AppDbContext context,
+        IPasswordHasher passwordHasher,
+        ILogger<ResetUserPasswordByEmailCommandHandler> logger)
+    {
+        _context = context;
+        _passwordHasher = passwordHasher;
+        _logger = logger;
+    }
+
+    public async Task<ResetUserPasswordResponse> Handle(ResetUserPasswordByEmailCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var email = request.Email.Trim();
+            _logger.LogInformation("Resetando senha do usuario pelo email: {Email}", email);
+
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == email && u.Ativo, cancellationToken);
+
+            if (user == null)
+            {
+                throw new KeyNotFoundException("Usuario nao encontrado");
+            }
+
+            user.Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value);
+            user.PrecisaTrocarSenha = true;
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return new ResetUserPasswordResponse
+            {
+                Id = user.Id,
+                PrecisaTrocarSenha = user.PrecisaTrocarSenha,
+                Message = "Senha resetada para a senha padrao"
+            };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao resetar senha pelo email: {Email}", request.Email);
+            throw;
+        }
+    }
+}
+
 internal static class UserProfileRules
 {
     public static int NormalizePerfilId(int perfilId)
@@ -499,5 +553,9 @@ public partial class ChangePasswordCommand : IRequest<ChangePasswordResponse>
 }
 
 public partial class ResetUserPasswordCommand : IRequest<ResetUserPasswordResponse>
+{
+}
+
+public partial class ResetUserPasswordByEmailCommand : IRequest<ResetUserPasswordResponse>
 {
 }

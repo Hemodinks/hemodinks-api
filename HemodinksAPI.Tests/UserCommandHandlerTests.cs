@@ -343,6 +343,37 @@ public class UserCommandHandlerTests
         }, CancellationToken.None));
     }
 
+    [Fact]
+    public async Task ResetUserPasswordByEmail_WhenUserExists_SetsDefaultPasswordAndRequiresPasswordChange()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var hasher = new PasswordHasher();
+        var user = CreateUser(
+            id: 8,
+            email: "reset-email@email.com",
+            passwordHash: hasher.HashPassword("SenhaAntiga@123"),
+            precisaTrocarSenha: false);
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var handler = new ResetUserPasswordByEmailCommandHandler(
+            context,
+            hasher,
+            NullLogger<ResetUserPasswordByEmailCommandHandler>.Instance);
+
+        var response = await handler.Handle(new ResetUserPasswordByEmailCommand
+        {
+            Email = "reset-email@email.com"
+        }, CancellationToken.None);
+
+        var storedUser = await context.Users.SingleAsync();
+        Assert.Equal(user.Id, response.Id);
+        Assert.True(response.PrecisaTrocarSenha);
+        Assert.True(storedUser.PrecisaTrocarSenha);
+        Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+        Assert.False(hasher.VerifyPassword("SenhaAntiga@123", storedUser.Senha));
+    }
+
     private static User CreateUser(
         string email,
         string passwordHash,

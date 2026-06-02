@@ -113,6 +113,14 @@ public partial class ResetUserPasswordCommand
 }
 
 /// <summary>
+/// DTO para reset de senha pelo email do usuario.
+/// </summary>
+public partial class ResetUserPasswordByEmailCommand
+{
+    public string Email { get; set; } = null!;
+}
+
+/// <summary>
 /// DTO para resposta de reset de senha.
 /// </summary>
 public class ResetUserPasswordResponse
