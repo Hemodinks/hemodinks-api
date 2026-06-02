@@ -207,6 +207,7 @@ app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }))
     .WithName("HealthCheck")
     .AllowAnonymous();
 
+app.MapDashboardEndpoints();
 app.MapUserEndpoints();
 app.MapPacienteEndpoints();
 

@@ -1,3 +1,4 @@
+using HemodinksAPI.Api.Features.Common;
 using MediatR;
 
 namespace HemodinksAPI.Api.Features.Pacientes.Queries;
@@ -22,6 +23,7 @@ public class PacienteDto
     public string? FotoPerfil { get; set; }
     public DateTime DataNascimento { get; set; }
     public bool Ativo { get; set; }
+    public int ArquivosCount { get; set; }
     public List<PacienteArquivoDto> Arquivos { get; set; } = [];
 }
 
@@ -35,8 +37,13 @@ public class PacienteArquivoDto
     public DateTime DataUpload { get; set; }
 }
 
-public class GetAllPacientesQuery : IRequest<List<PacienteDto>>
+public class GetAllPacientesQuery : IRequest<PagedResult<PacienteDto>>
 {
+    public int Page { get; set; } = 1;
+
+    public int PageSize { get; set; } = 10;
+
+    public string? Search { get; set; }
 }
 
 public class GetPacienteByIdQuery : IRequest<PacienteDto?>

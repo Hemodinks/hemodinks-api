@@ -1,11 +1,9 @@
+using HemodinksAPI.Api.Features.Common;
 using HemodinksAPI.Api.Models;
 using MediatR;
 
 namespace HemodinksAPI.Api.Features.Users.Queries;
 
-/// <summary>
-/// DTO para resposta de usuário
-/// </summary>
 public class UserDto
 {
     public int Id { get; set; }
@@ -22,16 +20,17 @@ public class UserDto
     public string PerfilNome { get; set; } = null!;
 }
 
-/// <summary>
-/// Query para buscar todos os usuários
-/// </summary>
-public class GetAllUsersQuery : IRequest<List<UserDto>>
+public class GetAllUsersQuery : IRequest<PagedResult<UserDto>>
 {
+    public int Page { get; set; } = 1;
+
+    public int PageSize { get; set; } = 10;
+
+    public string? Search { get; set; }
+
+    public int? ProfileId { get; set; }
 }
 
-/// <summary>
-/// Query para buscar usuário por ID
-/// </summary>
 public class GetUserByIdQuery : IRequest<UserDto?>
 {
     public int Id { get; set; }
@@ -42,9 +41,6 @@ public class GetUserByIdQuery : IRequest<UserDto?>
     }
 }
 
-/// <summary>
-/// Query para buscar usuário por email
-/// </summary>
 public class GetUserByEmailQuery : IRequest<UserDto?>
 {
     public string Email { get; set; } = null!;

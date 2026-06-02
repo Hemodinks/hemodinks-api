@@ -1,13 +1,11 @@
 using HemodinksAPI.Api.Data;
+using HemodinksAPI.Api.Features.Common;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api.Features.Users.Queries;
 
-/// <summary>
-/// Handler para buscar todos os usuários
-/// </summary>
-public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, List<UserDto>>
+public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedResult<UserDto>>
 {
     private readonly AppDbContext _context;
     private readonly ILogger<GetAllUsersQueryHandler> _logger;
@@ -18,14 +16,44 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, List<Us
         _logger = logger;
     }
 
-    public async Task<List<UserDto>> Handle(GetAllUsersQuery request, CancellationToken cancellationToken)
+    public async Task<PagedResult<UserDto>> Handle(GetAllUsersQuery request, CancellationToken cancellationToken)
     {
         try
         {
-            _logger.LogInformation("Buscando todos os usuários");
+            var page = Math.Max(1, request.Page);
+            var pageSize = Math.Clamp(request.PageSize, 1, 100);
+            var search = request.Search?.Trim();
+            var digits = string.IsNullOrWhiteSpace(search)
+                ? string.Empty
+                : new string(search.Where(char.IsDigit).ToArray());
 
-            var users = await _context.Users
-                .AsNoTracking()
+            _logger.LogInformation("Buscando usuarios. Pagina: {Page}, Tamanho: {PageSize}", page, pageSize);
+
+            var query = _context.Users.AsNoTracking();
+
+            if (request.ProfileId.HasValue)
+            {
+                query = query.Where(u => u.PerfilId == request.ProfileId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(search))
+            {
+                query = query.Where(u =>
+                    u.Nome.Contains(search)
+                    || u.Email.Contains(search)
+                    || u.Telefone.Contains(search)
+                    || u.Perfil.Nome.Contains(search)
+                    || (!string.IsNullOrEmpty(digits) && u.Cpf != null && u.Cpf.Contains(digits))
+                    || (!string.IsNullOrEmpty(digits) && u.Telefone.Contains(digits)));
+            }
+
+            var totalItems = await query.CountAsync(cancellationToken);
+
+            var users = await query
+                .OrderBy(u => u.Nome)
+                .ThenBy(u => u.Id)
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .Select(u => new UserDto
                 {
                     Id = u.Id,
@@ -43,21 +71,25 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, List<Us
                 })
                 .ToListAsync(cancellationToken);
 
-            _logger.LogInformation("Encontrados {Count} usuários", users.Count);
+            _logger.LogInformation("Encontrados {Count} usuarios na pagina de {Total} registros", users.Count, totalItems);
 
-            return users;
+            return new PagedResult<UserDto>
+            {
+                Items = users,
+                Page = page,
+                PageSize = pageSize,
+                TotalItems = totalItems,
+                TotalPages = Math.Max(1, (int)Math.Ceiling(totalItems / (double)pageSize))
+            };
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao buscar usuários");
+            _logger.LogError(ex, "Erro ao buscar usuarios");
             throw;
         }
     }
 }
 
-/// <summary>
-/// Handler para buscar usuário por ID
-/// </summary>
 public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, UserDto?>
 {
     private readonly AppDbContext _context;
@@ -73,7 +105,7 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, UserDto
     {
         try
         {
-            _logger.LogInformation("Buscando usuário por ID: {UserId}", request.Id);
+            _logger.LogInformation("Buscando usuario por ID: {UserId}", request.Id);
 
             var user = await _context.Users
                 .AsNoTracking()
@@ -97,22 +129,19 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, UserDto
 
             if (user == null)
             {
-                _logger.LogWarning("Usuário não encontrado. ID: {UserId}", request.Id);
+                _logger.LogWarning("Usuario nao encontrado. ID: {UserId}", request.Id);
             }
 
             return user;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao buscar usuário por ID: {UserId}", request.Id);
+            _logger.LogError(ex, "Erro ao buscar usuario por ID: {UserId}", request.Id);
             throw;
         }
     }
 }
 
-/// <summary>
-/// Handler para buscar usuário por email
-/// </summary>
 public class GetUserByEmailQueryHandler : IRequestHandler<GetUserByEmailQuery, UserDto?>
 {
     private readonly AppDbContext _context;
@@ -128,7 +157,7 @@ public class GetUserByEmailQueryHandler : IRequestHandler<GetUserByEmailQuery, U
     {
         try
         {
-            _logger.LogInformation("Buscando usuário por email: {Email}", request.Email);
+            _logger.LogInformation("Buscando usuario por email: {Email}", request.Email);
 
             var user = await _context.Users
                 .AsNoTracking()
@@ -152,14 +181,14 @@ public class GetUserByEmailQueryHandler : IRequestHandler<GetUserByEmailQuery, U
 
             if (user == null)
             {
-                _logger.LogWarning("Usuário não encontrado. Email: {Email}", request.Email);
+                _logger.LogWarning("Usuario nao encontrado. Email: {Email}", request.Email);
             }
 
             return user;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao buscar usuário por email: {Email}", request.Email);
+            _logger.LogError(ex, "Erro ao buscar usuario por email: {Email}", request.Email);
             throw;
         }
     }

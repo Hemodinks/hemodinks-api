@@ -116,12 +116,22 @@ public static class UserEndpointExtensions
     }
 
     private static async Task<IResult> GetAllUsers(
+        int? page,
+        int? pageSize,
+        string? search,
+        int? profileId,
         IMediator mediator,
         ILogger<Program> logger)
     {
         try
         {
-            var result = await mediator.Send(new GetAllUsersQuery());
+            var result = await mediator.Send(new GetAllUsersQuery
+            {
+                Page = page.GetValueOrDefault(1),
+                PageSize = pageSize.GetValueOrDefault(10),
+                Search = search,
+                ProfileId = profileId
+            });
             return Results.Ok(result);
         }
         catch (Exception ex)

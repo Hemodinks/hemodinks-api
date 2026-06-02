@@ -42,11 +42,21 @@ public static class PacienteEndpointExtensions
             .WithSummary("Excluir arquivo do paciente");
     }
 
-    private static async Task<IResult> GetAllPacientes(IMediator mediator, ILogger<Program> logger)
+    private static async Task<IResult> GetAllPacientes(
+        int? page,
+        int? pageSize,
+        string? search,
+        IMediator mediator,
+        ILogger<Program> logger)
     {
         try
         {
-            return Results.Ok(await mediator.Send(new GetAllPacientesQuery()));
+            return Results.Ok(await mediator.Send(new GetAllPacientesQuery
+            {
+                Page = page.GetValueOrDefault(1),
+                PageSize = pageSize.GetValueOrDefault(10),
+                Search = search
+            }));
         }
         catch (Exception ex)
         {
