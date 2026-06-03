@@ -50,8 +50,9 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedRe
             var totalItems = await query.CountAsync(cancellationToken);
 
             var users = await query
-                .OrderBy(u => u.Nome)
-                .ThenBy(u => u.Id)
+                .OrderByDescending(u => u.DataAtualizacao ?? u.DataCadastro)
+                .ThenBy(u => u.Nome)
+                .ThenByDescending(u => u.Id)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(u => new UserDto
@@ -63,6 +64,7 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedRe
                     Cpf = u.Cpf,
                     FotoPerfil = u.FotoPerfil,
                     DataCadastro = u.DataCadastro,
+                    DataAtualizacao = u.DataAtualizacao,
                     DataNascimento = u.DataNascimento,
                     Ativo = u.Ativo,
                     PrecisaTrocarSenha = u.PrecisaTrocarSenha,
@@ -160,6 +162,7 @@ public class GetUserByEmailQueryHandler : IRequestHandler<GetUserByEmailQuery, U
                     Cpf = u.Cpf,
                     FotoPerfil = u.FotoPerfil,
                     DataCadastro = u.DataCadastro,
+                    DataAtualizacao = u.DataAtualizacao,
                     DataNascimento = u.DataNascimento,
                     Ativo = u.Ativo,
                     PrecisaTrocarSenha = u.PrecisaTrocarSenha,
@@ -197,6 +200,7 @@ internal static class UserMapper
             Cpf = user.Cpf,
             FotoPerfil = user.FotoPerfil,
             DataCadastro = user.DataCadastro,
+            DataAtualizacao = user.DataAtualizacao,
             DataNascimento = user.DataNascimento,
             Ativo = user.Ativo,
             PrecisaTrocarSenha = user.PrecisaTrocarSenha,

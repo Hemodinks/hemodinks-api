@@ -82,6 +82,8 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
 
+            entity.Property(e => e.DataAtualizacao);
+
             entity.Property(e => e.DataNascimento)
                 .IsRequired();
 

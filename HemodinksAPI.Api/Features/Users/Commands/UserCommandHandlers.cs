@@ -102,6 +102,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 Cpf = user.Cpf,
                 FotoPerfil = user.FotoPerfil,
                 DataCadastro = user.DataCadastro,
+                DataAtualizacao = user.DataAtualizacao,
                 DataNascimento = user.DataNascimento,
                 Ativo = user.Ativo,
                 PrecisaTrocarSenha = user.PrecisaTrocarSenha,
@@ -253,6 +254,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             user.DataNascimento = request.DataNascimento;
             user.Ativo = request.Ativo;
             user.PerfilId = perfilId;
+            user.DataAtualizacao = DateTime.UtcNow;
 
             await _userPatientSyncService.EnsurePacienteForUserAsync(user, cancellationToken);
 
@@ -267,6 +269,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 Cpf = user.Cpf,
                 FotoPerfil = user.FotoPerfil,
                 DataCadastro = user.DataCadastro,
+                DataAtualizacao = user.DataAtualizacao,
                 DataNascimento = user.DataNascimento,
                 Ativo = user.Ativo,
                 PrecisaTrocarSenha = user.PrecisaTrocarSenha,
@@ -382,6 +385,7 @@ public class UploadUserArquivoCommandHandler : IRequestHandler<UploadUserArquivo
                 DataUpload = DateTime.UtcNow
             };
 
+            user.DataAtualizacao = DateTime.UtcNow;
             _context.UserArquivos.Add(arquivo);
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -416,6 +420,7 @@ public class DeleteUserArquivoCommandHandler : IRequestHandler<DeleteUserArquivo
         try
         {
             var arquivo = await _context.UserArquivos
+                .Include(a => a.User)
                 .FirstOrDefaultAsync(a => a.Id == request.ArquivoId && a.UserId == request.UserId, cancellationToken);
 
             if (arquivo == null)
@@ -424,6 +429,7 @@ public class DeleteUserArquivoCommandHandler : IRequestHandler<DeleteUserArquivo
             }
 
             var fileUrl = arquivo.Url;
+            arquivo.User.DataAtualizacao = DateTime.UtcNow;
             _context.UserArquivos.Remove(arquivo);
             await _context.SaveChangesAsync(cancellationToken);
             await _patientFileStorage.DeleteAsync(fileUrl, cancellationToken);
@@ -491,6 +497,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
 
             user.Senha = _passwordHasher.HashPassword(request.NovaSenha);
             user.PrecisaTrocarSenha = false;
+            user.DataAtualizacao = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -544,6 +551,7 @@ public class ResetUserPasswordCommandHandler : IRequestHandler<ResetUserPassword
 
             user.Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value);
             user.PrecisaTrocarSenha = true;
+            user.DataAtualizacao = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -598,6 +606,7 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
 
             user.Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value);
             user.PrecisaTrocarSenha = true;
+            user.DataAtualizacao = DateTime.UtcNow;
 
             await _context.SaveChangesAsync(cancellationToken);
 

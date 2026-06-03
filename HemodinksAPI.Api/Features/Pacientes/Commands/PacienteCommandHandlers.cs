@@ -143,6 +143,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             paciente.User.DataNascimento = request.DataNascimento;
             paciente.User.Ativo = request.Ativo;
             paciente.User.PerfilId = Perfil.PacientesId;
+            paciente.User.DataAtualizacao = DateTime.UtcNow;
 
             paciente.Data = request.Data;
             paciente.NomePaciente = paciente.User.Nome;
@@ -247,6 +248,7 @@ public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacient
         try
         {
             var paciente = await _context.Pacientes
+                .Include(p => p.User)
                 .FirstOrDefaultAsync(p => p.Id == request.PacienteId, cancellationToken);
 
             if (paciente == null)
@@ -271,6 +273,7 @@ public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacient
             };
 
             _context.PacienteArquivos.Add(arquivo);
+            paciente.User.DataAtualizacao = DateTime.UtcNow;
             await _context.SaveChangesAsync(cancellationToken);
 
             return PacienteMapper.ToArquivoDto(arquivo);
@@ -305,6 +308,7 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
         {
             var arquivo = await _context.PacienteArquivos
                 .Include(a => a.Paciente)
+                .ThenInclude(p => p.User)
                 .FirstOrDefaultAsync(a => a.Id == request.ArquivoId && a.PacienteId == request.PacienteId, cancellationToken);
 
             if (arquivo == null)
@@ -318,6 +322,7 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
             }
 
             var fileUrl = arquivo.Url;
+            arquivo.Paciente.User.DataAtualizacao = DateTime.UtcNow;
             _context.PacienteArquivos.Remove(arquivo);
             await _context.SaveChangesAsync(cancellationToken);
             await _patientFileStorage.DeleteAsync(fileUrl, cancellationToken);

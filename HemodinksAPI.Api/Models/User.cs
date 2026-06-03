@@ -42,6 +42,8 @@ public class User
     /// </summary>
     public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
 
+    public DateTime? DataAtualizacao { get; set; }
+
     /// <summary>
     /// Data de nascimento do usuário
     /// </summary>

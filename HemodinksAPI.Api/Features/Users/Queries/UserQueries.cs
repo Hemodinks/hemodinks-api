@@ -13,6 +13,7 @@ public class UserDto
     public string? Cpf { get; set; }
     public string? FotoPerfil { get; set; }
     public DateTime DataCadastro { get; set; }
+    public DateTime? DataAtualizacao { get; set; }
     public DateTime DataNascimento { get; set; }
     public bool Ativo { get; set; }
     public bool PrecisaTrocarSenha { get; set; }

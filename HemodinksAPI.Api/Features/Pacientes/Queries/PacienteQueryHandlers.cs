@@ -48,8 +48,9 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
             var totalItems = await query.CountAsync(cancellationToken);
 
             var pacientes = await query
-                .OrderByDescending(p => p.Data ?? p.User.DataCadastro)
-                .ThenBy(p => p.Id)
+                .OrderByDescending(p => p.User.DataAtualizacao ?? p.User.DataCadastro)
+                .ThenBy(p => p.NomePaciente)
+                .ThenByDescending(p => p.Id)
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(p => new PacienteDto
@@ -57,6 +58,8 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     Id = p.Id,
                     UserId = p.UserId,
                     Data = p.Data,
+                    DataCadastro = p.User.DataCadastro,
+                    DataAtualizacao = p.User.DataAtualizacao,
                     NomePaciente = p.NomePaciente,
                     Hospital = p.Hospital,
                     Medico = p.Medico,
@@ -167,6 +170,8 @@ internal static class PacienteMapper
             Id = paciente.Id,
             UserId = paciente.UserId,
             Data = paciente.Data,
+            DataCadastro = paciente.User.DataCadastro,
+            DataAtualizacao = paciente.User.DataAtualizacao,
             NomePaciente = paciente.NomePaciente,
             Hospital = paciente.Hospital,
             Medico = paciente.Medico,

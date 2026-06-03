@@ -191,6 +191,9 @@ public class PacienteCommandHandlerTests
         Assert.Equal("Paciente Atualizado", response.NomePaciente);
         Assert.Equal("Hospital Atualizado", response.Hospital);
         Assert.Equal(doctorName, response.Medico);
+        var storedUser = await context.Users.SingleAsync(storedUser => storedUser.Id == user.Id);
+        Assert.NotNull(storedUser.DataAtualizacao);
+        Assert.Equal(storedUser.DataAtualizacao, response.DataAtualizacao);
     }
 
     private sealed class FakeProfilePhotoStorage : IProfilePhotoStorage

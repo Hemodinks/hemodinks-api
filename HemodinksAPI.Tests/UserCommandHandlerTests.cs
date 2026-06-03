@@ -195,6 +195,8 @@ public class UserCommandHandlerTests
         Assert.Equal(Perfil.AdministradorId, storedUser.PerfilId);
         Assert.Equal(Perfil.AdministradorId, response.PerfilId);
         Assert.Equal("Administrador", response.PerfilNome);
+        Assert.NotNull(storedUser.DataAtualizacao);
+        Assert.Equal(storedUser.DataAtualizacao, response.DataAtualizacao);
     }
 
     [Fact]
