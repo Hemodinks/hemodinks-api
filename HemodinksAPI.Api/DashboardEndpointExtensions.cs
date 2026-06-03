@@ -16,6 +16,10 @@ public static class DashboardEndpointExtensions
         group.MapGet("/summary", GetSummary)
             .WithName("GetDashboardSummary")
             .WithSummary("Resumo do dashboard");
+
+        group.MapGet("/notifications", GetNotifications)
+            .WithName("GetDashboardNotifications")
+            .WithSummary("Notificacoes do dashboard");
     }
 
     private static async Task<IResult> GetSummary(
@@ -42,6 +46,33 @@ public static class DashboardEndpointExtensions
         {
             logger.LogError(ex, "Erro ao buscar resumo do dashboard");
             return Results.BadRequest(new { message = "Erro ao buscar resumo do dashboard", error = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> GetNotifications(
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger)
+    {
+        try
+        {
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null)
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(await mediator.Send(new GetDashboardNotificationsQuery
+            {
+                CurrentUserId = currentUser.Id,
+                CurrentPerfilId = currentUser.PerfilId,
+                CurrentUserName = currentUser.Nome
+            }));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Erro ao buscar notificacoes do dashboard");
+            return Results.BadRequest(new { message = "Erro ao buscar notificacoes do dashboard", error = ex.Message });
         }
     }
 }

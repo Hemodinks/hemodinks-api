@@ -6,7 +6,9 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api.Features.Dashboard.Queries;
 
-public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSummaryQuery, DashboardSummaryDto>
+public class GetDashboardSummaryQueryHandler :
+    IRequestHandler<GetDashboardSummaryQuery, DashboardSummaryDto>,
+    IRequestHandler<GetDashboardNotificationsQuery, IReadOnlyList<DashboardNotificationDto>>
 {
     private readonly AppDbContext _context;
 
@@ -58,5 +60,49 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
             PendingPaymentsCount = patientSummary?.PendingPaymentsCount ?? 0,
             PatientFilesCount = await patientQuery.SumAsync(paciente => paciente.Arquivos.Count, cancellationToken)
         };
+    }
+
+    public async Task<IReadOnlyList<DashboardNotificationDto>> Handle(GetDashboardNotificationsQuery request, CancellationToken cancellationToken)
+    {
+        var limit = Math.Clamp(request.Limit, 1, 50);
+        var patientQuery = _context.Pacientes
+            .AsNoTracking()
+            .AsQueryable();
+
+        patientQuery = PacienteAccess.ApplyScope(
+            patientQuery,
+            request.CurrentPerfilId,
+            request.CurrentUserId,
+            request.CurrentUserName);
+
+        var pendingPatients = await patientQuery
+            .Where(paciente => !paciente.StatusPago)
+            .OrderByDescending(paciente => paciente.Data ?? paciente.User.DataCadastro)
+            .ThenBy(paciente => paciente.Id)
+            .Take(limit)
+            .Select(paciente => new
+            {
+                paciente.Id,
+                paciente.NomePaciente,
+                paciente.Medico,
+                paciente.Procedimento,
+                Data = paciente.Data ?? paciente.User.DataCadastro
+            })
+            .ToListAsync(cancellationToken);
+
+        return pendingPatients
+            .Select(paciente => new DashboardNotificationDto
+            {
+                Id = paciente.Id,
+                Tipo = "PagamentoPendente",
+                Titulo = "Pagamento pendente",
+                Mensagem = $"Paciente {paciente.NomePaciente} possui pagamento pendente.",
+                PacienteId = paciente.Id,
+                NomePaciente = paciente.NomePaciente,
+                Medico = paciente.Medico,
+                Procedimento = paciente.Procedimento,
+                Data = paciente.Data
+            })
+            .ToList();
     }
 }
