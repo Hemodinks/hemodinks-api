@@ -36,7 +36,8 @@ public class PacienteCommandHandlerTests
             Autorizacao = "AUT-123",
             Pagamento = "Pix",
             RepasseGlosa = "Sem glosa",
-            StatusPago = true
+            StatusPago = true,
+            CurrentPerfilId = Perfil.AdministradorId
         }, CancellationToken.None);
 
         var storedUser = await context.Users.SingleAsync();
@@ -89,7 +90,8 @@ public class PacienteCommandHandlerTests
         var response = await handler.Handle(new UploadPacienteArquivoCommand
         {
             PacienteId = paciente.Id,
-            File = file
+            File = file,
+            CurrentPerfilId = Perfil.AdministradorId
         }, CancellationToken.None);
 
         var storedArquivo = await context.PacienteArquivos.SingleAsync();
@@ -97,6 +99,98 @@ public class PacienteCommandHandlerTests
         Assert.Equal("laudo.pdf", storedArquivo.NomeOriginal);
         Assert.Equal("https://storage.example/laudo.pdf", storedArquivo.Url);
         Assert.Equal(storedArquivo.Id, response.Id);
+    }
+
+    [Fact]
+    public async Task UpdatePaciente_WhenLoggedUserIsPatient_ThrowsUnauthorizedAccessException()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var user = new User
+        {
+            Nome = "Paciente Bloqueado",
+            Email = "paciente.bloqueado@hemodinks.com",
+            Telefone = "+5581999999999",
+            Cpf = "39053344705",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1990, 1, 1),
+            PerfilId = Perfil.PacientesId
+        };
+        var paciente = new Paciente
+        {
+            User = user,
+            NomePaciente = user.Nome,
+            Medico = "Dra. Ana"
+        };
+        context.Pacientes.Add(paciente);
+        await context.SaveChangesAsync();
+
+        var handler = new UpdatePacienteCommandHandler(
+            context,
+            new FakeProfilePhotoStorage(),
+            NullLogger<UpdatePacienteCommandHandler>.Instance);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new UpdatePacienteCommand
+        {
+            Id = paciente.Id,
+            NomePaciente = "Paciente Editado",
+            Email = user.Email,
+            Telefone = user.Telefone,
+            Cpf = user.Cpf!,
+            DataNascimento = user.DataNascimento,
+            Ativo = true,
+            CurrentUserId = user.Id,
+            CurrentPerfilId = Perfil.PacientesId,
+            CurrentUserName = user.Nome
+        }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task UpdatePaciente_WhenLoggedDoctorIsRelated_UpdatesPaciente()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var doctorName = "Dra. Ana";
+        var user = new User
+        {
+            Nome = "Paciente Relacionado",
+            Email = "paciente.relacionado@hemodinks.com",
+            Telefone = "+5581999999999",
+            Cpf = "11144477735",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1990, 1, 1),
+            PerfilId = Perfil.PacientesId
+        };
+        var paciente = new Paciente
+        {
+            User = user,
+            NomePaciente = user.Nome,
+            Medico = doctorName
+        };
+        context.Pacientes.Add(paciente);
+        await context.SaveChangesAsync();
+
+        var handler = new UpdatePacienteCommandHandler(
+            context,
+            new FakeProfilePhotoStorage(),
+            NullLogger<UpdatePacienteCommandHandler>.Instance);
+
+        var response = await handler.Handle(new UpdatePacienteCommand
+        {
+            Id = paciente.Id,
+            NomePaciente = "Paciente Atualizado",
+            Email = user.Email,
+            Telefone = user.Telefone,
+            Cpf = user.Cpf!,
+            DataNascimento = user.DataNascimento,
+            Ativo = true,
+            Hospital = "Hospital Atualizado",
+            CurrentUserId = 123,
+            CurrentPerfilId = Perfil.MedicosId,
+            CurrentUserName = doctorName
+        }, CancellationToken.None);
+
+        Assert.Equal("Paciente Atualizado", response.NomePaciente);
+        Assert.Equal("Hospital Atualizado", response.Hospital);
+        Assert.Equal(doctorName, response.Medico);
     }
 
     private sealed class FakeProfilePhotoStorage : IProfilePhotoStorage

@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using HemodinksAPI.Api.Authorization;
 using HemodinksAPI.Api.Features.Dashboard.Queries;
 using MediatR;
 
@@ -16,11 +18,25 @@ public static class DashboardEndpointExtensions
             .WithSummary("Resumo do dashboard");
     }
 
-    private static async Task<IResult> GetSummary(IMediator mediator, ILogger<Program> logger)
+    private static async Task<IResult> GetSummary(
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger)
     {
         try
         {
-            return Results.Ok(await mediator.Send(new GetDashboardSummaryQuery()));
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null)
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(await mediator.Send(new GetDashboardSummaryQuery
+            {
+                CurrentUserId = currentUser.Id,
+                CurrentPerfilId = currentUser.PerfilId,
+                CurrentUserName = currentUser.Nome
+            }));
         }
         catch (Exception ex)
         {

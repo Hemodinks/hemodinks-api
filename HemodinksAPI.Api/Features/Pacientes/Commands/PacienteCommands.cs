@@ -21,6 +21,9 @@ public class CreatePacienteCommand : IRequest<PacienteDto>
     public string? RepasseGlosa { get; set; }
     public bool StatusPago { get; set; }
     public bool Ativo { get; set; } = true;
+    public int CurrentUserId { get; set; }
+    public int CurrentPerfilId { get; set; }
+    public string CurrentUserName { get; set; } = string.Empty;
 }
 
 public class UpdatePacienteCommand : IRequest<PacienteDto>
@@ -42,21 +45,31 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
     public string? RepasseGlosa { get; set; }
     public bool StatusPago { get; set; }
     public bool Ativo { get; set; }
+    public int CurrentUserId { get; set; }
+    public int CurrentPerfilId { get; set; }
+    public string CurrentUserName { get; set; } = string.Empty;
 }
 
 public class DeletePacienteCommand : IRequest
 {
     public int Id { get; set; }
+    public int CurrentPerfilId { get; set; }
 }
 
 public class UploadPacienteArquivoCommand : IRequest<PacienteArquivoDto>
 {
     public int PacienteId { get; set; }
     public IFormFile File { get; set; } = null!;
+    public int CurrentUserId { get; set; }
+    public int CurrentPerfilId { get; set; }
+    public string CurrentUserName { get; set; } = string.Empty;
 }
 
 public class DeletePacienteArquivoCommand : IRequest
 {
     public int PacienteId { get; set; }
     public int ArquivoId { get; set; }
+    public int CurrentUserId { get; set; }
+    public int CurrentPerfilId { get; set; }
+    public string CurrentUserName { get; set; } = string.Empty;
 }

@@ -18,6 +18,18 @@ public class UserDto
     public bool PrecisaTrocarSenha { get; set; }
     public int PerfilId { get; set; }
     public string PerfilNome { get; set; } = null!;
+    public int ArquivosCount { get; set; }
+    public List<UserArquivoDto> Arquivos { get; set; } = [];
+}
+
+public class UserArquivoDto
+{
+    public int Id { get; set; }
+    public string NomeOriginal { get; set; } = null!;
+    public string ContentType { get; set; } = null!;
+    public long TamanhoBytes { get; set; }
+    public string Url { get; set; } = null!;
+    public DateTime DataUpload { get; set; }
 }
 
 public class GetAllUsersQuery : IRequest<PagedResult<UserDto>>

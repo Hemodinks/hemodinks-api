@@ -15,7 +15,11 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
         [".jpeg"] = "image/jpeg",
         [".png"] = "image/png",
         [".xls"] = "application/vnd.ms-excel",
-        [".xlsx"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        [".xlsx"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        [".txt"] = "text/plain",
+        [".csv"] = "text/csv",
+        [".ppt"] = "application/vnd.ms-powerpoint",
+        [".pptx"] = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
     };
 
     private readonly PatientFileStorageOptions _options;
@@ -45,7 +49,7 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
 
         if (string.IsNullOrWhiteSpace(extension) || !AllowedExtensions.TryGetValue(extension, out var contentType))
         {
-            throw new InvalidOperationException("Use arquivo PDF, DOC, DOCX, JPG, JPEG, PNG, XLS ou XLSX");
+            throw new InvalidOperationException("Use arquivo PDF, DOC, DOCX, JPG, JPEG, PNG, XLS, XLSX, TXT, CSV, PPT ou PPTX");
         }
 
         var containerClient = await GetContainerClientAsync(cancellationToken);

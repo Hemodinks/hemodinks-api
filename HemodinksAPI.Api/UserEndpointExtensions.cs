@@ -1,6 +1,8 @@
 using System.Security.Claims;
+using HemodinksAPI.Api.Authorization;
 using HemodinksAPI.Api.Features.Users.Commands;
 using HemodinksAPI.Api.Features.Users.Queries;
+using HemodinksAPI.Api.Models;
 using MediatR;
 
 namespace HemodinksAPI.Api;
@@ -22,7 +24,7 @@ public static class UserEndpointExtensions
             .WithName("CreateUser")
             .WithSummary("Criar novo usuario")
             .WithDescription("Cria um novo usuario com a senha padrao")
-            .RequireAuthorization();
+            .RequireAuthorization("Administrador");
 
         group.MapPost("/authenticate", AuthenticateUser)
             .WithName("AuthenticateUser")
@@ -33,7 +35,7 @@ public static class UserEndpointExtensions
             .WithName("GetAllUsers")
             .WithSummary("Listar todos os usuarios")
             .WithDescription("Retorna uma lista de todos os usuarios cadastrados")
-            .RequireAuthorization();
+            .RequireAuthorization("Administrador");
 
         group.MapGet("/{id}", GetUserById)
             .WithName("GetUserById")
@@ -45,7 +47,7 @@ public static class UserEndpointExtensions
             .WithName("GetUserByEmail")
             .WithSummary("Buscar usuario por email")
             .WithDescription("Retorna os dados de um usuario pelo email")
-            .RequireAuthorization();
+            .RequireAuthorization("Administrador");
 
         group.MapPut("/{id}", UpdateUser)
             .WithName("UpdateUser")
@@ -57,7 +59,7 @@ public static class UserEndpointExtensions
             .WithName("DeleteUser")
             .WithSummary("Excluir usuario")
             .WithDescription("Remove um usuario cadastrado")
-            .RequireAuthorization();
+            .RequireAuthorization("Administrador");
 
         group.MapPut("/{id}/password", ChangePassword)
             .WithName("ChangePassword")
@@ -74,6 +76,18 @@ public static class UserEndpointExtensions
             .WithName("ResetPassword")
             .WithSummary("Resetar senha")
             .WithDescription("Reseta a senha do usuario para a senha padrao e obriga troca no proximo login")
+            .RequireAuthorization("Administrador");
+
+        group.MapPost("/{id}/arquivos", UploadArquivo)
+            .WithName("UploadUserArquivo")
+            .WithSummary("Enviar arquivo do cadastro medico")
+            .WithDescription("Adiciona documento ao cadastro de um usuario medico")
+            .DisableAntiforgery()
+            .RequireAuthorization();
+
+        group.MapDelete("/{id}/arquivos/{arquivoId}", DeleteArquivo)
+            .WithName("DeleteUserArquivo")
+            .WithSummary("Excluir arquivo do cadastro medico")
             .RequireAuthorization();
     }
 
@@ -148,11 +162,18 @@ public static class UserEndpointExtensions
 
     private static async Task<IResult> GetUserById(
         int id,
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger)
     {
         try
         {
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null || (!currentUser.IsAdministrador && currentUser.Id != id))
+            {
+                return Results.Forbid();
+            }
+
             var result = await mediator.Send(new GetUserByIdQuery(id));
             return result == null ? Results.NotFound() : Results.Ok(result);
         }
@@ -183,11 +204,29 @@ public static class UserEndpointExtensions
     private static async Task<IResult> UpdateUser(
         int id,
         UpdateUserCommand command,
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger)
     {
         try
         {
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null)
+            {
+                return Results.Forbid();
+            }
+
+            if (!currentUser.IsAdministrador)
+            {
+                if (currentUser.Id != id || !currentUser.IsMedico)
+                {
+                    return Results.Forbid();
+                }
+
+                command.PerfilId = Perfil.MedicosId;
+                command.Ativo = true;
+            }
+
             command.Id = id;
             var result = await mediator.Send(command);
             return Results.Ok(result);
@@ -306,6 +345,78 @@ public static class UserEndpointExtensions
         {
             logger.LogError(ex, "Erro ao resetar senha por email");
             return Results.BadRequest(new { message = "Erro ao resetar senha", error = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> UploadArquivo(
+        int id,
+        IFormFile file,
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger)
+    {
+        try
+        {
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null || (!currentUser.IsAdministrador && !(currentUser.IsMedico && currentUser.Id == id)))
+            {
+                return Results.Forbid();
+            }
+
+            var result = await mediator.Send(new UploadUserArquivoCommand
+            {
+                UserId = id,
+                File = file
+            });
+
+            return Results.Created($"/api/users/{id}/arquivos/{result.Id}", result);
+        }
+        catch (KeyNotFoundException)
+        {
+            return Results.NotFound();
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Erro ao enviar arquivo do usuario");
+            return Results.BadRequest(new { message = "Erro ao enviar arquivo", error = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> DeleteArquivo(
+        int id,
+        int arquivoId,
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger)
+    {
+        try
+        {
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null || (!currentUser.IsAdministrador && !(currentUser.IsMedico && currentUser.Id == id)))
+            {
+                return Results.Forbid();
+            }
+
+            await mediator.Send(new DeleteUserArquivoCommand
+            {
+                UserId = id,
+                ArquivoId = arquivoId
+            });
+
+            return Results.NoContent();
+        }
+        catch (KeyNotFoundException)
+        {
+            return Results.NotFound();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Erro ao excluir arquivo do usuario");
+            return Results.BadRequest(new { message = "Erro ao excluir arquivo", error = ex.Message });
         }
     }
 }

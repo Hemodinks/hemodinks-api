@@ -31,10 +31,18 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
     {
         try
         {
+            if (!PacienteCommandAccess.CanCreate(request.CurrentPerfilId))
+            {
+                throw new UnauthorizedAccessException("Sem permissao para criar paciente");
+            }
+
             PacienteRules.ValidateNome(request.NomePaciente);
             var cpf = await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, null, cancellationToken);
             await PacienteRules.ValidateEmailAsync(_context, request.Email, null, cancellationToken);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, null, cancellationToken);
+            var medico = request.CurrentPerfilId == Perfil.MedicosId
+                ? request.CurrentUserName
+                : PacienteRules.TrimOptional(request.Medico);
 
             var user = new User
             {
@@ -61,7 +69,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 Data = request.Data,
                 NomePaciente = user.Nome,
                 Hospital = PacienteRules.TrimOptional(request.Hospital),
-                Medico = PacienteRules.TrimOptional(request.Medico),
+                Medico = medico,
                 Convenio = PacienteRules.TrimOptional(request.Convenio),
                 Procedimento = PacienteRules.TrimOptional(request.Procedimento),
                 Autorizacao = PacienteRules.TrimOptional(request.Autorizacao),
@@ -115,9 +123,17 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
+            if (!PacienteCommandAccess.CanManage(paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName))
+            {
+                throw new UnauthorizedAccessException("Sem permissao para atualizar paciente");
+            }
+
             var cpf = await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, paciente.UserId, cancellationToken);
             await PacienteRules.ValidateEmailAsync(_context, request.Email, paciente.UserId, cancellationToken);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, paciente.User.FotoPerfil, cancellationToken);
+            var medico = request.CurrentPerfilId == Perfil.MedicosId
+                ? request.CurrentUserName
+                : PacienteRules.TrimOptional(request.Medico);
 
             paciente.User.Nome = request.NomePaciente.Trim();
             paciente.User.Email = request.Email.Trim();
@@ -131,7 +147,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             paciente.Data = request.Data;
             paciente.NomePaciente = paciente.User.Nome;
             paciente.Hospital = PacienteRules.TrimOptional(request.Hospital);
-            paciente.Medico = PacienteRules.TrimOptional(request.Medico);
+            paciente.Medico = medico;
             paciente.Convenio = PacienteRules.TrimOptional(request.Convenio);
             paciente.Procedimento = PacienteRules.TrimOptional(request.Procedimento);
             paciente.Autorizacao = PacienteRules.TrimOptional(request.Autorizacao);
@@ -174,6 +190,11 @@ public class DeletePacienteCommandHandler : IRequestHandler<DeletePacienteComman
     {
         try
         {
+            if (request.CurrentPerfilId != Perfil.AdministradorId)
+            {
+                throw new UnauthorizedAccessException("Sem permissao para excluir paciente");
+            }
+
             var paciente = await _context.Pacientes
                 .Include(p => p.User)
                 .Include(p => p.Arquivos)
@@ -225,12 +246,17 @@ public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacient
     {
         try
         {
-            var pacienteExists = await _context.Pacientes
-                .AnyAsync(p => p.Id == request.PacienteId, cancellationToken);
+            var paciente = await _context.Pacientes
+                .FirstOrDefaultAsync(p => p.Id == request.PacienteId, cancellationToken);
 
-            if (!pacienteExists)
+            if (paciente == null)
             {
                 throw new KeyNotFoundException("Paciente nao encontrado");
+            }
+
+            if (!PacienteCommandAccess.CanManage(paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName))
+            {
+                throw new UnauthorizedAccessException("Sem permissao para enviar arquivo do paciente");
             }
 
             var storedFile = await _patientFileStorage.SaveAsync(request.File, cancellationToken);
@@ -278,11 +304,17 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
         try
         {
             var arquivo = await _context.PacienteArquivos
+                .Include(a => a.Paciente)
                 .FirstOrDefaultAsync(a => a.Id == request.ArquivoId && a.PacienteId == request.PacienteId, cancellationToken);
 
             if (arquivo == null)
             {
                 throw new KeyNotFoundException("Arquivo nao encontrado");
+            }
+
+            if (!PacienteCommandAccess.CanManage(arquivo.Paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName))
+            {
+                throw new UnauthorizedAccessException("Sem permissao para excluir arquivo do paciente");
             }
 
             var fileUrl = arquivo.Url;
@@ -295,6 +327,20 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
             _logger.LogError(ex, "Erro ao excluir arquivo {ArquivoId} do paciente {PacienteId}", request.ArquivoId, request.PacienteId);
             throw;
         }
+    }
+}
+
+internal static class PacienteCommandAccess
+{
+    public static bool CanCreate(int perfilId)
+    {
+        return perfilId == Perfil.AdministradorId || perfilId == Perfil.MedicosId;
+    }
+
+    public static bool CanManage(Models.Paciente paciente, int perfilId, int userId, string userName)
+    {
+        return perfilId == Perfil.AdministradorId
+            || (perfilId == Perfil.MedicosId && paciente.Medico == userName);
     }
 }
 

@@ -44,14 +44,29 @@ public class GetAllPacientesQuery : IRequest<PagedResult<PacienteDto>>
     public int PageSize { get; set; } = 10;
 
     public string? Search { get; set; }
+
+    public int CurrentUserId { get; set; }
+
+    public int CurrentPerfilId { get; set; }
+
+    public string CurrentUserName { get; set; } = string.Empty;
 }
 
 public class GetPacienteByIdQuery : IRequest<PacienteDto?>
 {
     public int Id { get; set; }
 
-    public GetPacienteByIdQuery(int id)
+    public int CurrentUserId { get; set; }
+
+    public int CurrentPerfilId { get; set; }
+
+    public string CurrentUserName { get; set; } = string.Empty;
+
+    public GetPacienteByIdQuery(int id, int currentUserId, int currentPerfilId, string currentUserName)
     {
         Id = id;
+        CurrentUserId = currentUserId;
+        CurrentPerfilId = currentPerfilId;
+        CurrentUserName = currentUserName;
     }
 }

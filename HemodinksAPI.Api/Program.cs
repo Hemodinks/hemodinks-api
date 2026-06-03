@@ -88,7 +88,11 @@ builder.Services.AddAuthentication(x =>
     };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Administrador", policy =>
+        policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString()));
+});
 
 var defaultAllowedOrigins = new[]
 {

@@ -84,6 +84,18 @@ public partial class DeleteUserCommand
     public int Id { get; set; }
 }
 
+public partial class UploadUserArquivoCommand
+{
+    public int UserId { get; set; }
+    public IFormFile File { get; set; } = null!;
+}
+
+public partial class DeleteUserArquivoCommand
+{
+    public int UserId { get; set; }
+    public int ArquivoId { get; set; }
+}
+
 /// <summary>
 /// DTO para troca de senha do usuário autenticado
 /// </summary>

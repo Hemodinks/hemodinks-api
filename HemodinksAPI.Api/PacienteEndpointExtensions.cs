@@ -1,3 +1,5 @@
+using System.Security.Claims;
+using HemodinksAPI.Api.Authorization;
 using HemodinksAPI.Api.Features.Pacientes.Commands;
 using HemodinksAPI.Api.Features.Pacientes.Queries;
 using MediatR;
@@ -46,16 +48,26 @@ public static class PacienteEndpointExtensions
         int? page,
         int? pageSize,
         string? search,
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger)
     {
         try
         {
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null)
+            {
+                return Results.Forbid();
+            }
+
             return Results.Ok(await mediator.Send(new GetAllPacientesQuery
             {
                 Page = page.GetValueOrDefault(1),
                 PageSize = pageSize.GetValueOrDefault(10),
-                Search = search
+                Search = search,
+                CurrentUserId = currentUser.Id,
+                CurrentPerfilId = currentUser.PerfilId,
+                CurrentUserName = currentUser.Nome
             }));
         }
         catch (Exception ex)
@@ -65,11 +77,21 @@ public static class PacienteEndpointExtensions
         }
     }
 
-    private static async Task<IResult> GetPacienteById(int id, IMediator mediator, ILogger<Program> logger)
+    private static async Task<IResult> GetPacienteById(
+        int id,
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger)
     {
         try
         {
-            var result = await mediator.Send(new GetPacienteByIdQuery(id));
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null)
+            {
+                return Results.Forbid();
+            }
+
+            var result = await mediator.Send(new GetPacienteByIdQuery(id, currentUser.Id, currentUser.PerfilId, currentUser.Nome));
             return result == null ? Results.NotFound() : Results.Ok(result);
         }
         catch (Exception ex)
@@ -81,13 +103,27 @@ public static class PacienteEndpointExtensions
 
     private static async Task<IResult> CreatePaciente(
         CreatePacienteCommand command,
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger)
     {
         try
         {
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null)
+            {
+                return Results.Forbid();
+            }
+
+            command.CurrentUserId = currentUser.Id;
+            command.CurrentPerfilId = currentUser.PerfilId;
+            command.CurrentUserName = currentUser.Nome;
             var result = await mediator.Send(command);
             return Results.Created($"/api/pacientes/{result.Id}", result);
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Results.Forbid();
         }
         catch (InvalidOperationException ex)
         {
@@ -103,12 +139,22 @@ public static class PacienteEndpointExtensions
     private static async Task<IResult> UpdatePaciente(
         int id,
         UpdatePacienteCommand command,
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger)
     {
         try
         {
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null)
+            {
+                return Results.Forbid();
+            }
+
             command.Id = id;
+            command.CurrentUserId = currentUser.Id;
+            command.CurrentPerfilId = currentUser.PerfilId;
+            command.CurrentUserName = currentUser.Nome;
             return Results.Ok(await mediator.Send(command));
         }
         catch (KeyNotFoundException)
@@ -119,6 +165,10 @@ public static class PacienteEndpointExtensions
         {
             return Results.BadRequest(new { message = ex.Message });
         }
+        catch (UnauthorizedAccessException)
+        {
+            return Results.Forbid();
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao atualizar paciente");
@@ -126,16 +176,30 @@ public static class PacienteEndpointExtensions
         }
     }
 
-    private static async Task<IResult> DeletePaciente(int id, IMediator mediator, ILogger<Program> logger)
+    private static async Task<IResult> DeletePaciente(
+        int id,
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger)
     {
         try
         {
-            await mediator.Send(new DeletePacienteCommand { Id = id });
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null)
+            {
+                return Results.Forbid();
+            }
+
+            await mediator.Send(new DeletePacienteCommand { Id = id, CurrentPerfilId = currentUser.PerfilId });
             return Results.NoContent();
         }
         catch (KeyNotFoundException)
         {
             return Results.NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Results.Forbid();
         }
         catch (Exception ex)
         {
@@ -147,15 +211,25 @@ public static class PacienteEndpointExtensions
     private static async Task<IResult> UploadArquivo(
         int id,
         IFormFile file,
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger)
     {
         try
         {
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null)
+            {
+                return Results.Forbid();
+            }
+
             var result = await mediator.Send(new UploadPacienteArquivoCommand
             {
                 PacienteId = id,
-                File = file
+                File = file,
+                CurrentUserId = currentUser.Id,
+                CurrentPerfilId = currentUser.PerfilId,
+                CurrentUserName = currentUser.Nome
             });
 
             return Results.Created($"/api/pacientes/{id}/arquivos/{result.Id}", result);
@@ -168,6 +242,10 @@ public static class PacienteEndpointExtensions
         {
             return Results.BadRequest(new { message = ex.Message });
         }
+        catch (UnauthorizedAccessException)
+        {
+            return Results.Forbid();
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao enviar arquivo do paciente");
@@ -178,15 +256,25 @@ public static class PacienteEndpointExtensions
     private static async Task<IResult> DeleteArquivo(
         int id,
         int arquivoId,
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger)
     {
         try
         {
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null)
+            {
+                return Results.Forbid();
+            }
+
             await mediator.Send(new DeletePacienteArquivoCommand
             {
                 PacienteId = id,
-                ArquivoId = arquivoId
+                ArquivoId = arquivoId,
+                CurrentUserId = currentUser.Id,
+                CurrentPerfilId = currentUser.PerfilId,
+                CurrentUserName = currentUser.Nome
             });
 
             return Results.NoContent();
@@ -194,6 +282,10 @@ public static class PacienteEndpointExtensions
         catch (KeyNotFoundException)
         {
             return Results.NotFound();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Results.Forbid();
         }
         catch (Exception ex)
         {

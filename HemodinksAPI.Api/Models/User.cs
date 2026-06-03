@@ -62,4 +62,6 @@ public class User
     public Perfil Perfil { get; set; } = null!;
 
     public Paciente? Paciente { get; set; }
+
+    public ICollection<UserArquivo> Arquivos { get; set; } = new List<UserArquivo>();
 }

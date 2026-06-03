@@ -19,4 +19,9 @@ public class DashboardSummaryDto
 
 public class GetDashboardSummaryQuery : IRequest<DashboardSummaryDto>
 {
+    public int CurrentUserId { get; set; }
+
+    public int CurrentPerfilId { get; set; }
+
+    public string CurrentUserName { get; set; } = string.Empty;
 }

@@ -1,4 +1,6 @@
 using HemodinksAPI.Api.Data;
+using HemodinksAPI.Api.Features.Pacientes.Queries;
+using HemodinksAPI.Api.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,18 +17,29 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
 
     public async Task<DashboardSummaryDto> Handle(GetDashboardSummaryQuery request, CancellationToken cancellationToken)
     {
-        var usersSummary = await _context.Users
-            .AsNoTracking()
-            .GroupBy(_ => 1)
-            .Select(group => new
-            {
-                UsersCount = group.Count(),
-                ActiveUsersCount = group.Count(user => user.Ativo)
-            })
-            .FirstOrDefaultAsync(cancellationToken);
+        var usersSummary = request.CurrentPerfilId == Perfil.AdministradorId
+            ? await _context.Users
+                .AsNoTracking()
+                .GroupBy(_ => 1)
+                .Select(group => new
+                {
+                    UsersCount = group.Count(),
+                    ActiveUsersCount = group.Count(user => user.Ativo)
+                })
+                .FirstOrDefaultAsync(cancellationToken)
+            : null;
 
-        var patientSummary = await _context.Pacientes
+        var patientQuery = _context.Pacientes
             .AsNoTracking()
+            .AsQueryable();
+
+        patientQuery = PacienteAccess.ApplyScope(
+            patientQuery,
+            request.CurrentPerfilId,
+            request.CurrentUserId,
+            request.CurrentUserName);
+
+        var patientSummary = await patientQuery
             .GroupBy(_ => 1)
             .Select(group => new
             {
@@ -43,7 +56,7 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
             PacientesCount = patientSummary?.PacientesCount ?? 0,
             ActivePatientsCount = patientSummary?.ActivePatientsCount ?? 0,
             PendingPaymentsCount = patientSummary?.PendingPaymentsCount ?? 0,
-            PatientFilesCount = await _context.PacienteArquivos.AsNoTracking().CountAsync(cancellationToken)
+            PatientFilesCount = await patientQuery.SumAsync(paciente => paciente.Arquivos.Count, cancellationToken)
         };
     }
 }

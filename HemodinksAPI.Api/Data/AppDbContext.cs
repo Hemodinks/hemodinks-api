@@ -19,6 +19,8 @@ public class AppDbContext : DbContext
 
     public DbSet<PacienteArquivo> PacienteArquivos { get; set; } = null!;
 
+    public DbSet<UserArquivo> UserArquivos { get; set; } = null!;
+
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
@@ -112,6 +114,11 @@ public class AppDbContext : DbContext
                 .WithMany(e => e.Users)
                 .HasForeignKey(e => e.PerfilId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.Arquivos)
+                .WithOne(e => e.User)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Paciente>(entity =>
@@ -185,6 +192,36 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.Paciente)
                 .WithMany(e => e.Arquivos)
                 .HasForeignKey(e => e.PacienteId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<UserArquivo>(entity =>
+        {
+            entity.ToTable("UserArquivos");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.NomeOriginal)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.Property(e => e.ContentType)
+                .IsRequired()
+                .HasMaxLength(120);
+
+            entity.Property(e => e.Url)
+                .IsRequired()
+                .HasMaxLength(2048);
+
+            entity.Property(e => e.DataUpload)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(e => e.UserId);
+
+            entity.HasOne(e => e.User)
+                .WithMany(e => e.Arquivos)
+                .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

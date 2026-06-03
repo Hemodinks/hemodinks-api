@@ -1,5 +1,6 @@
 using HemodinksAPI.Api.Data;
 using HemodinksAPI.Api.Features.Common;
+using HemodinksAPI.Api.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -28,6 +29,7 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                 : new string(search.Where(char.IsDigit).ToArray());
 
             var query = _context.Pacientes.AsNoTracking();
+            query = PacienteAccess.ApplyScope(query, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName);
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -106,11 +108,15 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
     {
         try
         {
-            var paciente = await _context.Pacientes
+            IQueryable<Models.Paciente> query = _context.Pacientes
                 .AsNoTracking()
                 .Include(p => p.User)
                 .Include(p => p.Arquivos)
-                .AsSplitQuery()
+                .AsSplitQuery();
+
+            query = PacienteAccess.ApplyScope(query, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName);
+
+            var paciente = await query
                 .Where(p => p.Id == request.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
@@ -122,6 +128,34 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
             throw;
         }
     }
+}
+
+internal static class PacienteAccess
+{
+    public static IQueryable<Models.Paciente> ApplyScope(
+        IQueryable<Models.Paciente> query,
+        int perfilId,
+        int userId,
+        string userName)
+    {
+        if (perfilId == Perfil.AdministradorId)
+        {
+            return query;
+        }
+
+        if (perfilId == Perfil.MedicosId)
+        {
+            return query.Where(p => p.Medico != null && p.Medico == userName);
+        }
+
+        if (perfilId == Perfil.PacientesId)
+        {
+            return query.Where(p => p.UserId == userId);
+        }
+
+        return query.Where(_ => false);
+    }
+
 }
 
 internal static class PacienteMapper

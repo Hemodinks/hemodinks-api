@@ -289,15 +289,18 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand>
 {
     private readonly AppDbContext _context;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
+    private readonly IPatientFileStorage _patientFileStorage;
     private readonly ILogger<DeleteUserCommandHandler> _logger;
 
     public DeleteUserCommandHandler(
         AppDbContext context,
         IProfilePhotoStorage profilePhotoStorage,
+        IPatientFileStorage patientFileStorage,
         ILogger<DeleteUserCommandHandler> logger)
     {
         _context = context;
         _profilePhotoStorage = profilePhotoStorage;
+        _patientFileStorage = patientFileStorage;
         _logger = logger;
     }
 
@@ -308,6 +311,7 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand>
             _logger.LogInformation("Excluindo usuario: {UserId}", request.Id);
 
             var user = await _context.Users
+                .Include(u => u.Arquivos)
                 .FirstOrDefaultAsync(u => u.Id == request.Id, cancellationToken);
 
             if (user == null)
@@ -316,13 +320,117 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand>
             }
 
             var fotoPerfil = user.FotoPerfil;
+            var fileUrls = user.Arquivos.Select(arquivo => arquivo.Url).ToList();
             _context.Users.Remove(user);
             await _context.SaveChangesAsync(cancellationToken);
             await _profilePhotoStorage.DeleteAsync(fotoPerfil, cancellationToken);
+
+            foreach (var fileUrl in fileUrls)
+            {
+                await _patientFileStorage.DeleteAsync(fileUrl, cancellationToken);
+            }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro ao excluir usuario: {UserId}", request.Id);
+            throw;
+        }
+    }
+}
+
+public class UploadUserArquivoCommandHandler : IRequestHandler<UploadUserArquivoCommand, UserArquivoDto>
+{
+    private readonly AppDbContext _context;
+    private readonly IPatientFileStorage _patientFileStorage;
+    private readonly ILogger<UploadUserArquivoCommandHandler> _logger;
+
+    public UploadUserArquivoCommandHandler(
+        AppDbContext context,
+        IPatientFileStorage patientFileStorage,
+        ILogger<UploadUserArquivoCommandHandler> logger)
+    {
+        _context = context;
+        _patientFileStorage = patientFileStorage;
+        _logger = logger;
+    }
+
+    public async Task<UserArquivoDto> Handle(UploadUserArquivoCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var user = await _context.Users
+                .FirstOrDefaultAsync(u => u.Id == request.UserId, cancellationToken);
+
+            if (user == null)
+            {
+                throw new KeyNotFoundException("Usuario nao encontrado");
+            }
+
+            if (user.PerfilId != Perfil.MedicosId)
+            {
+                throw new InvalidOperationException("Documentos de cadastro estao disponiveis apenas para medicos");
+            }
+
+            var storedFile = await _patientFileStorage.SaveAsync(request.File, cancellationToken);
+            var arquivo = new UserArquivo
+            {
+                UserId = request.UserId,
+                NomeOriginal = storedFile.OriginalName,
+                ContentType = storedFile.ContentType,
+                TamanhoBytes = storedFile.SizeBytes,
+                Url = storedFile.Url,
+                DataUpload = DateTime.UtcNow
+            };
+
+            _context.UserArquivos.Add(arquivo);
+            await _context.SaveChangesAsync(cancellationToken);
+
+            return UserMapper.ToArquivoDto(arquivo);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao enviar arquivo do usuario: {UserId}", request.UserId);
+            throw;
+        }
+    }
+}
+
+public class DeleteUserArquivoCommandHandler : IRequestHandler<DeleteUserArquivoCommand>
+{
+    private readonly AppDbContext _context;
+    private readonly IPatientFileStorage _patientFileStorage;
+    private readonly ILogger<DeleteUserArquivoCommandHandler> _logger;
+
+    public DeleteUserArquivoCommandHandler(
+        AppDbContext context,
+        IPatientFileStorage patientFileStorage,
+        ILogger<DeleteUserArquivoCommandHandler> logger)
+    {
+        _context = context;
+        _patientFileStorage = patientFileStorage;
+        _logger = logger;
+    }
+
+    public async Task Handle(DeleteUserArquivoCommand request, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var arquivo = await _context.UserArquivos
+                .FirstOrDefaultAsync(a => a.Id == request.ArquivoId && a.UserId == request.UserId, cancellationToken);
+
+            if (arquivo == null)
+            {
+                throw new KeyNotFoundException("Arquivo nao encontrado");
+            }
+
+            var fileUrl = arquivo.Url;
+            _context.UserArquivos.Remove(arquivo);
+            await _context.SaveChangesAsync(cancellationToken);
+            await _patientFileStorage.DeleteAsync(fileUrl, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao excluir arquivo {ArquivoId} do usuario {UserId}", request.ArquivoId, request.UserId);
             throw;
         }
     }
@@ -545,6 +653,14 @@ public partial class UpdateUserCommand : IRequest<UserDto>
 }
 
 public partial class DeleteUserCommand : IRequest
+{
+}
+
+public partial class UploadUserArquivoCommand : IRequest<UserArquivoDto>
+{
+}
+
+public partial class DeleteUserArquivoCommand : IRequest
 {
 }
 
