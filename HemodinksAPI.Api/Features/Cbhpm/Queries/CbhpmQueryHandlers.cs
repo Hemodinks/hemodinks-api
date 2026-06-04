@@ -35,7 +35,9 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
             if (procedimento != null)
             {
                 var normalizedProcedimento = procedimento.ToUpperInvariant();
-                query = query.Where(item => item.Procedimento.ToUpper().Contains(normalizedProcedimento));
+                query = query.Where(item =>
+                    item.Procedimento.ToUpper().Contains(normalizedProcedimento)
+                    || (item.Grupo != null && item.Grupo.ToUpper().Contains(normalizedProcedimento)));
             }
 
             var porte = CbhpmQueryRules.TrimOptional(request.Porte);
@@ -52,7 +54,8 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
                 query = query.Where(item =>
                     item.Codigo.Contains(search)
                     || item.Procedimento.ToUpper().Contains(normalizedSearch)
-                    || (item.Porte != null && item.Porte.ToUpper().Contains(normalizedSearch)));
+                    || (item.Porte != null && item.Porte.ToUpper().Contains(normalizedSearch))
+                    || (item.Grupo != null && item.Grupo.ToUpper().Contains(normalizedSearch)));
             }
 
             var totalItems = await query.CountAsync(cancellationToken);

@@ -31,6 +31,23 @@ Authorization: Bearer {{token}}
 GET {{baseUrl}}/api/cbhpm?search=marca-passo&page=1&pageSize=10
 Authorization: Bearer {{token}}
 
+### Importar procedimentos CBHPM (admin)
+POST {{baseUrl}}/api/cbhpm/import
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+{
+  "items": [
+    {
+      "codigo": "1.01.01.01-2",
+      "procedimento": "Em consultorio (no horario normal ou preestabelecido)",
+      "porte": "2B",
+      "custoOperacional": null,
+      "paginaPdf": 23
+    }
+  ]
+}
+
 ---
 
 ### ========================================

@@ -1,3 +1,4 @@
+using HemodinksAPI.Api.Features.Cbhpm.Commands;
 using HemodinksAPI.Api.Features.Cbhpm.Queries;
 using MediatR;
 
@@ -14,6 +15,11 @@ public static class CbhpmEndpointExtensions
         group.MapGet("/", GetCbhpmGeral)
             .WithName("GetCbhpmGeral")
             .WithSummary("Listar procedimentos CBHPM");
+
+        group.MapPost("/import", ImportCbhpmGeral)
+            .RequireAuthorization("Administrador")
+            .WithName("ImportCbhpmGeral")
+            .WithSummary("Importar procedimentos CBHPM");
     }
 
     private static async Task<IResult> GetCbhpmGeral(
@@ -42,6 +48,26 @@ public static class CbhpmEndpointExtensions
         {
             logger.LogError(ex, "Erro ao buscar procedimentos CBHPM");
             return Results.BadRequest(new { message = "Erro ao buscar procedimentos CBHPM", error = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> ImportCbhpmGeral(
+        ImportCbhpmGeralCommand command,
+        IMediator mediator,
+        ILogger<Program> logger)
+    {
+        try
+        {
+            return Results.Ok(await mediator.Send(command));
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Results.BadRequest(new { message = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Erro ao importar procedimentos CBHPM");
+            return Results.BadRequest(new { message = "Erro ao importar procedimentos CBHPM", error = ex.Message });
         }
     }
 }
