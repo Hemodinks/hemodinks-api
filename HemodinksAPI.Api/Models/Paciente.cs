@@ -10,6 +10,8 @@ public class Paciente
     public string? Hospital { get; set; }
     public string? Medico { get; set; }
     public string? Convenio { get; set; }
+    public string? CbhpmCodigo { get; set; }
+    public string? CbhpmPorte { get; set; }
     public string? Procedimento { get; set; }
     public string? Autorizacao { get; set; }
     public string? Pagamento { get; set; }

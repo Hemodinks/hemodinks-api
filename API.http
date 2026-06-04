@@ -20,6 +20,20 @@ Content-Type: {{contentType}}
 ---
 
 ### ========================================
+### CBHPM
+### ========================================
+
+### Listar procedimentos CBHPM para popup
+GET {{baseUrl}}/api/cbhpm?page=1&pageSize=10&procedimento=consulta&codigo=1.01&porte=2B
+Authorization: Bearer {{token}}
+
+### Buscar CBHPM por texto livre
+GET {{baseUrl}}/api/cbhpm?search=marca-passo&page=1&pageSize=10
+Authorization: Bearer {{token}}
+
+---
+
+### ========================================
 ### USUÁRIOS
 ### ========================================
 

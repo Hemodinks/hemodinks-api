@@ -43,6 +43,12 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             var medico = request.CurrentPerfilId == Perfil.MedicosId
                 ? request.CurrentUserName
                 : PacienteRules.TrimOptional(request.Medico);
+            var procedimento = await PacienteRules.ResolveProcedimentoAsync(
+                _context,
+                request.CbhpmCodigo,
+                request.Procedimento,
+                request.CbhpmPorte,
+                cancellationToken);
 
             var user = new User
             {
@@ -71,7 +77,9 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 Hospital = PacienteRules.TrimOptional(request.Hospital),
                 Medico = medico,
                 Convenio = PacienteRules.TrimOptional(request.Convenio),
-                Procedimento = PacienteRules.TrimOptional(request.Procedimento),
+                CbhpmCodigo = procedimento.Codigo,
+                CbhpmPorte = procedimento.Porte,
+                Procedimento = procedimento.Nome,
                 Autorizacao = PacienteRules.TrimOptional(request.Autorizacao),
                 Pagamento = PacienteRules.TrimOptional(request.Pagamento),
                 RepasseGlosa = PacienteRules.TrimOptional(request.RepasseGlosa),
@@ -134,6 +142,12 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             var medico = request.CurrentPerfilId == Perfil.MedicosId
                 ? request.CurrentUserName
                 : PacienteRules.TrimOptional(request.Medico);
+            var procedimento = await PacienteRules.ResolveProcedimentoAsync(
+                _context,
+                request.CbhpmCodigo,
+                request.Procedimento,
+                request.CbhpmPorte,
+                cancellationToken);
 
             paciente.User.Nome = request.NomePaciente.Trim();
             paciente.User.Email = request.Email.Trim();
@@ -150,7 +164,9 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             paciente.Hospital = PacienteRules.TrimOptional(request.Hospital);
             paciente.Medico = medico;
             paciente.Convenio = PacienteRules.TrimOptional(request.Convenio);
-            paciente.Procedimento = PacienteRules.TrimOptional(request.Procedimento);
+            paciente.CbhpmCodigo = procedimento.Codigo;
+            paciente.CbhpmPorte = procedimento.Porte;
+            paciente.Procedimento = procedimento.Nome;
             paciente.Autorizacao = PacienteRules.TrimOptional(request.Autorizacao);
             paciente.Pagamento = PacienteRules.TrimOptional(request.Pagamento);
             paciente.RepasseGlosa = PacienteRules.TrimOptional(request.RepasseGlosa);
@@ -407,4 +423,31 @@ internal static class PacienteRules
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
+
+    public static async Task<ResolvedProcedimento> ResolveProcedimentoAsync(
+        AppDbContext context,
+        string? cbhpmCodigo,
+        string? procedimento,
+        string? cbhpmPorte,
+        CancellationToken cancellationToken)
+    {
+        var codigo = TrimOptional(cbhpmCodigo);
+        if (codigo == null)
+        {
+            return new ResolvedProcedimento(null, TrimOptional(procedimento), TrimOptional(cbhpmPorte));
+        }
+
+        var cbhpm = await context.CbhpmGeral
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Codigo == codigo, cancellationToken);
+
+        if (cbhpm == null)
+        {
+            throw new InvalidOperationException("Procedimento CBHPM nao encontrado");
+        }
+
+        return new ResolvedProcedimento(cbhpm.Codigo, cbhpm.Procedimento, cbhpm.Porte);
+    }
 }
+
+internal sealed record ResolvedProcedimento(string? Codigo, string? Nome, string? Porte);

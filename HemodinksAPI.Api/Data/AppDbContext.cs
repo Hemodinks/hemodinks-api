@@ -21,6 +21,8 @@ public class AppDbContext : DbContext
 
     public DbSet<UserArquivo> UserArquivos { get; set; } = null!;
 
+    public DbSet<CbhpmGeral> CbhpmGeral { get; set; } = null!;
+
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
@@ -142,8 +144,14 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Convenio)
                 .HasMaxLength(255);
 
+            entity.Property(e => e.CbhpmCodigo)
+                .HasMaxLength(20);
+
+            entity.Property(e => e.CbhpmPorte)
+                .HasMaxLength(10);
+
             entity.Property(e => e.Procedimento)
-                .HasMaxLength(255);
+                .HasMaxLength(1000);
 
             entity.Property(e => e.Autorizacao)
                 .HasMaxLength(255);
@@ -160,6 +168,8 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(e => e.UserId)
                 .IsUnique();
+
+            entity.HasIndex(e => e.CbhpmCodigo);
 
             entity.HasOne(e => e.User)
                 .WithOne(e => e.Paciente)
@@ -225,6 +235,38 @@ public class AppDbContext : DbContext
                 .WithMany(e => e.Arquivos)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<CbhpmGeral>(entity =>
+        {
+            entity.ToTable("CBHPMGeral");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Codigo)
+                .IsRequired()
+                .HasMaxLength(20);
+
+            entity.Property(e => e.Procedimento)
+                .IsRequired()
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.Porte)
+                .HasMaxLength(10);
+
+            entity.Property(e => e.CustoOperacional)
+                .HasColumnType("decimal(18,3)");
+
+            entity.Property(e => e.Capitulo)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.Grupo)
+                .HasMaxLength(255);
+
+            entity.HasIndex(e => e.Codigo)
+                .IsUnique();
+
+            entity.HasIndex(e => e.Porte);
         });
     }
 }

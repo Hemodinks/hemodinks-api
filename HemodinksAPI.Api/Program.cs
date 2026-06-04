@@ -212,6 +212,7 @@ app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }))
     .AllowAnonymous();
 
 app.MapDashboardEndpoints();
+app.MapCbhpmEndpoints();
 app.MapUserEndpoints();
 app.MapPacienteEndpoints();
 

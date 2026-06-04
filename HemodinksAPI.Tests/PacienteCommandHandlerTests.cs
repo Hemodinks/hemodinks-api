@@ -14,6 +14,14 @@ public class PacienteCommandHandlerTests
     public async Task CreatePaciente_CreatesLinkedUserWithPacienteProfile()
     {
         await using var context = TestDbContextFactory.Create();
+        context.CbhpmGeral.Add(new CbhpmGeral
+        {
+            Codigo = "1.01.01.01-2",
+            Procedimento = "Em consultorio",
+            Porte = "2B"
+        });
+        await context.SaveChangesAsync();
+
         var hasher = new PasswordHasher();
         var handler = new CreatePacienteCommandHandler(
             context,
@@ -32,7 +40,7 @@ public class PacienteCommandHandlerTests
             Hospital = "Hospital Hemodinks",
             Medico = "Dra. Ana",
             Convenio = "Particular",
-            Procedimento = "Consulta",
+            CbhpmCodigo = "1.01.01.01-2",
             Autorizacao = "AUT-123",
             Pagamento = "Pix",
             RepasseGlosa = "Sem glosa",
@@ -49,6 +57,9 @@ public class PacienteCommandHandlerTests
         Assert.Equal("52998224725", storedUser.Cpf);
         Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
         Assert.Equal("Hospital Hemodinks", storedPaciente.Hospital);
+        Assert.Equal("1.01.01.01-2", storedPaciente.CbhpmCodigo);
+        Assert.Equal("Em consultorio", storedPaciente.Procedimento);
+        Assert.Equal("2B", storedPaciente.CbhpmPorte);
         Assert.True(storedPaciente.StatusPago);
         Assert.Equal(storedPaciente.Id, response.Id);
         Assert.Equal(storedUser.Id, response.UserId);

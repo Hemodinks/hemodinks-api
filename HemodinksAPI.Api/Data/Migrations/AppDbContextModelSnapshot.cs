@@ -22,6 +22,52 @@ namespace HemodinksAPI.Api.Data.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("HemodinksAPI.Api.Models.CbhpmGeral", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Capitulo")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("Codigo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<decimal?>("CustoOperacional")
+                        .HasColumnType("decimal(18,3)");
+
+                    b.Property<string>("Grupo")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int?>("PaginaPdf")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Porte")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("Procedimento")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Codigo")
+                        .IsUnique();
+
+                    b.HasIndex("Porte");
+
+                    b.ToTable("CBHPMGeral", (string)null);
+                });
+
             modelBuilder.Entity("HemodinksAPI.Api.Models.Paciente", b =>
                 {
                     b.Property<int>("Id")
@@ -33,6 +79,14 @@ namespace HemodinksAPI.Api.Data.Migrations
                     b.Property<string>("Autorizacao")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("CbhpmCodigo")
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("CbhpmPorte")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
 
                     b.Property<string>("Convenio")
                         .HasMaxLength(255)
@@ -59,8 +113,8 @@ namespace HemodinksAPI.Api.Data.Migrations
                         .HasColumnType("nvarchar(255)");
 
                     b.Property<string>("Procedimento")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
 
                     b.Property<string>("RepasseGlosa")
                         .HasMaxLength(255)
@@ -75,6 +129,8 @@ namespace HemodinksAPI.Api.Data.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("CbhpmCodigo");
 
                     b.HasIndex("UserId")
                         .IsUnique();
