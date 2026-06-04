@@ -143,6 +143,7 @@ builder.Services.Configure<PatientFileStorageOptions>(options =>
 builder.Services.AddSingleton<IProfilePhotoStorage, AzureBlobProfilePhotoStorage>();
 builder.Services.AddSingleton<IPatientFileStorage, AzureBlobPatientFileStorage>();
 builder.Services.AddScoped<UserSeeder>();
+builder.Services.AddScoped<CbhpmSeeder>();
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
@@ -161,6 +162,9 @@ using (var scope = app.Services.CreateScope())
         logger.LogInformation("Iniciando migracao do banco de dados");
         dbContext.Database.Migrate();
         logger.LogInformation("Migracao do banco de dados concluida com sucesso");
+
+        var cbhpmSeeder = scope.ServiceProvider.GetRequiredService<CbhpmSeeder>();
+        await cbhpmSeeder.SeedAsync();
 
         if (!dbContext.Users.Any())
         {
