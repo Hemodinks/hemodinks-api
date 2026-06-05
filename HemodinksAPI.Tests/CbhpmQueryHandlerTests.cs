@@ -1,7 +1,10 @@
+using HemodinksAPI.Api.Data;
+using HemodinksAPI.Api.Features.Cbhpm;
 using HemodinksAPI.Api.Features.Cbhpm.Commands;
 using HemodinksAPI.Api.Features.Cbhpm.Queries;
 using HemodinksAPI.Api.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HemodinksAPI.Tests;
@@ -22,6 +25,7 @@ public class CbhpmQueryHandlerTests
 
         var handler = new ImportCbhpmGeralCommandHandler(
             context,
+            CreateCbhpmCache(context),
             NullLogger<ImportCbhpmGeralCommandHandler>.Instance);
 
         var result = await handler.Handle(new ImportCbhpmGeralCommand
@@ -84,7 +88,7 @@ public class CbhpmQueryHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new GetCbhpmGeralQueryHandler(
-            context,
+            CreateCbhpmCache(context),
             NullLogger<GetCbhpmGeralQueryHandler>.Instance);
 
         var result = await handler.Handle(new GetCbhpmGeralQuery
@@ -116,7 +120,7 @@ public class CbhpmQueryHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new GetCbhpmGeralQueryHandler(
-            context,
+            CreateCbhpmCache(context),
             NullLogger<GetCbhpmGeralQueryHandler>.Instance);
 
         var result = await handler.Handle(new GetCbhpmGeralQuery
@@ -128,5 +132,13 @@ public class CbhpmQueryHandlerTests
 
         Assert.Single(result.Items);
         Assert.Equal("1.01.01.01-2", result.Items[0].Codigo);
+    }
+
+    private static ICbhpmCache CreateCbhpmCache(AppDbContext context)
+    {
+        return new CbhpmCache(
+            context,
+            new MemoryCache(new MemoryCacheOptions()),
+            NullLogger<CbhpmCache>.Instance);
     }
 }

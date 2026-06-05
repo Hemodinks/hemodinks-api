@@ -2,6 +2,7 @@ using System.Text;
 using HemodinksAPI.Api;
 using HemodinksAPI.Api.Authentication;
 using HemodinksAPI.Api.Data;
+using HemodinksAPI.Api.Features.Cbhpm;
 using HemodinksAPI.Api.Models;
 using HemodinksAPI.Api.Seeders;
 using HemodinksAPI.Api.Services;
@@ -142,6 +143,8 @@ builder.Services.Configure<PatientFileStorageOptions>(options =>
 });
 builder.Services.AddSingleton<IProfilePhotoStorage, AzureBlobProfilePhotoStorage>();
 builder.Services.AddSingleton<IPatientFileStorage, AzureBlobPatientFileStorage>();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<ICbhpmCache, CbhpmCache>();
 builder.Services.AddScoped<UserSeeder>();
 builder.Services.AddScoped<CbhpmSeeder>();
 

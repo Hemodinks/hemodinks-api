@@ -1,4 +1,5 @@
 using HemodinksAPI.Api.Data;
+using HemodinksAPI.Api.Features.Cbhpm;
 using HemodinksAPI.Api.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -8,11 +9,16 @@ namespace HemodinksAPI.Api.Features.Cbhpm.Commands;
 public class ImportCbhpmGeralCommandHandler : IRequestHandler<ImportCbhpmGeralCommand, CbhpmImportResultDto>
 {
     private readonly AppDbContext _context;
+    private readonly ICbhpmCache _cbhpmCache;
     private readonly ILogger<ImportCbhpmGeralCommandHandler> _logger;
 
-    public ImportCbhpmGeralCommandHandler(AppDbContext context, ILogger<ImportCbhpmGeralCommandHandler> logger)
+    public ImportCbhpmGeralCommandHandler(
+        AppDbContext context,
+        ICbhpmCache cbhpmCache,
+        ILogger<ImportCbhpmGeralCommandHandler> logger)
     {
         _context = context;
+        _cbhpmCache = cbhpmCache;
         _logger = logger;
     }
 
@@ -62,6 +68,7 @@ public class ImportCbhpmGeralCommandHandler : IRequestHandler<ImportCbhpmGeralCo
             }
 
             await _context.SaveChangesAsync(cancellationToken);
+            _cbhpmCache.Invalidate();
 
             return new CbhpmImportResultDto
             {

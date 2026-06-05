@@ -1,4 +1,5 @@
 using HemodinksAPI.Api.Data;
+using HemodinksAPI.Api.Features.Cbhpm;
 using HemodinksAPI.Api.Features.Pacientes.Queries;
 using HemodinksAPI.Api.Models;
 using HemodinksAPI.Api.Storage;
@@ -11,17 +12,20 @@ namespace HemodinksAPI.Api.Features.Pacientes.Commands;
 public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteCommand, PacienteDto>
 {
     private readonly AppDbContext _context;
+    private readonly ICbhpmCache _cbhpmCache;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly ILogger<CreatePacienteCommandHandler> _logger;
 
     public CreatePacienteCommandHandler(
         AppDbContext context,
+        ICbhpmCache cbhpmCache,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
         ILogger<CreatePacienteCommandHandler> logger)
     {
         _context = context;
+        _cbhpmCache = cbhpmCache;
         _passwordHasher = passwordHasher;
         _profilePhotoStorage = profilePhotoStorage;
         _logger = logger;
@@ -44,7 +48,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 ? request.CurrentUserName
                 : PacienteRules.TrimOptional(request.Medico);
             var procedimento = await PacienteRules.ResolveProcedimentoAsync(
-                _context,
+                _cbhpmCache,
                 request.CbhpmCodigo,
                 request.Procedimento,
                 request.CbhpmPorte,
@@ -102,15 +106,18 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
 public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteCommand, PacienteDto>
 {
     private readonly AppDbContext _context;
+    private readonly ICbhpmCache _cbhpmCache;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly ILogger<UpdatePacienteCommandHandler> _logger;
 
     public UpdatePacienteCommandHandler(
         AppDbContext context,
+        ICbhpmCache cbhpmCache,
         IProfilePhotoStorage profilePhotoStorage,
         ILogger<UpdatePacienteCommandHandler> logger)
     {
         _context = context;
+        _cbhpmCache = cbhpmCache;
         _profilePhotoStorage = profilePhotoStorage;
         _logger = logger;
     }
@@ -143,7 +150,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 ? request.CurrentUserName
                 : PacienteRules.TrimOptional(request.Medico);
             var procedimento = await PacienteRules.ResolveProcedimentoAsync(
-                _context,
+                _cbhpmCache,
                 request.CbhpmCodigo,
                 request.Procedimento,
                 request.CbhpmPorte,
@@ -425,7 +432,7 @@ internal static class PacienteRules
     }
 
     public static async Task<ResolvedProcedimento> ResolveProcedimentoAsync(
-        AppDbContext context,
+        ICbhpmCache cbhpmCache,
         string? cbhpmCodigo,
         string? procedimento,
         string? cbhpmPorte,
@@ -437,9 +444,7 @@ internal static class PacienteRules
             return new ResolvedProcedimento(null, TrimOptional(procedimento), TrimOptional(cbhpmPorte));
         }
 
-        var cbhpm = await context.CbhpmGeral
-            .AsNoTracking()
-            .FirstOrDefaultAsync(item => item.Codigo == codigo, cancellationToken);
+        var cbhpm = await cbhpmCache.GetByCodigoAsync(codigo, cancellationToken);
 
         if (cbhpm == null)
         {

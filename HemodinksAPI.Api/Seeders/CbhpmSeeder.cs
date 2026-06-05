@@ -1,5 +1,6 @@
 using System.Text.Json;
 using HemodinksAPI.Api.Data;
+using HemodinksAPI.Api.Features.Cbhpm;
 using HemodinksAPI.Api.Features.Cbhpm.Commands;
 using HemodinksAPI.Api.Models;
 using Microsoft.EntityFrameworkCore;
@@ -14,11 +15,13 @@ public class CbhpmSeeder
     };
 
     private readonly AppDbContext _context;
+    private readonly ICbhpmCache _cbhpmCache;
     private readonly ILogger<CbhpmSeeder> _logger;
 
-    public CbhpmSeeder(AppDbContext context, ILogger<CbhpmSeeder> logger)
+    public CbhpmSeeder(AppDbContext context, ICbhpmCache cbhpmCache, ILogger<CbhpmSeeder> logger)
     {
         _context = context;
+        _cbhpmCache = cbhpmCache;
         _logger = logger;
     }
 
@@ -88,6 +91,7 @@ public class CbhpmSeeder
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+        _cbhpmCache.Invalidate();
         _logger.LogInformation(
             "Seed CBHPM concluido: {InsertedItems} inseridos, {UpdatedItems} atualizados, {TotalItems} no arquivo",
             insertedItems,

@@ -1,9 +1,12 @@
+using HemodinksAPI.Api.Data;
+using HemodinksAPI.Api.Features.Cbhpm;
 using HemodinksAPI.Api.Features.Pacientes.Commands;
 using HemodinksAPI.Api.Models;
 using HemodinksAPI.Api.Storage;
 using HemodinksAPI.Api.Utils;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HemodinksAPI.Tests;
@@ -25,6 +28,7 @@ public class PacienteCommandHandlerTests
         var hasher = new PasswordHasher();
         var handler = new CreatePacienteCommandHandler(
             context,
+            CreateCbhpmCache(context),
             hasher,
             new FakeProfilePhotoStorage(),
             NullLogger<CreatePacienteCommandHandler>.Instance);
@@ -137,6 +141,7 @@ public class PacienteCommandHandlerTests
 
         var handler = new UpdatePacienteCommandHandler(
             context,
+            CreateCbhpmCache(context),
             new FakeProfilePhotoStorage(),
             NullLogger<UpdatePacienteCommandHandler>.Instance);
 
@@ -181,6 +186,7 @@ public class PacienteCommandHandlerTests
 
         var handler = new UpdatePacienteCommandHandler(
             context,
+            CreateCbhpmCache(context),
             new FakeProfilePhotoStorage(),
             NullLogger<UpdatePacienteCommandHandler>.Instance);
 
@@ -218,6 +224,14 @@ public class PacienteCommandHandlerTests
         {
             return Task.CompletedTask;
         }
+    }
+
+    private static ICbhpmCache CreateCbhpmCache(AppDbContext context)
+    {
+        return new CbhpmCache(
+            context,
+            new MemoryCache(new MemoryCacheOptions()),
+            NullLogger<CbhpmCache>.Instance);
     }
 
     private sealed class FakePatientFileStorage : IPatientFileStorage

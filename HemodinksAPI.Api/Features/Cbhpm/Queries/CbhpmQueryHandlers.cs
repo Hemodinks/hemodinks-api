@@ -1,18 +1,17 @@
-using HemodinksAPI.Api.Data;
+using HemodinksAPI.Api.Features.Cbhpm;
 using HemodinksAPI.Api.Features.Common;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api.Features.Cbhpm.Queries;
 
 public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, PagedResult<CbhpmGeralDto>>
 {
-    private readonly AppDbContext _context;
+    private readonly ICbhpmCache _cbhpmCache;
     private readonly ILogger<GetCbhpmGeralQueryHandler> _logger;
 
-    public GetCbhpmGeralQueryHandler(AppDbContext context, ILogger<GetCbhpmGeralQueryHandler> logger)
+    public GetCbhpmGeralQueryHandler(ICbhpmCache cbhpmCache, ILogger<GetCbhpmGeralQueryHandler> logger)
     {
-        _context = context;
+        _cbhpmCache = cbhpmCache;
         _logger = logger;
     }
 
@@ -23,46 +22,43 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
             var page = Math.Max(1, request.Page);
             var pageSize = Math.Clamp(request.PageSize, 1, 100);
 
-            var query = _context.CbhpmGeral.AsNoTracking();
+            var snapshot = await _cbhpmCache.GetSnapshotAsync(cancellationToken);
+            IEnumerable<CbhpmCacheItem> query = snapshot.Items;
 
             var codigo = CbhpmQueryRules.TrimOptional(request.Codigo);
             if (codigo != null)
             {
-                query = query.Where(item => item.Codigo.Contains(codigo));
+                query = query.Where(item => item.Codigo.Contains(codigo, StringComparison.OrdinalIgnoreCase));
             }
 
             var procedimento = CbhpmQueryRules.TrimOptional(request.Procedimento);
             if (procedimento != null)
             {
-                var normalizedProcedimento = procedimento.ToUpperInvariant();
                 query = query.Where(item =>
-                    item.Procedimento.ToUpper().Contains(normalizedProcedimento)
-                    || (item.Grupo != null && item.Grupo.ToUpper().Contains(normalizedProcedimento)));
+                    item.Procedimento.Contains(procedimento, StringComparison.OrdinalIgnoreCase)
+                    || (item.Grupo != null && item.Grupo.Contains(procedimento, StringComparison.OrdinalIgnoreCase)));
             }
 
             var porte = CbhpmQueryRules.TrimOptional(request.Porte);
             if (porte != null)
             {
-                var normalizedPorte = porte.ToUpperInvariant();
-                query = query.Where(item => item.Porte != null && item.Porte.ToUpper() == normalizedPorte);
+                query = query.Where(item => string.Equals(item.Porte, porte, StringComparison.OrdinalIgnoreCase));
             }
 
             var search = CbhpmQueryRules.TrimOptional(request.Search);
             if (search != null)
             {
-                var normalizedSearch = search.ToUpperInvariant();
                 query = query.Where(item =>
-                    item.Codigo.Contains(search)
-                    || item.Procedimento.ToUpper().Contains(normalizedSearch)
-                    || (item.Porte != null && item.Porte.ToUpper().Contains(normalizedSearch))
-                    || (item.Grupo != null && item.Grupo.ToUpper().Contains(normalizedSearch)));
+                    item.Codigo.Contains(search, StringComparison.OrdinalIgnoreCase)
+                    || item.Procedimento.Contains(search, StringComparison.OrdinalIgnoreCase)
+                    || (item.Porte != null && item.Porte.Contains(search, StringComparison.OrdinalIgnoreCase))
+                    || (item.Grupo != null && item.Grupo.Contains(search, StringComparison.OrdinalIgnoreCase)));
             }
 
-            var totalItems = await query.CountAsync(cancellationToken);
+            var filteredItems = query.ToList();
+            var totalItems = filteredItems.Count;
 
-            var items = await query
-                .OrderBy(item => item.Codigo)
-                .ThenBy(item => item.Id)
+            var items = filteredItems
                 .Skip((page - 1) * pageSize)
                 .Take(pageSize)
                 .Select(item => new CbhpmGeralDto
@@ -76,7 +72,7 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
                     Grupo = item.Grupo,
                     PaginaPdf = item.PaginaPdf
                 })
-                .ToListAsync(cancellationToken);
+                .ToList();
 
             return new PagedResult<CbhpmGeralDto>
             {
