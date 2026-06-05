@@ -11,6 +11,8 @@ using HemodinksAPI.Api.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
+using Scalar.AspNetCore;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -150,8 +152,36 @@ builder.Services.AddScoped<CbhpmSeeder>();
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
-builder.Services.AddSwaggerGen();
 builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Hemodinks API",
+        Version = "v1",
+        Description = "API para gestao de usuarios, pacientes, arquivos, dashboard e consulta CBHPM com cache em memoria.",
+        Contact = new OpenApiContact
+        {
+            Name = "Hemodinks",
+            Email = "gmarcone@gmail.com"
+        }
+    });
+
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Informe o token JWT no formato: Bearer {token}"
+    });
+
+    options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    {
+        [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
+    });
+});
 
 var app = builder.Build();
 
@@ -203,11 +233,21 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-if (app.Environment.IsDevelopment())
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "Hemodinks API v1");
+    options.RoutePrefix = "swagger";
+});
+app.MapSwagger("/openapi/{documentName}.json").AllowAnonymous();
+app.MapScalarApiReference("/scalar", options =>
+{
+    options
+        .WithTitle("Hemodinks API")
+        .WithOpenApiRoutePattern("/openapi/{documentName}.json")
+        .AddPreferredSecuritySchemes("Bearer")
+        .DisableAgent();
+}).AllowAnonymous();
 
 app.UseHttpsRedirection();
 app.UseCors("Frontend");

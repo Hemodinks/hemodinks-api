@@ -1,320 +1,229 @@
 # Hemodinks API
 
-API robusta desenvolvida em **.NET 10** com arquitetura **CQRS**, autenticação **JWT**, logging com **Serilog**, persistência com **Entity Framework Core**, e containerização com **Docker**.
+API ASP.NET Core/.NET 10 para gestao de usuarios, pacientes, arquivos, dashboard e consulta CBHPM.
 
-## 📋 Características
+## Stack
 
-- ✅ Arquitetura **CQRS** (Command Query Responsibility Segregation)
-- ✅ Autenticação e Autorização com **JWT** (JSON Web Tokens)
-- ✅ Logging estruturado com **Serilog**
-- ✅ Persistência de dados com **Entity Framework Core 10**
-- ✅ Banco de dados **SQL Server**
-- ✅ Containerização com **Docker** e **Docker Compose**
-- ✅ **50 usuários seedados** incluindo o usuário: George Marcone Morais dos Santos
-- ✅ API RESTful com **Swagger/OpenAPI**
+- .NET 10 e ASP.NET Core Minimal APIs
+- Entity Framework Core 10 com SQL Server/Azure SQL
+- CQRS com MediatR
+- JWT Bearer para autenticacao e autorizacao
+- Serilog para logs em console e arquivo
+- Azure Blob Storage para fotos de perfil e anexos de pacientes
+- IMemoryCache para consulta CBHPM em memoria
+- Swagger/OpenAPI e Scalar para documentacao interativa
+- Docker, Docker Compose, Render e GitHub Actions
 
-## 🗄️ Estrutura do Banco de Dados
+## URLs
 
-### Tabela: Users
+Ambiente local:
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| Id | int | Identificador único (PK) |
-| Nome | string(255) | Nome completo |
-| Email | string(255) | Email (Unique) |
-| Telefone | string(20) | Telefone com código de país |
-| FotoPerfil | string | URL da foto no Azure Blob Storage |
-| Senha | string(500) | Senha com hash PBKDF2 |
-| DataCadastro | datetime | Data de cadastro |
-| DataNascimento | datetime | Data de nascimento |
-| Ativo | bool | Indica se ativo (default: true) |
+| Recurso | URL |
+| --- | --- |
+| API | `http://localhost:5000` |
+| Health check | `http://localhost:5000/healthz` |
+| Swagger UI | `http://localhost:5000/swagger` |
+| Scalar UI | `http://localhost:5000/scalar` |
+| OpenAPI JSON | `http://localhost:5000/openapi/v1.json` |
+| Swagger JSON | `http://localhost:5000/swagger/v1/swagger.json` |
 
-## 🚀 Como Executar
+Ambiente publico atual:
 
-### Opção 1: Com Docker Compose (Recomendado)
+| Recurso | URL |
+| --- | --- |
+| Frontend | `https://hemodinks-saude.vercel.app` |
+| API | configure em `VITE_API_URL`, por exemplo `https://hemodinks-api.onrender.com` |
 
-```bash
-# Ir para o diretório do projeto
-cd c:\George Marcone\GitHub\personal\HEMODINKS\hemodinks-api
+## Como executar
 
-# Criar o arquivo local de variaveis, que nao deve ser versionado
+### Docker Compose
+
+```powershell
 Copy-Item .env.example .env
-
-# Ajustar MSSQL_SA_PASSWORD e JWT_SECRET_KEY no arquivo .env
-
-# Executar com Docker Compose
+# Edite MSSQL_SA_PASSWORD e JWT_SECRET_KEY no .env
 docker-compose up -d
 ```
 
-A API estará disponível em: `http://localhost:5000`
+O container da API aplica migrations no startup, cria os perfis, seeda usuarios quando necessario e carrega a tabela CBHPM a partir de `HemodinksAPI.Api/Data/SeedData/cbhpm-geral.json`.
 
-**Credenciais do SQL Server:**
-- Usuário: `sa`
-- Senha: configurada em `.env`
+### Desenvolvimento local
 
-As credenciais do SQL Server e a chave JWT ficam fora do repositorio.
-
-### Opção 2: Desenvolvimento Local
-
-**Pré-requisitos:**
-- .NET 10 SDK instalado
-- SQL Server instalado e em execução
-
-**Passos:**
-
-```bash
-# Entrar no diretório da API
+```powershell
 cd HemodinksAPI.Api
-
-# Restaurar dependências
 dotnet restore
-
-# Configurar secrets locais
 dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=.;Database=HemodinksDB;Integrated Security=true;TrustServerCertificate=true;Encrypt=false"
 dotnet user-secrets set "JwtSettings:SecretKey" "troque_por_uma_chave_com_32_caracteres_ou_mais"
-
-# Executar migrações
-dotnet ef database update
-
-# Executar a aplicação
+dotnet user-secrets set "JwtSettings:Issuer" "HemodinksAPI"
+dotnet user-secrets set "JwtSettings:Audience" "HemodinksAPI"
 dotnet run
 ```
 
-A API estará disponível em: `https://localhost:7000` ou `http://localhost:5000`
+## Configuracao
 
-## 📖 Endpoints da API
+Use variaveis de ambiente, `.env` no Docker ou User Secrets localmente.
 
-### Autenticação (Sem autenticação JWT)
+| Chave | Uso |
+| --- | --- |
+| `ConnectionStrings__DefaultConnection` | SQL Server/Azure SQL |
+| `JwtSettings__SecretKey` | chave HS256 com 32 bytes ou mais |
+| `JwtSettings__Issuer` | emissor JWT |
+| `JwtSettings__Audience` | audiencia JWT |
+| `JwtSettings__ExpirationMinutes` | expiracao do token |
+| `Cors__AllowedOrigins__0` | origem adicional do frontend |
+| `AzureStorage__ConnectionString` | Storage Account Azure |
+| `AzureStorage__ContainerName` | container de fotos, padrao `profile-photos` |
+| `AzureStorage__PublicBaseUrl` | URL publica do container de fotos |
+| `AzureStorage__PatientFilesContainerName` | container de anexos, padrao `patient-files` |
+| `AzureStorage__PatientFilesPublicBaseUrl` | URL publica do container de anexos |
+| `AzureStorage__PatientFileMaxBytes` | limite de upload de anexos |
 
-#### POST `/api/users/authenticate`
-Autentica um usuário e retorna um token JWT.
+Segredos nao devem ser gravados em `appsettings.json`.
 
-**Request:**
+## Autenticacao e perfis
+
+O login retorna um JWT usado em `Authorization: Bearer <token>`.
+
+Perfis seedados:
+
+| Id | Perfil |
+| --- | --- |
+| 1 | Administrador |
+| 2 | Medicos |
+| 3 | Pacientes |
+
+Principais regras:
+
+- Administrador gerencia usuarios, pacientes, CBHPM e exclusoes.
+- Medico visualiza/edita seus dados e pacientes vinculados ao proprio nome.
+- Paciente acessa somente o proprio cadastro quando houver vinculo.
+
+## Endpoints principais
+
+| Metodo | Rota | Auth | Descricao |
+| --- | --- | --- | --- |
+| `GET` | `/healthz` | nao | health check |
+| `POST` | `/api/users/authenticate` | nao | login JWT |
+| `POST` | `/api/users/password/reset` | nao | reset por email |
+| `GET` | `/api/users` | admin | lista paginada de usuarios |
+| `POST` | `/api/users` | admin | cria usuario |
+| `GET` | `/api/users/{id}` | sim | busca usuario |
+| `PUT` | `/api/users/{id}` | sim | atualiza usuario |
+| `DELETE` | `/api/users/{id}` | admin | exclui usuario |
+| `PUT` | `/api/users/{id}/password` | sim | altera senha |
+| `PUT` | `/api/users/{id}/password/reset` | admin | reset administrativo |
+| `POST` | `/api/users/{id}/arquivos` | sim | upload de documento medico |
+| `DELETE` | `/api/users/{id}/arquivos/{arquivoId}` | sim | exclui documento medico |
+| `GET` | `/api/pacientes` | sim | lista paginada de pacientes |
+| `GET` | `/api/pacientes/{id}` | sim | detalhe do paciente |
+| `POST` | `/api/pacientes` | sim | cria paciente |
+| `PUT` | `/api/pacientes/{id}` | sim | atualiza paciente |
+| `DELETE` | `/api/pacientes/{id}` | admin | exclui paciente |
+| `POST` | `/api/pacientes/{id}/arquivos` | sim | upload de anexo do paciente |
+| `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | sim | exclui anexo |
+| `GET` | `/api/cbhpm` | sim | consulta CBHPM paginada |
+| `POST` | `/api/cbhpm/import` | admin | importa/substitui itens CBHPM |
+| `GET` | `/api/dashboard/summary` | sim | resumo do dashboard |
+| `GET` | `/api/dashboard/notifications` | sim | notificacoes |
+
+## CBHPM
+
+A tabela `CBHPMGeral` foi criada por migration e recebe seed automatico de 1.677 procedimentos a partir do JSON gerado do PDF `Tabela-CBHPM-Geral.pdf`.
+
+Consulta:
+
+```http
+GET /api/cbhpm?page=1&pageSize=10&codigo=1.01&procedimento=consulta&porte=2B
+Authorization: Bearer <token>
+```
+
+Resposta padrao:
+
 ```json
 {
-  "email": "gmarcone@gmail.com",
-  "senha": "Senha@123"
+  "items": [
+    {
+      "id": 1,
+      "codigo": "1.01.01.01-2",
+      "procedimento": "Em consultorio (no horario normal ou preestabelecido)",
+      "porte": "2B",
+      "custoOperacional": null,
+      "capitulo": null,
+      "grupo": null,
+      "paginaPdf": 23
+    }
+  ],
+  "page": 1,
+  "pageSize": 10,
+  "totalItems": 1677,
+  "totalPages": 168
 }
 ```
 
-**Response:**
-```json
-{
-  "id": 1,
-  "nome": "George Marcone Morais dos Santos",
-  "email": "gmarcone@gmail.com",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
+O backend usa `IMemoryCache` para manter a lista CBHPM em memoria. A primeira consulta carrega os dados do SQL Server; filtros, paginacao e busca passam a ser resolvidos em memoria ate expirar o cache ou ate uma importacao/seed invalidar a chave.
+
+Configuracao atual do cache:
+
+- chave: `cbhpm-geral:v1`
+- expiracao absoluta: 12 horas
+- expiracao deslizante: 2 horas
+- invalidacao: importacao CBHPM e seed
+
+## Banco de dados
+
+Entidades principais:
+
+- `Perfis`
+- `Users`
+- `Pacientes`
+- `PacienteArquivos`
+- `UserArquivos`
+- `CBHPMGeral`
+
+Relacionamentos:
+
+- `Perfil 1:N Users`
+- `User 1:1 Paciente`
+- `Paciente 1:N PacienteArquivos`
+- `User 1:N UserArquivos`
+- `Paciente.CbhpmCodigo` referencia logicamente `CBHPMGeral.Codigo`
+
+## Azure
+
+Recursos usados pelo projeto:
+
+| Recurso Azure | Uso |
+| --- | --- |
+| Azure SQL Database | persistencia relacional via EF Core/SQL Server provider |
+| Azure Blob Storage | fotos de perfil no container `profile-photos` |
+| Azure Blob Storage | anexos de pacientes no container `patient-files` |
+
+Recurso Azure nao usado atualmente:
+
+| Recurso | Status |
+| --- | --- |
+| Azure Queue Storage / Service Bus | nao ha produtor/consumidor no codigo atual; pode ser adicionado para processamento assincrono futuro |
+
+## Documentacao interativa
+
+Swagger e Scalar ficam ativos em qualquer ambiente publicado:
+
+- Swagger: `/swagger`
+- Scalar: `/scalar`
+- OpenAPI consumido pelo Scalar: `/openapi/v1.json`
+
+O Swagger/Scalar mostram o esquema `Bearer` para autenticar chamadas protegidas. Em producao, evite expor tokens reais em maquinas compartilhadas.
+
+## Testes
+
+```powershell
+dotnet test .\HemodinksAPI.Tests\HemodinksAPI.Tests.csproj
 ```
 
-#### POST `/api/users`
-Cria um novo usuário.
+## Documentos relacionados
 
-**Request:**
-```json
-{
-  "nome": "João Silva",
-  "email": "joao@example.com",
-  "telefone": "+5511987654321",
-  "senha": "Senha@123",
-  "dataNascimento": "1990-05-15"
-}
-```
-
-**Response:**
-```json
-{
-  "id": 51,
-  "nome": "João Silva",
-  "email": "joao@example.com",
-  "telefone": "+5511987654321",
-  "dataCadastro": "2026-06-01T10:30:00Z",
-  "dataNascimento": "1990-05-15",
-  "ativo": true
-}
-```
-
-### Usuários (Requer autenticação JWT)
-
-#### GET `/api/users`
-Lista todos os usuários.
-
-**Headers:**
-```
-Authorization: Bearer <token_jwt>
-```
-
-**Response:**
-```json
-[
-  {
-    "id": 1,
-    "nome": "George Marcone Morais dos Santos",
-    "email": "gmarcone@gmail.com",
-    "telefone": "+5581997236704",
-    "dataCadastro": "2026-06-01T10:00:00Z",
-    "dataNascimento": "1982-02-25",
-    "ativo": true
-  },
-  ...
-]
-```
-
-#### GET `/api/users/{id}`
-Busca um usuário por ID.
-
-**Headers:**
-```
-Authorization: Bearer <token_jwt>
-```
-
-**Response:**
-```json
-{
-  "id": 1,
-  "nome": "George Marcone Morais dos Santos",
-  "email": "gmarcone@gmail.com",
-  "telefone": "+5581997236704",
-  "dataCadastro": "2026-06-01T10:00:00Z",
-  "dataNascimento": "1982-02-25",
-  "ativo": true
-}
-```
-
-#### GET `/api/users/email/{email}`
-Busca um usuário por email.
-
-**Headers:**
-```
-Authorization: Bearer <token_jwt>
-```
-
-## 🔐 Segurança
-
-### Hash de Senha
-- Algoritmo: **PBKDF2** (RFC 2898)
-- Hash Function: **SHA256**
-- Iterações: **10000**
-- Salt: **16 bytes**
-
-### JWT Token
-- Algoritmo: **HS256**
-- Expiração: **60 minutos** (configurável)
-- Issuer: `HemodinksAPI`
-- Audience: `HemodinksAPI`
-
-## 📊 Logging
-
-Os logs são armazenados em:
-- **Console:** Output em tempo real
-- **Arquivo:** `logs/hemodinks-api-.txt` (rotação diária)
-
-**Formato do Log:**
-```
-2026-06-01 10:30:45.123 +00:00 [INF] Criando novo usuário: joao@example.com
-```
-
-## 🔧 Configuração
-
-### Variaveis de ambiente e User Secrets
-
-`appsettings.json` nao armazena segredos. Configure os valores por variaveis de ambiente, `.env` no Docker ou User Secrets no desenvolvimento local.
-
-```bash
-ConnectionStrings__DefaultConnection="Server=.;Database=HemodinksDB;Integrated Security=true;TrustServerCertificate=true;Encrypt=false"
-JwtSettings__SecretKey="troque_por_uma_chave_com_32_caracteres_ou_mais"
-JwtSettings__Issuer="HemodinksAPI"
-JwtSettings__Audience="HemodinksAPI"
-JwtSettings__ExpirationMinutes="60"
-AzureStorage__ConnectionString="DefaultEndpointsProtocol=https;AccountName=..."
-AzureStorage__ContainerName="profile-photos"
-AzureStorage__PublicBaseUrl="https://sua-storage-account.blob.core.windows.net/profile-photos"
-AzureStorage__MaxBytes="1048576"
-AzureStorage__PatientFilesContainerName="patient-files"
-AzureStorage__PatientFilesPublicBaseUrl="https://sua-storage-account.blob.core.windows.net/patient-files"
-AzureStorage__PatientFileMaxBytes="10485760"
-```
-
-## 🛠️ Estrutura do Projeto
-
-```
-HemodinksAPI.Api/
-├── Models/                    # Entidades de domínio
-│   └── User.cs
-├── Data/                      # Contexto EF Core
-│   ├── AppDbContext.cs
-│   └── Migrations/
-├── Features/Users/            # CQRS
-│   ├── Commands/
-│   │   ├── UserCommands.cs
-│   │   └── UserCommandHandlers.cs
-│   └── Queries/
-│       ├── UserQueries.cs
-│       └── UserQueryHandlers.cs
-├── Authentication/            # JWT
-│   ├── JwtSettings.cs
-│   └── JwtTokenService.cs
-├── Utils/                     # Utilitários
-│   └── PasswordHasher.cs
-├── Seeders/                   # Seed de dados
-│   └── UserSeeder.cs
-├── Program.cs                 # Configuração principal
-├── appsettings.json           # Configurações
-└── Dockerfile
-
-```
-
-## 📝 Dados Seedados
-
-A aplicação cria automaticamente 50 usuários na primeira execução, incluindo:
-
-**Usuário Especial:**
-- Nome: George Marcone Morais dos Santos
-- Email: gmarcone@gmail.com
-- Telefone: +5581997236704
-- Nascimento: 25/02/1982
-- Senha: Senha@123
-
-Todos os usuários têm a mesma senha padrão: `Senha@123`
-
-## 🐳 Docker
-
-### Build da Imagem
-```bash
-docker build -t hemodinks-api:latest .
-```
-
-### Executar Container
-```bash
-docker run -p 5000:5000 \
-  -e ConnectionStrings__DefaultConnection="Server=seu_servidor;Database=HemodinksDB;..." \
-  hemodinks-api:latest
-```
-
-## 📚 Tecnologias
-
-- **.NET 10**: Framework base
-- **ASP.NET Core**: Web Framework
-- **Entity Framework Core 10**: ORM
-- **MediatR**: Implementação de CQRS
-- **Serilog**: Logging estruturado
-- **JWT Bearer**: Autenticação
-- **Swashbuckle**: Swagger/OpenAPI
-- **SQL Server**: Banco de dados
-- **Docker**: Containerização
-
-## 🤝 Contribuição
-
-Para contribuir, faça um fork do projeto e envie um pull request.
-
-## 📄 Licença
-
-Este projeto está sob a licença MIT.
-
-## ✉️ Suporte
-
-Para suporte, entre em contato com: gmarcone@gmail.com
-
----
-
-**Desenvolvido em .NET 10 com ❤️**
+- [Primeira execucao](./PRIMEIRA_EXECUCAO.md)
+- [Implementacao](./IMPLEMENTACAO.md)
+- [Troubleshooting](./TROUBLESHOOTING.md)
+- [Deploy](./docs/deployment.md)
+- [Exemplos HTTP](./API.http)
+- [Documentacao tecnica PDF](./docs/Hemodinks-Documentacao-Tecnica.pdf)

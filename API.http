@@ -1,11 +1,17 @@
 @baseUrl = http://localhost:5000
 @contentType = application/json
+@token = cole_o_token_aqui
 
-### ========================================
-### AUTENTICAÇÃO
-### ========================================
+### Health check
+GET {{baseUrl}}/healthz
 
-### Autenticar como George Marcone
+### Swagger JSON
+GET {{baseUrl}}/swagger/v1/swagger.json
+
+### OpenAPI JSON usado pelo Scalar
+GET {{baseUrl}}/openapi/v1.json
+
+### Login
 POST {{baseUrl}}/api/users/authenticate
 Content-Type: {{contentType}}
 
@@ -14,24 +20,97 @@ Content-Type: {{contentType}}
   "senha": "Senha@123"
 }
 
-### Armazenar token (usar a resposta acima)
-@token = seu_token_aqui
+### Reset de senha por email
+POST {{baseUrl}}/api/users/password/reset
+Content-Type: {{contentType}}
 
----
+{
+  "email": "gmarcone@gmail.com"
+}
 
-### ========================================
-### CBHPM
-### ========================================
-
-### Listar procedimentos CBHPM para popup
-GET {{baseUrl}}/api/cbhpm?page=1&pageSize=10&procedimento=consulta&codigo=1.01&porte=2B
+### Listar usuarios
+GET {{baseUrl}}/api/users?page=1&pageSize=10&search=&profileId=2
 Authorization: Bearer {{token}}
 
-### Buscar CBHPM por texto livre
-GET {{baseUrl}}/api/cbhpm?search=marca-passo&page=1&pageSize=10
+### Criar usuario medico
+POST {{baseUrl}}/api/users/
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+{
+  "nome": "Medico Exemplo",
+  "email": "medico.exemplo@hemodinks.com",
+  "telefone": "+5581999999999",
+  "cpf": "12345678901",
+  "dataNascimento": "1990-01-15T00:00:00Z",
+  "perfilId": 2,
+  "ativo": true
+}
+
+### Buscar usuario
+GET {{baseUrl}}/api/users/1
 Authorization: Bearer {{token}}
 
-### Importar procedimentos CBHPM (admin)
+### Alterar senha do usuario autenticado
+PUT {{baseUrl}}/api/users/1/password
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+{
+  "senhaAtual": "Senha@123",
+  "novaSenha": "SenhaAlterada@123"
+}
+
+### Dashboard resumo
+GET {{baseUrl}}/api/dashboard/summary
+Authorization: Bearer {{token}}
+
+### Dashboard notificacoes
+GET {{baseUrl}}/api/dashboard/notifications
+Authorization: Bearer {{token}}
+
+### Listar pacientes
+GET {{baseUrl}}/api/pacientes?page=1&pageSize=10&search=
+Authorization: Bearer {{token}}
+
+### Criar paciente com procedimento CBHPM selecionado
+POST {{baseUrl}}/api/pacientes/
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+{
+  "data": "2026-06-04T00:00:00Z",
+  "nomePaciente": "Paciente Exemplo",
+  "cpf": "98765432100",
+  "email": "paciente.exemplo@hemodinks.com",
+  "telefone": "+5581988888888",
+  "dataNascimento": "1985-02-10T00:00:00Z",
+  "hospital": "Unimed Recife",
+  "medico": "George Marcone Morais dos Santos",
+  "convenio": "Convenio",
+  "cbhpmCodigo": "1.01.01.01-2",
+  "cbhpmPorte": "2B",
+  "procedimento": "Em consultorio (no horario normal ou preestabelecido)",
+  "autorizacao": "Autorizado",
+  "pagamento": "Convenio",
+  "repasseGlosa": "N/A",
+  "statusPago": false,
+  "ativo": true
+}
+
+### Buscar paciente
+GET {{baseUrl}}/api/pacientes/1
+Authorization: Bearer {{token}}
+
+### Consulta CBHPM sem filtro
+GET {{baseUrl}}/api/cbhpm?page=1&pageSize=10
+Authorization: Bearer {{token}}
+
+### Consulta CBHPM para popup
+GET {{baseUrl}}/api/cbhpm?page=1&pageSize=10&codigo=1.01&procedimento=consulta&porte=2B
+Authorization: Bearer {{token}}
+
+### Importar/substituir item CBHPM (admin)
 POST {{baseUrl}}/api/cbhpm/import
 Authorization: Bearer {{token}}
 Content-Type: {{contentType}}
@@ -43,65 +122,9 @@ Content-Type: {{contentType}}
       "procedimento": "Em consultorio (no horario normal ou preestabelecido)",
       "porte": "2B",
       "custoOperacional": null,
+      "capitulo": null,
+      "grupo": null,
       "paginaPdf": 23
     }
   ]
 }
-
----
-
-### ========================================
-### USUÁRIOS
-### ========================================
-
-### Criar novo usuário
-POST {{baseUrl}}/api/users
-Content-Type: {{contentType}}
-
-{
-  "nome": "João da Silva",
-  "email": "joao@example.com",
-  "telefone": "+5511987654321",
-  "senha": "Senha@123",
-  "dataNascimento": "1990-05-15T00:00:00Z"
-}
-
-### Listar todos os usuários
-GET {{baseUrl}}/api/users
-Authorization: Bearer {{token}}
-
-### Buscar usuário por ID
-GET {{baseUrl}}/api/users/1
-Authorization: Bearer {{token}}
-
-### Buscar usuário por Email
-GET {{baseUrl}}/api/users/email/gmarcone@gmail.com
-Authorization: Bearer {{token}}
-
----
-
-### ========================================
-### EXEMPLOS DE RESPOSTA
-### ========================================
-
-# POST /api/users/authenticate (Sucesso)
-# {
-#   "id": 1,
-#   "nome": "George Marcone Morais dos Santos",
-#   "email": "gmarcone@gmail.com",
-#   "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxIiwi..."
-# }
-
-# GET /api/users (Sucesso)
-# [
-#   {
-#     "id": 1,
-#     "nome": "George Marcone Morais dos Santos",
-#     "email": "gmarcone@gmail.com",
-#     "telefone": "+5581997236704",
-#     "dataCadastro": "2026-06-01T10:00:00Z",
-#     "dataNascimento": "1982-02-25T00:00:00Z",
-#     "ativo": true
-#   },
-#   ...
-# ]

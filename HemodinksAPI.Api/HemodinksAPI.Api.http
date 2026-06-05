@@ -1,6 +1,28 @@
-@HemodinksAPI.Api_HostAddress = http://localhost:5248
+@baseUrl = http://localhost:5000
+@token = cole_o_token_aqui
 
-GET {{HemodinksAPI.Api_HostAddress}}/weatherforecast/
-Accept: application/json
+### Health check
+GET {{baseUrl}}/healthz
 
-###
+### Swagger
+GET {{baseUrl}}/swagger/v1/swagger.json
+
+### Scalar/OpenAPI
+GET {{baseUrl}}/openapi/v1.json
+
+### Login
+POST {{baseUrl}}/api/users/authenticate
+Content-Type: application/json
+
+{
+  "email": "gmarcone@gmail.com",
+  "senha": "Senha@123"
+}
+
+### CBHPM
+GET {{baseUrl}}/api/cbhpm?page=1&pageSize=10&procedimento=consulta
+Authorization: Bearer {{token}}
+
+### Pacientes
+GET {{baseUrl}}/api/pacientes?page=1&pageSize=10
+Authorization: Bearer {{token}}

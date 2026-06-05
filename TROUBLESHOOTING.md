@@ -1,345 +1,206 @@
-# 🔧 Guia de Troubleshooting - HemodinksAPI
+# Troubleshooting - Hemodinks API
 
-## Problemas Comuns e Soluções
+## API nao responde
 
----
+Verifique:
 
-## ❌ Erro: "API não está respondendo"
+```powershell
+curl http://localhost:5000/healthz
+docker-compose ps
+docker logs hemodinks-api
+```
 
-### Causa
-A API não está em execução ou não está acessível no endereço configurado.
+Localmente:
 
-### Solução
-```bash
-# Verificar se a API está rodando (desenvolvimento local)
+```powershell
 cd HemodinksAPI.Api
 dotnet run
-
-# Com Docker Compose
-docker-compose up -d
-
-# Verificar se está rodando
-docker ps | findstr hemodinks
 ```
 
----
+Se a porta 5000 estiver ocupada:
 
-## ❌ Erro: "Falha ao conectar ao banco de dados"
-
-### Mensagem Típica
-```
-An error occurred using the connection to database 'HemodinksDB'
-Connection timeout expired
-```
-
-### Causas Possíveis
-1. SQL Server não está em execução
-2. String de conexão incorreta
-3. Credenciais inválidas
-
-### Soluções
-
-#### Se usando SQL Server local
-```bash
-# Verificar status do SQL Server
-net start MSSQL$SQLEXPRESS
-
-# Ou via Services (Windows)
-# Win + R → services.msc → procurar "SQL Server"
-```
-
-#### Se usando Docker
-```bash
-# Verificar se o container SQL Server está rodando
-docker ps | findstr mssql
-
-# Logs do SQL Server
-docker logs hemodinks-mssql
-
-# Se não estiver rodando:
-docker-compose up -d sqlserver
-```
-
-#### Verificar string de conexão
-Arquivo: `HemodinksAPI.Api/appsettings.json`
-```json
-"ConnectionStrings": {
-  "DefaultConnection": "Server=.;Database=HemodinksDB;Integrated Security=true;TrustServerCertificate=true;Encrypt=false"
-}
-```
-
----
-
-## ❌ Erro: "Não consegue aplicar migrations"
-
-### Mensagem Típica
-```
-Pending migrations detected
-Unable to connect to the database
-```
-
-### Solução
-
-```bash
-cd HemodinksAPI.Api
-
-# Ver migrations
-dotnet ef migrations list
-
-# Remover última migration (se necessário)
-dotnet ef migrations remove
-
-# Criar nova migration
-dotnet ef migrations add InitialCreate --output-dir "Data/Migrations"
-
-# Aplicar migrations
-dotnet ef database update
-
-# Resetar banco completamente
-dotnet ef database drop
-dotnet ef database update
-```
-
----
-
-## ❌ Erro: "Porta já está em uso"
-
-### Mensagem Típica
-```
-System.IO.IOException: Failed to bind to address http://[::]:5000
-An attempt was made to access a socket in a way forbidden by its access permissions
-```
-
-### Solução
-
-#### Para desenvolvimento local
-```bash
-# Matar processo usando a porta 5000
-Get-Process | Where-Object { $_.ProcessName -eq "dotnet" } | Stop-Process -Force
-
-# Ou especificar outra porta
+```powershell
+Get-NetTCPConnection -LocalPort 5000 -ErrorAction SilentlyContinue
 dotnet run --urls "http://localhost:5001"
 ```
 
-#### Para Docker
-```bash
-# Remover container e tentar novamente
-docker-compose down
-docker-compose up -d
+## Swagger ou Scalar nao abre
 
-# Ou mapear para outra porta
-# Editar docker-compose.yml:
-# ports:
-#   - "5001:5000"
+URLs esperadas:
+
+- `http://localhost:5000/swagger`
+- `http://localhost:5000/scalar`
+- `http://localhost:5000/openapi/v1.json`
+
+Se `/openapi/v1.json` falhar, rode:
+
+```powershell
+dotnet build .\HemodinksAPI.Api\HemodinksAPI.Api.csproj
 ```
 
----
+## Banco nao conecta
 
-## ❌ Erro: "Falha de autenticação JWT"
+Confira a connection string:
 
-### Mensagem Típica
-```
-401 Unauthorized
-JWT validation failed
+```powershell
+$env:ConnectionStrings__DefaultConnection
 ```
 
-### Causas
-1. Token expirado
-2. Chave secreta incorreta
-3. Token formatado incorretamente
-4. Header Authorization incorreto
+Docker:
 
-### Solução
-
-```bash
-# Obter novo token
-curl -X POST http://localhost:5000/api/users/authenticate \
-  -H "Content-Type: application/json" \
-  -d '{"email":"gmarcone@gmail.com","senha":"Senha@123"}'
-
-# Usar token correto no header
-# Authorization: Bearer <seu_token_aqui>
-
-# Verificar formato do token (deve ter 3 partes separadas por pontos)
-# exemplo: header.payload.signature
+```powershell
+docker logs hemodinks-mssql
+docker-compose restart sqlserver api
 ```
 
----
+Azure SQL:
 
-## ❌ Erro: "Email já cadastrado"
+- firewall libera o host da API?
+- usuario/senha estao corretos?
+- banco existe?
+- a connection string esta no Render em `ConnectionStrings__DefaultConnection`?
 
-### Mensagem Típica
-```
-{
-  "message": "Erro ao criar usuário",
-  "error": "An error occurred in the database operation"
-}
-```
+## Migrations falham
 
-### Causa
-Email já existe na base de dados (constraint UNIQUE).
+Listar migrations:
 
-### Solução
-```bash
-# Usar um email único
-curl -X POST http://localhost:5000/api/users \
-  -H "Content-Type: application/json" \
-  -d '{
-    "nome": "Novo Usuario",
-    "email": "novo_email_unico@example.com",
-    "telefone": "+5511987654321",
-    "senha": "Senha@123",
-    "dataNascimento": "1990-01-15T00:00:00Z"
-  }'
-```
-
----
-
-## ❌ Erro: "Logs não aparecem"
-
-### Solução
-
-```bash
-# Verificar se a pasta logs existe
-ls -Force logs/
-
-# Ou criar manualmente
-New-Item -ItemType Directory -Path "logs" -Force
-
-# Verificar permissões
-# A pasta deve ser gravável pelo usuário que executa a API
-
-# Arquivo de log
-cat logs/hemodinks-api-*.txt
-
-# Com tail em tempo real
-Get-Content logs/hemodinks-api-*.txt -Wait
-```
-
----
-
-## ❌ Erro: Docker Build falha
-
-### Solução
-
-```bash
-# Limpar cache Docker
-docker system prune -a --volumes
-
-# Rebuild sem cache
-docker-compose build --no-cache
-
-# Tentar novamente
-docker-compose up -d
-```
-
----
-
-## ❌ Performance lenta
-
-### Causas
-1. Sem índices no banco
-2. N+1 queries
-3. Falta de cache
-4. SQL Server com pouca memória
-
-### Verificação
-
-```bash
-# Usar SQL Server Management Studio para analisar
-# Ou verificar planos de execução
-
-# Logs de query lenta (se configurado)
-cat logs/hemodinks-api-*.txt | Select-String "slow query"
-```
-
----
-
-## ✅ Troubleshooting Rápido
-
-### Checklist
-
-- [ ] API está rodando? (`dotnet run` ou `docker-compose up`)
-- [ ] SQL Server está ativo? (Services Windows ou Docker)
-- [ ] String de conexão está correta? (`appsettings.json`)
-- [ ] Migrations foram aplicadas? (`dotnet ef database update`)
-- [ ] Porta 5000 está disponível? (ou configurar outra)
-- [ ] Token JWT válido? (não expirado)
-- [ ] Arquivo de logs acessível? (`logs/` pasta)
-
----
-
-## 📞 Debug Mode
-
-### Ativar logging detalhado
-
-Editar `appsettings.Development.json`:
-```json
-{
-  "Logging": {
-    "LogLevel": {
-      "Default": "Debug",
-      "Microsoft": "Debug"
-    }
-  },
-  "Serilog": {
-    "MinimumLevel": "Debug"
-  }
-}
-```
-
-### Executar com debug
-```bash
+```powershell
 cd HemodinksAPI.Api
-dotnet run --environment Development
+dotnet ef migrations list
 ```
 
----
+Aplicar manualmente:
 
-## 🔍 Verificações Adicionais
-
-### Verificar saúde da API
-```bash
-# Testar endpoint básico
-curl -v http://localhost:5000/api/users/authenticate
+```powershell
+dotnet ef database update
 ```
 
-### Verificar banco de dados
-```bash
-# Com SQL Server Management Studio
-# Server: localhost\SQLEXPRESS (ou .)
-# Database: HemodinksDB
-# User: sa (se local)
+Em desenvolvimento, para reset completo:
+
+```powershell
+dotnet ef database drop -f
+dotnet ef database update
 ```
 
-### Ver variáveis de ambiente
-```bash
-# Docker
-docker exec hemodinks-api printenv | grep -i jwt
+## Login retorna 401
 
-# Local
-$env:JwtSettings__SecretKey
+Possiveis causas:
+
+- senha incorreta
+- token expirado
+- `JwtSettings__SecretKey`, `Issuer` ou `Audience` diferentes entre ambientes
+- usuario inativo
+
+Teste:
+
+```powershell
+curl -X POST http://localhost:5000/api/users/authenticate `
+  -H "Content-Type: application/json" `
+  -d '{"email":"gmarcone@gmail.com","senha":"Senha@123"}'
 ```
 
----
+## CBHPM retorna vazio
 
-## 📚 Recursos Úteis
+Verifique:
 
-- [Documentação Entity Framework Core](https://learn.microsoft.com/ef/)
-- [Documentação ASP.NET Core](https://learn.microsoft.com/aspnet/core/)
-- [JWT.io - Decodificar tokens](https://jwt.io/)
-- [Postman - Testar APIs](https://www.postman.com/)
-- [Docker Documentation](https://docs.docker.com/)
+```sql
+SELECT COUNT(*) FROM CBHPMGeral;
+SELECT TOP 10 Codigo, Procedimento, Porte FROM CBHPMGeral ORDER BY Codigo;
+```
 
----
+Com API rodando, teste sem filtros:
 
-## 🆘 Ainda com problemas?
+```powershell
+curl "http://localhost:5000/api/cbhpm?page=1&pageSize=10" `
+  -H "Authorization: Bearer <token>"
+```
 
-1. Verificar logs: `logs/hemodinks-api-*.txt`
-2. Consultar arquivo `README.md` e `IMPLEMENTACAO.md`
-3. Executar script de teste: `.\test-api.ps1`
-4. Contactar desenvolvedor: gmarcone@gmail.com
+Se a tabela estiver vazia:
 
----
+- confirme se `HemodinksAPI.Api/Data/SeedData/cbhpm-geral.json` foi copiado no publish
+- reinicie a API para rodar o seed
+- ou use `POST /api/cbhpm/import` com usuario administrador
 
-**Última atualização:** Junho 2026
+Se os filtros nao retornarem:
+
+- teste sem `codigo`, `procedimento` e `porte`
+- use codigo parcial, por exemplo `1.01`
+- use procedimento sem acentos quando estiver em duvida
+
+## Upload para Azure Blob falha
+
+Verifique variaveis:
+
+```text
+AzureStorage__ConnectionString
+AzureStorage__ContainerName
+AzureStorage__PublicBaseUrl
+AzureStorage__PatientFilesContainerName
+AzureStorage__PatientFilesPublicBaseUrl
+```
+
+Containers esperados:
+
+- `profile-photos`
+- `patient-files`
+
+Se a Storage Account nao permitir criacao de container pela API, crie os containers manualmente no portal Azure.
+
+## CORS no frontend
+
+Origem padrao permitida:
+
+```text
+https://hemodinks-saude.vercel.app
+```
+
+Para outras origens:
+
+```text
+Cors__AllowedOrigins__0=https://sua-origem
+Cors__AllowedOrigins__1=http://localhost:5173
+```
+
+No frontend:
+
+```text
+VITE_API_URL=https://<api-publica>
+```
+
+## Cache CBHPM parece desatualizado
+
+O cache e em memoria por instancia da API. Ele expira sozinho, mas pode ficar com dados antigos ate:
+
+- expirar a janela de cache
+- reiniciar a API
+- rodar uma importacao CBHPM, que invalida a chave
+
+## Logs
+
+Docker:
+
+```powershell
+docker logs -f hemodinks-api
+```
+
+Local:
+
+```powershell
+Get-Content .\HemodinksAPI.Api\logs\hemodinks-api-*.txt -Wait
+```
+
+## Testes
+
+Backend:
+
+```powershell
+dotnet test .\HemodinksAPI.Tests\HemodinksAPI.Tests.csproj
+```
+
+Frontend:
+
+```powershell
+cd ..\hemodinks-front
+npm test
+npm run build
+```

@@ -1,368 +1,114 @@
-# 🚀 Guia de Primeira Execução - HemodinksAPI
+# Primeira execucao - Hemodinks API
 
-## ⏱️ Tempo estimado: 10-15 minutos
+## Pre-requisitos
 
----
+Opcao Docker:
 
-## 📋 Pré-requisitos
+- Docker Desktop
+- PowerShell
 
-### Opção 1: Executar com Docker (Recomendado)
-- ✅ Docker instalado ([Download](https://www.docker.com/products/docker-desktop))
-- ✅ Docker Compose instalado (incluído com Docker Desktop)
-- ✅ ~2GB de espaço em disco
+Opcao local:
 
-### Opção 2: Desenvolvimento Local
-- ✅ .NET 10 SDK instalado ([Download](https://dotnet.microsoft.com/download/dotnet/10.0))
-- ✅ SQL Server instalado (Local, Express ou Azure)
-- ✅ PowerShell 5.0+ ou Terminal
+- .NET 10 SDK
+- SQL Server local, SQL Server Express ou Azure SQL
+- EF Core CLI, se for usar comandos `dotnet ef`
 
----
+## Subir com Docker
 
-## 🐳 Passo 1: Executar com Docker (Recomendado)
-
-### 1.1 Abrir PowerShell ou Terminal
-
-```bash
+```powershell
 cd "c:\George Marcone\GitHub\personal\HEMODINKS\hemodinks-api"
+Copy-Item .env.example .env
 ```
 
-### 1.2 Iniciar os containers
+Edite `.env`:
 
-```bash
+```text
+MSSQL_SA_PASSWORD=uma_senha_forte
+JWT_SECRET_KEY=uma_chave_com_32_caracteres_ou_mais
+```
+
+Suba os containers:
+
+```powershell
 docker-compose up -d
-```
-
-**Aguarde 30-60 segundos** até que o SQL Server inicie completamente.
-
-### 1.3 Verificar status
-
-```bash
 docker-compose ps
 ```
 
-Deve mostrar:
-```
-NAME                 STATUS              PORTS
-hemodinks-api        Up (healthy)        0.0.0.0:5000->5000/tcp
-hemodinks-mssql      Up (healthy)        0.0.0.0:1433->1433/tcp
-```
+A API ficara em:
 
-### 1.4 Acessar a API
+- `http://localhost:5000`
+- Swagger: `http://localhost:5000/swagger`
+- Scalar: `http://localhost:5000/scalar`
+- OpenAPI: `http://localhost:5000/openapi/v1.json`
 
-```
-http://localhost:5000/swagger
-```
+## Rodar localmente
 
-✅ **Pronto! A API está rodando!**
-
----
-
-## 💻 Passo 2: Executar Desenvolvimento Local (Alternativo)
-
-### 2.1 Abrir PowerShell e entrar no diretório
-
-```bash
-cd "c:\George Marcone\GitHub\personal\HEMODINKS\hemodinks-api\HemodinksAPI.Api"
-```
-
-### 2.2 Restaurar dependências
-
-```bash
+```powershell
+cd HemodinksAPI.Api
 dotnet restore
-```
-
-### 2.3 Aplicar migrations
-
-```bash
-dotnet ef database update
-```
-
-### 2.4 Executar a aplicação
-
-```bash
+dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=.;Database=HemodinksDB;Integrated Security=true;TrustServerCertificate=true;Encrypt=false"
+dotnet user-secrets set "JwtSettings:SecretKey" "troque_por_uma_chave_com_32_caracteres_ou_mais"
+dotnet user-secrets set "JwtSettings:Issuer" "HemodinksAPI"
+dotnet user-secrets set "JwtSettings:Audience" "HemodinksAPI"
+dotnet user-secrets set "JwtSettings:ExpirationMinutes" "60"
 dotnet run
 ```
 
-Deve aparecer:
-```
-info: Microsoft.EntityFrameworkCore.Infrastructure
-      Entity Framework Core 10.0.0 initialized 'AppDbContext'
-info: HemodinksAPI.Api.Seeders.UserSeeder
-      Iniciando seed de dados
-info: HemodinksAPI.Api.Seeders.UserSeeder
-      Seed de 50 usuários concluído com sucesso
-```
+As migrations sao aplicadas no startup. O seed inicial cria perfis, usuarios iniciais e a tabela CBHPM quando estiver vazia.
 
-✅ **API está rodando em:** `https://localhost:7000` ou `http://localhost:5000`
+## Testar login
 
----
-
-## 🧪 Passo 3: Testar a API
-
-### Opção A: Script PowerShell (Recomendado)
-
-```bash
-.\test-api.ps1
-```
-
-Ele testará automaticamente todos os endpoints principais.
-
-### Opção B: Curl (Manual)
-
-#### 1. Autenticar
-
-```bash
+```powershell
 curl -X POST http://localhost:5000/api/users/authenticate `
   -H "Content-Type: application/json" `
-  -d '{
-    "email": "gmarcone@gmail.com",
-    "senha": "Senha@123"
-  }'
+  -d '{"email":"gmarcone@gmail.com","senha":"Senha@123"}'
 ```
 
-**Resposta esperada:**
-```json
-{
-  "id": 1,
-  "nome": "George Marcone Morais dos Santos",
-  "email": "gmarcone@gmail.com",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-}
+Copie o token retornado e use:
+
+```text
+Authorization: Bearer <token>
 ```
 
-**Copie o `token` para os próximos passos.**
+## Testar CBHPM
 
-#### 2. Listar usuários
-
-```bash
-curl -X GET http://localhost:5000/api/users `
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+```powershell
+curl "http://localhost:5000/api/cbhpm?page=1&pageSize=10&procedimento=consulta" `
+  -H "Authorization: Bearer <token>"
 ```
 
-**Deve retornar 50 usuários.**
+Se a tabela estiver populada, a resposta deve retornar itens e total proximo de `1677`.
 
-#### 3. Buscar George Marcone
+## Testar frontend local
 
-```bash
-curl -X GET http://localhost:5000/api/users/1 `
-  -H "Authorization: Bearer YOUR_TOKEN_HERE"
+No repositorio do frontend:
+
+```powershell
+cd "c:\George Marcone\GitHub\personal\HEMODINKS\hemodinks-front"
+Copy-Item .env.example .env.local
+npm ci
+npm run dev
 ```
 
-**Resposta esperada:**
-```json
-{
-  "id": 1,
-  "nome": "George Marcone Morais dos Santos",
-  "email": "gmarcone@gmail.com",
-  "telefone": "+5581997236704",
-  "dataCadastro": "2026-06-01T10:00:00Z",
-  "dataNascimento": "1982-02-25T00:00:00Z",
-  "ativo": true
-}
+URL padrao:
+
+```text
+http://localhost:5173
 ```
 
-### Opção C: Postman/Insomnia
+## Checklist
 
-Importar arquivo `API.http` na raiz do projeto ou usar as requisições manualmente:
+- [ ] API respondeu em `/healthz`
+- [ ] Swagger abriu em `/swagger`
+- [ ] Scalar abriu em `/scalar`
+- [ ] Login retornou JWT
+- [ ] `GET /api/cbhpm` retornou procedimentos
+- [ ] Frontend aponta para `VITE_API_URL=http://localhost:5000`
 
-1. **POST** `http://localhost:5000/api/users/authenticate`
-   - Body JSON com email e senha
-   
-2. **GET** `http://localhost:5000/api/users`
-   - Header: `Authorization: Bearer <token>`
+## Documentos
 
----
-
-## 📊 Passo 4: Verificar o Banco de Dados
-
-### Com SQL Server Management Studio
-
-1. Conectar ao servidor:
-   - **Server name:** `localhost` ou `.`
-   - **Authentication:** Windows ou SQL Authentication
-   - **Login:** sa (se Docker) / seu usuário (se local)
-   - **Password:** valor definido em `MSSQL_SA_PASSWORD` no arquivo `.env` (se Docker)
-
-2. Expandir Databases → HemodinksDB → Tables → Users
-
-3. Clique direito em `dbo.Users` → View Top 1000 Rows
-
-Deve mostrar **50 registros**, com George Marcone no topo.
-
-### Com SQL Query
-
-```sql
-USE HemodinksDB
-SELECT TOP 5 * FROM Users ORDER BY DataCadastro DESC
-```
-
----
-
-## 📝 Passo 5: Ver Logs
-
-### Se usando Docker
-
-```bash
-docker logs -f hemodinks-api
-```
-
-### Se rodando localmente
-
-```bash
-Get-Content logs/hemodinks-api-*.txt -Wait
-```
-
----
-
-## ✅ Checklist de Verificação
-
-- [ ] Docker ou .NET 10 instalado
-- [ ] Arquivo `docker-compose.yml` existe
-- [ ] Containers rodando (`docker ps`)
-- [ ] API respondendo (`http://localhost:5000`)
-- [ ] Autenticação funcionando
-- [ ] 50 usuários no banco
-- [ ] George Marcone encontrado (ID=1)
-- [ ] Logs aparecem
-
----
-
-## 🎯 Próximos Passos
-
-### 1. Explorar a API
-```bash
-# Ver documentação interativa
-http://localhost:5000/swagger
-```
-
-### 2. Criar novo usuário
-
-```bash
-curl -X POST http://localhost:5000/api/users `
-  -H "Content-Type: application/json" `
-  -d '{
-    "nome": "Seu Nome",
-    "email": "seu.email@example.com",
-    "telefone": "+5511987654321",
-    "senha": "Senha@123",
-    "dataNascimento": "1990-01-15T00:00:00Z"
-  }'
-```
-
-### 3. Revisar o código
-
-Estrutura recomendada de revisão:
-1. `Program.cs` - Configuração principal
-2. `Models/User.cs` - Entidade
-3. `Data/AppDbContext.cs` - EF Core
-4. `Features/Users/Commands/` - CQRS Commands
-5. `Features/Users/Queries/` - CQRS Queries
-6. `Authentication/` - JWT
-
-### 4. Modificar configurações
-
-Configurar por User Secrets ou variaveis de ambiente:
-```bash
-dotnet user-secrets set "JwtSettings:ExpirationMinutes" "120"
-dotnet user-secrets set "JwtSettings:SecretKey" "definir_via_user_secrets_ou_variavel_de_ambiente"
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "seu_connection_string"
-```
-
----
-
-## 🆘 Problemas na Primeira Execução?
-
-### Docker não funciona
-```bash
-# Verificar Docker
-docker --version
-docker run hello-world
-
-# Se erro, reinstalar Docker Desktop
-```
-
-### Porta 5000 em uso
-```bash
-# Encontrar processo
-Get-Process | Where-Object { $_.ProcessName -eq "dotnet" } | Stop-Process -Force
-
-# Ou mudar porta em docker-compose.yml
-```
-
-### SQL Server não inicia
-```bash
-# Logs do SQL Server
-docker logs hemodinks-mssql
-
-# Aguardar 60 segundos e tentar novamente
-Start-Sleep -Seconds 60
-docker-compose ps
-```
-
-### Migrations não aplicam
-```bash
-# Resetar banco
-dotnet ef database drop -f
-dotnet ef database update
-```
-
-Consulte [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) para mais soluções.
-
----
-
-## 📚 Documentação
-
-| Arquivo | Conteúdo |
-|---------|----------|
-| [README.md](./README.md) | Documentação geral da API |
-| [IMPLEMENTACAO.md](./IMPLEMENTACAO.md) | Detalhes de implementação |
-| [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) | Soluções de problemas |
-| [API.http](./API.http) | Exemplos de requisições |
-
----
-
-## 🎓 Informações Importantes
-
-### Dados do George Marcone (ID=1)
-- **Nome:** George Marcone Morais dos Santos
-- **Email:** gmarcone@gmail.com
-- **Telefone:** +5581997236704
-- **Nascimento:** 25/02/1982
-- **Senha padrão:** Senha@123
-
-### Todos os 50 usuários
-- Senha padrão: `Senha@123`
-- Status: Ativo
-- Email: Único (pode-se usar para teste de duplicação)
-
-### Configuração JWT
-- **Expiração:** 60 minutos
-- **Algoritmo:** HS256 (HMAC SHA256)
-- **Issuer:** HemodinksAPI
-- **Audience:** HemodinksAPI
-
----
-
-## 🎉 Parabéns!
-
-Sua API HemodinksAPI está **100% funcional** e pronta para uso!
-
-### O que foi entregue:
-
-✅ API REST completa com CQRS  
-✅ Autenticação JWT implementada  
-✅ 50 usuários seedados (incluindo George Marcone)  
-✅ Logging estruturado com Serilog  
-✅ Docker e Docker Compose configurados  
-✅ Documentação completa  
-✅ Scripts de teste  
-
-### Contato
-
-**Desenvolvedor:** George Marcone Morais dos Santos  
-**Email:** gmarcone@gmail.com  
-**Data:** Junho 2026
-
----
-
-**Boa exploração! 🚀**
+- [README](./README.md)
+- [Implementacao](./IMPLEMENTACAO.md)
+- [Troubleshooting](./TROUBLESHOOTING.md)
+- [Deploy](./docs/deployment.md)
+- [Exemplos HTTP](./API.http)
