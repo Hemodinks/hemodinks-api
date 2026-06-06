@@ -84,7 +84,7 @@ public class GetDashboardSummaryQueryHandler :
             {
                 paciente.Id,
                 paciente.NomePaciente,
-                paciente.Medico,
+                Medico = paciente.MedicoUser != null ? paciente.MedicoUser.Nome : paciente.Medico,
                 paciente.Procedimento,
                 Data = paciente.Data ?? paciente.User.DataCadastro
             })

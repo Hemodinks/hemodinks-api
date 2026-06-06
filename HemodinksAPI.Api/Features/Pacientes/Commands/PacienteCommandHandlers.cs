@@ -44,9 +44,14 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             var cpf = await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, null, cancellationToken);
             await PacienteRules.ValidateEmailAsync(_context, request.Email, null, cancellationToken);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, null, cancellationToken);
-            var medico = request.CurrentPerfilId == Perfil.MedicosId
-                ? request.CurrentUserName
-                : PacienteRules.TrimOptional(request.Medico);
+            var medico = await PacienteRules.ResolveMedicoAsync(
+                _context,
+                request.CurrentPerfilId,
+                request.CurrentUserId,
+                request.CurrentUserName,
+                request.MedicoUserId,
+                request.Medico,
+                cancellationToken);
             var hospital = await PacienteRules.ResolveHospitalAsync(
                 _context,
                 request.HospitalId,
@@ -85,7 +90,8 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 NomePaciente = user.Nome,
                 HospitalId = hospital.Id,
                 Hospital = hospital.Nome,
-                Medico = medico,
+                MedicoUserId = medico.UserId,
+                Medico = medico.Nome,
                 Convenio = PacienteRules.TrimOptional(request.Convenio),
                 CbhpmCodigo = procedimento.Codigo,
                 CbhpmPorte = procedimento.Porte,
@@ -152,9 +158,14 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             var cpf = await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, paciente.UserId, cancellationToken);
             await PacienteRules.ValidateEmailAsync(_context, request.Email, paciente.UserId, cancellationToken);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, paciente.User.FotoPerfil, cancellationToken);
-            var medico = request.CurrentPerfilId == Perfil.MedicosId
-                ? request.CurrentUserName
-                : PacienteRules.TrimOptional(request.Medico);
+            var medico = await PacienteRules.ResolveMedicoAsync(
+                _context,
+                request.CurrentPerfilId,
+                request.CurrentUserId,
+                request.CurrentUserName,
+                request.MedicoUserId,
+                request.Medico,
+                cancellationToken);
             var hospital = await PacienteRules.ResolveHospitalAsync(
                 _context,
                 request.HospitalId,
@@ -181,7 +192,8 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             paciente.NomePaciente = paciente.User.Nome;
             paciente.HospitalId = hospital.Id;
             paciente.Hospital = hospital.Nome;
-            paciente.Medico = medico;
+            paciente.MedicoUserId = medico.UserId;
+            paciente.Medico = medico.Nome;
             paciente.Convenio = PacienteRules.TrimOptional(request.Convenio);
             paciente.CbhpmCodigo = procedimento.Codigo;
             paciente.CbhpmPorte = procedimento.Porte;
@@ -380,7 +392,7 @@ internal static class PacienteCommandAccess
     public static bool CanManage(Models.Paciente paciente, int perfilId, int userId, string userName)
     {
         return perfilId == Perfil.AdministradorId
-            || (perfilId == Perfil.MedicosId && paciente.Medico == userName);
+            || (perfilId == Perfil.MedicosId && paciente.MedicoUserId == userId);
     }
 }
 
@@ -476,6 +488,57 @@ internal static class PacienteRules
         return new ResolvedHospital(hospital.Id, hospital.Nome);
     }
 
+    public static async Task<ResolvedMedico> ResolveMedicoAsync(
+        AppDbContext context,
+        int currentPerfilId,
+        int currentUserId,
+        string currentUserName,
+        int? medicoUserId,
+        string? medicoNome,
+        CancellationToken cancellationToken)
+    {
+        if (currentPerfilId == Perfil.MedicosId)
+        {
+            return new ResolvedMedico(currentUserId, currentUserName);
+        }
+
+        var nome = TrimOptional(medicoNome);
+
+        if (medicoUserId.HasValue)
+        {
+            var medico = await context.Users
+                .AsNoTracking()
+                .Where(user => user.Id == medicoUserId.Value && user.PerfilId == Perfil.MedicosId)
+                .Select(user => new { user.Id, user.Nome })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (medico == null)
+            {
+                throw new InvalidOperationException("Medico invalido");
+            }
+
+            return new ResolvedMedico(medico.Id, medico.Nome);
+        }
+
+        if (nome == null)
+        {
+            return new ResolvedMedico(null, null);
+        }
+
+        var medicoPorNome = await context.Users
+            .AsNoTracking()
+            .Where(user => user.Nome == nome && user.PerfilId == Perfil.MedicosId)
+            .Select(user => new { user.Id, user.Nome })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (medicoPorNome == null)
+        {
+            throw new InvalidOperationException("Medico invalido");
+        }
+
+        return new ResolvedMedico(medicoPorNome.Id, medicoPorNome.Nome);
+    }
+
     public static async Task<ResolvedProcedimento> ResolveProcedimentoAsync(
         ICbhpmCache cbhpmCache,
         string? cbhpmCodigo,
@@ -501,5 +564,7 @@ internal static class PacienteRules
 }
 
 internal sealed record ResolvedHospital(int Id, string Nome);
+
+internal sealed record ResolvedMedico(int? UserId, string? Nome);
 
 internal sealed record ResolvedProcedimento(string? Codigo, string? Nome, string? Porte);
