@@ -11,6 +11,8 @@ public partial class CreateUserCommand
     public string Email { get; set; } = null!;
     public string Telefone { get; set; } = null!;
     public string Cpf { get; set; } = null!;
+    public string? Crm { get; set; }
+    public string? CrmUf { get; set; }
     public string? FotoPerfil { get; set; }
     public DateTime DataNascimento { get; set; }
     public int PerfilId { get; set; } = Perfil.MedicosId;
@@ -26,6 +28,8 @@ public class CreateUserResponse
     public string Email { get; set; } = null!;
     public string Telefone { get; set; } = null!;
     public string? Cpf { get; set; }
+    public string? Crm { get; set; }
+    public string? CrmUf { get; set; }
     public string? FotoPerfil { get; set; }
     public DateTime DataCadastro { get; set; }
     public DateTime? DataAtualizacao { get; set; }
@@ -55,6 +59,8 @@ public class AuthenticateUserResponse
     public string Email { get; set; } = null!;
     public string Token { get; set; } = null!;
     public string? Cpf { get; set; }
+    public string? Crm { get; set; }
+    public string? CrmUf { get; set; }
     public string? FotoPerfil { get; set; }
     public bool PrecisaTrocarSenha { get; set; }
     public int PerfilId { get; set; }
@@ -71,6 +77,8 @@ public partial class UpdateUserCommand
     public string Email { get; set; } = null!;
     public string Telefone { get; set; } = null!;
     public string Cpf { get; set; } = null!;
+    public string? Crm { get; set; }
+    public string? CrmUf { get; set; }
     public string? FotoPerfil { get; set; }
     public DateTime DataNascimento { get; set; }
     public bool Ativo { get; set; }

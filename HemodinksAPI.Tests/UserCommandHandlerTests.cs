@@ -29,6 +29,8 @@ public class UserCommandHandlerTests
             Email = "novo.usuario@email.com",
             Telefone = "+5511999999999",
             Cpf = "52998224725",
+            Crm = "12345",
+            CrmUf = "pe",
             FotoPerfil = "data:image/png;base64,avatar",
             DataNascimento = new DateTime(1990, 5, 15)
         }, CancellationToken.None);
@@ -43,8 +45,34 @@ public class UserCommandHandlerTests
         Assert.Equal("https://storage.example/1.png", response.FotoPerfil);
         Assert.Equal(Perfil.MedicosId, storedUser.PerfilId);
         Assert.Equal(Perfil.MedicosId, response.PerfilId);
+        Assert.Equal("12345", storedUser.Crm);
+        Assert.Equal("PE", storedUser.CrmUf);
+        Assert.Equal("12345", response.Crm);
+        Assert.Equal("PE", response.CrmUf);
         Assert.Equal("Médicos", response.PerfilNome);
         Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+    }
+
+    [Fact]
+    public async Task CreateUser_WhenMedicalProfileHasNoCrm_ThrowsInvalidOperationException()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new CreateUserCommandHandler(
+            context,
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            NullLogger<CreateUserCommandHandler>.Instance);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
+        {
+            Nome = "Medico Sem Crm",
+            Email = "medico.sem.crm@email.com",
+            Telefone = "+5511999999999",
+            Cpf = "93541134780",
+            DataNascimento = new DateTime(1990, 5, 15),
+            PerfilId = Perfil.MedicosId
+        }, CancellationToken.None));
     }
 
     [Fact]
@@ -155,6 +183,8 @@ public class UserCommandHandlerTests
         Assert.Equal("https://storage.example/login.png", response.FotoPerfil);
         Assert.True(response.PrecisaTrocarSenha);
         Assert.Equal(Perfil.MedicosId, response.PerfilId);
+        Assert.Equal("54321", response.Crm);
+        Assert.Equal("SP", response.CrmUf);
         Assert.Equal("Médicos", response.PerfilNome);
     }
 
@@ -195,6 +225,10 @@ public class UserCommandHandlerTests
         Assert.Equal(Perfil.AdministradorId, storedUser.PerfilId);
         Assert.Equal(Perfil.AdministradorId, response.PerfilId);
         Assert.Equal("Administrador", response.PerfilNome);
+        Assert.Null(storedUser.Crm);
+        Assert.Null(storedUser.CrmUf);
+        Assert.Null(response.Crm);
+        Assert.Null(response.CrmUf);
         Assert.NotNull(storedUser.DataAtualizacao);
         Assert.Equal(storedUser.DataAtualizacao, response.DataAtualizacao);
     }
@@ -390,6 +424,8 @@ public class UserCommandHandlerTests
             Email = email,
             Telefone = "+5511999999999",
             Cpf = "52998224725",
+            Crm = "54321",
+            CrmUf = "SP",
             Senha = passwordHash,
             DataCadastro = DateTime.UtcNow,
             DataNascimento = new DateTime(1990, 1, 1),

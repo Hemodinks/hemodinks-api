@@ -48,6 +48,9 @@ public static class PacienteEndpointExtensions
         int? page,
         int? pageSize,
         string? search,
+        string? medico,
+        string? convenio,
+        string? procedimento,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger)
@@ -65,6 +68,9 @@ public static class PacienteEndpointExtensions
                 Page = page.GetValueOrDefault(1),
                 PageSize = pageSize.GetValueOrDefault(10),
                 Search = search,
+                Medico = medico,
+                Convenio = convenio,
+                Procedimento = procedimento,
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId,
                 CurrentUserName = currentUser.Nome

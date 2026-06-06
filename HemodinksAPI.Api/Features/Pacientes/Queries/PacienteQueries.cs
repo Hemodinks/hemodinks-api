@@ -49,6 +49,12 @@ public class GetAllPacientesQuery : IRequest<PagedResult<PacienteDto>>
 
     public string? Search { get; set; }
 
+    public string? Medico { get; set; }
+
+    public string? Convenio { get; set; }
+
+    public string? Procedimento { get; set; }
+
     public int CurrentUserId { get; set; }
 
     public int CurrentPerfilId { get; set; }

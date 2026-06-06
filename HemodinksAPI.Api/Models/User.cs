@@ -22,6 +22,10 @@ public class User
 
     public string? Cpf { get; set; }
 
+    public string? Crm { get; set; }
+
+    public string? CrmUf { get; set; }
+
     /// <summary>
     /// Foto de perfil do usuario em data URL.
     /// </summary>

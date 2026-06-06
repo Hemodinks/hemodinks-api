@@ -68,6 +68,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 throw new InvalidOperationException("Perfil invalido");
             }
 
+            var medicalRegistration = UserProfileRules.NormalizeAndValidateMedicalRegistration(request.Crm, request.CrmUf, perfilId);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, null, cancellationToken);
 
             var user = new User
@@ -76,6 +77,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 Email = request.Email,
                 Telefone = request.Telefone,
                 Cpf = cpf,
+                Crm = medicalRegistration.Crm,
+                CrmUf = medicalRegistration.CrmUf,
                 FotoPerfil = fotoPerfil,
                 Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
                 DataNascimento = request.DataNascimento,
@@ -100,6 +103,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 Email = user.Email,
                 Telefone = user.Telefone,
                 Cpf = user.Cpf,
+                Crm = user.Crm,
+                CrmUf = user.CrmUf,
                 FotoPerfil = user.FotoPerfil,
                 DataCadastro = user.DataCadastro,
                 DataAtualizacao = user.DataAtualizacao,
@@ -167,6 +172,8 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 Email = user.Email,
                 Token = token,
                 Cpf = user.Cpf,
+                Crm = user.Crm,
+                CrmUf = user.CrmUf,
                 FotoPerfil = user.FotoPerfil,
                 PrecisaTrocarSenha = user.PrecisaTrocarSenha,
                 PerfilId = user.PerfilId,
@@ -244,12 +251,15 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 throw new InvalidOperationException("Perfil invalido");
             }
 
+            var medicalRegistration = UserProfileRules.NormalizeAndValidateMedicalRegistration(request.Crm, request.CrmUf, perfilId);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, user.FotoPerfil, cancellationToken);
 
             user.Nome = request.Nome;
             user.Email = request.Email;
             user.Telefone = request.Telefone;
             user.Cpf = cpf;
+            user.Crm = medicalRegistration.Crm;
+            user.CrmUf = medicalRegistration.CrmUf;
             user.FotoPerfil = fotoPerfil;
             user.DataNascimento = request.DataNascimento;
             user.Ativo = request.Ativo;
@@ -267,6 +277,8 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 Email = user.Email,
                 Telefone = user.Telefone,
                 Cpf = user.Cpf,
+                Crm = user.Crm,
+                CrmUf = user.CrmUf,
                 FotoPerfil = user.FotoPerfil,
                 DataCadastro = user.DataCadastro,
                 DataAtualizacao = user.DataAtualizacao,
@@ -627,6 +639,14 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
 
 internal static class UserProfileRules
 {
+    private const int MaxCrmLength = 20;
+
+    private static readonly HashSet<string> ValidBrazilUf = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG",
+        "PA", "PB", "PR", "PE", "PI", "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO"
+    };
+
     public static int NormalizePerfilId(int perfilId)
     {
         return perfilId == 0 ? Perfil.MedicosId : perfilId;
@@ -645,6 +665,42 @@ internal static class UserProfileRules
         }
 
         return CpfUtils.Normalize(cpf)!;
+    }
+
+    public static (string? Crm, string? CrmUf) NormalizeAndValidateMedicalRegistration(
+        string? crm,
+        string? crmUf,
+        int perfilId)
+    {
+        if (perfilId != Perfil.MedicosId)
+        {
+            return (null, null);
+        }
+
+        var normalizedCrm = crm?.Trim();
+        var normalizedCrmUf = crmUf?.Trim().ToUpperInvariant();
+
+        if (string.IsNullOrWhiteSpace(normalizedCrm))
+        {
+            throw new InvalidOperationException("CRM obrigatorio para medicos");
+        }
+
+        if (normalizedCrm.Length > MaxCrmLength)
+        {
+            throw new InvalidOperationException($"CRM deve ter no maximo {MaxCrmLength} caracteres");
+        }
+
+        if (string.IsNullOrWhiteSpace(normalizedCrmUf))
+        {
+            throw new InvalidOperationException("UF do CRM obrigatoria para medicos");
+        }
+
+        if (!ValidBrazilUf.Contains(normalizedCrmUf))
+        {
+            throw new InvalidOperationException("UF do CRM invalida");
+        }
+
+        return (normalizedCrm, normalizedCrmUf);
     }
 }
 

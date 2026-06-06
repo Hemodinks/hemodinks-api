@@ -27,6 +27,10 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
             var digits = string.IsNullOrWhiteSpace(search)
                 ? string.Empty
                 : new string(search.Where(char.IsDigit).ToArray());
+            var canUseAdminFilters = request.CurrentPerfilId == Perfil.AdministradorId;
+            var medico = canUseAdminFilters ? TrimOptional(request.Medico) : null;
+            var convenio = canUseAdminFilters ? TrimOptional(request.Convenio) : null;
+            var procedimento = canUseAdminFilters ? TrimOptional(request.Procedimento) : null;
 
             var query = _context.Pacientes.AsNoTracking();
             query = PacienteAccess.ApplyScope(query, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName);
@@ -43,6 +47,21 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     || (p.Procedimento != null && p.Procedimento.Contains(search))
                     || (!string.IsNullOrEmpty(digits) && p.User.Cpf != null && p.User.Cpf.Contains(digits))
                     || (!string.IsNullOrEmpty(digits) && p.User.Telefone.Contains(digits)));
+            }
+
+            if (!string.IsNullOrWhiteSpace(medico))
+            {
+                query = query.Where(p => p.Medico != null && p.Medico.Contains(medico));
+            }
+
+            if (!string.IsNullOrWhiteSpace(convenio))
+            {
+                query = query.Where(p => p.Convenio != null && p.Convenio.Contains(convenio));
+            }
+
+            if (!string.IsNullOrWhiteSpace(procedimento))
+            {
+                query = query.Where(p => p.Procedimento != null && p.Procedimento.Contains(procedimento));
             }
 
             var totalItems = await query.CountAsync(cancellationToken);
@@ -95,6 +114,11 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
             _logger.LogError(ex, "Erro ao buscar pacientes");
             throw;
         }
+    }
+
+    private static string? TrimOptional(string? value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 }
 

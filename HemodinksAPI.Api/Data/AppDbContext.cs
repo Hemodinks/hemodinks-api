@@ -73,6 +73,12 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Cpf)
                 .HasMaxLength(11);
 
+            entity.Property(e => e.Crm)
+                .HasMaxLength(20);
+
+            entity.Property(e => e.CrmUf)
+                .HasMaxLength(2);
+
             entity.Property(e => e.FotoPerfil)
                 .HasColumnType("nvarchar(max)");
 

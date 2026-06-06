@@ -52,6 +52,101 @@ public class ListOrderingTests
         Assert.Equal(["Ana Recente", "Bruno Recente", "Zelia Antiga"], result.Items.Select(paciente => paciente.NomePaciente));
     }
 
+    [Fact]
+    public async Task GetAllPacientes_FiltersAdminPatientsByMedicoConvenioAndProcedimento()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var matching = CreateUser("Paciente Match", "match@hemodinks.com", "52998224725", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
+        var wrongConvenio = CreateUser("Paciente Convenio", "convenio@hemodinks.com", "11144477735", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
+        var wrongProcedimento = CreateUser("Paciente Procedimento", "procedimento@hemodinks.com", "93541134780", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
+
+        context.Pacientes.AddRange(
+            new Paciente
+            {
+                User = matching,
+                NomePaciente = matching.Nome,
+                Medico = "Dra. Ana",
+                Convenio = "Particular",
+                Procedimento = "Consulta",
+            },
+            new Paciente
+            {
+                User = wrongConvenio,
+                NomePaciente = wrongConvenio.Nome,
+                Medico = "Dra. Ana",
+                Convenio = "Unimed",
+                Procedimento = "Consulta",
+            },
+            new Paciente
+            {
+                User = wrongProcedimento,
+                NomePaciente = wrongProcedimento.Nome,
+                Medico = "Dra. Ana",
+                Convenio = "Particular",
+                Procedimento = "Retorno",
+            });
+        await context.SaveChangesAsync();
+
+        var handler = new GetAllPacientesQueryHandler(context, NullLogger<GetAllPacientesQueryHandler>.Instance);
+
+        var result = await handler.Handle(new GetAllPacientesQuery
+        {
+            Page = 1,
+            PageSize = 10,
+            Medico = "Ana",
+            Convenio = "Particular",
+            Procedimento = "Consulta",
+            CurrentPerfilId = Perfil.AdministradorId
+        }, CancellationToken.None);
+
+        Assert.Equal(["Paciente Match"], result.Items.Select(paciente => paciente.NomePaciente));
+        Assert.Equal(1, result.TotalItems);
+    }
+
+    [Fact]
+    public async Task GetAllPacientes_WhenLoggedDoctor_ReturnsOnlyPatientsLinkedToDoctorName()
+    {
+        await using var context = TestDbContextFactory.Create();
+        const string doctorName = "Dr. George";
+        var linked = CreateUser("Paciente Vinculado", "vinculado@hemodinks.com", "52998224725", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
+        var otherDoctor = CreateUser("Paciente Outro Medico", "outro.medico@hemodinks.com", "11144477735", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
+        var withoutDoctor = CreateUser("Paciente Sem Medico", "sem.medico@hemodinks.com", "93541134780", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
+
+        context.Pacientes.AddRange(
+            new Paciente
+            {
+                User = linked,
+                NomePaciente = linked.Nome,
+                Medico = doctorName,
+            },
+            new Paciente
+            {
+                User = otherDoctor,
+                NomePaciente = otherDoctor.Nome,
+                Medico = "Dra. Ana",
+            },
+            new Paciente
+            {
+                User = withoutDoctor,
+                NomePaciente = withoutDoctor.Nome,
+                Medico = null,
+            });
+        await context.SaveChangesAsync();
+
+        var handler = new GetAllPacientesQueryHandler(context, NullLogger<GetAllPacientesQueryHandler>.Instance);
+
+        var result = await handler.Handle(new GetAllPacientesQuery
+        {
+            Page = 1,
+            PageSize = 10,
+            CurrentPerfilId = Perfil.MedicosId,
+            CurrentUserName = doctorName,
+        }, CancellationToken.None);
+
+        Assert.Equal(["Paciente Vinculado"], result.Items.Select(paciente => paciente.NomePaciente));
+        Assert.Equal(1, result.TotalItems);
+    }
+
     private static User CreateUser(
         string nome,
         string email,
