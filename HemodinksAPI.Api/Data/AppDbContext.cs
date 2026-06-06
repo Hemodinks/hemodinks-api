@@ -17,6 +17,8 @@ public class AppDbContext : DbContext
 
     public DbSet<Paciente> Pacientes { get; set; } = null!;
 
+    public DbSet<Hospital> Hospitais { get; set; } = null!;
+
     public DbSet<PacienteArquivo> PacienteArquivos { get; set; } = null!;
 
     public DbSet<UserArquivo> UserArquivos { get; set; } = null!;
@@ -131,6 +133,25 @@ public class AppDbContext : DbContext
                 .OnDelete(DeleteBehavior.Cascade);
         });
 
+        modelBuilder.Entity<Hospital>(entity =>
+        {
+            entity.ToTable("Hospitais");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Nome)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.HasIndex(e => e.Nome)
+                .IsUnique();
+
+            entity.HasData(
+                new Hospital { Id = 1, Nome = "Santa Clara - Mater Dei" },
+                new Hospital { Id = 2, Nome = "Santa Genoveva - Mater Dei" },
+                new Hospital { Id = 3, Nome = "UMC - Complexo Hospitalar" });
+        });
+
         modelBuilder.Entity<Paciente>(entity =>
         {
             entity.ToTable("Pacientes");
@@ -177,10 +198,17 @@ public class AppDbContext : DbContext
 
             entity.HasIndex(e => e.CbhpmCodigo);
 
+            entity.HasIndex(e => e.HospitalId);
+
             entity.HasOne(e => e.User)
                 .WithOne(e => e.Paciente)
                 .HasForeignKey<Paciente>(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.HospitalReferencia)
+                .WithMany(e => e.Pacientes)
+                .HasForeignKey(e => e.HospitalId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<PacienteArquivo>(entity =>

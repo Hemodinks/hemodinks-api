@@ -260,6 +260,7 @@ app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }))
 
 app.MapDashboardEndpoints();
 app.MapCbhpmEndpoints();
+app.MapHospitalEndpoints();
 app.MapUserEndpoints();
 app.MapPacienteEndpoints();
 

@@ -47,6 +47,11 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             var medico = request.CurrentPerfilId == Perfil.MedicosId
                 ? request.CurrentUserName
                 : PacienteRules.TrimOptional(request.Medico);
+            var hospital = await PacienteRules.ResolveHospitalAsync(
+                _context,
+                request.HospitalId,
+                request.Hospital,
+                cancellationToken);
             var procedimento = await PacienteRules.ResolveProcedimentoAsync(
                 _cbhpmCache,
                 request.CbhpmCodigo,
@@ -78,7 +83,8 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 User = user,
                 Data = request.Data,
                 NomePaciente = user.Nome,
-                Hospital = PacienteRules.TrimOptional(request.Hospital),
+                HospitalId = hospital.Id,
+                Hospital = hospital.Nome,
                 Medico = medico,
                 Convenio = PacienteRules.TrimOptional(request.Convenio),
                 CbhpmCodigo = procedimento.Codigo,
@@ -149,6 +155,11 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             var medico = request.CurrentPerfilId == Perfil.MedicosId
                 ? request.CurrentUserName
                 : PacienteRules.TrimOptional(request.Medico);
+            var hospital = await PacienteRules.ResolveHospitalAsync(
+                _context,
+                request.HospitalId,
+                request.Hospital,
+                cancellationToken);
             var procedimento = await PacienteRules.ResolveProcedimentoAsync(
                 _cbhpmCache,
                 request.CbhpmCodigo,
@@ -168,7 +179,8 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
 
             paciente.Data = request.Data;
             paciente.NomePaciente = paciente.User.Nome;
-            paciente.Hospital = PacienteRules.TrimOptional(request.Hospital);
+            paciente.HospitalId = hospital.Id;
+            paciente.Hospital = hospital.Nome;
             paciente.Medico = medico;
             paciente.Convenio = PacienteRules.TrimOptional(request.Convenio);
             paciente.CbhpmCodigo = procedimento.Codigo;
@@ -431,6 +443,39 @@ internal static class PacienteRules
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     }
 
+    public static async Task<ResolvedHospital> ResolveHospitalAsync(
+        AppDbContext context,
+        int? hospitalId,
+        string? hospitalNome,
+        CancellationToken cancellationToken)
+    {
+        Hospital? hospital = null;
+
+        if (hospitalId.HasValue)
+        {
+            hospital = await context.Hospitais
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item => item.Id == hospitalId.Value, cancellationToken);
+        }
+        else
+        {
+            var nome = TrimOptional(hospitalNome);
+            if (nome != null)
+            {
+                hospital = await context.Hospitais
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(item => item.Nome == nome, cancellationToken);
+            }
+        }
+
+        if (hospital == null)
+        {
+            throw new InvalidOperationException("Hospital invalido");
+        }
+
+        return new ResolvedHospital(hospital.Id, hospital.Nome);
+    }
+
     public static async Task<ResolvedProcedimento> ResolveProcedimentoAsync(
         ICbhpmCache cbhpmCache,
         string? cbhpmCodigo,
@@ -454,5 +499,7 @@ internal static class PacienteRules
         return new ResolvedProcedimento(cbhpm.Codigo, cbhpm.Procedimento, cbhpm.Porte);
     }
 }
+
+internal sealed record ResolvedHospital(int Id, string Nome);
 
 internal sealed record ResolvedProcedimento(string? Codigo, string? Nome, string? Porte);

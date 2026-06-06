@@ -41,6 +41,7 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     p.NomePaciente.Contains(search)
                     || p.User.Email.Contains(search)
                     || p.User.Telefone.Contains(search)
+                    || (p.HospitalReferencia != null && p.HospitalReferencia.Nome.Contains(search))
                     || (p.Hospital != null && p.Hospital.Contains(search))
                     || (p.Medico != null && p.Medico.Contains(search))
                     || (p.Convenio != null && p.Convenio.Contains(search))
@@ -80,7 +81,8 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     DataCadastro = p.User.DataCadastro,
                     DataAtualizacao = p.User.DataAtualizacao,
                     NomePaciente = p.NomePaciente,
-                    Hospital = p.Hospital,
+                    HospitalId = p.HospitalId,
+                    Hospital = p.HospitalReferencia != null ? p.HospitalReferencia.Nome : p.Hospital,
                     Medico = p.Medico,
                     Convenio = p.Convenio,
                     CbhpmCodigo = p.CbhpmCodigo,
@@ -140,6 +142,7 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
             IQueryable<Models.Paciente> query = _context.Pacientes
                 .AsNoTracking()
                 .Include(p => p.User)
+                .Include(p => p.HospitalReferencia)
                 .Include(p => p.Arquivos)
                 .AsSplitQuery();
 
@@ -199,7 +202,8 @@ internal static class PacienteMapper
             DataCadastro = paciente.User.DataCadastro,
             DataAtualizacao = paciente.User.DataAtualizacao,
             NomePaciente = paciente.NomePaciente,
-            Hospital = paciente.Hospital,
+            HospitalId = paciente.HospitalId,
+            Hospital = paciente.HospitalReferencia?.Nome ?? paciente.Hospital,
             Medico = paciente.Medico,
             Convenio = paciente.Convenio,
             CbhpmCodigo = paciente.CbhpmCodigo,

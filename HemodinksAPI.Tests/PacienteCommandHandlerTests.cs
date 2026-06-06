@@ -41,7 +41,7 @@ public class PacienteCommandHandlerTests
             Cpf = "52998224725",
             DataNascimento = new DateTime(1990, 1, 1),
             Data = new DateTime(2026, 6, 1),
-            Hospital = "Hospital Hemodinks",
+            HospitalId = 1,
             Medico = "Dra. Ana",
             Convenio = "Particular",
             CbhpmCodigo = "1.01.01.01-2",
@@ -60,7 +60,8 @@ public class PacienteCommandHandlerTests
         Assert.Equal("Paciente Novo", storedUser.Nome);
         Assert.Equal("52998224725", storedUser.Cpf);
         Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
-        Assert.Equal("Hospital Hemodinks", storedPaciente.Hospital);
+        Assert.Equal(1, storedPaciente.HospitalId);
+        Assert.Equal("Santa Clara - Mater Dei", storedPaciente.Hospital);
         Assert.Equal("1.01.01.01-2", storedPaciente.CbhpmCodigo);
         Assert.Equal("Em consultorio", storedPaciente.Procedimento);
         Assert.Equal("2B", storedPaciente.CbhpmPorte);
@@ -199,14 +200,15 @@ public class PacienteCommandHandlerTests
             Cpf = user.Cpf!,
             DataNascimento = user.DataNascimento,
             Ativo = true,
-            Hospital = "Hospital Atualizado",
+            HospitalId = 2,
             CurrentUserId = 123,
             CurrentPerfilId = Perfil.MedicosId,
             CurrentUserName = doctorName
         }, CancellationToken.None);
 
         Assert.Equal("Paciente Atualizado", response.NomePaciente);
-        Assert.Equal("Hospital Atualizado", response.Hospital);
+        Assert.Equal(2, response.HospitalId);
+        Assert.Equal("Santa Genoveva - Mater Dei", response.Hospital);
         Assert.Equal(doctorName, response.Medico);
         var storedUser = await context.Users.SingleAsync(storedUser => storedUser.Id == user.Id);
         Assert.NotNull(storedUser.DataAtualizacao);
