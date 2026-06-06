@@ -14,6 +14,7 @@ public class CreatePacienteCommand : IRequest<PacienteDto>
     public DateTime DataNascimento { get; set; }
     public int? HospitalId { get; set; }
     public string? Hospital { get; set; }
+    public int? MedicoUserId { get; set; }
     public string? Medico { get; set; }
     public string? Convenio { get; set; }
     public string? CbhpmCodigo { get; set; }
@@ -41,6 +42,7 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
     public DateTime DataNascimento { get; set; }
     public int? HospitalId { get; set; }
     public string? Hospital { get; set; }
+    public int? MedicoUserId { get; set; }
     public string? Medico { get; set; }
     public string? Convenio { get; set; }
     public string? CbhpmCodigo { get; set; }

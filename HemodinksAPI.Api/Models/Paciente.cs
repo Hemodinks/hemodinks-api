@@ -10,6 +10,8 @@ public class Paciente
     public int? HospitalId { get; set; }
     public Hospital? HospitalReferencia { get; set; }
     public string? Hospital { get; set; }
+    public int? MedicoUserId { get; set; }
+    public User? MedicoUser { get; set; }
     public string? Medico { get; set; }
     public string? Convenio { get; set; }
     public string? CbhpmCodigo { get; set; }

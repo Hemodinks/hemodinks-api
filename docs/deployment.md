@@ -88,6 +88,41 @@ Variaveis ja declaradas no blueprint:
 
 Render nao fornece SQL Server gerenciado. Use Azure SQL Database, SQL Server em VM ou outro provider SQL Server compativel.
 
+### Homologacao Render: confirmation
+
+O arquivo `render.confirmation.yaml` define um servico separado:
+
+- service: `hemodinks-api-confirmation`
+- runtime: `docker`
+- branch: `developer`
+- environment: `Confirmation`
+- health check: `/healthz`
+- origem CORS esperada: `https://hemodinks-front-confirmation.onrender.com`
+
+Use esse arquivo como blueprint/configuracao do ambiente de homologacao `confirmation`. Se o Render gerar uma URL diferente para o front, ajuste:
+
+```text
+Cors__AllowedOrigins__0=https://<front-confirmation>.onrender.com
+```
+
+Variaveis que devem ser diferentes de producao:
+
+| Chave | Recomendacao |
+| --- | --- |
+| `ConnectionStrings__DefaultConnection` | usar outro banco, por exemplo `HemodinksDBConfirmation` |
+| `JwtSettings__SecretKey` | usar outra chave JWT |
+| `JwtSettings__Issuer` | `HemodinksAPI.Confirmation` |
+| `JwtSettings__Audience` | `HemodinksAPI.Confirmation` |
+| `AzureStorage__ContainerName` | `profile-photos-confirmation` |
+| `AzureStorage__PatientFilesContainerName` | `patient-files-confirmation` |
+| `AzureStorage__PublicBaseUrl` | URL do container `profile-photos-confirmation` |
+| `AzureStorage__PatientFilesPublicBaseUrl` | URL do container `patient-files-confirmation` |
+| `Cors__AllowedOrigins__0` | URL do front de homologacao |
+
+O arquivo `.env.confirmation.example` traz um modelo dessas variaveis.
+
+Nao copie a connection string de producao para homologacao, a menos que queira intencionalmente que migrations, seeds, testes manuais e uploads usem os dados reais. Para homologacao segura, use banco e containers separados.
+
 ## Azure SQL Database
 
 Uso:

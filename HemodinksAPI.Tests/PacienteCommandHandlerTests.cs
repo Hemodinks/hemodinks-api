@@ -17,12 +17,23 @@ public class PacienteCommandHandlerTests
     public async Task CreatePaciente_CreatesLinkedUserWithPacienteProfile()
     {
         await using var context = TestDbContextFactory.Create();
+        var doctor = new User
+        {
+            Nome = "Dra. Ana",
+            Email = "dra.ana@hemodinks.com",
+            Telefone = "+5581999887766",
+            Cpf = "39053344705",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1985, 1, 1),
+            PerfilId = Perfil.MedicosId
+        };
         context.CbhpmGeral.Add(new CbhpmGeral
         {
             Codigo = "1.01.01.01-2",
             Procedimento = "Em consultorio",
             Porte = "2B"
         });
+        context.Users.Add(doctor);
         await context.SaveChangesAsync();
 
         var hasher = new PasswordHasher();
@@ -42,7 +53,8 @@ public class PacienteCommandHandlerTests
             DataNascimento = new DateTime(1990, 1, 1),
             Data = new DateTime(2026, 6, 1),
             HospitalId = 1,
-            Medico = "Dra. Ana",
+            MedicoUserId = doctor.Id,
+            Medico = doctor.Nome,
             Convenio = "Particular",
             CbhpmCodigo = "1.01.01.01-2",
             Autorizacao = "AUT-123",
@@ -52,7 +64,7 @@ public class PacienteCommandHandlerTests
             CurrentPerfilId = Perfil.AdministradorId
         }, CancellationToken.None);
 
-        var storedUser = await context.Users.SingleAsync();
+        var storedUser = await context.Users.SingleAsync(user => user.PerfilId == Perfil.PacientesId);
         var storedPaciente = await context.Pacientes.SingleAsync();
 
         Assert.Equal(storedUser.Id, storedPaciente.UserId);
@@ -62,6 +74,8 @@ public class PacienteCommandHandlerTests
         Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
         Assert.Equal(1, storedPaciente.HospitalId);
         Assert.Equal("Santa Clara - Mater Dei", storedPaciente.Hospital);
+        Assert.Equal(doctor.Id, storedPaciente.MedicoUserId);
+        Assert.Equal(doctor.Nome, storedPaciente.Medico);
         Assert.Equal("1.01.01.01-2", storedPaciente.CbhpmCodigo);
         Assert.Equal("Em consultorio", storedPaciente.Procedimento);
         Assert.Equal("2B", storedPaciente.CbhpmPorte);
@@ -166,6 +180,16 @@ public class PacienteCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var doctorName = "Dra. Ana";
+        var doctor = new User
+        {
+            Nome = doctorName,
+            Email = "dra.ana@hemodinks.com",
+            Telefone = "+5581999887766",
+            Cpf = "52998224725",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1985, 1, 1),
+            PerfilId = Perfil.MedicosId
+        };
         var user = new User
         {
             Nome = "Paciente Relacionado",
@@ -180,6 +204,7 @@ public class PacienteCommandHandlerTests
         {
             User = user,
             NomePaciente = user.Nome,
+            MedicoUser = doctor,
             Medico = doctorName
         };
         context.Pacientes.Add(paciente);
@@ -201,7 +226,7 @@ public class PacienteCommandHandlerTests
             DataNascimento = user.DataNascimento,
             Ativo = true,
             HospitalId = 2,
-            CurrentUserId = 123,
+            CurrentUserId = doctor.Id,
             CurrentPerfilId = Perfil.MedicosId,
             CurrentUserName = doctorName
         }, CancellationToken.None);
