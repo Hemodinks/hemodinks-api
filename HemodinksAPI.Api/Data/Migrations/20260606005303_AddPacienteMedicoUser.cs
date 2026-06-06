@@ -20,7 +20,12 @@ namespace HemodinksAPI.Api.Data.Migrations
                 UPDATE p
                 SET MedicoUserId = u.Id
                 FROM [Pacientes] p
-                INNER JOIN [Users] u ON u.[Nome] = p.[Medico] AND u.[PerfilId] = 2
+                CROSS APPLY (
+                    SELECT TOP (1) [Id]
+                    FROM [Users]
+                    WHERE [Nome] = p.[Medico] AND [PerfilId] = 2
+                    ORDER BY [Id]
+                ) u
                 WHERE p.[Medico] IS NOT NULL AND p.[MedicoUserId] IS NULL
                 """);
 

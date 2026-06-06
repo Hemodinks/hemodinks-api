@@ -56,6 +56,7 @@ public class ListOrderingTests
     public async Task GetAllPacientes_FiltersAdminPatientsByMedicoConvenioAndProcedimento()
     {
         await using var context = TestDbContextFactory.Create();
+        var doctor = CreateUser("Dra. Ana", "dra.ana@hemodinks.com", "39053344705", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null);
         var matching = CreateUser("Paciente Match", "match@hemodinks.com", "52998224725", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
         var wrongConvenio = CreateUser("Paciente Convenio", "convenio@hemodinks.com", "11144477735", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
         var wrongProcedimento = CreateUser("Paciente Procedimento", "procedimento@hemodinks.com", "93541134780", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
@@ -65,7 +66,8 @@ public class ListOrderingTests
             {
                 User = matching,
                 NomePaciente = matching.Nome,
-                Medico = "Dra. Ana",
+                MedicoUser = doctor,
+                Medico = doctor.Nome,
                 Convenio = "Particular",
                 Procedimento = "Consulta",
             },
@@ -73,7 +75,8 @@ public class ListOrderingTests
             {
                 User = wrongConvenio,
                 NomePaciente = wrongConvenio.Nome,
-                Medico = "Dra. Ana",
+                MedicoUser = doctor,
+                Medico = doctor.Nome,
                 Convenio = "Unimed",
                 Procedimento = "Consulta",
             },
@@ -81,7 +84,8 @@ public class ListOrderingTests
             {
                 User = wrongProcedimento,
                 NomePaciente = wrongProcedimento.Nome,
-                Medico = "Dra. Ana",
+                MedicoUser = doctor,
+                Medico = doctor.Nome,
                 Convenio = "Particular",
                 Procedimento = "Retorno",
             });
@@ -104,10 +108,12 @@ public class ListOrderingTests
     }
 
     [Fact]
-    public async Task GetAllPacientes_WhenLoggedDoctor_ReturnsOnlyPatientsLinkedToDoctorName()
+    public async Task GetAllPacientes_WhenLoggedDoctor_ReturnsOnlyPatientsLinkedToDoctorUserId()
     {
         await using var context = TestDbContextFactory.Create();
         const string doctorName = "Dr. George";
+        var doctor = CreateUser(doctorName, "dr.george@hemodinks.com", "39053344705", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null);
+        var otherDoctorUser = CreateUser("Dra. Ana", "dra.ana@hemodinks.com", "98765432100", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null);
         var linked = CreateUser("Paciente Vinculado", "vinculado@hemodinks.com", "52998224725", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
         var otherDoctor = CreateUser("Paciente Outro Medico", "outro.medico@hemodinks.com", "11144477735", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
         var withoutDoctor = CreateUser("Paciente Sem Medico", "sem.medico@hemodinks.com", "93541134780", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
@@ -117,13 +123,15 @@ public class ListOrderingTests
             {
                 User = linked,
                 NomePaciente = linked.Nome,
+                MedicoUser = doctor,
                 Medico = doctorName,
             },
             new Paciente
             {
                 User = otherDoctor,
                 NomePaciente = otherDoctor.Nome,
-                Medico = "Dra. Ana",
+                MedicoUser = otherDoctorUser,
+                Medico = otherDoctorUser.Nome,
             },
             new Paciente
             {
@@ -140,7 +148,8 @@ public class ListOrderingTests
             Page = 1,
             PageSize = 10,
             CurrentPerfilId = Perfil.MedicosId,
-            CurrentUserName = doctorName,
+            CurrentUserId = doctor.Id,
+            CurrentUserName = "Nome de sessao diferente",
         }, CancellationToken.None);
 
         Assert.Equal(["Paciente Vinculado"], result.Items.Select(paciente => paciente.NomePaciente));
