@@ -43,6 +43,7 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     || p.User.Telefone.Contains(search)
                     || (p.HospitalReferencia != null && p.HospitalReferencia.Nome.Contains(search))
                     || (p.Hospital != null && p.Hospital.Contains(search))
+                    || (p.MedicoUser != null && p.MedicoUser.Nome.Contains(search))
                     || (p.Medico != null && p.Medico.Contains(search))
                     || (p.Convenio != null && p.Convenio.Contains(search))
                     || (p.Procedimento != null && p.Procedimento.Contains(search))
@@ -52,7 +53,9 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
 
             if (!string.IsNullOrWhiteSpace(medico))
             {
-                query = query.Where(p => p.Medico != null && p.Medico.Contains(medico));
+                query = query.Where(p =>
+                    (p.MedicoUser != null && p.MedicoUser.Nome.Contains(medico))
+                    || (p.Medico != null && p.Medico.Contains(medico)));
             }
 
             if (!string.IsNullOrWhiteSpace(convenio))
@@ -83,7 +86,8 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     NomePaciente = p.NomePaciente,
                     HospitalId = p.HospitalId,
                     Hospital = p.HospitalReferencia != null ? p.HospitalReferencia.Nome : p.Hospital,
-                    Medico = p.Medico,
+                    MedicoUserId = p.MedicoUserId,
+                    Medico = p.MedicoUser != null ? p.MedicoUser.Nome : p.Medico,
                     Convenio = p.Convenio,
                     CbhpmCodigo = p.CbhpmCodigo,
                     CbhpmPorte = p.CbhpmPorte,
@@ -142,6 +146,7 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
             IQueryable<Models.Paciente> query = _context.Pacientes
                 .AsNoTracking()
                 .Include(p => p.User)
+                .Include(p => p.MedicoUser)
                 .Include(p => p.HospitalReferencia)
                 .Include(p => p.Arquivos)
                 .AsSplitQuery();
@@ -177,7 +182,7 @@ internal static class PacienteAccess
 
         if (perfilId == Perfil.MedicosId)
         {
-            return query.Where(p => p.Medico != null && p.Medico == userName);
+            return query.Where(p => p.MedicoUserId == userId);
         }
 
         if (perfilId == Perfil.PacientesId)
@@ -204,7 +209,8 @@ internal static class PacienteMapper
             NomePaciente = paciente.NomePaciente,
             HospitalId = paciente.HospitalId,
             Hospital = paciente.HospitalReferencia?.Nome ?? paciente.Hospital,
-            Medico = paciente.Medico,
+            MedicoUserId = paciente.MedicoUserId,
+            Medico = paciente.MedicoUser?.Nome ?? paciente.Medico,
             Convenio = paciente.Convenio,
             CbhpmCodigo = paciente.CbhpmCodigo,
             CbhpmPorte = paciente.CbhpmPorte,
