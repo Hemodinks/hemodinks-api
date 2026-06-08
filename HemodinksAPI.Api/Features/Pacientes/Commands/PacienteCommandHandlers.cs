@@ -57,14 +57,12 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 request.HospitalId,
                 request.Hospital,
                 cancellationToken);
-            var procedimentos = await PacienteRules.ResolveProcedimentosAsync(
+            var procedimento = await PacienteRules.ResolveProcedimentoAsync(
                 _cbhpmCache,
-                request.Procedimentos,
                 request.CbhpmCodigo,
                 request.Procedimento,
                 request.CbhpmPorte,
                 cancellationToken);
-            var procedimentoPrincipal = procedimentos.FirstOrDefault();
 
             var user = new User
             {
@@ -95,14 +93,13 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 MedicoUserId = medico.UserId,
                 Medico = medico.Nome,
                 Convenio = PacienteRules.TrimOptional(request.Convenio),
-                CbhpmCodigo = procedimentoPrincipal?.Codigo,
-                CbhpmPorte = procedimentoPrincipal?.Porte,
-                Procedimento = procedimentoPrincipal?.Nome,
+                CbhpmCodigo = procedimento.Codigo,
+                CbhpmPorte = procedimento.Porte,
+                Procedimento = procedimento.Nome,
                 Autorizacao = PacienteRules.TrimOptional(request.Autorizacao),
                 Pagamento = PacienteRules.TrimOptional(request.Pagamento),
                 RepasseGlosa = PacienteRules.TrimOptional(request.RepasseGlosa),
-                StatusPago = request.StatusPago,
-                Procedimentos = PacienteRules.ToPacienteProcedimentos(procedimentos)
+                StatusPago = request.StatusPago
             };
 
             _context.Pacientes.Add(paciente);
@@ -146,7 +143,6 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             var paciente = await _context.Pacientes
                 .Include(p => p.User)
                 .Include(p => p.Arquivos)
-                .Include(p => p.Procedimentos)
                 .FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken);
 
             if (paciente == null)
@@ -175,14 +171,12 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 request.HospitalId,
                 request.Hospital,
                 cancellationToken);
-            var procedimentos = await PacienteRules.ResolveProcedimentosAsync(
+            var procedimento = await PacienteRules.ResolveProcedimentoAsync(
                 _cbhpmCache,
-                request.Procedimentos,
                 request.CbhpmCodigo,
                 request.Procedimento,
                 request.CbhpmPorte,
                 cancellationToken);
-            var procedimentoPrincipal = procedimentos.FirstOrDefault();
 
             paciente.User.Nome = request.NomePaciente.Trim();
             paciente.User.Email = request.Email.Trim();
@@ -201,18 +195,13 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             paciente.MedicoUserId = medico.UserId;
             paciente.Medico = medico.Nome;
             paciente.Convenio = PacienteRules.TrimOptional(request.Convenio);
-            paciente.CbhpmCodigo = procedimentoPrincipal?.Codigo;
-            paciente.CbhpmPorte = procedimentoPrincipal?.Porte;
-            paciente.Procedimento = procedimentoPrincipal?.Nome;
+            paciente.CbhpmCodigo = procedimento.Codigo;
+            paciente.CbhpmPorte = procedimento.Porte;
+            paciente.Procedimento = procedimento.Nome;
             paciente.Autorizacao = PacienteRules.TrimOptional(request.Autorizacao);
             paciente.Pagamento = PacienteRules.TrimOptional(request.Pagamento);
             paciente.RepasseGlosa = PacienteRules.TrimOptional(request.RepasseGlosa);
             paciente.StatusPago = request.StatusPago;
-            paciente.Procedimentos.Clear();
-            foreach (var procedimentoItem in PacienteRules.ToPacienteProcedimentos(procedimentos))
-            {
-                paciente.Procedimentos.Add(procedimentoItem);
-            }
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -550,95 +539,17 @@ internal static class PacienteRules
         return new ResolvedMedico(medicoPorNome.Id, medicoPorNome.Nome);
     }
 
-    public static async Task<List<ResolvedProcedimento>> ResolveProcedimentosAsync(
+    public static async Task<ResolvedProcedimento> ResolveProcedimentoAsync(
         ICbhpmCache cbhpmCache,
-        IEnumerable<PacienteProcedimentoCommandDto>? procedimentos,
         string? cbhpmCodigo,
         string? procedimento,
         string? cbhpmPorte,
         CancellationToken cancellationToken)
     {
-        var requestedItems = procedimentos?
-            .Where(item => item != null)
-            .ToList() ?? [];
-
-        if (requestedItems.Count == 0)
-        {
-            requestedItems =
-            [
-                new PacienteProcedimentoCommandDto
-                {
-                    CbhpmCodigo = cbhpmCodigo,
-                    CbhpmPorte = cbhpmPorte,
-                    Procedimento = procedimento
-                }
-            ];
-        }
-
-        var resolvedItems = new List<ResolvedProcedimento>();
-        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var item in requestedItems)
-        {
-            var resolved = await ResolveProcedimentoItemAsync(cbhpmCache, item, cancellationToken);
-            if (resolved == null)
-            {
-                continue;
-            }
-
-            var key = resolved.Codigo != null
-                ? $"codigo:{resolved.Codigo}"
-                : $"livre:{resolved.Nome}|{resolved.Porte}";
-
-            if (seenKeys.Add(key))
-            {
-                resolvedItems.Add(resolved);
-            }
-        }
-
-        return resolvedItems;
-    }
-
-    public static List<PacienteProcedimento> ToPacienteProcedimentos(IReadOnlyList<ResolvedProcedimento> procedimentos)
-    {
-        return procedimentos
-            .Select((procedimento, index) => new PacienteProcedimento
-            {
-                CbhpmCodigo = procedimento.Codigo,
-                CbhpmPorte = procedimento.Porte,
-                Procedimento = procedimento.Nome,
-                ValorReferencia = procedimento.ValorReferencia,
-                Ordem = index + 1
-            })
-            .ToList();
-    }
-
-    private static async Task<ResolvedProcedimento?> ResolveProcedimentoItemAsync(
-        ICbhpmCache cbhpmCache,
-        PacienteProcedimentoCommandDto item,
-        CancellationToken cancellationToken)
-    {
-        var codigo = TrimOptional(item.CbhpmCodigo);
+        var codigo = TrimOptional(cbhpmCodigo);
         if (codigo == null)
         {
-            var procedimento = TrimOptional(item.Procedimento);
-            if (procedimento == null)
-            {
-                return null;
-            }
-
-            if (procedimento.Length > 1000)
-            {
-                throw new InvalidOperationException("Procedimento excede 1000 caracteres");
-            }
-
-            var porte = TrimOptional(item.CbhpmPorte);
-            if (porte?.Length > 10)
-            {
-                throw new InvalidOperationException("Porte CBHPM invalido");
-            }
-
-            return new ResolvedProcedimento(null, procedimento, porte, item.ValorReferencia);
+            return new ResolvedProcedimento(null, TrimOptional(procedimento), TrimOptional(cbhpmPorte));
         }
 
         var cbhpm = await cbhpmCache.GetByCodigoAsync(codigo, cancellationToken);
@@ -648,7 +559,7 @@ internal static class PacienteRules
             throw new InvalidOperationException("Procedimento CBHPM nao encontrado");
         }
 
-        return new ResolvedProcedimento(cbhpm.Codigo, cbhpm.Procedimento, cbhpm.Porte, cbhpm.ValorReferencia);
+        return new ResolvedProcedimento(cbhpm.Codigo, cbhpm.Procedimento, cbhpm.Porte);
     }
 }
 
@@ -656,4 +567,4 @@ internal sealed record ResolvedHospital(int Id, string Nome);
 
 internal sealed record ResolvedMedico(int? UserId, string? Nome);
 
-internal sealed record ResolvedProcedimento(string? Codigo, string Nome, string? Porte, decimal? ValorReferencia);
+internal sealed record ResolvedProcedimento(string? Codigo, string? Nome, string? Porte);
