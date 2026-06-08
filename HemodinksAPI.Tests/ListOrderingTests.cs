@@ -69,7 +69,10 @@ public class ListOrderingTests
                 MedicoUser = doctor,
                 Medico = doctor.Nome,
                 Convenio = "Particular",
-                Procedimento = "Consulta",
+                Procedimentos =
+                [
+                    new PacienteProcedimento { Procedimento = "Consulta", Ordem = 1 }
+                ],
             },
             new Paciente
             {
