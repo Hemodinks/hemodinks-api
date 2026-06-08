@@ -1,9 +1,12 @@
 using System.Security.Claims;
 using HemodinksAPI.Api.Authorization;
+using HemodinksAPI.Api.Data;
 using HemodinksAPI.Api.Features.Users.Commands;
 using HemodinksAPI.Api.Features.Users.Queries;
 using HemodinksAPI.Api.Models;
+using HemodinksAPI.Api.Storage;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
 
@@ -41,6 +44,12 @@ public static class UserEndpointExtensions
             .WithName("GetUserById")
             .WithSummary("Buscar usuario por ID")
             .WithDescription("Retorna os dados de um usuario especifico")
+            .RequireAuthorization();
+
+        group.MapGet("/{id}/foto-perfil", GetProfilePhoto)
+            .WithName("GetUserProfilePhoto")
+            .WithSummary("Buscar foto de perfil")
+            .WithDescription("Retorna a foto de perfil pelo storage configurado no ambiente")
             .RequireAuthorization();
 
         group.MapGet("/email/{email}", GetUserByEmail)
@@ -181,6 +190,65 @@ public static class UserEndpointExtensions
         {
             logger.LogError(ex, "Erro ao buscar usuario por ID");
             return Results.BadRequest(new { message = "Erro ao buscar usuario", error = ex.Message });
+        }
+    }
+
+    private static async Task<IResult> GetProfilePhoto(
+        int id,
+        ClaimsPrincipal claimsPrincipal,
+        AppDbContext context,
+        IProfilePhotoStorage profilePhotoStorage,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null)
+            {
+                return Results.Forbid();
+            }
+
+            var user = await context.Users
+                .AsNoTracking()
+                .Where(item => item.Id == id)
+                .Select(item => new
+                {
+                    item.Id,
+                    item.FotoPerfil
+                })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (user == null)
+            {
+                return Results.NotFound();
+            }
+
+            if (!currentUser.IsAdministrador && currentUser.Id != id)
+            {
+                var canAccessPatientPhoto = currentUser.IsMedico
+                    && await context.Pacientes
+                        .AsNoTracking()
+                        .AnyAsync(paciente =>
+                            paciente.UserId == id
+                            && (paciente.MedicoUserId == currentUser.Id || paciente.Medico == currentUser.Nome),
+                            cancellationToken);
+
+                if (!canAccessPatientPhoto)
+                {
+                    return Results.Forbid();
+                }
+            }
+
+            var photo = await profilePhotoStorage.GetAsync(user.FotoPerfil, cancellationToken);
+            return photo == null
+                ? Results.NotFound()
+                : Results.Stream(photo.Content, photo.ContentType);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Erro ao buscar foto de perfil");
+            return Results.BadRequest(new { message = "Erro ao buscar foto de perfil", error = ex.Message });
         }
     }
 
