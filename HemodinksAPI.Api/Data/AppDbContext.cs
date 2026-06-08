@@ -298,6 +298,9 @@ public class AppDbContext : DbContext
             entity.Property(e => e.CustoOperacional)
                 .HasColumnType("decimal(18,3)");
 
+            entity.Property(e => e.ValorReferencia)
+                .HasColumnType("decimal(18,2)");
+
             entity.Property(e => e.Capitulo)
                 .HasMaxLength(255);
 
