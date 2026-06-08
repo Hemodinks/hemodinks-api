@@ -13,6 +13,8 @@ public class Paciente
     public int? MedicoUserId { get; set; }
     public User? MedicoUser { get; set; }
     public string? Medico { get; set; }
+    public int? ConvenioId { get; set; }
+    public Convenio? ConvenioReferencia { get; set; }
     public string? Convenio { get; set; }
     public string? CbhpmCodigo { get; set; }
     public string? CbhpmPorte { get; set; }

@@ -63,6 +63,7 @@ public class PacienteCommandHandlerTests
             HospitalId = 1,
             MedicoUserId = doctor.Id,
             Medico = doctor.Nome,
+            ConvenioId = 7,
             Convenio = "Particular",
             Procedimentos =
             [
@@ -88,12 +89,16 @@ public class PacienteCommandHandlerTests
         Assert.Equal("Santa Clara - Mater Dei", storedPaciente.Hospital);
         Assert.Equal(doctor.Id, storedPaciente.MedicoUserId);
         Assert.Equal(doctor.Nome, storedPaciente.Medico);
+        Assert.Equal(7, storedPaciente.ConvenioId);
+        Assert.Equal("Particular", storedPaciente.Convenio);
         Assert.Equal("1.01.01.01-2", storedPaciente.CbhpmCodigo);
         Assert.Equal("Em consultorio", storedPaciente.Procedimento);
         Assert.Equal("2B", storedPaciente.CbhpmPorte);
         Assert.True(storedPaciente.StatusPago);
         Assert.Equal(storedPaciente.Id, response.Id);
         Assert.Equal(storedUser.Id, response.UserId);
+        Assert.Equal(7, response.ConvenioId);
+        Assert.Equal("Particular", response.Convenio);
         Assert.Equal(["Em consultorio", "Visita hospitalar a paciente internado"], response.Procedimentos.Select(item => item.Procedimento));
 
         var storedProcedimentos = await context.PacienteProcedimentos
