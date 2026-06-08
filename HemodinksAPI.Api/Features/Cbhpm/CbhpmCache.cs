@@ -44,6 +44,7 @@ public sealed class CbhpmCache : ICbhpmCache
                     item.Procedimento,
                     item.Porte,
                     item.CustoOperacional,
+                    item.ValorReferencia,
                     item.Capitulo,
                     item.Grupo,
                     item.PaginaPdf))
@@ -74,6 +75,7 @@ public sealed record CbhpmCacheItem(
     string Procedimento,
     string? Porte,
     decimal? CustoOperacional,
+    decimal? ValorReferencia,
     string? Capitulo,
     string? Grupo,
     int? PaginaPdf);

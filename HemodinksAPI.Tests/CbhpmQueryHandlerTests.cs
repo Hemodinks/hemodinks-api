@@ -43,7 +43,8 @@ public class CbhpmQueryHandlerTests
                     Codigo = "2.01.01.20-1",
                     Procedimento = "Avaliacao clinica e eletronica",
                     Porte = "2B",
-                    CustoOperacional = 6.000m
+                    CustoOperacional = 6.000m,
+                    ValorReferencia = 125.50m
                 }
             ]
         }, CancellationToken.None);
@@ -57,6 +58,7 @@ public class CbhpmQueryHandlerTests
         Assert.Equal("Em consultorio", storedItems[0].Procedimento);
         Assert.Equal("2B", storedItems[0].Porte);
         Assert.Equal(6.000m, storedItems[1].CustoOperacional);
+        Assert.Equal(125.50m, storedItems[1].ValorReferencia);
     }
 
     [Fact]
@@ -76,7 +78,8 @@ public class CbhpmQueryHandlerTests
                 Codigo = "2.01.01.20-1",
                 Procedimento = "Avaliacao clinica e eletronica de paciente portador de marca-passo",
                 Porte = "2B",
-                CustoOperacional = 6.000m
+                CustoOperacional = 6.000m,
+                ValorReferencia = 125.50m
             },
             new CbhpmGeral
             {
@@ -104,6 +107,7 @@ public class CbhpmQueryHandlerTests
         Assert.Single(result.Items);
         Assert.Equal("2.01.01.20-1", result.Items[0].Codigo);
         Assert.Equal(6.000m, result.Items[0].CustoOperacional);
+        Assert.Equal(125.50m, result.Items[0].ValorReferencia);
     }
 
     [Fact]

@@ -47,6 +47,7 @@ public class ImportCbhpmGeralCommandHandler : IRequestHandler<ImportCbhpmGeralCo
                     existingItem.Procedimento = item.Procedimento;
                     existingItem.Porte = item.Porte;
                     existingItem.CustoOperacional = item.CustoOperacional;
+                    existingItem.ValorReferencia = item.ValorReferencia;
                     existingItem.Capitulo = item.Capitulo;
                     existingItem.Grupo = item.Grupo;
                     existingItem.PaginaPdf = item.PaginaPdf;
@@ -60,6 +61,7 @@ public class ImportCbhpmGeralCommandHandler : IRequestHandler<ImportCbhpmGeralCo
                     Procedimento = item.Procedimento,
                     Porte = item.Porte,
                     CustoOperacional = item.CustoOperacional,
+                    ValorReferencia = item.ValorReferencia,
                     Capitulo = item.Capitulo,
                     Grupo = item.Grupo,
                     PaginaPdf = item.PaginaPdf
@@ -130,6 +132,7 @@ internal static class CbhpmImportRules
             Procedimento = procedimento,
             Porte = porte,
             CustoOperacional = item.CustoOperacional,
+            ValorReferencia = item.ValorReferencia,
             Capitulo = TrimMax(item.Capitulo, 255),
             Grupo = TrimMax(item.Grupo, 255),
             PaginaPdf = item.PaginaPdf

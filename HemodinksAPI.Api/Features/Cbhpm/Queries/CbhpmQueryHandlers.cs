@@ -68,6 +68,7 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
                     Procedimento = item.Procedimento,
                     Porte = item.Porte,
                     CustoOperacional = item.CustoOperacional,
+                    ValorReferencia = item.ValorReferencia,
                     Capitulo = item.Capitulo,
                     Grupo = item.Grupo,
                     PaginaPdf = item.PaginaPdf
