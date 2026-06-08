@@ -21,8 +21,6 @@ public class AppDbContext : DbContext
 
     public DbSet<PacienteArquivo> PacienteArquivos { get; set; } = null!;
 
-    public DbSet<PacienteProcedimento> PacienteProcedimentos { get; set; } = null!;
-
     public DbSet<UserArquivo> UserArquivos { get; set; } = null!;
 
     public DbSet<CbhpmGeral> CbhpmGeral { get; set; } = null!;
@@ -218,39 +216,6 @@ public class AppDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(e => e.MedicoUserId)
                 .OnDelete(DeleteBehavior.Restrict);
-
-            entity.HasMany(e => e.Procedimentos)
-                .WithOne(e => e.Paciente)
-                .HasForeignKey(e => e.PacienteId)
-                .OnDelete(DeleteBehavior.Cascade);
-        });
-
-        modelBuilder.Entity<PacienteProcedimento>(entity =>
-        {
-            entity.ToTable("PacienteProcedimentos");
-
-            entity.HasKey(e => e.Id);
-
-            entity.Property(e => e.CbhpmCodigo)
-                .HasMaxLength(20);
-
-            entity.Property(e => e.CbhpmPorte)
-                .HasMaxLength(10);
-
-            entity.Property(e => e.Procedimento)
-                .IsRequired()
-                .HasMaxLength(1000);
-
-            entity.Property(e => e.ValorReferencia)
-                .HasColumnType("decimal(18,2)");
-
-            entity.Property(e => e.Ordem)
-                .IsRequired()
-                .HasDefaultValue(1);
-
-            entity.HasIndex(e => e.PacienteId);
-
-            entity.HasIndex(e => e.CbhpmCodigo);
         });
 
         modelBuilder.Entity<PacienteArquivo>(entity =>

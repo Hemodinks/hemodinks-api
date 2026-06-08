@@ -230,47 +230,6 @@ namespace HemodinksAPI.Api.Data.Migrations
                     b.ToTable("PacienteArquivos", (string)null);
                 });
 
-            modelBuilder.Entity("HemodinksAPI.Api.Models.PacienteProcedimento", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("CbhpmCodigo")
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<string>("CbhpmPorte")
-                        .HasMaxLength(10)
-                        .HasColumnType("nvarchar(10)");
-
-                    b.Property<int>("Ordem")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(1);
-
-                    b.Property<int>("PacienteId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Procedimento")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<decimal?>("ValorReferencia")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CbhpmCodigo");
-
-                    b.HasIndex("PacienteId");
-
-                    b.ToTable("PacienteProcedimentos", (string)null);
-                });
-
             modelBuilder.Entity("HemodinksAPI.Api.Models.Perfil", b =>
                 {
                     b.Property<int>("Id")
@@ -471,17 +430,6 @@ namespace HemodinksAPI.Api.Data.Migrations
                     b.Navigation("Paciente");
                 });
 
-            modelBuilder.Entity("HemodinksAPI.Api.Models.PacienteProcedimento", b =>
-                {
-                    b.HasOne("HemodinksAPI.Api.Models.Paciente", "Paciente")
-                        .WithMany("Procedimentos")
-                        .HasForeignKey("PacienteId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Paciente");
-                });
-
             modelBuilder.Entity("HemodinksAPI.Api.Models.User", b =>
                 {
                     b.HasOne("HemodinksAPI.Api.Models.Perfil", "Perfil")
@@ -512,8 +460,6 @@ namespace HemodinksAPI.Api.Data.Migrations
             modelBuilder.Entity("HemodinksAPI.Api.Models.Paciente", b =>
                 {
                     b.Navigation("Arquivos");
-
-                    b.Navigation("Procedimentos");
                 });
 
             modelBuilder.Entity("HemodinksAPI.Api.Models.Perfil", b =>

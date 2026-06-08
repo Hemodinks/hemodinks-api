@@ -47,10 +47,6 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     || (p.Medico != null && p.Medico.Contains(search))
                     || (p.Convenio != null && p.Convenio.Contains(search))
                     || (p.Procedimento != null && p.Procedimento.Contains(search))
-                    || p.Procedimentos.Any(item =>
-                        item.Procedimento.Contains(search)
-                        || (item.CbhpmCodigo != null && item.CbhpmCodigo.Contains(search))
-                        || (item.CbhpmPorte != null && item.CbhpmPorte.Contains(search)))
                     || (!string.IsNullOrEmpty(digits) && p.User.Cpf != null && p.User.Cpf.Contains(digits))
                     || (!string.IsNullOrEmpty(digits) && p.User.Telefone.Contains(digits)));
             }
@@ -69,9 +65,7 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
 
             if (!string.IsNullOrWhiteSpace(procedimento))
             {
-                query = query.Where(p =>
-                    (p.Procedimento != null && p.Procedimento.Contains(procedimento))
-                    || p.Procedimentos.Any(item => item.Procedimento.Contains(procedimento)));
+                query = query.Where(p => p.Procedimento != null && p.Procedimento.Contains(procedimento));
             }
 
             var totalItems = await query.CountAsync(cancellationToken);
@@ -98,19 +92,6 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     CbhpmCodigo = p.CbhpmCodigo,
                     CbhpmPorte = p.CbhpmPorte,
                     Procedimento = p.Procedimento,
-                    Procedimentos = p.Procedimentos
-                        .OrderBy(item => item.Ordem)
-                        .ThenBy(item => item.Id)
-                        .Select(item => new PacienteProcedimentoDto
-                        {
-                            Id = item.Id,
-                            CbhpmCodigo = item.CbhpmCodigo,
-                            CbhpmPorte = item.CbhpmPorte,
-                            Procedimento = item.Procedimento,
-                            ValorReferencia = item.ValorReferencia,
-                            Ordem = item.Ordem
-                        })
-                        .ToList(),
                     Autorizacao = p.Autorizacao,
                     Pagamento = p.Pagamento,
                     RepasseGlosa = p.RepasseGlosa,
@@ -167,7 +148,6 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
                 .Include(p => p.User)
                 .Include(p => p.MedicoUser)
                 .Include(p => p.HospitalReferencia)
-                .Include(p => p.Procedimentos)
                 .Include(p => p.Arquivos)
                 .AsSplitQuery();
 
@@ -235,7 +215,6 @@ internal static class PacienteMapper
             CbhpmCodigo = paciente.CbhpmCodigo,
             CbhpmPorte = paciente.CbhpmPorte,
             Procedimento = paciente.Procedimento,
-            Procedimentos = ToProcedimentoDtos(paciente),
             Autorizacao = paciente.Autorizacao,
             Pagamento = paciente.Pagamento,
             RepasseGlosa = paciente.RepasseGlosa,
@@ -252,39 +231,6 @@ internal static class PacienteMapper
                 .Select(ToArquivoDto)
                 .ToList()
         };
-    }
-
-    private static List<PacienteProcedimentoDto> ToProcedimentoDtos(Models.Paciente paciente)
-    {
-        var procedimentos = paciente.Procedimentos
-            .OrderBy(item => item.Ordem)
-            .ThenBy(item => item.Id)
-            .Select(item => new PacienteProcedimentoDto
-            {
-                Id = item.Id,
-                CbhpmCodigo = item.CbhpmCodigo,
-                CbhpmPorte = item.CbhpmPorte,
-                Procedimento = item.Procedimento,
-                ValorReferencia = item.ValorReferencia,
-                Ordem = item.Ordem
-            })
-            .ToList();
-
-        if (procedimentos.Count > 0 || string.IsNullOrWhiteSpace(paciente.Procedimento))
-        {
-            return procedimentos;
-        }
-
-        return
-        [
-            new PacienteProcedimentoDto
-            {
-                CbhpmCodigo = paciente.CbhpmCodigo,
-                CbhpmPorte = paciente.CbhpmPorte,
-                Procedimento = paciente.Procedimento,
-                Ordem = 1
-            }
-        ];
     }
 
     public static PacienteArquivoDto ToArquivoDto(Models.PacienteArquivo arquivo)
