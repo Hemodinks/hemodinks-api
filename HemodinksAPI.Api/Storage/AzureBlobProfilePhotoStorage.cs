@@ -94,6 +94,42 @@ public class AzureBlobProfilePhotoStorage : IProfilePhotoStorage
         }
     }
 
+    public async Task<ProfilePhotoFile?> GetAsync(string? fotoPerfil, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(fotoPerfil))
+        {
+            return null;
+        }
+
+        if (IsDataUrl(fotoPerfil))
+        {
+            var parsedPhoto = ParseDataUrl(fotoPerfil);
+            return new ProfilePhotoFile(new MemoryStream(parsedPhoto.Bytes), parsedPhoto.ContentType);
+        }
+
+        var blobName = GetBlobNameFromUrl(fotoPerfil);
+
+        if (string.IsNullOrWhiteSpace(blobName))
+        {
+            return null;
+        }
+
+        var containerClient = await GetContainerClientAsync(cancellationToken);
+        var blobClient = containerClient.GetBlobClient(blobName);
+
+        if (!(await blobClient.ExistsAsync(cancellationToken)).Value)
+        {
+            return null;
+        }
+
+        var response = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
+        var contentType = string.IsNullOrWhiteSpace(response.Value.Details.ContentType)
+            ? "application/octet-stream"
+            : response.Value.Details.ContentType;
+
+        return new ProfilePhotoFile(response.Value.Content, contentType);
+    }
+
     private async Task<BlobContainerClient> GetContainerClientAsync(CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(_options.ConnectionString))
