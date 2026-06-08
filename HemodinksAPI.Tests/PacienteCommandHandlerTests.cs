@@ -275,6 +275,11 @@ public class PacienteCommandHandlerTests
             return Task.FromResult(fotoPerfil);
         }
 
+        public Task<ProfilePhotoFile?> GetAsync(string? fotoPerfil, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<ProfilePhotoFile?>(null);
+        }
+
         public Task DeleteAsync(string? fotoPerfil, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;

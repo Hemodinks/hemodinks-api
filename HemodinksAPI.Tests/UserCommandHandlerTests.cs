@@ -456,6 +456,11 @@ public class UserCommandHandlerTests
             return Task.FromResult<string?>(fotoPerfil);
         }
 
+        public Task<ProfilePhotoFile?> GetAsync(string? fotoPerfil, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<ProfilePhotoFile?>(null);
+        }
+
         public Task DeleteAsync(string? fotoPerfil, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
