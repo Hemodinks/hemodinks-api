@@ -20,6 +20,7 @@ public class CreatePacienteCommand : IRequest<PacienteDto>
     public string? CbhpmCodigo { get; set; }
     public string? CbhpmPorte { get; set; }
     public string? Procedimento { get; set; }
+    public List<PacienteProcedimentoCommandDto> Procedimentos { get; set; } = [];
     public string? Autorizacao { get; set; }
     public string? Pagamento { get; set; }
     public string? RepasseGlosa { get; set; }
@@ -48,6 +49,7 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
     public string? CbhpmCodigo { get; set; }
     public string? CbhpmPorte { get; set; }
     public string? Procedimento { get; set; }
+    public List<PacienteProcedimentoCommandDto> Procedimentos { get; set; } = [];
     public string? Autorizacao { get; set; }
     public string? Pagamento { get; set; }
     public string? RepasseGlosa { get; set; }
@@ -62,6 +64,14 @@ public class DeletePacienteCommand : IRequest
 {
     public int Id { get; set; }
     public int CurrentPerfilId { get; set; }
+}
+
+public class PacienteProcedimentoCommandDto
+{
+    public string? CbhpmCodigo { get; set; }
+    public string? CbhpmPorte { get; set; }
+    public string? Procedimento { get; set; }
+    public decimal? ValorReferencia { get; set; }
 }
 
 public class UploadPacienteArquivoCommand : IRequest<PacienteArquivoDto>
