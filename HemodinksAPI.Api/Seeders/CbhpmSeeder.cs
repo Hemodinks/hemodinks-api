@@ -64,6 +64,10 @@ public class CbhpmSeeder
                 existingItem.Procedimento = item.Procedimento;
                 existingItem.Porte = item.Porte;
                 existingItem.CustoOperacional = item.CustoOperacional;
+                if (item.ValorReferencia.HasValue)
+                {
+                    existingItem.ValorReferencia = item.ValorReferencia;
+                }
                 existingItem.Capitulo = item.Capitulo;
                 existingItem.Grupo = item.Grupo;
                 existingItem.PaginaPdf = item.PaginaPdf;
@@ -77,6 +81,7 @@ public class CbhpmSeeder
                 Procedimento = item.Procedimento,
                 Porte = item.Porte,
                 CustoOperacional = item.CustoOperacional,
+                ValorReferencia = item.ValorReferencia,
                 Capitulo = item.Capitulo,
                 Grupo = item.Grupo,
                 PaginaPdf = item.PaginaPdf
@@ -104,6 +109,7 @@ public class CbhpmSeeder
         return existingItem.Procedimento != item.Procedimento
             || existingItem.Porte != item.Porte
             || existingItem.CustoOperacional != item.CustoOperacional
+            || (item.ValorReferencia.HasValue && existingItem.ValorReferencia != item.ValorReferencia)
             || existingItem.Capitulo != item.Capitulo
             || existingItem.Grupo != item.Grupo
             || existingItem.PaginaPdf != item.PaginaPdf;
