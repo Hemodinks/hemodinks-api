@@ -31,7 +31,15 @@ public class PacienteCommandHandlerTests
         {
             Codigo = "1.01.01.01-2",
             Procedimento = "Em consultorio",
-            Porte = "2B"
+            Porte = "2B",
+            ValorReferencia = 120m
+        });
+        context.CbhpmGeral.Add(new CbhpmGeral
+        {
+            Codigo = "1.01.02.01-9",
+            Procedimento = "Visita hospitalar a paciente internado",
+            Porte = "2A",
+            ValorReferencia = 180m
         });
         context.Users.Add(doctor);
         await context.SaveChangesAsync();
@@ -56,7 +64,11 @@ public class PacienteCommandHandlerTests
             MedicoUserId = doctor.Id,
             Medico = doctor.Nome,
             Convenio = "Particular",
-            CbhpmCodigo = "1.01.01.01-2",
+            Procedimentos =
+            [
+                new PacienteProcedimentoCommandDto { CbhpmCodigo = "1.01.01.01-2" },
+                new PacienteProcedimentoCommandDto { CbhpmCodigo = "1.01.02.01-9" }
+            ],
             Autorizacao = "AUT-123",
             Pagamento = "Pix",
             RepasseGlosa = "Sem glosa",
@@ -82,6 +94,17 @@ public class PacienteCommandHandlerTests
         Assert.True(storedPaciente.StatusPago);
         Assert.Equal(storedPaciente.Id, response.Id);
         Assert.Equal(storedUser.Id, response.UserId);
+        Assert.Equal(["Em consultorio", "Visita hospitalar a paciente internado"], response.Procedimentos.Select(item => item.Procedimento));
+
+        var storedProcedimentos = await context.PacienteProcedimentos
+            .OrderBy(item => item.Ordem)
+            .ToListAsync();
+        Assert.Equal(2, storedProcedimentos.Count);
+        Assert.Equal(storedPaciente.Id, storedProcedimentos[0].PacienteId);
+        Assert.Equal("1.01.01.01-2", storedProcedimentos[0].CbhpmCodigo);
+        Assert.Equal(120m, storedProcedimentos[0].ValorReferencia);
+        Assert.Equal("1.01.02.01-9", storedProcedimentos[1].CbhpmCodigo);
+        Assert.Equal(180m, storedProcedimentos[1].ValorReferencia);
     }
 
     [Fact]

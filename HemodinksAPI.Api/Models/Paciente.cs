@@ -21,5 +21,6 @@ public class Paciente
     public string? Pagamento { get; set; }
     public string? RepasseGlosa { get; set; }
     public bool StatusPago { get; set; }
+    public ICollection<PacienteProcedimento> Procedimentos { get; set; } = new List<PacienteProcedimento>();
     public ICollection<PacienteArquivo> Arquivos { get; set; } = new List<PacienteArquivo>();
 }

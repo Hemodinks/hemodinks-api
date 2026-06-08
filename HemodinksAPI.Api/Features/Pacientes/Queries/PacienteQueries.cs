@@ -19,6 +19,7 @@ public class PacienteDto
     public string? CbhpmCodigo { get; set; }
     public string? CbhpmPorte { get; set; }
     public string? Procedimento { get; set; }
+    public List<PacienteProcedimentoDto> Procedimentos { get; set; } = [];
     public string? Autorizacao { get; set; }
     public string? Pagamento { get; set; }
     public string? RepasseGlosa { get; set; }
@@ -31,6 +32,16 @@ public class PacienteDto
     public bool Ativo { get; set; }
     public int ArquivosCount { get; set; }
     public List<PacienteArquivoDto> Arquivos { get; set; } = [];
+}
+
+public class PacienteProcedimentoDto
+{
+    public int Id { get; set; }
+    public string? CbhpmCodigo { get; set; }
+    public string? CbhpmPorte { get; set; }
+    public string Procedimento { get; set; } = null!;
+    public decimal? ValorReferencia { get; set; }
+    public int Ordem { get; set; }
 }
 
 public class PacienteArquivoDto
