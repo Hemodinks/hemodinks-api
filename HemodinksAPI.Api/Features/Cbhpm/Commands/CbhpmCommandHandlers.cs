@@ -132,7 +132,7 @@ internal static class CbhpmImportRules
             Procedimento = procedimento,
             Porte = porte,
             CustoOperacional = item.CustoOperacional,
-            ValorReferencia = item.ValorReferencia,
+            ValorReferencia = item.ValorReferencia ?? CbhpmValorReferencia.Calcular(porte, item.CustoOperacional),
             Capitulo = TrimMax(item.Capitulo, 255),
             Grupo = TrimMax(item.Grupo, 255),
             PaginaPdf = item.PaginaPdf
