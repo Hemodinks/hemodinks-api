@@ -102,8 +102,7 @@ var defaultAllowedOrigins = new[]
     "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:8080",
-    "https://hemodinks-saude.vercel.app",
-    "https://hemodinks-homologacao.vercel.app"
+    "https://hemodinks-saude.vercel.app"
 };
 
 var configuredAllowedOrigins = builder.Configuration
