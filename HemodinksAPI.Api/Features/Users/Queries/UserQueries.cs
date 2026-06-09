@@ -1,5 +1,4 @@
 using HemodinksAPI.Api.Features.Common;
-using HemodinksAPI.Api.Models;
 using MediatR;
 
 namespace HemodinksAPI.Api.Features.Users.Queries;

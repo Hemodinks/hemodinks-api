@@ -160,7 +160,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName))
+            if (!PacienteCommandAccess.CanManage(paciente, request.CurrentPerfilId, request.CurrentUserId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para atualizar paciente");
             }
@@ -326,7 +326,7 @@ public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacient
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName))
+            if (!PacienteCommandAccess.CanManage(paciente, request.CurrentPerfilId, request.CurrentUserId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para enviar arquivo do paciente");
             }
@@ -386,7 +386,7 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
                 throw new KeyNotFoundException("Arquivo nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(arquivo.Paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName))
+            if (!PacienteCommandAccess.CanManage(arquivo.Paciente, request.CurrentPerfilId, request.CurrentUserId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para excluir arquivo do paciente");
             }
@@ -412,7 +412,7 @@ internal static class PacienteCommandAccess
         return perfilId == Perfil.AdministradorId || perfilId == Perfil.MedicosId;
     }
 
-    public static bool CanManage(Models.Paciente paciente, int perfilId, int userId, string userName)
+    public static bool CanManage(Models.Paciente paciente, int perfilId, int userId)
     {
         return perfilId == Perfil.AdministradorId
             || (perfilId == Perfil.MedicosId && paciente.MedicoUserId == userId);

@@ -151,8 +151,7 @@ public class ListOrderingTests
             Page = 1,
             PageSize = 10,
             CurrentPerfilId = Perfil.MedicosId,
-            CurrentUserId = doctor.Id,
-            CurrentUserName = "Nome de sessao diferente",
+            CurrentUserId = doctor.Id
         }, CancellationToken.None);
 
         Assert.Equal(["Paciente Vinculado"], result.Items.Select(paciente => paciente.NomePaciente));

@@ -33,7 +33,7 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
             var procedimento = canUseAdminFilters ? TrimOptional(request.Procedimento) : null;
 
             var query = _context.Pacientes.AsNoTracking();
-            query = PacienteAccess.ApplyScope(query, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName);
+            query = PacienteAccess.ApplyScope(query, request.CurrentPerfilId, request.CurrentUserId);
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -176,7 +176,7 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
                 .Include(p => p.Arquivos)
                 .AsSplitQuery();
 
-            query = PacienteAccess.ApplyScope(query, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName);
+            query = PacienteAccess.ApplyScope(query, request.CurrentPerfilId, request.CurrentUserId);
 
             var paciente = await query
                 .Where(p => p.Id == request.Id)
@@ -197,8 +197,7 @@ internal static class PacienteAccess
     public static IQueryable<Models.Paciente> ApplyScope(
         IQueryable<Models.Paciente> query,
         int perfilId,
-        int userId,
-        string userName)
+        int userId)
     {
         if (perfilId == Perfil.AdministradorId)
         {

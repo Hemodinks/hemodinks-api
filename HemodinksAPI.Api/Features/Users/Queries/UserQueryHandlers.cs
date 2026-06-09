@@ -114,10 +114,38 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, UserDto
 
             var user = await _context.Users
                 .AsNoTracking()
-                .Include(u => u.Perfil)
-                .Include(u => u.Arquivos)
-                .AsSplitQuery()
                 .Where(u => u.Id == request.Id)
+                .Select(u => new UserDto
+                {
+                    Id = u.Id,
+                    Nome = u.Nome,
+                    Email = u.Email,
+                    Telefone = u.Telefone,
+                    Cpf = u.Cpf,
+                    Crm = u.Crm,
+                    CrmUf = u.CrmUf,
+                    FotoPerfil = u.FotoPerfil,
+                    DataCadastro = u.DataCadastro,
+                    DataAtualizacao = u.DataAtualizacao,
+                    DataNascimento = u.DataNascimento,
+                    Ativo = u.Ativo,
+                    PrecisaTrocarSenha = u.PrecisaTrocarSenha,
+                    PerfilId = u.PerfilId,
+                    PerfilNome = u.Perfil.Nome,
+                    ArquivosCount = u.Arquivos.Count,
+                    Arquivos = u.Arquivos
+                        .OrderByDescending(arquivo => arquivo.DataUpload)
+                        .Select(arquivo => new UserArquivoDto
+                        {
+                            Id = arquivo.Id,
+                            NomeOriginal = arquivo.NomeOriginal,
+                            ContentType = arquivo.ContentType,
+                            TamanhoBytes = arquivo.TamanhoBytes,
+                            Url = arquivo.Url,
+                            DataUpload = arquivo.DataUpload
+                        })
+                        .ToList()
+                })
                 .FirstOrDefaultAsync(cancellationToken);
 
             if (user == null)
@@ -125,7 +153,7 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, UserDto
                 _logger.LogWarning("Usuario nao encontrado. ID: {UserId}", request.Id);
             }
 
-            return user == null ? null : UserMapper.ToDto(user);
+            return user;
         }
         catch (Exception ex)
         {
@@ -193,33 +221,6 @@ public class GetUserByEmailQueryHandler : IRequestHandler<GetUserByEmailQuery, U
 
 internal static class UserMapper
 {
-    public static UserDto ToDto(Models.User user)
-    {
-        return new UserDto
-        {
-            Id = user.Id,
-            Nome = user.Nome,
-            Email = user.Email,
-            Telefone = user.Telefone,
-            Cpf = user.Cpf,
-            Crm = user.Crm,
-            CrmUf = user.CrmUf,
-            FotoPerfil = user.FotoPerfil,
-            DataCadastro = user.DataCadastro,
-            DataAtualizacao = user.DataAtualizacao,
-            DataNascimento = user.DataNascimento,
-            Ativo = user.Ativo,
-            PrecisaTrocarSenha = user.PrecisaTrocarSenha,
-            PerfilId = user.PerfilId,
-            PerfilNome = user.Perfil.Nome,
-            ArquivosCount = user.Arquivos.Count,
-            Arquivos = user.Arquivos
-                .OrderByDescending(arquivo => arquivo.DataUpload)
-                .Select(ToArquivoDto)
-                .ToList()
-        };
-    }
-
     public static UserArquivoDto ToArquivoDto(Models.UserArquivo arquivo)
     {
         return new UserArquivoDto
