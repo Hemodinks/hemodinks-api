@@ -38,8 +38,7 @@ public class GetDashboardSummaryQueryHandler :
         patientQuery = PacienteAccess.ApplyScope(
             patientQuery,
             request.CurrentPerfilId,
-            request.CurrentUserId,
-            request.CurrentUserName);
+            request.CurrentUserId);
 
         var patientSummary = await patientQuery
             .GroupBy(_ => 1)
@@ -47,7 +46,8 @@ public class GetDashboardSummaryQueryHandler :
             {
                 PacientesCount = group.Count(),
                 ActivePatientsCount = group.Count(paciente => paciente.User.Ativo),
-                PendingPaymentsCount = group.Count(paciente => !paciente.StatusPago)
+                PendingPaymentsCount = group.Count(paciente => !paciente.StatusPago),
+                PatientFilesCount = group.Sum(paciente => paciente.Arquivos.Count)
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -58,7 +58,7 @@ public class GetDashboardSummaryQueryHandler :
             PacientesCount = patientSummary?.PacientesCount ?? 0,
             ActivePatientsCount = patientSummary?.ActivePatientsCount ?? 0,
             PendingPaymentsCount = patientSummary?.PendingPaymentsCount ?? 0,
-            PatientFilesCount = await patientQuery.SumAsync(paciente => paciente.Arquivos.Count, cancellationToken)
+            PatientFilesCount = patientSummary?.PatientFilesCount ?? 0
         };
     }
 
@@ -72,8 +72,7 @@ public class GetDashboardSummaryQueryHandler :
         patientQuery = PacienteAccess.ApplyScope(
             patientQuery,
             request.CurrentPerfilId,
-            request.CurrentUserId,
-            request.CurrentUserName);
+            request.CurrentUserId);
 
         var pendingPatients = await patientQuery
             .Where(paciente => !paciente.StatusPago)

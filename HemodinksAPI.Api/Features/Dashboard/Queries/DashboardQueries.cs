@@ -43,8 +43,6 @@ public class GetDashboardSummaryQuery : IRequest<DashboardSummaryDto>
     public int CurrentUserId { get; set; }
 
     public int CurrentPerfilId { get; set; }
-
-    public string CurrentUserName { get; set; } = string.Empty;
 }
 
 public class GetDashboardNotificationsQuery : IRequest<IReadOnlyList<DashboardNotificationDto>>
@@ -52,8 +50,6 @@ public class GetDashboardNotificationsQuery : IRequest<IReadOnlyList<DashboardNo
     public int CurrentUserId { get; set; }
 
     public int CurrentPerfilId { get; set; }
-
-    public string CurrentUserName { get; set; } = string.Empty;
 
     public int Limit { get; set; } = 20;
 }

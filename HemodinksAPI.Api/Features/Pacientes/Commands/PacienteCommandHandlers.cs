@@ -57,6 +57,11 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 request.HospitalId,
                 request.Hospital,
                 cancellationToken);
+            var convenio = await PacienteRules.ResolveConvenioAsync(
+                _context,
+                request.ConvenioId,
+                request.Convenio,
+                cancellationToken);
             var procedimentos = await PacienteRules.ResolveProcedimentosAsync(
                 _cbhpmCache,
                 request.Procedimentos,
@@ -94,7 +99,8 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 Hospital = hospital.Nome,
                 MedicoUserId = medico.UserId,
                 Medico = medico.Nome,
-                Convenio = PacienteRules.TrimOptional(request.Convenio),
+                ConvenioId = convenio?.Id,
+                Convenio = convenio?.Descricao,
                 CbhpmCodigo = procedimentoPrincipal?.Codigo,
                 CbhpmPorte = procedimentoPrincipal?.Porte,
                 Procedimento = procedimentoPrincipal?.Nome,
@@ -154,7 +160,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName))
+            if (!PacienteCommandAccess.CanManage(paciente, request.CurrentPerfilId, request.CurrentUserId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para atualizar paciente");
             }
@@ -174,6 +180,11 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 _context,
                 request.HospitalId,
                 request.Hospital,
+                cancellationToken);
+            var convenio = await PacienteRules.ResolveConvenioAsync(
+                _context,
+                request.ConvenioId,
+                request.Convenio,
                 cancellationToken);
             var procedimentos = await PacienteRules.ResolveProcedimentosAsync(
                 _cbhpmCache,
@@ -200,7 +211,8 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             paciente.Hospital = hospital.Nome;
             paciente.MedicoUserId = medico.UserId;
             paciente.Medico = medico.Nome;
-            paciente.Convenio = PacienteRules.TrimOptional(request.Convenio);
+            paciente.ConvenioId = convenio?.Id;
+            paciente.Convenio = convenio?.Descricao;
             paciente.CbhpmCodigo = procedimentoPrincipal?.Codigo;
             paciente.CbhpmPorte = procedimentoPrincipal?.Porte;
             paciente.Procedimento = procedimentoPrincipal?.Nome;
@@ -314,7 +326,7 @@ public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacient
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName))
+            if (!PacienteCommandAccess.CanManage(paciente, request.CurrentPerfilId, request.CurrentUserId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para enviar arquivo do paciente");
             }
@@ -374,7 +386,7 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
                 throw new KeyNotFoundException("Arquivo nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(arquivo.Paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentUserName))
+            if (!PacienteCommandAccess.CanManage(arquivo.Paciente, request.CurrentPerfilId, request.CurrentUserId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para excluir arquivo do paciente");
             }
@@ -400,7 +412,7 @@ internal static class PacienteCommandAccess
         return perfilId == Perfil.AdministradorId || perfilId == Perfil.MedicosId;
     }
 
-    public static bool CanManage(Models.Paciente paciente, int perfilId, int userId, string userName)
+    public static bool CanManage(Models.Paciente paciente, int perfilId, int userId)
     {
         return perfilId == Perfil.AdministradorId
             || (perfilId == Perfil.MedicosId && paciente.MedicoUserId == userId);
@@ -497,6 +509,41 @@ internal static class PacienteRules
         }
 
         return new ResolvedHospital(hospital.Id, hospital.Nome);
+    }
+
+    public static async Task<ResolvedConvenio?> ResolveConvenioAsync(
+        AppDbContext context,
+        int? convenioId,
+        string? convenioDescricao,
+        CancellationToken cancellationToken)
+    {
+        Convenio? convenio = null;
+
+        if (convenioId.HasValue)
+        {
+            convenio = await context.Convenios
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item => item.IdConvenio == convenioId.Value, cancellationToken);
+        }
+        else
+        {
+            var descricao = TrimOptional(convenioDescricao);
+            if (descricao == null)
+            {
+                return null;
+            }
+
+            convenio = await context.Convenios
+                .AsNoTracking()
+                .FirstOrDefaultAsync(item => item.DescricaoConvenio == descricao, cancellationToken);
+        }
+
+        if (convenio == null)
+        {
+            throw new InvalidOperationException("Convenio invalido");
+        }
+
+        return new ResolvedConvenio(convenio.IdConvenio, convenio.DescricaoConvenio);
     }
 
     public static async Task<ResolvedMedico> ResolveMedicoAsync(
@@ -653,6 +700,8 @@ internal static class PacienteRules
 }
 
 internal sealed record ResolvedHospital(int Id, string Nome);
+
+internal sealed record ResolvedConvenio(int Id, string Descricao);
 
 internal sealed record ResolvedMedico(int? UserId, string? Nome);
 

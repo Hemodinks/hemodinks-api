@@ -16,6 +16,7 @@ public class CreatePacienteCommand : IRequest<PacienteDto>
     public string? Hospital { get; set; }
     public int? MedicoUserId { get; set; }
     public string? Medico { get; set; }
+    public int? ConvenioId { get; set; }
     public string? Convenio { get; set; }
     public string? CbhpmCodigo { get; set; }
     public string? CbhpmPorte { get; set; }
@@ -45,6 +46,7 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
     public string? Hospital { get; set; }
     public int? MedicoUserId { get; set; }
     public string? Medico { get; set; }
+    public int? ConvenioId { get; set; }
     public string? Convenio { get; set; }
     public string? CbhpmCodigo { get; set; }
     public string? CbhpmPorte { get; set; }
@@ -80,7 +82,6 @@ public class UploadPacienteArquivoCommand : IRequest<PacienteArquivoDto>
     public IFormFile File { get; set; } = null!;
     public int CurrentUserId { get; set; }
     public int CurrentPerfilId { get; set; }
-    public string CurrentUserName { get; set; } = string.Empty;
 }
 
 public class DeletePacienteArquivoCommand : IRequest
@@ -89,5 +90,4 @@ public class DeletePacienteArquivoCommand : IRequest
     public int ArquivoId { get; set; }
     public int CurrentUserId { get; set; }
     public int CurrentPerfilId { get; set; }
-    public string CurrentUserName { get; set; } = string.Empty;
 }

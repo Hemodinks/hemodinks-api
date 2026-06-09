@@ -72,8 +72,7 @@ public static class PacienteEndpointExtensions
                 Convenio = convenio,
                 Procedimento = procedimento,
                 CurrentUserId = currentUser.Id,
-                CurrentPerfilId = currentUser.PerfilId,
-                CurrentUserName = currentUser.Nome
+                CurrentPerfilId = currentUser.PerfilId
             }));
         }
         catch (Exception ex)
@@ -97,7 +96,7 @@ public static class PacienteEndpointExtensions
                 return Results.Forbid();
             }
 
-            var result = await mediator.Send(new GetPacienteByIdQuery(id, currentUser.Id, currentUser.PerfilId, currentUser.Nome));
+            var result = await mediator.Send(new GetPacienteByIdQuery(id, currentUser.Id, currentUser.PerfilId));
             return result == null ? Results.NotFound() : Results.Ok(result);
         }
         catch (Exception ex)
@@ -234,8 +233,7 @@ public static class PacienteEndpointExtensions
                 PacienteId = id,
                 File = file,
                 CurrentUserId = currentUser.Id,
-                CurrentPerfilId = currentUser.PerfilId,
-                CurrentUserName = currentUser.Nome
+                CurrentPerfilId = currentUser.PerfilId
             });
 
             return Results.Created($"/api/pacientes/{id}/arquivos/{result.Id}", result);
@@ -279,8 +277,7 @@ public static class PacienteEndpointExtensions
                 PacienteId = id,
                 ArquivoId = arquivoId,
                 CurrentUserId = currentUser.Id,
-                CurrentPerfilId = currentUser.PerfilId,
-                CurrentUserName = currentUser.Nome
+                CurrentPerfilId = currentUser.PerfilId
             });
 
             return Results.NoContent();

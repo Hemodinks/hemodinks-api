@@ -19,6 +19,8 @@ public class AppDbContext : DbContext
 
     public DbSet<Hospital> Hospitais { get; set; } = null!;
 
+    public DbSet<Convenio> Convenios { get; set; } = null!;
+
     public DbSet<PacienteArquivo> PacienteArquivos { get; set; } = null!;
 
     public DbSet<PacienteProcedimento> PacienteProcedimentos { get; set; } = null!;
@@ -154,6 +156,31 @@ public class AppDbContext : DbContext
                 new Hospital { Id = 3, Nome = "UMC - Complexo Hospitalar" });
         });
 
+        modelBuilder.Entity<Convenio>(entity =>
+        {
+            entity.ToTable("Convenios");
+
+            entity.HasKey(e => e.IdConvenio);
+
+            entity.Property(e => e.DescricaoConvenio)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.HasIndex(e => e.DescricaoConvenio)
+                .IsUnique();
+
+            entity.HasData(
+                new Convenio { IdConvenio = 1, DescricaoConvenio = "Amil" },
+                new Convenio { IdConvenio = 2, DescricaoConvenio = "Bradesco Sa\u00fade" },
+                new Convenio { IdConvenio = 3, DescricaoConvenio = "Cemig Sa\u00fade" },
+                new Convenio { IdConvenio = 4, DescricaoConvenio = "Fusex" },
+                new Convenio { IdConvenio = 5, DescricaoConvenio = "Geap" },
+                new Convenio { IdConvenio = 6, DescricaoConvenio = "Ipsemg" },
+                new Convenio { IdConvenio = 7, DescricaoConvenio = "Particular" },
+                new Convenio { IdConvenio = 8, DescricaoConvenio = "Sul Am\u00e9rica" },
+                new Convenio { IdConvenio = 9, DescricaoConvenio = "Unimed Uberl\u00e2ndia - Plano  Unimed Interc\u00e2mbio" });
+        });
+
         modelBuilder.Entity<Paciente>(entity =>
         {
             entity.ToTable("Pacientes");
@@ -174,6 +201,8 @@ public class AppDbContext : DbContext
 
             entity.Property(e => e.Convenio)
                 .HasMaxLength(255);
+
+            entity.HasIndex(e => e.ConvenioId);
 
             entity.Property(e => e.CbhpmCodigo)
                 .HasMaxLength(20);
@@ -217,6 +246,11 @@ public class AppDbContext : DbContext
             entity.HasOne(e => e.MedicoUser)
                 .WithMany()
                 .HasForeignKey(e => e.MedicoUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.ConvenioReferencia)
+                .WithMany(e => e.Pacientes)
+                .HasForeignKey(e => e.ConvenioId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasMany(e => e.Procedimentos)

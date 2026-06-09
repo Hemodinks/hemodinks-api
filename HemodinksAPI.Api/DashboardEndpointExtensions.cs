@@ -38,8 +38,7 @@ public static class DashboardEndpointExtensions
             return Results.Ok(await mediator.Send(new GetDashboardSummaryQuery
             {
                 CurrentUserId = currentUser.Id,
-                CurrentPerfilId = currentUser.PerfilId,
-                CurrentUserName = currentUser.Nome
+                CurrentPerfilId = currentUser.PerfilId
             }));
         }
         catch (Exception ex)
@@ -65,8 +64,7 @@ public static class DashboardEndpointExtensions
             return Results.Ok(await mediator.Send(new GetDashboardNotificationsQuery
             {
                 CurrentUserId = currentUser.Id,
-                CurrentPerfilId = currentUser.PerfilId,
-                CurrentUserName = currentUser.Nome
+                CurrentPerfilId = currentUser.PerfilId
             }));
         }
         catch (Exception ex)
