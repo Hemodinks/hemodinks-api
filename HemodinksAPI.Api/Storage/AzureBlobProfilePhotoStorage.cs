@@ -172,12 +172,12 @@ public class AzureBlobProfilePhotoStorage : IProfilePhotoStorage
 
     private BlobLocation? GetBlobLocationFromUrl(string fotoPerfil)
     {
+        var defaultContainerName = _options.ContainerName.Trim('/');
+
         if (!Uri.TryCreate(fotoPerfil, UriKind.Absolute, out var uri))
         {
-            return null;
+            return GetBlobLocationFromPath(fotoPerfil, defaultContainerName);
         }
-
-        var defaultContainerName = _options.ContainerName.Trim('/');
 
         if (!string.IsNullOrWhiteSpace(_options.PublicBaseUrl))
         {
@@ -216,7 +216,7 @@ public class AzureBlobProfilePhotoStorage : IProfilePhotoStorage
             var remainingPath = normalizedPath[(firstSlashIndex + 1)..];
 
             if (firstSegment.StartsWith("profile-photos", StringComparison.OrdinalIgnoreCase)
-                && remainingPath.StartsWith("users/", StringComparison.OrdinalIgnoreCase))
+                && !string.IsNullOrWhiteSpace(remainingPath))
             {
                 return new BlobLocation(firstSegment, remainingPath);
             }
