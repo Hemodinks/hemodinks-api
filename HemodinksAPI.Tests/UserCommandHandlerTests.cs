@@ -1,4 +1,5 @@
 using HemodinksAPI.Api.Authentication;
+using HemodinksAPI.Api.Features.Licencas;
 using HemodinksAPI.Api.Features.Users.Commands;
 using HemodinksAPI.Api.Models;
 using HemodinksAPI.Api.Services;
@@ -6,6 +7,7 @@ using HemodinksAPI.Api.Storage;
 using HemodinksAPI.Api.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Tests;
 
@@ -21,6 +23,7 @@ public class UserCommandHandlerTests
             hasher,
             new FakeProfilePhotoStorage(),
             new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
             NullLogger<CreateUserCommandHandler>.Instance);
 
         var response = await handler.Handle(new CreateUserCommand
@@ -51,6 +54,7 @@ public class UserCommandHandlerTests
         Assert.Equal("PE", response.CrmUf);
         Assert.Equal("Médicos", response.PerfilNome);
         Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+        Assert.NotNull(await context.Licencas.SingleOrDefaultAsync(item => item.UserId == storedUser.Id));
     }
 
     [Fact]
@@ -62,6 +66,7 @@ public class UserCommandHandlerTests
             new PasswordHasher(),
             new FakeProfilePhotoStorage(),
             new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
             NullLogger<CreateUserCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
@@ -85,6 +90,7 @@ public class UserCommandHandlerTests
             hasher,
             new FakeProfilePhotoStorage(),
             new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
             NullLogger<CreateUserCommandHandler>.Instance);
 
         var response = await handler.Handle(new CreateUserCommand
@@ -115,6 +121,7 @@ public class UserCommandHandlerTests
             new PasswordHasher(),
             new FakeProfilePhotoStorage(),
             new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
             NullLogger<CreateUserCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
@@ -141,6 +148,7 @@ public class UserCommandHandlerTests
             hasher,
             new FakeProfilePhotoStorage(),
             new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
             NullLogger<CreateUserCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
@@ -170,6 +178,7 @@ public class UserCommandHandlerTests
             context,
             hasher,
             new StubJwtTokenService("fake-token"),
+            CreateLicencaService(context),
             NullLogger<AuthenticateUserCommandHandler>.Instance);
 
         var response = await handler.Handle(new AuthenticateUserCommand
@@ -186,6 +195,10 @@ public class UserCommandHandlerTests
         Assert.Equal("54321", response.Crm);
         Assert.Equal("SP", response.CrmUf);
         Assert.Equal("Médicos", response.PerfilNome);
+        Assert.NotNull(response.Licenca);
+        Assert.Equal(LicencaPlanos.Trial, response.Licenca.Plano);
+        Assert.Contains(LicencaFeatures.PacientesVisualizar, response.Licenca.FeaturesEfetivas);
+        Assert.DoesNotContain(LicencaFeatures.PacientesGerenciar, response.Licenca.FeaturesEfetivas);
     }
 
     [Fact]
@@ -247,6 +260,7 @@ public class UserCommandHandlerTests
             context,
             hasher,
             new StubJwtTokenService("fake-token"),
+            CreateLicencaService(context),
             NullLogger<AuthenticateUserCommandHandler>.Instance);
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new AuthenticateUserCommand
@@ -434,6 +448,11 @@ public class UserCommandHandlerTests
             FotoPerfil = fotoPerfil,
             PerfilId = Perfil.MedicosId
         };
+    }
+
+    private static LicencaService CreateLicencaService(HemodinksAPI.Api.Data.AppDbContext context)
+    {
+        return new LicencaService(context, Options.Create(new LicencaOptions()));
     }
 
     private sealed class FakeProfilePhotoStorage : IProfilePhotoStorage

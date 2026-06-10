@@ -69,5 +69,7 @@ public class User
 
     public Paciente? Paciente { get; set; }
 
+    public Licenca? Licenca { get; set; }
+
     public ICollection<UserArquivo> Arquivos { get; set; } = new List<UserArquivo>();
 }

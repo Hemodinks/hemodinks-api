@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using HemodinksAPI.Api.Authorization;
+using HemodinksAPI.Api.Features.Licencas;
 using HemodinksAPI.Api.Features.Pacientes.Commands;
 using HemodinksAPI.Api.Features.Pacientes.Queries;
 using MediatR;
@@ -16,19 +17,23 @@ public static class PacienteEndpointExtensions
 
         group.MapGet("/", GetAllPacientes)
             .WithName("GetAllPacientes")
-            .WithSummary("Listar pacientes");
+            .WithSummary("Listar pacientes")
+            .RequireAuthorization(LicencaPolicies.PacientesVisualizar);
 
         group.MapGet("/{id}", GetPacienteById)
             .WithName("GetPacienteById")
-            .WithSummary("Buscar paciente por ID");
+            .WithSummary("Buscar paciente por ID")
+            .RequireAuthorization(LicencaPolicies.PacientesVisualizar);
 
         group.MapPost("/", CreatePaciente)
             .WithName("CreatePaciente")
-            .WithSummary("Criar paciente");
+            .WithSummary("Criar paciente")
+            .RequireAuthorization(LicencaPolicies.PacientesGerenciar);
 
         group.MapPut("/{id}", UpdatePaciente)
             .WithName("UpdatePaciente")
-            .WithSummary("Atualizar paciente");
+            .WithSummary("Atualizar paciente")
+            .RequireAuthorization(LicencaPolicies.PacientesGerenciar);
 
         group.MapDelete("/{id}", DeletePaciente)
             .WithName("DeletePaciente")
@@ -37,11 +42,13 @@ public static class PacienteEndpointExtensions
         group.MapPost("/{id}/arquivos", UploadArquivo)
             .WithName("UploadPacienteArquivo")
             .WithSummary("Enviar arquivo do paciente")
-            .DisableAntiforgery();
+            .DisableAntiforgery()
+            .RequireAuthorization(LicencaPolicies.PacientesGerenciar);
 
         group.MapDelete("/{id}/arquivos/{arquivoId}", DeleteArquivo)
             .WithName("DeletePacienteArquivo")
-            .WithSummary("Excluir arquivo do paciente");
+            .WithSummary("Excluir arquivo do paciente")
+            .RequireAuthorization(LicencaPolicies.PacientesGerenciar);
     }
 
     private static async Task<IResult> GetAllPacientes(

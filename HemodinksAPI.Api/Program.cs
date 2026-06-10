@@ -1,13 +1,16 @@
 using System.Text;
 using HemodinksAPI.Api;
 using HemodinksAPI.Api.Authentication;
+using HemodinksAPI.Api.Authorization;
 using HemodinksAPI.Api.Data;
 using HemodinksAPI.Api.Features.Cbhpm;
+using HemodinksAPI.Api.Features.Licencas;
 using HemodinksAPI.Api.Models;
 using HemodinksAPI.Api.Seeders;
 using HemodinksAPI.Api.Services;
 using HemodinksAPI.Api.Storage;
 using HemodinksAPI.Api.Utils;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -95,6 +98,18 @@ builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("Administrador", policy =>
         policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString()));
+
+    options.AddPolicy(LicencaPolicies.DashboardVisualizar, policy =>
+        policy.Requirements.Add(new LicencaFeatureRequirement(LicencaFeatures.DashboardVisualizar)));
+
+    options.AddPolicy(LicencaPolicies.PacientesVisualizar, policy =>
+        policy.Requirements.Add(new LicencaFeatureRequirement(LicencaFeatures.PacientesVisualizar)));
+
+    options.AddPolicy(LicencaPolicies.PacientesGerenciar, policy =>
+        policy.Requirements.Add(new LicencaFeatureRequirement(LicencaFeatures.PacientesGerenciar)));
+
+    options.AddPolicy(LicencaPolicies.CbhpmConsultar, policy =>
+        policy.Requirements.Add(new LicencaFeatureRequirement(LicencaFeatures.CbhpmConsultar)));
 });
 
 var defaultAllowedOrigins = new[]
@@ -130,6 +145,9 @@ builder.Services.AddCors(options =>
 
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.Configure<LicencaOptions>(builder.Configuration.GetSection("Licensing"));
+builder.Services.AddScoped<ILicencaService, LicencaService>();
+builder.Services.AddScoped<IAuthorizationHandler, LicencaFeatureAuthorizationHandler>();
 builder.Services.AddScoped<IUserPatientSyncService, UserPatientSyncService>();
 builder.Services.Configure<ProfilePhotoStorageOptions>(builder.Configuration.GetSection("AzureStorage"));
 builder.Services.Configure<PatientFileStorageOptions>(options =>
@@ -265,5 +283,6 @@ app.MapHospitalEndpoints();
 app.MapConvenioEndpoints();
 app.MapUserEndpoints();
 app.MapPacienteEndpoints();
+app.MapLicencaEndpoints();
 
 app.Run();

@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HemodinksAPI.Api.Authorization;
 using HemodinksAPI.Api.Features.Dashboard.Queries;
+using HemodinksAPI.Api.Features.Licencas;
 using MediatR;
 
 namespace HemodinksAPI.Api;
@@ -15,11 +16,13 @@ public static class DashboardEndpointExtensions
 
         group.MapGet("/summary", GetSummary)
             .WithName("GetDashboardSummary")
-            .WithSummary("Resumo do dashboard");
+            .WithSummary("Resumo do dashboard")
+            .RequireAuthorization(LicencaPolicies.DashboardVisualizar);
 
         group.MapGet("/notifications", GetNotifications)
             .WithName("GetDashboardNotifications")
-            .WithSummary("Notificacoes do dashboard");
+            .WithSummary("Notificacoes do dashboard")
+            .RequireAuthorization(LicencaPolicies.DashboardVisualizar);
     }
 
     private static async Task<IResult> GetSummary(

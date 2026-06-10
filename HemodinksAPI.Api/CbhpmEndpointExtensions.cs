@@ -1,5 +1,6 @@
 using HemodinksAPI.Api.Features.Cbhpm.Commands;
 using HemodinksAPI.Api.Features.Cbhpm.Queries;
+using HemodinksAPI.Api.Features.Licencas;
 using MediatR;
 
 namespace HemodinksAPI.Api;
@@ -14,7 +15,8 @@ public static class CbhpmEndpointExtensions
 
         group.MapGet("/", GetCbhpmGeral)
             .WithName("GetCbhpmGeral")
-            .WithSummary("Listar procedimentos CBHPM");
+            .WithSummary("Listar procedimentos CBHPM")
+            .RequireAuthorization(LicencaPolicies.CbhpmConsultar);
 
         group.MapPost("/import", ImportCbhpmGeral)
             .RequireAuthorization("Administrador")

@@ -29,6 +29,8 @@ public class AppDbContext : DbContext
 
     public DbSet<CbhpmGeral> CbhpmGeral { get; set; } = null!;
 
+    public DbSet<Licenca> Licencas { get; set; } = null!;
+
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
@@ -135,6 +137,45 @@ public class AppDbContext : DbContext
                 .WithOne(e => e.User)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.Licenca)
+                .WithOne(e => e.User)
+                .HasForeignKey<Licenca>(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Licenca>(entity =>
+        {
+            entity.ToTable("Licencas");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Plano)
+                .IsRequired()
+                .HasMaxLength(30);
+
+            entity.Property(e => e.Status)
+                .IsRequired()
+                .HasMaxLength(30);
+
+            entity.Property(e => e.DataInicioTrial)
+                .IsRequired();
+
+            entity.Property(e => e.DataFimTrial)
+                .IsRequired();
+
+            entity.Property(e => e.FeaturesLiberadas)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.Observacoes)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.DataCadastro)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(e => e.UserId)
+                .IsUnique();
         });
 
         modelBuilder.Entity<Hospital>(entity =>

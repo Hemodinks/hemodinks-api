@@ -1,4 +1,5 @@
 using HemodinksAPI.Api.Models;
+using HemodinksAPI.Api.Features.Licencas;
 
 namespace HemodinksAPI.Api.Features.Users.Commands;
 
@@ -65,6 +66,7 @@ public class AuthenticateUserResponse
     public bool PrecisaTrocarSenha { get; set; }
     public int PerfilId { get; set; }
     public string PerfilNome { get; set; } = null!;
+    public LicencaDto? Licenca { get; set; }
 }
 
 /// <summary>

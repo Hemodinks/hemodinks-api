@@ -1,5 +1,6 @@
 using HemodinksAPI.Api.Authentication;
 using HemodinksAPI.Api.Data;
+using HemodinksAPI.Api.Features.Licencas;
 using HemodinksAPI.Api.Features.Users.Queries;
 using HemodinksAPI.Api.Models;
 using HemodinksAPI.Api.Services;
@@ -7,6 +8,7 @@ using HemodinksAPI.Api.Storage;
 using HemodinksAPI.Api.Utils;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Api.Features.Users.Commands;
 
@@ -19,6 +21,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
     private readonly IPasswordHasher _passwordHasher;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly IUserPatientSyncService _userPatientSyncService;
+    private readonly LicencaOptions _licencaOptions;
     private readonly ILogger<CreateUserCommandHandler> _logger;
 
     public CreateUserCommandHandler(
@@ -26,12 +29,14 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
         IUserPatientSyncService userPatientSyncService,
+        IOptions<LicencaOptions> licencaOptions,
         ILogger<CreateUserCommandHandler> logger)
     {
         _context = context;
         _passwordHasher = passwordHasher;
         _profilePhotoStorage = profilePhotoStorage;
         _userPatientSyncService = userPatientSyncService;
+        _licencaOptions = licencaOptions.Value;
         _logger = logger;
     }
 
@@ -91,6 +96,20 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
             _context.Users.Add(user);
             await _context.SaveChangesAsync(cancellationToken);
 
+            if (user.PerfilId == Perfil.MedicosId)
+            {
+                var now = DateTime.UtcNow;
+                _context.Licencas.Add(new Licenca
+                {
+                    UserId = user.Id,
+                    Plano = LicencaPlanos.Trial,
+                    Status = LicencaStatus.Ativa,
+                    DataInicioTrial = now,
+                    DataFimTrial = now.AddDays(Math.Max(1, _licencaOptions.TrialDays)),
+                    DataCadastro = now
+                });
+            }
+
             await _userPatientSyncService.EnsurePacienteForUserAsync(user, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -131,17 +150,20 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
     private readonly AppDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
+    private readonly ILicencaService _licencaService;
     private readonly ILogger<AuthenticateUserCommandHandler> _logger;
 
     public AuthenticateUserCommandHandler(
         AppDbContext context,
         IPasswordHasher passwordHasher,
         IJwtTokenService jwtTokenService,
+        ILicencaService licencaService,
         ILogger<AuthenticateUserCommandHandler> logger)
     {
         _context = context;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
+        _licencaService = licencaService;
         _logger = logger;
     }
 
@@ -162,6 +184,9 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
             }
 
             var token = _jwtTokenService.GenerateToken(user);
+            var licenca = user.PerfilId == Perfil.MedicosId
+                ? await _licencaService.GetOrCreateForMedicoAsync(user.Id, cancellationToken)
+                : null;
 
             _logger.LogInformation("Usuario autenticado com sucesso: {Email}", request.Email);
 
@@ -177,7 +202,8 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 FotoPerfil = user.FotoPerfil,
                 PrecisaTrocarSenha = user.PrecisaTrocarSenha,
                 PerfilId = user.PerfilId,
-                PerfilNome = UserProfileRules.GetPerfilNome(user)
+                PerfilNome = UserProfileRules.GetPerfilNome(user),
+                Licenca = licenca
             };
         }
         catch (Exception ex)
