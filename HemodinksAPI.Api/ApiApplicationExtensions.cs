@@ -1,6 +1,6 @@
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Seeders;
+using HemodinksAPI.Infrastructure.Data;
+using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Infrastructure.Seeders;
 using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 

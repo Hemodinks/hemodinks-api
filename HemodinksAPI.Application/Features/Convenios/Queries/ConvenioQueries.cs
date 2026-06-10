@@ -1,6 +1,6 @@
 using MediatR;
 
-namespace HemodinksAPI.Api.Features.Convenios.Queries;
+namespace HemodinksAPI.Application.Features.Convenios.Queries;
 
 public class ConvenioDto
 {

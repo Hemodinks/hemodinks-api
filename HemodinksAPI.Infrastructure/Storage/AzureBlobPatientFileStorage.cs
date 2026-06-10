@@ -2,7 +2,7 @@ using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Options;
 
-namespace HemodinksAPI.Api.Storage;
+namespace HemodinksAPI.Infrastructure.Storage;
 
 public class AzureBlobPatientFileStorage : IPatientFileStorage
 {

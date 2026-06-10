@@ -1,6 +1,6 @@
-using HemodinksAPI.Api.Validation;
+using HemodinksAPI.Application.Validation;
 
-namespace HemodinksAPI.Api.Features.Users.Commands;
+namespace HemodinksAPI.Application.Features.Users.Commands;
 
 public sealed class CreateUserCommandValidator : IRequestValidator<CreateUserCommand>
 {

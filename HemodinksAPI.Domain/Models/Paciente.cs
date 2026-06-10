@@ -1,4 +1,4 @@
-namespace HemodinksAPI.Api.Models;
+namespace HemodinksAPI.Domain.Models;
 
 public class Paciente
 {

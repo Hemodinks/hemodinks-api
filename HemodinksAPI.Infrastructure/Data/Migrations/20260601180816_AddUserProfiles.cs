@@ -1,10 +1,10 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 #pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
 
-namespace HemodinksAPI.Api.Data.Migrations
+namespace HemodinksAPI.Infrastructure.Data.Migrations
 {
     /// <inheritdoc />
     public partial class AddUserProfiles : Migration
@@ -38,7 +38,7 @@ namespace HemodinksAPI.Api.Data.Migrations
                 values: new object[,]
                 {
                     { 1, "Administrador" },
-                    { 2, "Médicos" },
+                    { 2, "M�dicos" },
                     { 3, "Pacientes" }
                 });
 

@@ -1,9 +1,10 @@
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Features.Cbhpm;
-using HemodinksAPI.Api.Features.Pacientes.Commands;
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Storage;
-using HemodinksAPI.Api.Utils;
+using HemodinksAPI.Infrastructure.Data;
+using HemodinksAPI.Application.Features.Cbhpm;
+using HemodinksAPI.Application.Features.Pacientes.Commands;
+using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Storage;
+using HemodinksAPI.Domain.Utils;
+using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;

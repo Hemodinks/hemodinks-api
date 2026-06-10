@@ -1,6 +1,6 @@
-using HemodinksAPI.Api.Authorization;
-using HemodinksAPI.Api.Features.Licencas;
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Application.Authorization;
+using HemodinksAPI.Application.Features.Licencas;
+using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -104,7 +104,7 @@ public class LicencaServiceTests
         Assert.False(canView);
     }
 
-    private static LicencaService CreateService(HemodinksAPI.Api.Data.AppDbContext context)
+    private static LicencaService CreateService(HemodinksAPI.Infrastructure.Data.AppDbContext context)
     {
         return new LicencaService(context, Options.Create(new LicencaOptions()));
     }

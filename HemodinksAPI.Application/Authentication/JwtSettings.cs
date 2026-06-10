@@ -1,4 +1,4 @@
-namespace HemodinksAPI.Api.Authentication;
+namespace HemodinksAPI.Application.Authentication;
 
 /// <summary>
 /// Configurações de JWT

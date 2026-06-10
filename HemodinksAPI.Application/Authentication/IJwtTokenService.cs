@@ -1,6 +1,6 @@
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Domain.Models;
 
-namespace HemodinksAPI.Api.Authentication;
+namespace HemodinksAPI.Application.Authentication;
 
 /// <summary>
 /// Servico para gerar tokens JWT.

@@ -1,7 +1,7 @@
-using HemodinksAPI.Api.Authorization;
+using HemodinksAPI.Application.Authorization;
 using MediatR;
 
-namespace HemodinksAPI.Api.Features.Events.Commands;
+namespace HemodinksAPI.Application.Features.Events.Commands;
 
 public sealed class CreateEventCommand : IRequest<EventDto>
 {

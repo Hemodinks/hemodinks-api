@@ -1,8 +1,8 @@
 using System.Security.Claims;
-using HemodinksAPI.Api.Authorization;
-using HemodinksAPI.Api.Features.Events;
-using HemodinksAPI.Api.Features.Events.Commands;
-using HemodinksAPI.Api.Features.Events.Queries;
+using HemodinksAPI.Application.Authorization;
+using HemodinksAPI.Application.Features.Events;
+using HemodinksAPI.Application.Features.Events.Commands;
+using HemodinksAPI.Application.Features.Events.Queries;
 using MediatR;
 
 namespace HemodinksAPI.Api;

@@ -1,7 +1,7 @@
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Utils;
+using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Utils;
 
-namespace HemodinksAPI.Api.Seeders;
+namespace HemodinksAPI.Infrastructure.Seeders;
 
 /// <summary>
 /// Seeder para popular dados iniciais de usuários

@@ -1,4 +1,4 @@
-namespace HemodinksAPI.Api.Utils;
+namespace HemodinksAPI.Domain.Utils;
 
 /// <summary>
 /// Senha inicial aplicada aos usuários cadastrados pelo sistema.

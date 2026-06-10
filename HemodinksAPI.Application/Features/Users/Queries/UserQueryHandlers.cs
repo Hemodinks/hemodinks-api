@@ -1,11 +1,11 @@
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Features.Common;
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Storage;
+using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Common;
+using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Storage;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api.Features.Users.Queries;
+namespace HemodinksAPI.Application.Features.Users.Queries;
 
 public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedResult<UserDto>>
 {
@@ -298,7 +298,7 @@ public class GetUserByEmailQueryHandler : IRequestHandler<GetUserByEmailQuery, U
 
 internal static class UserMapper
 {
-    public static UserArquivoDto ToArquivoDto(Models.UserArquivo arquivo)
+    public static UserArquivoDto ToArquivoDto(UserArquivo arquivo)
     {
         return new UserArquivoDto
         {

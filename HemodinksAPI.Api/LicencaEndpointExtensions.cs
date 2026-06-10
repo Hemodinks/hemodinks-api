@@ -1,6 +1,6 @@
 using System.Security.Claims;
-using HemodinksAPI.Api.Authorization;
-using HemodinksAPI.Api.Features.Licencas;
+using HemodinksAPI.Application.Authorization;
+using HemodinksAPI.Application.Features.Licencas;
 
 namespace HemodinksAPI.Api;
 

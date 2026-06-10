@@ -1,6 +1,6 @@
-using HemodinksAPI.Api.Validation;
+using HemodinksAPI.Application.Validation;
 
-namespace HemodinksAPI.Api.Features.Events.Commands;
+namespace HemodinksAPI.Application.Features.Events.Commands;
 
 public sealed class CreateEventCommandValidator : IRequestValidator<CreateEventCommand>
 {

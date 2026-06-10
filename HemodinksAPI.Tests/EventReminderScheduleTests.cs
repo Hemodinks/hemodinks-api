@@ -1,5 +1,5 @@
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Services;
+using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Services;
 
 namespace HemodinksAPI.Tests;
 

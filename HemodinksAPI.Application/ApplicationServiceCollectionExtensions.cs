@@ -1,10 +1,10 @@
-using HemodinksAPI.Api.Features.Events.Commands;
-using HemodinksAPI.Api.Features.Pacientes.Commands;
-using HemodinksAPI.Api.Features.Users.Commands;
-using HemodinksAPI.Api.Validation;
+using HemodinksAPI.Application.Features.Events.Commands;
+using HemodinksAPI.Application.Features.Pacientes.Commands;
+using HemodinksAPI.Application.Features.Users.Commands;
+using HemodinksAPI.Application.Validation;
 using Microsoft.Extensions.DependencyInjection;
 
-namespace HemodinksAPI.Api;
+namespace HemodinksAPI.Application;
 
 public static class ApplicationServiceCollectionExtensions
 {

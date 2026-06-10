@@ -1,4 +1,4 @@
-namespace HemodinksAPI.Api.Utils;
+namespace HemodinksAPI.Application.Utils;
 
 /// <summary>
 /// Servico para hash e verificacao de senhas.

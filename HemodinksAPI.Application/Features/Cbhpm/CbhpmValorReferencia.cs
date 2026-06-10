@@ -1,4 +1,4 @@
-namespace HemodinksAPI.Api.Features.Cbhpm;
+namespace HemodinksAPI.Application.Features.Cbhpm;
 
 internal static class CbhpmValorReferencia
 {

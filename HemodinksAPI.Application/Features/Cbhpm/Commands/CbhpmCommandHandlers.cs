@@ -1,10 +1,10 @@
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Features.Cbhpm;
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Cbhpm;
+using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api.Features.Cbhpm.Commands;
+namespace HemodinksAPI.Application.Features.Cbhpm.Commands;
 
 public class ImportCbhpmGeralCommandHandler : IRequestHandler<ImportCbhpmGeralCommand, CbhpmImportResultDto>
 {

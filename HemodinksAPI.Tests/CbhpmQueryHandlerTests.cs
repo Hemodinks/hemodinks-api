@@ -1,8 +1,8 @@
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Features.Cbhpm;
-using HemodinksAPI.Api.Features.Cbhpm.Commands;
-using HemodinksAPI.Api.Features.Cbhpm.Queries;
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Infrastructure.Data;
+using HemodinksAPI.Application.Features.Cbhpm;
+using HemodinksAPI.Application.Features.Cbhpm.Commands;
+using HemodinksAPI.Application.Features.Cbhpm.Queries;
+using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;

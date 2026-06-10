@@ -1,10 +1,10 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Domain.Models;
 using Microsoft.IdentityModel.Tokens;
 
-namespace HemodinksAPI.Api.Authentication;
+namespace HemodinksAPI.Infrastructure.Authentication;
 
 /// <summary>
 /// Implementação do serviço JWT

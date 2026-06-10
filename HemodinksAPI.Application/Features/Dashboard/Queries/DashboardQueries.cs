@@ -1,6 +1,6 @@
 using MediatR;
 
-namespace HemodinksAPI.Api.Features.Dashboard.Queries;
+namespace HemodinksAPI.Application.Features.Dashboard.Queries;
 
 public class DashboardSummaryDto
 {

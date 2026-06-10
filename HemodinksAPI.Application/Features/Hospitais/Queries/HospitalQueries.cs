@@ -1,6 +1,6 @@
 using MediatR;
 
-namespace HemodinksAPI.Api.Features.Hospitais.Queries;
+namespace HemodinksAPI.Application.Features.Hospitais.Queries;
 
 public class HospitalDto
 {

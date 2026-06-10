@@ -1,4 +1,4 @@
-namespace HemodinksAPI.Api.Features.Common;
+namespace HemodinksAPI.Application.Features.Common;
 
 public class PagedResult<T>
 {

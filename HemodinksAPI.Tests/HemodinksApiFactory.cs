@@ -1,5 +1,5 @@
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.HostedServices;
+using HemodinksAPI.Infrastructure.Data;
+using HemodinksAPI.Infrastructure.HostedServices;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;

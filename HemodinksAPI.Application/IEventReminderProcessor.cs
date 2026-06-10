@@ -1,4 +1,4 @@
-namespace HemodinksAPI.Api.Services;
+namespace HemodinksAPI.Application.Services;
 
 public interface IEventReminderProcessor
 {

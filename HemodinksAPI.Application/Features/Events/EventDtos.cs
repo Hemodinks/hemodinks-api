@@ -1,4 +1,4 @@
-namespace HemodinksAPI.Api.Features.Events;
+namespace HemodinksAPI.Application.Features.Events;
 
 public sealed class EventRequest
 {

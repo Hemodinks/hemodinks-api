@@ -1,10 +1,10 @@
-ï»¿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 #pragma warning disable CA1814 // Prefer jagged arrays over multidimensional
 
-namespace HemodinksAPI.Api.Data.Migrations
+namespace HemodinksAPI.Infrastructure.Data.Migrations
 {
     /// <inheritdoc />
     public partial class AddConvenios : Migration
@@ -37,14 +37,14 @@ namespace HemodinksAPI.Api.Data.Migrations
                 values: new object[,]
                 {
                     { 1, "Amil" },
-                    { 2, "Bradesco SaÃºde" },
-                    { 3, "Cemig SaÃºde" },
+                    { 2, "Bradesco Saúde" },
+                    { 3, "Cemig Saúde" },
                     { 4, "Fusex" },
                     { 5, "Geap" },
                     { 6, "Ipsemg" },
                     { 7, "Particular" },
-                    { 8, "Sul AmÃ©rica" },
-                    { 9, "Unimed UberlÃ¢ndia - Plano  Unimed IntercÃ¢mbio" }
+                    { 8, "Sul América" },
+                    { 9, "Unimed Uberlândia - Plano  Unimed Intercâmbio" }
                 });
 
             migrationBuilder.Sql("""

@@ -1,10 +1,10 @@
-using HemodinksAPI.Api.Authorization;
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Application.Authorization;
+using HemodinksAPI.Application.Data;
+using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
-namespace HemodinksAPI.Api.Features.Licencas;
+namespace HemodinksAPI.Application.Features.Licencas;
 
 public interface ILicencaService
 {

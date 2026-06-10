@@ -1,10 +1,10 @@
-using HemodinksAPI.Api.Authorization;
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Application.Authorization;
+using HemodinksAPI.Application.Data;
+using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api.Features.Events.Commands;
+namespace HemodinksAPI.Application.Features.Events.Commands;
 
 public sealed class EventCommandHandler :
     IRequestHandler<CreateEventCommand, EventDto>,

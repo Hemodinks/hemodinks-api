@@ -1,6 +1,6 @@
 using MediatR;
 
-namespace HemodinksAPI.Api.Features.Cbhpm.Commands;
+namespace HemodinksAPI.Application.Features.Cbhpm.Commands;
 
 public class ImportCbhpmGeralCommand : IRequest<CbhpmImportResultDto>
 {

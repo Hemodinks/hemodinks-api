@@ -1,6 +1,6 @@
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Domain.Models;
 
-namespace HemodinksAPI.Api.Services;
+namespace HemodinksAPI.Application.Services;
 
 public interface IUserPatientSyncService
 {

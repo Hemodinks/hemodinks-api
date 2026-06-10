@@ -1,4 +1,4 @@
-using HemodinksAPI.Api.Features.Hospitais.Queries;
+using HemodinksAPI.Application.Features.Hospitais.Queries;
 using MediatR;
 
 namespace HemodinksAPI.Api;

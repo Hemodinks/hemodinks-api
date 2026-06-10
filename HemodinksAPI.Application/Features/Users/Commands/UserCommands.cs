@@ -1,8 +1,8 @@
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Features.Licencas;
-using HemodinksAPI.Api.Authorization;
+using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Features.Licencas;
+using HemodinksAPI.Application.Authorization;
 
-namespace HemodinksAPI.Api.Features.Users.Commands;
+namespace HemodinksAPI.Application.Features.Users.Commands;
 
 /// <summary>
 /// DTO para criação de usuário

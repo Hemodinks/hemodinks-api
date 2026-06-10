@@ -1,7 +1,7 @@
 using System.Security.Claims;
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Domain.Models;
 
-namespace HemodinksAPI.Api.Authorization;
+namespace HemodinksAPI.Application.Authorization;
 
 public sealed record CurrentUserContext(int Id, int PerfilId, string Nome)
 {

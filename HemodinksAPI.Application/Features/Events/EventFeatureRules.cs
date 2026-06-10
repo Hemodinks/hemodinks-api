@@ -1,8 +1,8 @@
-using HemodinksAPI.Api.Authorization;
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Services;
+using HemodinksAPI.Application.Authorization;
+using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Services;
 
-namespace HemodinksAPI.Api.Features.Events;
+namespace HemodinksAPI.Application.Features.Events;
 
 internal static class EventFeatureRules
 {

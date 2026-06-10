@@ -1,6 +1,6 @@
-using HemodinksAPI.Api.Validation;
+using HemodinksAPI.Application.Validation;
 
-namespace HemodinksAPI.Api.Features.Pacientes.Commands;
+namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
 public sealed class CreatePacienteCommandValidator : IRequestValidator<CreatePacienteCommand>
 {

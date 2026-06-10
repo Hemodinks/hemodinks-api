@@ -1,8 +1,8 @@
 using System.Security.Claims;
-using HemodinksAPI.Api.Authorization;
-using HemodinksAPI.Api.Features.Licencas;
-using HemodinksAPI.Api.Features.Pacientes.Commands;
-using HemodinksAPI.Api.Features.Pacientes.Queries;
+using HemodinksAPI.Application.Authorization;
+using HemodinksAPI.Application.Features.Licencas;
+using HemodinksAPI.Application.Features.Pacientes.Commands;
+using HemodinksAPI.Application.Features.Pacientes.Queries;
 using MediatR;
 
 namespace HemodinksAPI.Api;

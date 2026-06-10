@@ -1,8 +1,8 @@
-using HemodinksAPI.Api.Data;
+using HemodinksAPI.Application.Data;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api.Features.Convenios.Queries;
+namespace HemodinksAPI.Application.Features.Convenios.Queries;
 
 public class GetConveniosQueryHandler : IRequestHandler<GetConveniosQuery, List<ConvenioDto>>
 {

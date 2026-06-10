@@ -1,6 +1,7 @@
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Seeders;
-using HemodinksAPI.Api.Utils;
+using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Infrastructure.Seeders;
+using HemodinksAPI.Domain.Utils;
+using HemodinksAPI.Infrastructure.Utils;
 
 namespace HemodinksAPI.Tests;
 

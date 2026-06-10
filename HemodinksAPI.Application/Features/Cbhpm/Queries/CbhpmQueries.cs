@@ -1,7 +1,7 @@
-using HemodinksAPI.Api.Features.Common;
+using HemodinksAPI.Application.Features.Common;
 using MediatR;
 
-namespace HemodinksAPI.Api.Features.Cbhpm.Queries;
+namespace HemodinksAPI.Application.Features.Cbhpm.Queries;
 
 public class CbhpmGeralDto
 {

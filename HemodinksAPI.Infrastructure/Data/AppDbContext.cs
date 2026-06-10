@@ -1,7 +1,7 @@
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api.Data;
+namespace HemodinksAPI.Infrastructure.Data;
 
 /// <summary>
 /// Contexto de banco de dados da aplicação

@@ -1,6 +1,6 @@
-using HemodinksAPI.Api.Features.Cbhpm.Commands;
-using HemodinksAPI.Api.Features.Cbhpm.Queries;
-using HemodinksAPI.Api.Features.Licencas;
+using HemodinksAPI.Application.Features.Cbhpm.Commands;
+using HemodinksAPI.Application.Features.Cbhpm.Queries;
+using HemodinksAPI.Application.Features.Licencas;
 using MediatR;
 
 namespace HemodinksAPI.Api;

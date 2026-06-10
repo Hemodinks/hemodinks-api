@@ -1,11 +1,13 @@
-using HemodinksAPI.Api.Authentication;
-using HemodinksAPI.Api.Authorization;
-using HemodinksAPI.Api.Features.Licencas;
-using HemodinksAPI.Api.Features.Users.Commands;
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Services;
-using HemodinksAPI.Api.Storage;
-using HemodinksAPI.Api.Utils;
+using HemodinksAPI.Application.Authentication;
+using HemodinksAPI.Application.Authorization;
+using HemodinksAPI.Application.Features.Licencas;
+using HemodinksAPI.Application.Features.Users.Commands;
+using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Services;
+using HemodinksAPI.Application.Storage;
+using HemodinksAPI.Domain.Utils;
+using HemodinksAPI.Infrastructure.Utils;
+using HemodinksAPI.Infrastructure.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -519,7 +521,7 @@ public class UserCommandHandlerTests
         }, CancellationToken.None));
     }
 
-    private static LicencaService CreateLicencaService(HemodinksAPI.Api.Data.AppDbContext context)
+    private static LicencaService CreateLicencaService(HemodinksAPI.Infrastructure.Data.AppDbContext context)
     {
         return new LicencaService(context, Options.Create(new LicencaOptions()));
     }

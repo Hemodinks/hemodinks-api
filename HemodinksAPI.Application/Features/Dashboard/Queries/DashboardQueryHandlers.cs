@@ -1,10 +1,10 @@
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Features.Pacientes.Queries;
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Pacientes.Queries;
+using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api.Features.Dashboard.Queries;
+namespace HemodinksAPI.Application.Features.Dashboard.Queries;
 
 public class GetDashboardSummaryQueryHandler :
     IRequestHandler<GetDashboardSummaryQuery, DashboardSummaryDto>,

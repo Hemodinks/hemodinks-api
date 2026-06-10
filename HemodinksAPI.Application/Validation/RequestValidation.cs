@@ -1,6 +1,6 @@
 using MediatR;
 
-namespace HemodinksAPI.Api.Validation;
+namespace HemodinksAPI.Application.Validation;
 
 public interface IRequestValidator<in TRequest>
 {

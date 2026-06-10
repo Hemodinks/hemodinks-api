@@ -1,10 +1,10 @@
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Features.Common;
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Common;
+using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api.Features.Pacientes.Queries;
+namespace HemodinksAPI.Application.Features.Pacientes.Queries;
 
 public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery, PagedResult<PacienteDto>>
 {
@@ -166,7 +166,7 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
     {
         try
         {
-            IQueryable<Models.Paciente> query = _context.Pacientes
+            IQueryable<Paciente> query = _context.Pacientes
                 .AsNoTracking()
                 .Include(p => p.User)
                 .Include(p => p.MedicoUser)
@@ -193,8 +193,8 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
 
 internal static class PacienteAccess
 {
-    public static IQueryable<Models.Paciente> ApplyScope(
-        IQueryable<Models.Paciente> query,
+    public static IQueryable<Paciente> ApplyScope(
+        IQueryable<Paciente> query,
         int perfilId,
         int userId)
     {
@@ -220,7 +220,7 @@ internal static class PacienteAccess
 
 internal static class PacienteMapper
 {
-    public static PacienteDto ToDto(Models.Paciente paciente)
+    public static PacienteDto ToDto(Paciente paciente)
     {
         return new PacienteDto
         {
@@ -258,7 +258,7 @@ internal static class PacienteMapper
         };
     }
 
-    private static List<PacienteProcedimentoDto> ToProcedimentoDtos(Models.Paciente paciente)
+    private static List<PacienteProcedimentoDto> ToProcedimentoDtos(Paciente paciente)
     {
         var procedimentos = paciente.Procedimentos
             .OrderBy(item => item.Ordem)
@@ -291,7 +291,7 @@ internal static class PacienteMapper
         ];
     }
 
-    public static PacienteArquivoDto ToArquivoDto(Models.PacienteArquivo arquivo)
+    public static PacienteArquivoDto ToArquivoDto(PacienteArquivo arquivo)
     {
         return new PacienteArquivoDto
         {

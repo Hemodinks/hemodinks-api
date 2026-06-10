@@ -1,10 +1,10 @@
-using HemodinksAPI.Api.Data;
+using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace HemodinksAPI.Api.Data.Migrations
+namespace HemodinksAPI.Infrastructure.Data.Migrations
 {
     /// <inheritdoc />
     [DbContext(typeof(AppDbContext))]

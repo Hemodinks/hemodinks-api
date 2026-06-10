@@ -1,4 +1,4 @@
-namespace HemodinksAPI.Api.Storage;
+namespace HemodinksAPI.Infrastructure.Storage;
 
 public class PatientFileStorageOptions
 {

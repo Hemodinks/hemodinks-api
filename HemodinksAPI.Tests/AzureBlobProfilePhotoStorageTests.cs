@@ -1,5 +1,5 @@
 using System.Reflection;
-using HemodinksAPI.Api.Storage;
+using HemodinksAPI.Infrastructure.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 

@@ -1,4 +1,4 @@
-namespace HemodinksAPI.Api.Utils;
+namespace HemodinksAPI.Domain.Utils;
 
 public static class CpfUtils
 {

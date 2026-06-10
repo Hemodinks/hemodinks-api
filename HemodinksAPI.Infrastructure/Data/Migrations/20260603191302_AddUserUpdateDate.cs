@@ -1,9 +1,9 @@
-﻿using System;
+using System;
 using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace HemodinksAPI.Api.Data.Migrations
+namespace HemodinksAPI.Infrastructure.Data.Migrations
 {
     /// <inheritdoc />
     public partial class AddUserUpdateDate : Migration

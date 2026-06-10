@@ -1,8 +1,8 @@
-using HemodinksAPI.Api.Data;
+using HemodinksAPI.Application.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 
-namespace HemodinksAPI.Api.Features.Cbhpm;
+namespace HemodinksAPI.Application.Features.Cbhpm;
 
 public interface ICbhpmCache
 {

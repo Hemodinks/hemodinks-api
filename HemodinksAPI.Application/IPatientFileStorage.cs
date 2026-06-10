@@ -1,4 +1,4 @@
-namespace HemodinksAPI.Api.Storage;
+namespace HemodinksAPI.Application.Storage;
 
 public interface IPatientFileStorage
 {

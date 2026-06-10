@@ -1,8 +1,8 @@
-using HemodinksAPI.Api.Data;
+using HemodinksAPI.Application.Data;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api.Features.Hospitais.Queries;
+namespace HemodinksAPI.Application.Features.Hospitais.Queries;
 
 public class GetHospitaisQueryHandler : IRequestHandler<GetHospitaisQuery, List<HospitalDto>>
 {

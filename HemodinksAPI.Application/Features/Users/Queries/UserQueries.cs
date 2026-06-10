@@ -1,8 +1,8 @@
-using HemodinksAPI.Api.Features.Common;
-using HemodinksAPI.Api.Authorization;
+using HemodinksAPI.Application.Features.Common;
+using HemodinksAPI.Application.Authorization;
 using MediatR;
 
-namespace HemodinksAPI.Api.Features.Users.Queries;
+namespace HemodinksAPI.Application.Features.Users.Queries;
 
 public class UserDto
 {

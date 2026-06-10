@@ -1,7 +1,7 @@
-using HemodinksAPI.Api.Features.Licencas;
+using HemodinksAPI.Application.Features.Licencas;
 using Microsoft.AspNetCore.Authorization;
 
-namespace HemodinksAPI.Api.Authorization;
+namespace HemodinksAPI.Infrastructure.Authorization;
 
 public sealed class LicencaFeatureRequirement : IAuthorizationRequirement
 {

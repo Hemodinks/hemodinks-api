@@ -1,10 +1,10 @@
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Services;
+using HemodinksAPI.Application.Data;
+using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Services;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api.Features.Events.Queries;
+namespace HemodinksAPI.Application.Features.Events.Queries;
 
 public sealed class GetEventMedicalUsersQueryHandler
     : IRequestHandler<GetEventMedicalUsersQuery, IReadOnlyList<EventMedicalUserDto>>

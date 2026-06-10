@@ -1,11 +1,11 @@
 using System.Text.Json;
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Features.Cbhpm;
-using HemodinksAPI.Api.Features.Cbhpm.Commands;
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Infrastructure.Data;
+using HemodinksAPI.Application.Features.Cbhpm;
+using HemodinksAPI.Application.Features.Cbhpm.Commands;
+using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api.Seeders;
+namespace HemodinksAPI.Infrastructure.Seeders;
 
 public class CbhpmSeeder
 {

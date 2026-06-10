@@ -1,6 +1,6 @@
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Domain.Models;
 
-namespace HemodinksAPI.Api.Features.Licencas;
+namespace HemodinksAPI.Application.Features.Licencas;
 
 public static class LicencaFeatures
 {

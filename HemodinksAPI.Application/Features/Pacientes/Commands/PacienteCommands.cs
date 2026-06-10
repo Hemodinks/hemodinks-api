@@ -1,7 +1,7 @@
-using HemodinksAPI.Api.Features.Pacientes.Queries;
+using HemodinksAPI.Application.Features.Pacientes.Queries;
 using MediatR;
 
-namespace HemodinksAPI.Api.Features.Pacientes.Commands;
+namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
 public class CreatePacienteCommand : IRequest<PacienteDto>
 {

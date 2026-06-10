@@ -1,7 +1,7 @@
-using HemodinksAPI.Api.Authorization;
+using HemodinksAPI.Application.Authorization;
 using MediatR;
 
-namespace HemodinksAPI.Api.Features.Events.Queries;
+namespace HemodinksAPI.Application.Features.Events.Queries;
 
 public sealed class GetEventMedicalUsersQuery : IRequest<IReadOnlyList<EventMedicalUserDto>>
 {

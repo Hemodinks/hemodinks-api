@@ -1,7 +1,7 @@
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api.Data;
+namespace HemodinksAPI.Application.Data;
 
 public interface IAppDbContext
 {

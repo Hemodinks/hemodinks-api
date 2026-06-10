@@ -1,6 +1,6 @@
-using HemodinksAPI.Api.Services;
+using HemodinksAPI.Application.Services;
 
-namespace HemodinksAPI.Api.HostedServices;
+namespace HemodinksAPI.Infrastructure.HostedServices;
 
 public class EventNotificationHostedService : BackgroundService
 {

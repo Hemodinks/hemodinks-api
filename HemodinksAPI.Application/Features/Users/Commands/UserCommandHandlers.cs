@@ -1,17 +1,18 @@
-using HemodinksAPI.Api.Authentication;
-using HemodinksAPI.Api.Authorization;
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Features.Licencas;
-using HemodinksAPI.Api.Features.Users.Queries;
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Services;
-using HemodinksAPI.Api.Storage;
-using HemodinksAPI.Api.Utils;
+using HemodinksAPI.Application.Authentication;
+using HemodinksAPI.Application.Authorization;
+using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Licencas;
+using HemodinksAPI.Application.Features.Users.Queries;
+using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Utils;
+using HemodinksAPI.Application.Services;
+using HemodinksAPI.Application.Storage;
+using HemodinksAPI.Application.Utils;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
-namespace HemodinksAPI.Api.Features.Users.Commands;
+namespace HemodinksAPI.Application.Features.Users.Commands;
 
 /// <summary>
 /// Handler para criar novo usuario.

@@ -1,4 +1,5 @@
-using HemodinksAPI.Api.Utils;
+using HemodinksAPI.Domain.Utils;
+using HemodinksAPI.Infrastructure.Utils;
 
 namespace HemodinksAPI.Tests;
 

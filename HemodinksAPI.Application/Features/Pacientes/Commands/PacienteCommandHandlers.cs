@@ -1,13 +1,14 @@
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Features.Cbhpm;
-using HemodinksAPI.Api.Features.Pacientes.Queries;
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Storage;
-using HemodinksAPI.Api.Utils;
+using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Cbhpm;
+using HemodinksAPI.Application.Features.Pacientes.Queries;
+using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Utils;
+using HemodinksAPI.Application.Storage;
+using HemodinksAPI.Application.Utils;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api.Features.Pacientes.Commands;
+namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
 public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteCommand, PacienteDto>
 {
@@ -412,7 +413,7 @@ internal static class PacienteCommandAccess
         return perfilId == Perfil.AdministradorId || perfilId == Perfil.MedicosId;
     }
 
-    public static bool CanManage(Models.Paciente paciente, int perfilId, int userId)
+    public static bool CanManage(Paciente paciente, int perfilId, int userId)
     {
         return perfilId == Perfil.AdministradorId
             || (perfilId == Perfil.MedicosId && paciente.MedicoUserId == userId);

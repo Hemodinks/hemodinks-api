@@ -1,8 +1,8 @@
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Models;
+using HemodinksAPI.Infrastructure.Data;
+using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api.Services;
+namespace HemodinksAPI.Infrastructure.Services;
 
 public class UserPatientSyncService : IUserPatientSyncService
 {
