@@ -41,7 +41,10 @@ public static class DashboardEndpointExtensions
                 return Results.Forbid();
             }
 
-            await reminderProcessor.ProcessDueRemindersAsync(cancellationToken);
+            await ProcessDueRemindersWithoutBlockingDashboardAsync(
+                reminderProcessor,
+                logger,
+                cancellationToken);
 
             return Results.Ok(await mediator.Send(new GetDashboardSummaryQuery
             {
@@ -71,7 +74,10 @@ public static class DashboardEndpointExtensions
                 return Results.Forbid();
             }
 
-            await reminderProcessor.ProcessDueRemindersAsync(cancellationToken);
+            await ProcessDueRemindersWithoutBlockingDashboardAsync(
+                reminderProcessor,
+                logger,
+                cancellationToken);
 
             return Results.Ok(await mediator.Send(new GetDashboardNotificationsQuery
             {
@@ -83,6 +89,21 @@ public static class DashboardEndpointExtensions
         {
             logger.LogError(ex, "Erro ao buscar notificacoes do dashboard");
             return Results.BadRequest(new { message = "Erro ao buscar notificacoes do dashboard", error = ex.Message });
+        }
+    }
+
+    private static async Task ProcessDueRemindersWithoutBlockingDashboardAsync(
+        IEventReminderProcessor reminderProcessor,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            await reminderProcessor.ProcessDueRemindersAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Erro ao processar lembretes durante abertura do dashboard");
         }
     }
 }

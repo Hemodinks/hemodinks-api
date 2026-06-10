@@ -11,10 +11,14 @@ public class GetDashboardSummaryQueryHandler :
     IRequestHandler<GetDashboardNotificationsQuery, IReadOnlyList<DashboardNotificationDto>>
 {
     private readonly IAppDbContext _context;
+    private readonly ILogger<GetDashboardSummaryQueryHandler> _logger;
 
-    public GetDashboardSummaryQueryHandler(IAppDbContext context)
+    public GetDashboardSummaryQueryHandler(
+        IAppDbContext context,
+        ILogger<GetDashboardSummaryQueryHandler> logger)
     {
         _context = context;
+        _logger = logger;
     }
 
     public async Task<DashboardSummaryDto> Handle(GetDashboardSummaryQuery request, CancellationToken cancellationToken)
@@ -51,14 +55,10 @@ public class GetDashboardSummaryQueryHandler :
             })
             .FirstOrDefaultAsync(cancellationToken);
 
-        var now = DateTime.UtcNow;
-        var upcomingEventsCount = await ApplyEventScope(
-                _context.Events.AsNoTracking(),
-                request.CurrentPerfilId,
-                request.CurrentUserId)
-            .CountAsync(ev => !ev.IsCompleted
-                && ev.End >= now
-                && ev.Start <= now.AddDays(2), cancellationToken);
+        var upcomingEventsCount = await CountUpcomingEventsAsync(
+            request.CurrentPerfilId,
+            request.CurrentUserId,
+            cancellationToken);
 
         return new DashboardSummaryDto
         {
@@ -114,26 +114,11 @@ public class GetDashboardSummaryQueryHandler :
             })
             .ToList();
 
-        var now = DateTime.UtcNow;
-        var upcomingEvents = await ApplyEventScope(
-                _context.Events.AsNoTracking(),
-                request.CurrentPerfilId,
-                request.CurrentUserId)
-            .Where(ev => !ev.IsCompleted
-                && ev.End >= now
-                && ev.Start <= now.AddDays(2))
-            .OrderBy(ev => ev.Start)
-            .ThenBy(ev => ev.Title)
-            .Take(limit)
-            .Select(ev => new
-            {
-                ev.Id,
-                ev.Title,
-                ev.Description,
-                ev.Start,
-                MedicalUserName = ev.MedicalUser != null ? ev.MedicalUser.Nome : null
-            })
-            .ToListAsync(cancellationToken);
+        var upcomingEvents = await GetUpcomingEventsAsync(
+            request.CurrentPerfilId,
+            request.CurrentUserId,
+            limit,
+            cancellationToken);
 
         var eventNotifications = upcomingEvents
             .Select(ev => new DashboardNotificationDto
@@ -158,6 +143,64 @@ public class GetDashboardSummaryQueryHandler :
             .ToList();
     }
 
+    private async Task<int> CountUpcomingEventsAsync(int perfilId, int userId, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+
+            return await ApplyEventScope(
+                    _context.Events.AsNoTracking(),
+                    perfilId,
+                    userId)
+                .CountAsync(ev => !ev.IsCompleted
+                    && ev.End >= now
+                    && ev.Start <= now.AddDays(2), cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao calcular proximos eventos do dashboard");
+            return 0;
+        }
+    }
+
+    private async Task<IReadOnlyList<UpcomingEventNotification>> GetUpcomingEventsAsync(
+        int perfilId,
+        int userId,
+        int limit,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var now = DateTime.UtcNow;
+
+            return await ApplyEventScope(
+                    _context.Events.AsNoTracking(),
+                    perfilId,
+                    userId)
+                .Where(ev => !ev.IsCompleted
+                    && ev.End >= now
+                    && ev.Start <= now.AddDays(2))
+                .OrderBy(ev => ev.Start)
+                .ThenBy(ev => ev.Title)
+                .Take(limit)
+                .Select(ev => new UpcomingEventNotification
+                {
+                    Id = ev.Id,
+                    Title = ev.Title,
+                    Description = ev.Description,
+                    Start = ev.Start,
+                    MedicalUserName = ev.MedicalUser != null ? ev.MedicalUser.Nome : null
+                })
+                .ToListAsync(cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao buscar eventos proximos para notificacoes do dashboard");
+            return [];
+        }
+    }
+
     private static IQueryable<Event> ApplyEventScope(IQueryable<Event> query, int perfilId, int userId)
     {
         if (perfilId == Perfil.AdministradorId)
@@ -174,5 +217,18 @@ public class GetDashboardSummaryQueryHandler :
         }
 
         return query.Where(ev => ev.UserId == userId);
+    }
+
+    private sealed class UpcomingEventNotification
+    {
+        public int Id { get; set; }
+
+        public string Title { get; set; } = string.Empty;
+
+        public string? Description { get; set; }
+
+        public DateTime Start { get; set; }
+
+        public string? MedicalUserName { get; set; }
     }
 }

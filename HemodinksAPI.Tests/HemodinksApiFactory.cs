@@ -11,7 +11,15 @@ namespace HemodinksAPI.Tests;
 
 internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
 {
-    public HemodinksApiFactory()
+    private readonly Action<IServiceCollection>? _configureServices;
+
+    public HemodinksApiFactory(Action<IServiceCollection>? configureServices = null)
+    {
+        _configureServices = configureServices;
+        ConfigureEnvironment();
+    }
+
+    private static void ConfigureEnvironment()
     {
         Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", "Server=(localdb)\\MSSQLLocalDB;Database=HemodinksApiTests;Trusted_Connection=True;TrustServerCertificate=True");
         Environment.SetEnvironmentVariable("JwtSettings__SecretKey", "0123456789abcdef0123456789abcdef");
@@ -63,6 +71,8 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<AppDbContext>(options =>
                 options.UseInMemoryDatabase(databaseName));
+
+            _configureServices?.Invoke(services);
         });
     }
 }

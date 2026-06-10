@@ -2,7 +2,9 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using HemodinksAPI.Api.Services;
 using HemodinksAPI.Api.Utils;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
@@ -92,6 +94,38 @@ public class ApiEndpointIntegrationTests
         Assert.Equal("Informe o titulo do evento.", json.RootElement.GetProperty("message").GetString());
     }
 
+    [Fact]
+    public async Task DashboardSummary_WhenAuthenticated_ReturnsSummary()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        var response = await client.GetAsync("/api/dashboard/summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var json = await ReadJsonAsync(response);
+        Assert.True(json.RootElement.TryGetProperty("usersCount", out _));
+        Assert.True(json.RootElement.TryGetProperty("pacientesCount", out _));
+        Assert.True(json.RootElement.TryGetProperty("upcomingEventsCount", out _));
+    }
+
+    [Fact]
+    public async Task DashboardSummary_WhenReminderProcessorFails_ReturnsSummary()
+    {
+        using var factory = new HemodinksApiFactory(services =>
+        {
+            services.AddScoped<IEventReminderProcessor, ThrowingEventReminderProcessor>();
+        });
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        var response = await client.GetAsync("/api/dashboard/summary");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
     private static async Task AuthenticateAsync(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/users/authenticate", new
@@ -113,5 +147,13 @@ public class ApiEndpointIntegrationTests
     {
         var content = await response.Content.ReadAsStringAsync();
         return JsonDocument.Parse(content);
+    }
+
+    private sealed class ThrowingEventReminderProcessor : IEventReminderProcessor
+    {
+        public Task<int> ProcessDueRemindersAsync(CancellationToken cancellationToken)
+        {
+            throw new InvalidOperationException("Falha simulada no processamento de lembretes.");
+        }
     }
 }
