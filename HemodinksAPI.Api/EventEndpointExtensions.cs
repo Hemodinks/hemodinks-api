@@ -2,16 +2,13 @@ using System.Security.Claims;
 using HemodinksAPI.Api.Authorization;
 using HemodinksAPI.Api.Data;
 using HemodinksAPI.Api.Models;
+using HemodinksAPI.Api.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
 
 public static class EventEndpointExtensions
 {
-    private const int DefaultReminderPeriodMinutes = 24 * 60;
-    private const int MinimumReminderPeriodMinutes = 15;
-    private const int MaximumReminderPeriodMinutes = 7 * 24 * 60;
-
     public static void MapEventEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/events")
@@ -79,6 +76,7 @@ public static class EventEndpointExtensions
         DateTime? to,
         ClaimsPrincipal claimsPrincipal,
         AppDbContext db,
+        IEventReminderProcessor reminderProcessor,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
@@ -89,6 +87,8 @@ public static class EventEndpointExtensions
             {
                 return Results.Forbid();
             }
+
+            await reminderProcessor.ProcessDueRemindersAsync(cancellationToken);
 
             var query = ApplyEventScope(db.Events.AsNoTracking(), currentUser);
 
@@ -275,6 +275,7 @@ public static class EventEndpointExtensions
 
             ev.IsCompleted = true;
             ev.CompletedAt = DateTime.UtcNow;
+            ev.NextReminderAt = null;
             ev.UpdatedAt = DateTime.UtcNow;
             await db.SaveChangesAsync(cancellationToken);
 
@@ -436,12 +437,12 @@ public static class EventEndpointExtensions
         var reminderPeriodMinutes = request.ReminderPeriodMinutes;
         if (request.NotifyUser || request.NotifyMedicalProfile)
         {
-            reminderPeriodMinutes ??= DefaultReminderPeriodMinutes;
+            reminderPeriodMinutes ??= EventReminderSchedule.DefaultReminderPeriodMinutes;
         }
 
         if (reminderPeriodMinutes.HasValue
-            && (reminderPeriodMinutes.Value < MinimumReminderPeriodMinutes
-                || reminderPeriodMinutes.Value > MaximumReminderPeriodMinutes))
+            && (reminderPeriodMinutes.Value < EventReminderSchedule.MinimumReminderPeriodMinutes
+                || reminderPeriodMinutes.Value > EventReminderSchedule.MaximumReminderPeriodMinutes))
         {
             throw new InvalidOperationException("O periodo de lembrete deve ficar entre 15 minutos e 7 dias.");
         }
@@ -464,6 +465,8 @@ public static class EventEndpointExtensions
                 ? ev.CompletedAt ?? DateTime.UtcNow
                 : null;
         }
+
+        ev.NextReminderAt = EventReminderSchedule.CalculateNextReminderAt(ev, DateTime.UtcNow);
 
         return ev;
     }
@@ -495,6 +498,7 @@ public static class EventEndpointExtensions
             NotifyUser = ev.NotifyUser,
             ReminderPeriodMinutes = ev.ReminderPeriodMinutes,
             LastReminderSentAt = ev.LastReminderSentAt,
+            NextReminderAt = ev.NextReminderAt,
             IsCompleted = ev.IsCompleted,
             CompletedAt = ev.CompletedAt,
             CreatedAt = ev.CreatedAt,
@@ -552,6 +556,8 @@ public static class EventEndpointExtensions
         public int? ReminderPeriodMinutes { get; set; }
 
         public DateTime? LastReminderSentAt { get; set; }
+
+        public DateTime? NextReminderAt { get; set; }
 
         public bool IsCompleted { get; set; }
 

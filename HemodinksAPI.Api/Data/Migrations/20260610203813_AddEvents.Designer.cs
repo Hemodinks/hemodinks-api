@@ -176,6 +176,9 @@ namespace HemodinksAPI.Api.Data.Migrations
                     b.Property<int?>("MedicalUserId")
                         .HasColumnType("int");
 
+                    b.Property<DateTime?>("NextReminderAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<bool>("NotifyMedicalProfile")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -208,6 +211,8 @@ namespace HemodinksAPI.Api.Data.Migrations
                     b.HasIndex("MedicalUserId");
 
                     b.HasIndex("UserId");
+
+                    b.HasIndex("NextReminderAt", "IsCompleted");
 
                     b.HasIndex("Start", "End", "IsCompleted");
 

@@ -27,6 +27,7 @@ namespace HemodinksAPI.Api.Data.Migrations
                     NotifyUser = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
                     ReminderPeriodMinutes = table.Column<int>(type: "int", nullable: true),
                     LastReminderSentAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    NextReminderAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     IsCompleted = table.Column<bool>(type: "bit", nullable: false, defaultValue: false),
                     CompletedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
                     CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false, defaultValueSql: "GETUTCDATE()"),
@@ -53,6 +54,11 @@ namespace HemodinksAPI.Api.Data.Migrations
                 name: "IX_Events_MedicalUserId",
                 table: "Events",
                 column: "MedicalUserId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Events_NextReminderAt_IsCompleted",
+                table: "Events",
+                columns: new[] { "NextReminderAt", "IsCompleted" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_Events_Start_End_IsCompleted",

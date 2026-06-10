@@ -211,6 +211,8 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasDefaultValue(false);
 
+            entity.Property(e => e.NextReminderAt);
+
             entity.Property(e => e.CreatedAt)
                 .IsRequired()
                 .HasDefaultValueSql("GETUTCDATE()");
@@ -220,6 +222,8 @@ public class AppDbContext : DbContext
             entity.HasIndex(e => e.MedicalUserId);
 
             entity.HasIndex(e => new { e.Start, e.End, e.IsCompleted });
+
+            entity.HasIndex(e => new { e.NextReminderAt, e.IsCompleted });
 
             entity.HasOne(e => e.User)
                 .WithMany(e => e.Events)

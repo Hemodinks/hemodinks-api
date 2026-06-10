@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HemodinksAPI.Api.Authorization;
 using HemodinksAPI.Api.Features.Dashboard.Queries;
 using HemodinksAPI.Api.Features.Licencas;
+using HemodinksAPI.Api.Services;
 using MediatR;
 
 namespace HemodinksAPI.Api;
@@ -27,8 +28,10 @@ public static class DashboardEndpointExtensions
 
     private static async Task<IResult> GetSummary(
         ClaimsPrincipal claimsPrincipal,
+        IEventReminderProcessor reminderProcessor,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -38,11 +41,13 @@ public static class DashboardEndpointExtensions
                 return Results.Forbid();
             }
 
+            await reminderProcessor.ProcessDueRemindersAsync(cancellationToken);
+
             return Results.Ok(await mediator.Send(new GetDashboardSummaryQuery
             {
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId
-            }));
+            }, cancellationToken));
         }
         catch (Exception ex)
         {
@@ -53,8 +58,10 @@ public static class DashboardEndpointExtensions
 
     private static async Task<IResult> GetNotifications(
         ClaimsPrincipal claimsPrincipal,
+        IEventReminderProcessor reminderProcessor,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
         try
         {
@@ -64,11 +71,13 @@ public static class DashboardEndpointExtensions
                 return Results.Forbid();
             }
 
+            await reminderProcessor.ProcessDueRemindersAsync(cancellationToken);
+
             return Results.Ok(await mediator.Send(new GetDashboardNotificationsQuery
             {
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId
-            }));
+            }, cancellationToken));
         }
         catch (Exception ex)
         {

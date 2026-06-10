@@ -28,6 +28,8 @@ public class Event
 
     public DateTime? LastReminderSentAt { get; set; }
 
+    public DateTime? NextReminderAt { get; set; }
+
     public bool IsCompleted { get; set; }
 
     public DateTime? CompletedAt { get; set; }
