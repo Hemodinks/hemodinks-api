@@ -51,6 +51,15 @@ public class GetDashboardSummaryQueryHandler :
             })
             .FirstOrDefaultAsync(cancellationToken);
 
+        var now = DateTime.UtcNow;
+        var upcomingEventsCount = await ApplyEventScope(
+                _context.Events.AsNoTracking(),
+                request.CurrentPerfilId,
+                request.CurrentUserId)
+            .CountAsync(ev => !ev.IsCompleted
+                && ev.End >= now
+                && ev.Start <= now.AddDays(2), cancellationToken);
+
         return new DashboardSummaryDto
         {
             UsersCount = usersSummary?.UsersCount ?? 0,
@@ -58,7 +67,8 @@ public class GetDashboardSummaryQueryHandler :
             PacientesCount = patientSummary?.PacientesCount ?? 0,
             ActivePatientsCount = patientSummary?.ActivePatientsCount ?? 0,
             PendingPaymentsCount = patientSummary?.PendingPaymentsCount ?? 0,
-            PatientFilesCount = patientSummary?.PatientFilesCount ?? 0
+            PatientFilesCount = patientSummary?.PatientFilesCount ?? 0,
+            UpcomingEventsCount = upcomingEventsCount
         };
     }
 
@@ -89,7 +99,7 @@ public class GetDashboardSummaryQueryHandler :
             })
             .ToListAsync(cancellationToken);
 
-        return pendingPatients
+        var pendingNotifications = pendingPatients
             .Select(paciente => new DashboardNotificationDto
             {
                 Id = paciente.Id,
@@ -103,5 +113,66 @@ public class GetDashboardSummaryQueryHandler :
                 Data = paciente.Data
             })
             .ToList();
+
+        var now = DateTime.UtcNow;
+        var upcomingEvents = await ApplyEventScope(
+                _context.Events.AsNoTracking(),
+                request.CurrentPerfilId,
+                request.CurrentUserId)
+            .Where(ev => !ev.IsCompleted
+                && ev.End >= now
+                && ev.Start <= now.AddDays(2))
+            .OrderBy(ev => ev.Start)
+            .ThenBy(ev => ev.Title)
+            .Take(limit)
+            .Select(ev => new
+            {
+                ev.Id,
+                ev.Title,
+                ev.Description,
+                ev.Start,
+                MedicalUserName = ev.MedicalUser != null ? ev.MedicalUser.Nome : null
+            })
+            .ToListAsync(cancellationToken);
+
+        var eventNotifications = upcomingEvents
+            .Select(ev => new DashboardNotificationDto
+            {
+                Id = ev.Id,
+                EventId = ev.Id,
+                Tipo = "EventoAgenda",
+                Titulo = "Evento da agenda",
+                Mensagem = string.IsNullOrWhiteSpace(ev.Description)
+                    ? ev.Title
+                    : $"{ev.Title}: {ev.Description}",
+                PacienteId = 0,
+                NomePaciente = string.Empty,
+                Medico = ev.MedicalUserName,
+                Data = ev.Start
+            });
+
+        return pendingNotifications
+            .Concat(eventNotifications)
+            .OrderBy(notification => notification.Data ?? DateTime.MinValue)
+            .Take(limit)
+            .ToList();
+    }
+
+    private static IQueryable<Event> ApplyEventScope(IQueryable<Event> query, int perfilId, int userId)
+    {
+        if (perfilId == Perfil.AdministradorId)
+        {
+            return query;
+        }
+
+        if (perfilId == Perfil.MedicosId)
+        {
+            return query.Where(ev =>
+                ev.UserId == userId
+                || ev.MedicalUserId == userId
+                || (ev.NotifyMedicalProfile && ev.MedicalUserId == null));
+        }
+
+        return query.Where(ev => ev.UserId == userId);
     }
 }

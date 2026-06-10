@@ -15,6 +15,8 @@ public class DashboardSummaryDto
     public int PendingPaymentsCount { get; set; }
 
     public int PatientFilesCount { get; set; }
+
+    public int UpcomingEventsCount { get; set; }
 }
 
 public class DashboardNotificationDto
@@ -28,6 +30,8 @@ public class DashboardNotificationDto
     public string Mensagem { get; set; } = string.Empty;
 
     public int PacienteId { get; set; }
+
+    public int? EventId { get; set; }
 
     public string NomePaciente { get; set; } = string.Empty;
 

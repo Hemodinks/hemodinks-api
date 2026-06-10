@@ -168,6 +168,8 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ICbhpmCache, CbhpmCache>();
 builder.Services.AddScoped<UserSeeder>();
 builder.Services.AddScoped<CbhpmSeeder>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddHostedService<HemodinksAPI.Api.HostedServices.EventNotificationHostedService>();
 
 builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
 
@@ -284,5 +286,6 @@ app.MapConvenioEndpoints();
 app.MapUserEndpoints();
 app.MapPacienteEndpoints();
 app.MapLicencaEndpoints();
+app.MapEventEndpoints();
 
 app.Run();

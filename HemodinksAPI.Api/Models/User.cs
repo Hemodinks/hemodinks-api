@@ -71,5 +71,9 @@ public class User
 
     public Licenca? Licenca { get; set; }
 
+    public ICollection<Event> Events { get; set; } = new List<Event>();
+
+    public ICollection<Event> MedicalEvents { get; set; } = new List<Event>();
+
     public ICollection<UserArquivo> Arquivos { get; set; } = new List<UserArquivo>();
 }
