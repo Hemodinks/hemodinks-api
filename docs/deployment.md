@@ -19,6 +19,7 @@ Producao:
 | Recurso | URL |
 | --- | --- |
 | Frontend | `https://hemodinks-saude.vercel.app` |
+| Frontend homologacao | `https://hemodinks-homologacao.vercel.app` |
 | API | `https://<api-publica>` configurada em `VITE_API_URL` |
 | Swagger | `https://<api-publica>/swagger` |
 | Scalar | `https://<api-publica>/scalar` |
@@ -130,6 +131,7 @@ Uso:
 - persistencia relacional da API
 - migrations automaticas no startup
 - seed automatico de perfis, usuarios iniciais e CBHPM
+- tabelas de usuarios, pacientes, licencas, agenda, CBHPM, hospitais e convenios
 
 Checklist:
 
@@ -137,6 +139,14 @@ Checklist:
 2. Libere firewall para o host da API.
 3. Use connection string com `Encrypt=true;TrustServerCertificate=false` quando possivel.
 4. Configure `ConnectionStrings__DefaultConnection` no Render.
+
+Migrations ficam no projeto `HemodinksAPI.Infrastructure`. Para validar localmente:
+
+```powershell
+dotnet ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure --no-connect
+```
+
+Se a agenda retornar `Invalid column name 'NextReminderAt'`, publique a versao com a migration `EnsureEventReminderColumns` e reinicie o servico para o startup aplicar o reparo no banco.
 
 ## Azure Blob Storage
 
@@ -159,6 +169,8 @@ Se as URLs publicas nao forem informadas, a API usa a URL retornada pelo SDK do 
 ## Azure Queue / Service Bus
 
 Nao ha recurso de fila em uso atualmente. Nao crie Azure Queue Storage ou Service Bus para esta versao, a menos que uma nova funcionalidade assincrona seja implementada.
+
+A agenda usa um `BackgroundService` interno no proprio processo da API. Esse desenho evita custo adicional no Render Free e e adequado para a fase atual.
 
 Possiveis usos futuros:
 
@@ -195,3 +207,10 @@ No navegador:
 - `https://<api-publica>/swagger`
 - `https://<api-publica>/scalar`
 - `https://hemodinks-saude.vercel.app`
+
+Endpoints autenticados para validar depois do login:
+
+- `GET /api/dashboard/summary`
+- `GET /api/licencas/current`
+- `GET /api/events`
+- `GET /api/cbhpm?page=1&pageSize=10`

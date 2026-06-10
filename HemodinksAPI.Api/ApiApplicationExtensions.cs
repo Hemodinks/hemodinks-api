@@ -20,7 +20,7 @@ public static class ApiApplicationExtensions
         app.MapScalarApiReference("/scalar", options =>
         {
             options
-                .WithTitle("Hemodinks API")
+                .WithTitle("Hemodinks API - Documentacao Interativa")
                 .WithOpenApiRoutePattern("/openapi/{documentName}.json")
                 .AddPreferredSecuritySchemes("Bearer")
                 .DisableAgent();

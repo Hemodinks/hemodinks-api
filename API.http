@@ -69,6 +69,86 @@ Authorization: Bearer {{token}}
 GET {{baseUrl}}/api/dashboard/notifications
 Authorization: Bearer {{token}}
 
+### Licenca do usuario autenticado
+GET {{baseUrl}}/api/licencas/current
+Authorization: Bearer {{token}}
+
+### Consultar licenca de medico (admin)
+GET {{baseUrl}}/api/licencas/users/2
+Authorization: Bearer {{token}}
+
+### Atualizar licenca de medico (admin)
+PUT {{baseUrl}}/api/licencas/users/2
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+{
+  "plano": "Completa",
+  "status": "Ativa",
+  "featuresLiberadas": [
+    "Dashboard.Visualizar",
+    "Pacientes.Visualizar",
+    "Pacientes.Gerenciar",
+    "Cbhpm.Consultar"
+  ],
+  "observacoes": "Liberacao manual"
+}
+
+### Liberar licenca completa para medico (admin)
+POST {{baseUrl}}/api/licencas/users/2/liberar-completa
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+{
+  "observacoes": "Compra confirmada"
+}
+
+### Listar eventos da agenda
+GET {{baseUrl}}/api/events?from=2026-06-01T00:00:00.000Z&to=2026-06-30T23:59:59.000Z
+Authorization: Bearer {{token}}
+
+### Listar medicos para notificacao de evento
+GET {{baseUrl}}/api/events/medical-users
+Authorization: Bearer {{token}}
+
+### Criar evento na agenda
+POST {{baseUrl}}/api/events
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+{
+  "title": "Consulta de acompanhamento",
+  "description": "Retorno com paciente e avaliacao de exames",
+  "start": "2026-06-15T13:00:00.000Z",
+  "end": "2026-06-15T14:00:00.000Z",
+  "notifyMedicalProfile": true,
+  "notifyUser": true,
+  "reminderPeriodMinutes": 60
+}
+
+### Atualizar evento na agenda
+PUT {{baseUrl}}/api/events/1
+Authorization: Bearer {{token}}
+Content-Type: {{contentType}}
+
+{
+  "title": "Consulta de acompanhamento atualizada",
+  "description": "Retorno com paciente",
+  "start": "2026-06-15T13:30:00.000Z",
+  "end": "2026-06-15T14:30:00.000Z",
+  "notifyMedicalProfile": true,
+  "notifyUser": true,
+  "reminderPeriodMinutes": 120
+}
+
+### Concluir evento
+POST {{baseUrl}}/api/events/1/complete
+Authorization: Bearer {{token}}
+
+### Excluir evento
+DELETE {{baseUrl}}/api/events/1
+Authorization: Bearer {{token}}
+
 ### Listar pacientes
 GET {{baseUrl}}/api/pacientes?page=1&pageSize=10&search=
 Authorization: Bearer {{token}}
@@ -108,6 +188,14 @@ Authorization: Bearer {{token}}
 
 ### Consulta CBHPM para popup
 GET {{baseUrl}}/api/cbhpm?page=1&pageSize=10&codigo=1.01&procedimento=consulta&porte=2B
+Authorization: Bearer {{token}}
+
+### Listar hospitais
+GET {{baseUrl}}/api/hospitais
+Authorization: Bearer {{token}}
+
+### Listar convenios
+GET {{baseUrl}}/api/convenios
 Authorization: Bearer {{token}}
 
 ### Importar/substituir item CBHPM (admin)

@@ -1,18 +1,45 @@
 # Hemodinks API
 
-API ASP.NET Core/.NET 10 para gestao de usuarios, pacientes, arquivos, dashboard e consulta CBHPM.
+API ASP.NET Core/.NET 10 para gestao de usuarios, pacientes, agenda, licencas, dashboard, arquivos e consulta CBHPM.
 
 ## Stack
 
 - .NET 10 e ASP.NET Core Minimal APIs
+- Clean Architecture pragmatica em `Domain`, `Application`, `Infrastructure` e `Api`
+- CQRS com MediatR e pipeline de validacao
 - Entity Framework Core 10 com SQL Server/Azure SQL
-- CQRS com MediatR
-- JWT Bearer para autenticacao e autorizacao
+- JWT Bearer para autenticacao e autorizacao por perfil/licenca
 - Serilog para logs em console e arquivo
 - Azure Blob Storage para fotos de perfil e anexos de pacientes
-- IMemoryCache para consulta CBHPM em memoria
+- `BackgroundService` interno para lembretes da agenda
+- `IMemoryCache` para consulta CBHPM em memoria
 - Swagger/OpenAPI e Scalar para documentacao interativa
 - Docker, Docker Compose, Render e GitHub Actions
+
+## Arquitetura
+
+```text
+HemodinksAPI.Domain
+  Entidades, constantes de dominio e utilitarios puros.
+
+HemodinksAPI.Application
+  Commands, queries, handlers, DTOs, validadores, contratos e regras de aplicacao.
+
+HemodinksAPI.Infrastructure
+  EF Core, migrations, seeders, JWT, storage, notificacoes, workers e servicos concretos.
+
+HemodinksAPI.Api
+  Minimal APIs, CORS, auth, Swagger/Scalar, DI e composition root.
+```
+
+Direcao das dependencias:
+
+```text
+Api -> Application + Infrastructure + Domain
+Infrastructure -> Application + Domain
+Application -> Domain
+Domain -> sem dependencia dos demais projetos
+```
 
 ## URLs
 
@@ -27,11 +54,12 @@ Ambiente local:
 | OpenAPI JSON | `http://localhost:5000/openapi/v1.json` |
 | Swagger JSON | `http://localhost:5000/swagger/v1/swagger.json` |
 
-Ambiente publico atual:
+Ambientes publicados:
 
 | Recurso | URL |
 | --- | --- |
-| Frontend | `https://hemodinks-saude.vercel.app` |
+| Frontend producao | `https://hemodinks-saude.vercel.app` |
+| Frontend homologacao | `https://hemodinks-homologacao.vercel.app` |
 | API | configure em `VITE_API_URL`, por exemplo `https://hemodinks-api.onrender.com` |
 
 ## Como executar
@@ -44,18 +72,17 @@ Copy-Item .env.example .env
 docker-compose up -d
 ```
 
-O container da API aplica migrations no startup, cria os perfis, seeda usuarios quando necessario e carrega a tabela CBHPM a partir de `HemodinksAPI.Api/Data/SeedData/cbhpm-geral.json`.
+A API aplica migrations no startup, cria perfis, seeda usuarios quando necessario e carrega CBHPM a partir de `HemodinksAPI.Infrastructure/Data/SeedData/cbhpm-geral.json`.
 
 ### Desenvolvimento local
 
 ```powershell
-cd HemodinksAPI.Api
 dotnet restore
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=.;Database=HemodinksDB;Integrated Security=true;TrustServerCertificate=true;Encrypt=false"
-dotnet user-secrets set "JwtSettings:SecretKey" "troque_por_uma_chave_com_32_caracteres_ou_mais"
-dotnet user-secrets set "JwtSettings:Issuer" "HemodinksAPI"
-dotnet user-secrets set "JwtSettings:Audience" "HemodinksAPI"
-dotnet run
+dotnet user-secrets set --project HemodinksAPI.Api "ConnectionStrings:DefaultConnection" "Server=.;Database=HemodinksDB;Integrated Security=true;TrustServerCertificate=true;Encrypt=false"
+dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:SecretKey" "troque_por_uma_chave_com_32_caracteres_ou_mais"
+dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Issuer" "HemodinksAPI"
+dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Audience" "HemodinksAPI"
+dotnet run --project HemodinksAPI.Api
 ```
 
 ## Configuracao
@@ -76,12 +103,17 @@ Use variaveis de ambiente, `.env` no Docker ou User Secrets localmente.
 | `AzureStorage__PatientFilesContainerName` | container de anexos, padrao `patient-files` |
 | `AzureStorage__PatientFilesPublicBaseUrl` | URL publica do container de anexos |
 | `AzureStorage__PatientFileMaxBytes` | limite de upload de anexos |
+| `Licensing__TrialDays` | dias de trial para licencas medicas |
 
 Segredos nao devem ser gravados em `appsettings.json`.
 
-## Autenticacao e perfis
+## Autenticacao, perfis e licencas
 
-O login retorna um JWT usado em `Authorization: Bearer <token>`.
+O login retorna um JWT usado em:
+
+```text
+Authorization: Bearer <token>
+```
 
 Perfis seedados:
 
@@ -91,11 +123,12 @@ Perfis seedados:
 | 2 | Medicos |
 | 3 | Pacientes |
 
-Principais regras:
+Regras principais:
 
-- Administrador gerencia usuarios, pacientes, CBHPM e exclusoes.
-- Medico visualiza/edita seus dados e pacientes vinculados ao proprio nome.
+- Administrador gerencia usuarios, pacientes, CBHPM, agenda, licencas e exclusoes.
+- Medico visualiza/edita seus dados, pacientes vinculados e eventos da sua agenda.
 - Paciente acessa somente o proprio cadastro quando houver vinculo.
+- Licencas controlam acesso a dashboard, pacientes e CBHPM para medicos.
 
 ## Endpoints principais
 
@@ -113,21 +146,49 @@ Principais regras:
 | `PUT` | `/api/users/{id}/password/reset` | admin | reset administrativo |
 | `POST` | `/api/users/{id}/arquivos` | sim | upload de documento medico |
 | `DELETE` | `/api/users/{id}/arquivos/{arquivoId}` | sim | exclui documento medico |
-| `GET` | `/api/pacientes` | sim | lista paginada de pacientes |
-| `GET` | `/api/pacientes/{id}` | sim | detalhe do paciente |
-| `POST` | `/api/pacientes` | sim | cria paciente |
-| `PUT` | `/api/pacientes/{id}` | sim | atualiza paciente |
+| `GET` | `/api/pacientes` | licenca | lista paginada de pacientes |
+| `GET` | `/api/pacientes/{id}` | licenca | detalhe do paciente |
+| `POST` | `/api/pacientes` | licenca | cria paciente |
+| `PUT` | `/api/pacientes/{id}` | licenca | atualiza paciente |
 | `DELETE` | `/api/pacientes/{id}` | admin | exclui paciente |
-| `POST` | `/api/pacientes/{id}/arquivos` | sim | upload de anexo do paciente |
-| `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | sim | exclui anexo |
-| `GET` | `/api/cbhpm` | sim | consulta CBHPM paginada |
+| `POST` | `/api/pacientes/{id}/arquivos` | licenca | upload de anexo do paciente |
+| `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | licenca | exclui anexo |
+| `GET` | `/api/cbhpm` | licenca | consulta CBHPM paginada |
 | `POST` | `/api/cbhpm/import` | admin | importa/substitui itens CBHPM |
-| `GET` | `/api/dashboard/summary` | sim | resumo do dashboard |
-| `GET` | `/api/dashboard/notifications` | sim | notificacoes |
+| `GET` | `/api/dashboard/summary` | licenca | resumo do dashboard |
+| `GET` | `/api/dashboard/notifications` | licenca | notificacoes do dashboard |
+| `GET` | `/api/events` | sim | lista eventos da agenda por periodo |
+| `GET` | `/api/events/medical-users` | sim | medicos ativos para notificacao |
+| `GET` | `/api/events/{id}` | sim | detalhe do evento |
+| `POST` | `/api/events` | sim | cria evento |
+| `PUT` | `/api/events/{id}` | sim | atualiza evento |
+| `POST` | `/api/events/{id}/complete` | sim | conclui evento |
+| `DELETE` | `/api/events/{id}` | sim | exclui evento |
+| `GET` | `/api/licencas/current` | sim | licenca do usuario autenticado |
+| `GET` | `/api/licencas/users/{userId}` | admin | consulta licenca de medico |
+| `PUT` | `/api/licencas/users/{userId}` | admin | atualiza licenca |
+| `POST` | `/api/licencas/users/{userId}/liberar-completa` | admin | libera plano completo |
+| `GET` | `/api/hospitais` | sim | lista hospitais |
+| `GET` | `/api/convenios` | sim | lista convenios |
+
+## Agenda e lembretes
+
+A agenda permite criar eventos para qualquer data/hora, associar responsavel, notificar usuario e/ou perfil medico e configurar periodo de lembrete.
+
+Campos principais:
+
+- `title`, `description`, `start`, `end`
+- `userId`, `medicalUserId`
+- `notifyMedicalProfile`, `notifyUser`
+- `reminderPeriodMinutes`
+- `nextReminderAt`, `lastReminderSentAt`
+- `isCompleted`, `completedAt`
+
+O processamento atual usa um `BackgroundService` interno gratuito no proprio processo da API. Ele consulta eventos vencidos por `NextReminderAt` e reagenda o proximo lembrete ate a conclusao do evento. O dashboard tambem tenta processar pendencias de forma resiliente quando o usuario abre a aplicacao.
 
 ## CBHPM
 
-A tabela `CBHPMGeral` foi criada por migration e recebe seed automatico de 1.677 procedimentos a partir do JSON gerado do PDF `Tabela-CBHPM-Geral.pdf`.
+A tabela `CBHPMGeral` e criada por migration e recebe seed automatico de procedimentos a partir do JSON gerado do PDF `Tabela-CBHPM-Geral.pdf`.
 
 Consulta:
 
@@ -136,37 +197,7 @@ GET /api/cbhpm?page=1&pageSize=10&codigo=1.01&procedimento=consulta&porte=2B
 Authorization: Bearer <token>
 ```
 
-Resposta padrao:
-
-```json
-{
-  "items": [
-    {
-      "id": 1,
-      "codigo": "1.01.01.01-2",
-      "procedimento": "Em consultorio (no horario normal ou preestabelecido)",
-      "porte": "2B",
-      "custoOperacional": null,
-      "capitulo": null,
-      "grupo": null,
-      "paginaPdf": 23
-    }
-  ],
-  "page": 1,
-  "pageSize": 10,
-  "totalItems": 1677,
-  "totalPages": 168
-}
-```
-
 O backend usa `IMemoryCache` para manter a lista CBHPM em memoria. A primeira consulta carrega os dados do SQL Server; filtros, paginacao e busca passam a ser resolvidos em memoria ate expirar o cache ou ate uma importacao/seed invalidar a chave.
-
-Configuracao atual do cache:
-
-- chave: `cbhpm-geral:v1`
-- expiracao absoluta: 12 horas
-- expiracao deslizante: 2 horas
-- invalidacao: importacao CBHPM e seed
 
 ## Banco de dados
 
@@ -174,34 +205,22 @@ Entidades principais:
 
 - `Perfis`
 - `Users`
+- `Licencas`
 - `Pacientes`
 - `PacienteArquivos`
+- `PacienteProcedimentos`
 - `UserArquivos`
 - `CBHPMGeral`
+- `Hospitais`
+- `Convenios`
+- `Events`
 
-Relacionamentos:
+Migrations rodam automaticamente no startup via `Database.MigrateAsync()`. Para usar EF CLI depois da separacao em projetos:
 
-- `Perfil 1:N Users`
-- `User 1:1 Paciente`
-- `Paciente 1:N PacienteArquivos`
-- `User 1:N UserArquivos`
-- `Paciente.CbhpmCodigo` referencia logicamente `CBHPMGeral.Codigo`
-
-## Azure
-
-Recursos usados pelo projeto:
-
-| Recurso Azure | Uso |
-| --- | --- |
-| Azure SQL Database | persistencia relacional via EF Core/SQL Server provider |
-| Azure Blob Storage | fotos de perfil no container `profile-photos` |
-| Azure Blob Storage | anexos de pacientes no container `patient-files` |
-
-Recurso Azure nao usado atualmente:
-
-| Recurso | Status |
-| --- | --- |
-| Azure Queue Storage / Service Bus | nao ha produtor/consumidor no codigo atual; pode ser adicionado para processamento assincrono futuro |
+```powershell
+dotnet ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure --no-connect
+dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
+```
 
 ## Documentacao interativa
 
@@ -209,14 +228,16 @@ Swagger e Scalar ficam ativos em qualquer ambiente publicado:
 
 - Swagger: `/swagger`
 - Scalar: `/scalar`
-- OpenAPI consumido pelo Scalar: `/openapi/v1.json`
+- OpenAPI usado pelo Scalar: `/openapi/v1.json`
+- Swagger JSON: `/swagger/v1/swagger.json`
 
-O Swagger/Scalar mostram o esquema `Bearer` para autenticar chamadas protegidas. Em producao, evite expor tokens reais em maquinas compartilhadas.
+O documento OpenAPI inclui o esquema `Bearer`. Em producao, evite expor tokens reais em maquinas compartilhadas.
 
 ## Testes
 
 ```powershell
-dotnet test .\HemodinksAPI.Tests\HemodinksAPI.Tests.csproj
+dotnet build HemodinksAPI.slnx
+dotnet test HemodinksAPI.slnx --no-build
 ```
 
 ## Documentos relacionados
@@ -225,5 +246,6 @@ dotnet test .\HemodinksAPI.Tests\HemodinksAPI.Tests.csproj
 - [Implementacao](./IMPLEMENTACAO.md)
 - [Troubleshooting](./TROUBLESHOOTING.md)
 - [Deploy](./docs/deployment.md)
+- [Documentacao tecnica](./docs/TECHNICAL_DOCUMENTATION.md)
 - [Exemplos HTTP](./API.http)
 - [Documentacao tecnica PDF](./docs/Hemodinks-Documentacao-Tecnica.pdf)

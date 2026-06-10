@@ -44,17 +44,16 @@ A API ficara em:
 ## Rodar localmente
 
 ```powershell
-cd HemodinksAPI.Api
 dotnet restore
-dotnet user-secrets set "ConnectionStrings:DefaultConnection" "Server=.;Database=HemodinksDB;Integrated Security=true;TrustServerCertificate=true;Encrypt=false"
-dotnet user-secrets set "JwtSettings:SecretKey" "troque_por_uma_chave_com_32_caracteres_ou_mais"
-dotnet user-secrets set "JwtSettings:Issuer" "HemodinksAPI"
-dotnet user-secrets set "JwtSettings:Audience" "HemodinksAPI"
-dotnet user-secrets set "JwtSettings:ExpirationMinutes" "60"
-dotnet run
+dotnet user-secrets set --project HemodinksAPI.Api "ConnectionStrings:DefaultConnection" "Server=.;Database=HemodinksDB;Integrated Security=true;TrustServerCertificate=true;Encrypt=false"
+dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:SecretKey" "troque_por_uma_chave_com_32_caracteres_ou_mais"
+dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Issuer" "HemodinksAPI"
+dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Audience" "HemodinksAPI"
+dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:ExpirationMinutes" "60"
+dotnet run --project HemodinksAPI.Api
 ```
 
-As migrations sao aplicadas no startup. O seed inicial cria perfis, usuarios iniciais e a tabela CBHPM quando estiver vazia.
+As migrations sao aplicadas no startup. O seed inicial cria perfis, usuarios iniciais, licencas quando necessario e a tabela CBHPM quando estiver vazia.
 
 ## Testar login
 
@@ -78,6 +77,25 @@ curl "http://localhost:5000/api/cbhpm?page=1&pageSize=10&procedimento=consulta" 
 ```
 
 Se a tabela estiver populada, a resposta deve retornar itens e total proximo de `1677`.
+
+## Testar Agenda
+
+```powershell
+$start = (Get-Date).ToUniversalTime().AddDays(1).ToString("o")
+$end = (Get-Date).ToUniversalTime().AddDays(1).AddHours(1).ToString("o")
+
+curl -X POST http://localhost:5000/api/events `
+  -H "Authorization: Bearer <token>" `
+  -H "Content-Type: application/json" `
+  -d "{`"title`":`"Consulta teste`",`"start`":`"$start`",`"end`":`"$end`",`"notifyUser`":true,`"notifyMedicalProfile`":false,`"reminderPeriodMinutes`":60}"
+```
+
+Depois liste:
+
+```powershell
+curl "http://localhost:5000/api/events" `
+  -H "Authorization: Bearer <token>"
+```
 
 ## Testar frontend local
 
@@ -103,6 +121,8 @@ http://localhost:5173
 - [ ] Scalar abriu em `/scalar`
 - [ ] Login retornou JWT
 - [ ] `GET /api/cbhpm` retornou procedimentos
+- [ ] `GET /api/licencas/current` retornou a licenca do usuario
+- [ ] `GET /api/events` retornou a agenda
 - [ ] Frontend aponta para `VITE_API_URL=http://localhost:5000`
 
 ## Documentos

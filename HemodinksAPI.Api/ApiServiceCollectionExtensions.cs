@@ -209,10 +209,10 @@ public static class ApiServiceCollectionExtensions
             {
                 Title = "Hemodinks API",
                 Version = "v1",
-                Description = "API para gestao de usuarios, pacientes, arquivos, dashboard e consulta CBHPM com cache em memoria.",
+                Description = "API ASP.NET Core/.NET 10 da Hemodinks, organizada em Domain, Application, Infrastructure e Api. Expoe autenticacao JWT, usuarios, pacientes, dashboard, CBHPM, licencas, agenda de eventos e lembretes. Use o esquema Bearer para chamadas protegidas.",
                 Contact = new OpenApiContact
                 {
-                    Name = "Hemodinks",
+                    Name = "GM Tech Solutions - Hemodinks",
                     Email = "gmarcone@gmail.com"
                 }
             });
