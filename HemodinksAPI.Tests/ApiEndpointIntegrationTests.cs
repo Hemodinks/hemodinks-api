@@ -69,6 +69,29 @@ public class ApiEndpointIntegrationTests
             item.GetProperty("title").GetString() == "Evento de integracao");
     }
 
+    [Fact]
+    public async Task AgendaEndpoint_WhenEventPayloadIsInvalid_ReturnsBadRequestFromValidationPipeline()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        var start = DateTime.UtcNow.AddDays(1);
+        var response = await client.PostAsJsonAsync("/api/events/", new
+        {
+            title = "",
+            start,
+            end = start.AddHours(1),
+            notifyMedicalProfile = false,
+            notifyUser = true
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var json = await ReadJsonAsync(response);
+        Assert.Equal("Informe o titulo do evento.", json.RootElement.GetProperty("message").GetString());
+    }
+
     private static async Task AuthenticateAsync(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/users/authenticate", new

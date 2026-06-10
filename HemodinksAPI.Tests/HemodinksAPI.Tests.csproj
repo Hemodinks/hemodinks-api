@@ -21,7 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\HemodinksAPI.Application\HemodinksAPI.Application.csproj" />
     <ProjectReference Include="..\HemodinksAPI.Api\HemodinksAPI.Api.csproj" />
+    <ProjectReference Include="..\HemodinksAPI.Domain\HemodinksAPI.Domain.csproj" />
+    <ProjectReference Include="..\HemodinksAPI.Infrastructure\HemodinksAPI.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

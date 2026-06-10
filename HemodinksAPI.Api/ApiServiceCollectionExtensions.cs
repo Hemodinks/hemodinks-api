@@ -33,6 +33,7 @@ public static class ApiServiceCollectionExtensions
                 {
                     sqlOptions.EnableRetryOnFailure();
                 }));
+        services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
 
         return services;
     }
@@ -187,7 +188,7 @@ public static class ApiServiceCollectionExtensions
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IEventReminderProcessor, EventReminderProcessor>();
         services.AddHostedService<HostedServices.EventNotificationHostedService>();
-        services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(Program).Assembly));
+        services.AddApplicationLayer();
 
         return services;
     }

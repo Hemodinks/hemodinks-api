@@ -51,7 +51,7 @@ public static class PacienteEndpointExtensions
             .RequireAuthorization(LicencaPolicies.PacientesGerenciar);
     }
 
-    private static async Task<IResult> GetAllPacientes(
+    private static Task<IResult> GetAllPacientes(
         int? page,
         int? pageSize,
         string? search,
@@ -60,17 +60,13 @@ public static class PacienteEndpointExtensions
         string? procedimento,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null)
-            {
-                return Results.Forbid();
-            }
-
-            return Results.Ok(await mediator.Send(new GetAllPacientesQuery
+            var currentUser = GetRequiredCurrentUser(claimsPrincipal);
+            var result = await mediator.Send(new GetAllPacientesQuery
             {
                 Page = page.GetValueOrDefault(1),
                 PageSize = pageSize.GetValueOrDefault(10),
@@ -80,227 +76,144 @@ public static class PacienteEndpointExtensions
                 Procedimento = procedimento,
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId
-            }));
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao buscar pacientes");
-            return Results.BadRequest(new { message = "Erro ao buscar pacientes", error = ex.Message });
-        }
+            }, cancellationToken);
+
+            return Results.Ok(result);
+        }, logger, "Erro ao buscar pacientes", "Erro ao buscar pacientes");
     }
 
-    private static async Task<IResult> GetPacienteById(
+    private static Task<IResult> GetPacienteById(
         int id,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null)
-            {
-                return Results.Forbid();
-            }
+            var currentUser = GetRequiredCurrentUser(claimsPrincipal);
+            var result = await mediator.Send(
+                new GetPacienteByIdQuery(id, currentUser.Id, currentUser.PerfilId),
+                cancellationToken);
 
-            var result = await mediator.Send(new GetPacienteByIdQuery(id, currentUser.Id, currentUser.PerfilId));
             return result == null ? Results.NotFound() : Results.Ok(result);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao buscar paciente");
-            return Results.BadRequest(new { message = "Erro ao buscar paciente", error = ex.Message });
-        }
+        }, logger, "Erro ao buscar paciente", "Erro ao buscar paciente");
     }
 
-    private static async Task<IResult> CreatePaciente(
+    private static Task<IResult> CreatePaciente(
         CreatePacienteCommand command,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null)
-            {
-                return Results.Forbid();
-            }
-
-            command.CurrentUserId = currentUser.Id;
-            command.CurrentPerfilId = currentUser.PerfilId;
-            command.CurrentUserName = currentUser.Nome;
-            var result = await mediator.Send(command);
+            ApplyCurrentUser(command, GetRequiredCurrentUser(claimsPrincipal));
+            var result = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/pacientes/{result.Id}", result);
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Results.Forbid();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao criar paciente");
-            return Results.BadRequest(new { message = "Erro ao criar paciente", error = ex.Message });
-        }
+        }, logger, "Erro ao criar paciente", "Erro ao criar paciente");
     }
 
-    private static async Task<IResult> UpdatePaciente(
+    private static Task<IResult> UpdatePaciente(
         int id,
         UpdatePacienteCommand command,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null)
-            {
-                return Results.Forbid();
-            }
-
             command.Id = id;
-            command.CurrentUserId = currentUser.Id;
-            command.CurrentPerfilId = currentUser.PerfilId;
-            command.CurrentUserName = currentUser.Nome;
-            return Results.Ok(await mediator.Send(command));
-        }
-        catch (KeyNotFoundException)
-        {
-            return Results.NotFound();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Results.Forbid();
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao atualizar paciente");
-            return Results.BadRequest(new { message = "Erro ao atualizar paciente", error = ex.Message });
-        }
+            ApplyCurrentUser(command, GetRequiredCurrentUser(claimsPrincipal));
+            return Results.Ok(await mediator.Send(command, cancellationToken));
+        }, logger, "Erro ao atualizar paciente", "Erro ao atualizar paciente");
     }
 
-    private static async Task<IResult> DeletePaciente(
+    private static Task<IResult> DeletePaciente(
         int id,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null)
+            var currentUser = GetRequiredCurrentUser(claimsPrincipal);
+            await mediator.Send(new DeletePacienteCommand
             {
-                return Results.Forbid();
-            }
+                Id = id,
+                CurrentPerfilId = currentUser.PerfilId
+            }, cancellationToken);
 
-            await mediator.Send(new DeletePacienteCommand { Id = id, CurrentPerfilId = currentUser.PerfilId });
             return Results.NoContent();
-        }
-        catch (KeyNotFoundException)
-        {
-            return Results.NotFound();
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Results.Forbid();
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao excluir paciente");
-            return Results.BadRequest(new { message = "Erro ao excluir paciente", error = ex.Message });
-        }
+        }, logger, "Erro ao excluir paciente", "Erro ao excluir paciente");
     }
 
-    private static async Task<IResult> UploadArquivo(
+    private static Task<IResult> UploadArquivo(
         int id,
         IFormFile file,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null)
-            {
-                return Results.Forbid();
-            }
-
+            var currentUser = GetRequiredCurrentUser(claimsPrincipal);
             var result = await mediator.Send(new UploadPacienteArquivoCommand
             {
                 PacienteId = id,
                 File = file,
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId
-            });
+            }, cancellationToken);
 
             return Results.Created($"/api/pacientes/{id}/arquivos/{result.Id}", result);
-        }
-        catch (KeyNotFoundException)
-        {
-            return Results.NotFound();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Results.Forbid();
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao enviar arquivo do paciente");
-            return Results.BadRequest(new { message = "Erro ao enviar arquivo", error = ex.Message });
-        }
+        }, logger, "Erro ao enviar arquivo do paciente", "Erro ao enviar arquivo");
     }
 
-    private static async Task<IResult> DeleteArquivo(
+    private static Task<IResult> DeleteArquivo(
         int id,
         int arquivoId,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null)
-            {
-                return Results.Forbid();
-            }
-
+            var currentUser = GetRequiredCurrentUser(claimsPrincipal);
             await mediator.Send(new DeletePacienteArquivoCommand
             {
                 PacienteId = id,
                 ArquivoId = arquivoId,
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId
-            });
+            }, cancellationToken);
 
             return Results.NoContent();
-        }
-        catch (KeyNotFoundException)
-        {
-            return Results.NotFound();
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Results.Forbid();
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao excluir arquivo do paciente");
-            return Results.BadRequest(new { message = "Erro ao excluir arquivo", error = ex.Message });
-        }
+        }, logger, "Erro ao excluir arquivo do paciente", "Erro ao excluir arquivo");
+    }
+
+    private static void ApplyCurrentUser(CreatePacienteCommand command, CurrentUserContext currentUser)
+    {
+        command.CurrentUserId = currentUser.Id;
+        command.CurrentPerfilId = currentUser.PerfilId;
+        command.CurrentUserName = currentUser.Nome;
+    }
+
+    private static void ApplyCurrentUser(UpdatePacienteCommand command, CurrentUserContext currentUser)
+    {
+        command.CurrentUserId = currentUser.Id;
+        command.CurrentPerfilId = currentUser.PerfilId;
+        command.CurrentUserName = currentUser.Nome;
+    }
+
+    private static CurrentUserContext GetRequiredCurrentUser(ClaimsPrincipal claimsPrincipal)
+    {
+        return claimsPrincipal.ToCurrentUserContext()
+            ?? throw new UnauthorizedAccessException("Usuario autenticado invalido");
     }
 }

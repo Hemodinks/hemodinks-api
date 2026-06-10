@@ -1,10 +1,12 @@
 using HemodinksAPI.Api.Authentication;
+using HemodinksAPI.Api.Authorization;
 using HemodinksAPI.Api.Features.Licencas;
 using HemodinksAPI.Api.Features.Users.Commands;
 using HemodinksAPI.Api.Models;
 using HemodinksAPI.Api.Services;
 using HemodinksAPI.Api.Storage;
 using HemodinksAPI.Api.Utils;
+using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -247,6 +249,38 @@ public class UserCommandHandlerTests
     }
 
     [Fact]
+    public async Task UpdateUser_WhenDoctorUpdatesAnotherUser_ThrowsUnauthorizedAccessException()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var hasher = new PasswordHasher();
+        var user = CreateUser(
+            id: 25,
+            email: "edita.negada@email.com",
+            passwordHash: hasher.HashPassword("Senha@123"));
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var handler = new UpdateUserCommandHandler(
+            context,
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            NullLogger<UpdateUserCommandHandler>.Instance);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new UpdateUserCommand
+        {
+            Id = user.Id,
+            CurrentUser = new CurrentUserContext(99, Perfil.MedicosId, "Outro Medico"),
+            Nome = "Usuario Editado",
+            Email = "edita.negada@email.com",
+            Telefone = "+5511555555555",
+            Cpf = "15350946056",
+            DataNascimento = new DateTime(1991, 7, 2),
+            Ativo = true,
+            PerfilId = Perfil.MedicosId
+        }, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task AuthenticateUser_WhenPasswordIsInvalid_ThrowsUnauthorizedAccessException()
     {
         await using var context = TestDbContextFactory.Create();
@@ -301,6 +335,24 @@ public class UserCommandHandlerTests
         Assert.False(storedUser.PrecisaTrocarSenha);
         Assert.True(hasher.VerifyPassword("NovaSenha@123", storedUser.Senha));
         Assert.False(hasher.VerifyPassword("Senha@123", storedUser.Senha));
+    }
+
+    [Fact]
+    public async Task ChangePassword_WhenCurrentUserDoesNotMatchRouteUser_ThrowsUnauthorizedAccessException()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new ChangePasswordCommandHandler(
+            context,
+            new PasswordHasher(),
+            NullLogger<ChangePasswordCommandHandler>.Instance);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new ChangePasswordCommand
+        {
+            UserId = 10,
+            CurrentUser = new CurrentUserContext(99, Perfil.MedicosId, "Outro Medico"),
+            SenhaAtual = "Senha@123",
+            NovaSenha = "NovaSenha@123"
+        }, CancellationToken.None));
     }
 
     [Fact]
@@ -450,6 +502,23 @@ public class UserCommandHandlerTests
         };
     }
 
+    [Fact]
+    public async Task UploadUserArquivo_WhenDoctorUploadsForAnotherUser_ThrowsUnauthorizedAccessException()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new UploadUserArquivoCommandHandler(
+            context,
+            new FakePatientFileStorage(),
+            NullLogger<UploadUserArquivoCommandHandler>.Instance);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new UploadUserArquivoCommand
+        {
+            UserId = 10,
+            CurrentUser = new CurrentUserContext(99, Perfil.MedicosId, "Outro Medico"),
+            File = default!
+        }, CancellationToken.None));
+    }
+
     private static LicencaService CreateLicencaService(HemodinksAPI.Api.Data.AppDbContext context)
     {
         return new LicencaService(context, Options.Create(new LicencaOptions()));
@@ -498,6 +567,23 @@ public class UserCommandHandlerTests
         public string GenerateToken(User user)
         {
             return _token;
+        }
+    }
+
+    private sealed class FakePatientFileStorage : IPatientFileStorage
+    {
+        public Task<StoredPatientFile> SaveAsync(IFormFile file, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(new StoredPatientFile(
+                file.FileName,
+                file.ContentType,
+                file.Length,
+                $"https://storage.example/{file.FileName}"));
+        }
+
+        public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
+        {
+            return Task.CompletedTask;
         }
     }
 }
