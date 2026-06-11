@@ -3,6 +3,9 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY ["HemodinksAPI.Api/HemodinksAPI.Api.csproj", "HemodinksAPI.Api/"]
+COPY ["HemodinksAPI.Application/HemodinksAPI.Application.csproj", "HemodinksAPI.Application/"]
+COPY ["HemodinksAPI.Domain/HemodinksAPI.Domain.csproj", "HemodinksAPI.Domain/"]
+COPY ["HemodinksAPI.Infrastructure/HemodinksAPI.Infrastructure.csproj", "HemodinksAPI.Infrastructure/"]
 RUN dotnet restore "HemodinksAPI.Api/HemodinksAPI.Api.csproj"
 
 COPY . .

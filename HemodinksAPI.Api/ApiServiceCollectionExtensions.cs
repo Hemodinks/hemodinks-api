@@ -38,6 +38,7 @@ public static class ApiServiceCollectionExtensions
             options.UseSqlServer(defaultConnection,
                 sqlServerOptionsAction: sqlOptions =>
                 {
+                    sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name);
                     sqlOptions.EnableRetryOnFailure();
                 }));
         services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
