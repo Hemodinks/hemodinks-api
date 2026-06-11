@@ -40,7 +40,12 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
                 ["JwtSettings:SecretKey"] = "0123456789abcdef0123456789abcdef",
                 ["JwtSettings:Issuer"] = "HemodinksAPI",
                 ["JwtSettings:Audience"] = "HemodinksAPI",
-                ["JwtSettings:ExpirationMinutes"] = "60"
+                ["JwtSettings:ExpirationMinutes"] = "60",
+                ["ApiDocumentation:Enabled"] = "true",
+                ["Database:RunMigrationsOnStartup"] = "true",
+                ["Seed:CbhpmOnStartup"] = "true",
+                ["Seed:UsersOnStartup"] = "true",
+                ["PasswordReset:ExposeTokenInResponse"] = "true"
             });
         });
 

@@ -33,6 +33,8 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<Event> Events { get; set; } = null!;
 
+    public DbSet<PasswordResetToken> PasswordResetTokens { get; set; } = null!;
+
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
@@ -234,6 +236,37 @@ public class AppDbContext : DbContext, IAppDbContext
                 .WithMany(e => e.MedicalEvents)
                 .HasForeignKey(e => e.MedicalUserId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PasswordResetToken>(entity =>
+        {
+            entity.ToTable("PasswordResetTokens");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.TokenHash)
+                .IsRequired()
+                .HasMaxLength(128);
+
+            entity.Property(e => e.ExpiresAt)
+                .IsRequired();
+
+            entity.Property(e => e.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(e => e.RequestIp)
+                .HasMaxLength(45);
+
+            entity.HasIndex(e => e.TokenHash)
+                .IsUnique();
+
+            entity.HasIndex(e => new { e.UserId, e.UsedAt, e.ExpiresAt });
+
+            entity.HasOne(e => e.User)
+                .WithMany(e => e.PasswordResetTokens)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<Hospital>(entity =>

@@ -10,6 +10,14 @@ public static class ApiApplicationExtensions
 {
     public static void UseApiDocumentation(this WebApplication app)
     {
+        var documentationEnabled = app.Configuration.GetValue<bool?>("ApiDocumentation:Enabled")
+            ?? (app.Environment.IsDevelopment() || app.Environment.IsEnvironment("Testing"));
+
+        if (!documentationEnabled)
+        {
+            return;
+        }
+
         app.UseSwagger();
         app.UseSwaggerUI(options =>
         {
@@ -37,21 +45,37 @@ public static class ApiApplicationExtensions
         {
             logger.LogInformation("Iniciando migracao do banco de dados");
 
-            if (dbContext.Database.IsRelational())
+            var runMigrations = app.Configuration.GetValue<bool?>("Database:RunMigrationsOnStartup")
+                ?? !app.Environment.IsProduction();
+
+            if (runMigrations && dbContext.Database.IsRelational())
             {
                 await dbContext.Database.MigrateAsync();
             }
-            else
+            else if (runMigrations)
             {
                 await dbContext.Database.EnsureCreatedAsync();
             }
+            else
+            {
+                logger.LogInformation("Migracao automatica desabilitada para este ambiente");
+            }
 
-            logger.LogInformation("Migracao do banco de dados concluida com sucesso");
+            logger.LogInformation("Inicializacao do banco de dados concluida");
 
-            var cbhpmSeeder = scope.ServiceProvider.GetRequiredService<CbhpmSeeder>();
-            await cbhpmSeeder.SeedAsync();
+            var seedCbhpm = app.Configuration.GetValue<bool?>("Seed:CbhpmOnStartup")
+                ?? !app.Environment.IsProduction();
 
-            if (!await dbContext.Users.AnyAsync())
+            if (seedCbhpm)
+            {
+                var cbhpmSeeder = scope.ServiceProvider.GetRequiredService<CbhpmSeeder>();
+                await cbhpmSeeder.SeedAsync();
+            }
+
+            var seedUsers = app.Configuration.GetValue<bool?>("Seed:UsersOnStartup")
+                ?? !app.Environment.IsProduction();
+
+            if (seedUsers && !await dbContext.Users.AnyAsync())
             {
                 logger.LogInformation("Iniciando seed de dados");
                 var seeder = scope.ServiceProvider.GetRequiredService<UserSeeder>();

@@ -75,5 +75,7 @@ public class User
 
     public ICollection<Event> MedicalEvents { get; set; } = new List<Event>();
 
+    public ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = new List<PasswordResetToken>();
+
     public ICollection<UserArquivo> Arquivos { get; set; } = new List<UserArquivo>();
 }

@@ -55,7 +55,9 @@ public static class DashboardEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao buscar resumo do dashboard");
-            return Results.BadRequest(new { message = "Erro ao buscar resumo do dashboard", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao buscar resumo do dashboard",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
@@ -88,7 +90,9 @@ public static class DashboardEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao buscar notificacoes do dashboard");
-            return Results.BadRequest(new { message = "Erro ao buscar notificacoes do dashboard", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao buscar notificacoes do dashboard",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 

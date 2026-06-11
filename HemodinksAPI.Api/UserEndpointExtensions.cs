@@ -75,7 +75,14 @@ public static class UserEndpointExtensions
         group.MapPost("/password/reset", ResetPasswordByEmail)
             .WithName("ResetPasswordByEmail")
             .WithSummary("Resetar senha por email")
-            .WithDescription("Reseta a senha do usuario para a senha padrao pelo email informado");
+            .WithDescription("Solicita um token temporario para redefinicao de senha")
+            .RequireRateLimiting("PasswordReset");
+
+        group.MapPost("/password/reset/confirm", ConfirmPasswordReset)
+            .WithName("ConfirmPasswordReset")
+            .WithSummary("Confirmar reset de senha")
+            .WithDescription("Redefine a senha usando token temporario")
+            .RequireRateLimiting("PasswordReset");
 
         group.MapPut("/{id}/password/reset", ResetPassword)
             .WithName("ResetPassword")
@@ -267,6 +274,21 @@ public static class UserEndpointExtensions
 
     private static Task<IResult> ResetPasswordByEmail(
         ResetUserPasswordByEmailCommand command,
+        HttpContext httpContext,
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        return EndpointExecution.RunAsync(async () =>
+        {
+            command.RequestIp = httpContext.Connection.RemoteIpAddress?.ToString();
+            var result = await mediator.Send(command, cancellationToken);
+            return Results.Ok(result);
+        }, logger, "Erro ao solicitar reset de senha por email", "Erro ao solicitar reset de senha");
+    }
+
+    private static Task<IResult> ConfirmPasswordReset(
+        ConfirmPasswordResetCommand command,
         IMediator mediator,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
@@ -275,10 +297,7 @@ public static class UserEndpointExtensions
         {
             var result = await mediator.Send(command, cancellationToken);
             return Results.Ok(result);
-        }, logger, "Erro ao resetar senha por email", "Erro ao resetar senha", new EndpointErrorOptions
-        {
-            NotFoundMessage = "Email nao encontrado."
-        });
+        }, logger, "Erro ao confirmar reset de senha", "Erro ao confirmar reset de senha");
     }
 
     private static Task<IResult> UploadArquivo(

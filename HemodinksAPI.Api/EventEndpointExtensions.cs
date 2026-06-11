@@ -56,7 +56,9 @@ public static class EventEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao buscar medicos para agenda");
-            return Results.BadRequest(new { message = "Erro ao buscar medicos para agenda", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao buscar medicos para agenda",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
@@ -86,7 +88,9 @@ public static class EventEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao buscar eventos da agenda");
-            return Results.BadRequest(new { message = "Erro ao buscar eventos da agenda", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao buscar eventos da agenda",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
@@ -116,7 +120,9 @@ public static class EventEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao buscar evento da agenda {EventId}", id);
-            return Results.BadRequest(new { message = "Erro ao buscar evento da agenda", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao buscar evento da agenda",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
@@ -154,7 +160,9 @@ public static class EventEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao criar evento da agenda");
-            return Results.BadRequest(new { message = "Erro ao criar evento da agenda", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao criar evento da agenda",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
@@ -196,7 +204,9 @@ public static class EventEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao atualizar evento da agenda {EventId}", id);
-            return Results.BadRequest(new { message = "Erro ao atualizar evento da agenda", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao atualizar evento da agenda",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
@@ -234,7 +244,9 @@ public static class EventEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao concluir evento da agenda {EventId}", id);
-            return Results.BadRequest(new { message = "Erro ao concluir evento da agenda", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao concluir evento da agenda",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
@@ -272,7 +284,9 @@ public static class EventEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao excluir evento da agenda {EventId}", id);
-            return Results.BadRequest(new { message = "Erro ao excluir evento da agenda", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao excluir evento da agenda",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 }

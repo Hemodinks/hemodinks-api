@@ -11,6 +11,8 @@ using HemodinksAPI.Application.Utils;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -639,58 +641,121 @@ public class ResetUserPasswordCommandHandler : IRequestHandler<ResetUserPassword
     }
 }
 
-/// <summary>
-/// Handler para resetar a senha do usuario pelo email.
-/// </summary>
-public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserPasswordByEmailCommand, ResetUserPasswordResponse>
+public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserPasswordByEmailCommand, RequestPasswordResetResponse>
 {
     private readonly IAppDbContext _context;
-    private readonly IPasswordHasher _passwordHasher;
+    private readonly PasswordResetOptions _options;
     private readonly ILogger<ResetUserPasswordByEmailCommandHandler> _logger;
 
     public ResetUserPasswordByEmailCommandHandler(
         IAppDbContext context,
-        IPasswordHasher passwordHasher,
+        IOptions<PasswordResetOptions> options,
         ILogger<ResetUserPasswordByEmailCommandHandler> logger)
+    {
+        _context = context;
+        _options = options.Value;
+        _logger = logger;
+    }
+
+    public async Task<RequestPasswordResetResponse> Handle(ResetUserPasswordByEmailCommand request, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        var response = PasswordResetRules.CreateRequestResponse(now);
+        var email = request.Email.Trim();
+
+        _logger.LogInformation("Solicitacao de reset de senha recebida para {Email}", email);
+
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email == email && u.Ativo, cancellationToken);
+
+        if (user == null)
+        {
+            _logger.LogInformation("Solicitacao de reset ignorada porque email nao foi encontrado: {Email}", email);
+            return response;
+        }
+
+        var token = PasswordResetRules.GenerateToken();
+        var tokenEntity = new PasswordResetToken
+        {
+            UserId = user.Id,
+            TokenHash = PasswordResetRules.HashToken(token),
+            CreatedAt = now,
+            ExpiresAt = now.AddMinutes(30),
+            RequestIp = PasswordResetRules.TrimRequestIp(request.RequestIp)
+        };
+
+        var activeTokens = await _context.PasswordResetTokens
+            .Where(item => item.UserId == user.Id
+                && item.UsedAt == null
+                && item.ExpiresAt > now)
+            .ToListAsync(cancellationToken);
+
+        foreach (var activeToken in activeTokens)
+        {
+            activeToken.UsedAt = now;
+        }
+
+        _context.PasswordResetTokens.Add(tokenEntity);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Token de reset de senha criado para usuario {UserId}", user.Id);
+
+        response.DebugToken = _options.ExposeTokenInResponse ? token : null;
+        return response;
+    }
+}
+
+public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswordResetCommand, ResetUserPasswordResponse>
+{
+    private readonly IAppDbContext _context;
+    private readonly IPasswordHasher _passwordHasher;
+    private readonly ILogger<ConfirmPasswordResetCommandHandler> _logger;
+
+    public ConfirmPasswordResetCommandHandler(
+        IAppDbContext context,
+        IPasswordHasher passwordHasher,
+        ILogger<ConfirmPasswordResetCommandHandler> logger)
     {
         _context = context;
         _passwordHasher = passwordHasher;
         _logger = logger;
     }
 
-    public async Task<ResetUserPasswordResponse> Handle(ResetUserPasswordByEmailCommand request, CancellationToken cancellationToken)
+    public async Task<ResetUserPasswordResponse> Handle(ConfirmPasswordResetCommand request, CancellationToken cancellationToken)
     {
-        try
+        PasswordResetRules.ValidateNewPassword(request.NovaSenha);
+
+        var tokenHash = PasswordResetRules.HashToken(request.Token);
+        var now = DateTime.UtcNow;
+        var resetToken = await _context.PasswordResetTokens
+            .Include(item => item.User)
+            .FirstOrDefaultAsync(item =>
+                item.TokenHash == tokenHash
+                && item.UsedAt == null
+                && item.ExpiresAt > now
+                && item.User.Ativo,
+                cancellationToken);
+
+        if (resetToken == null)
         {
-            var email = request.Email.Trim();
-            _logger.LogInformation("Resetando senha do usuario pelo email: {Email}", email);
-
-            var user = await _context.Users
-                .FirstOrDefaultAsync(u => u.Email == email && u.Ativo, cancellationToken);
-
-            if (user == null)
-            {
-                throw new KeyNotFoundException("Usuario nao encontrado");
-            }
-
-            user.Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value);
-            user.PrecisaTrocarSenha = true;
-            user.DataAtualizacao = DateTime.UtcNow;
-
-            await _context.SaveChangesAsync(cancellationToken);
-
-            return new ResetUserPasswordResponse
-            {
-                Id = user.Id,
-                PrecisaTrocarSenha = user.PrecisaTrocarSenha,
-                Message = "Senha resetada para a senha padrao"
-            };
+            throw new InvalidOperationException("Token de reset invalido ou expirado");
         }
-        catch (Exception ex)
+
+        resetToken.User.Senha = _passwordHasher.HashPassword(request.NovaSenha);
+        resetToken.User.PrecisaTrocarSenha = false;
+        resetToken.User.DataAtualizacao = now;
+        resetToken.UsedAt = now;
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        _logger.LogInformation("Senha redefinida com token para usuario {UserId}", resetToken.UserId);
+
+        return new ResetUserPasswordResponse
         {
-            _logger.LogError(ex, "Erro ao resetar senha pelo email: {Email}", request.Email);
-            throw;
-        }
+            Id = resetToken.UserId,
+            PrecisaTrocarSenha = resetToken.User.PrecisaTrocarSenha,
+            Message = "Senha redefinida com sucesso"
+        };
     }
 }
 
@@ -774,6 +839,54 @@ internal static class UserProfileRules
     }
 }
 
+internal static class PasswordResetRules
+{
+    private const int TokenBytes = 32;
+
+    public static string GenerateToken()
+    {
+        return Convert.ToHexString(RandomNumberGenerator.GetBytes(TokenBytes));
+    }
+
+    public static string HashToken(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            throw new InvalidOperationException("Token de reset obrigatorio");
+        }
+
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token.Trim()));
+        return Convert.ToHexString(bytes);
+    }
+
+    public static void ValidateNewPassword(string? password)
+    {
+        if (string.IsNullOrWhiteSpace(password) || password.Length < 8)
+        {
+            throw new InvalidOperationException("A nova senha deve ter pelo menos 8 caracteres");
+        }
+
+        if (password == DefaultUserPassword.Value)
+        {
+            throw new InvalidOperationException("A nova senha nao pode ser a senha padrao");
+        }
+    }
+
+    public static RequestPasswordResetResponse CreateRequestResponse(DateTime now)
+    {
+        return new RequestPasswordResetResponse
+        {
+            Message = "Se o email estiver cadastrado, enviaremos as instrucoes para redefinir a senha.",
+            ExpiresAt = now.AddMinutes(30)
+        };
+    }
+
+    public static string? TrimRequestIp(string? requestIp)
+    {
+        return string.IsNullOrWhiteSpace(requestIp) ? null : requestIp.Trim()[..Math.Min(requestIp.Trim().Length, 45)];
+    }
+}
+
 // Implementar MediatR IRequest para os comandos.
 public partial class CreateUserCommand : IRequest<CreateUserResponse>
 {
@@ -807,6 +920,10 @@ public partial class ResetUserPasswordCommand : IRequest<ResetUserPasswordRespon
 {
 }
 
-public partial class ResetUserPasswordByEmailCommand : IRequest<ResetUserPasswordResponse>
+public partial class ResetUserPasswordByEmailCommand : IRequest<RequestPasswordResetResponse>
+{
+}
+
+public partial class ConfirmPasswordResetCommand : IRequest<ResetUserPasswordResponse>
 {
 }

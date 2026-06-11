@@ -141,11 +141,34 @@ public partial class ResetUserPasswordCommand
 }
 
 /// <summary>
-/// DTO para reset de senha pelo email do usuario.
+/// DTO para solicitar reset de senha pelo email do usuario.
 /// </summary>
 public partial class ResetUserPasswordByEmailCommand
 {
     public string Email { get; set; } = null!;
+
+    public string? RequestIp { get; set; }
+}
+
+public partial class ConfirmPasswordResetCommand
+{
+    public string Token { get; set; } = null!;
+
+    public string NovaSenha { get; set; } = null!;
+}
+
+public class RequestPasswordResetResponse
+{
+    public string Message { get; set; } = null!;
+
+    public DateTime? ExpiresAt { get; set; }
+
+    public string? DebugToken { get; set; }
+}
+
+public class PasswordResetOptions
+{
+    public bool ExposeTokenInResponse { get; set; }
 }
 
 /// <summary>

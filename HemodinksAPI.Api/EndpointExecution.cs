@@ -38,7 +38,9 @@ public static class EndpointExecution
         catch (Exception ex)
         {
             logger.LogError(ex, logMessage);
-            return Results.BadRequest(new { message = clientMessage, error = ex.Message });
+            return Results.Problem(
+                title: clientMessage,
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 }

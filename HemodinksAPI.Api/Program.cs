@@ -18,11 +18,12 @@ builder.Host.UseSerilog();
 
 builder.Services
     .AddDatabase(builder.Configuration)
-    .AddAuth(builder.Configuration)
+    .AddAuth(builder.Configuration, builder.Environment)
     .AddFrontendCors(builder.Configuration)
+    .AddApiRateLimiting()
     .AddLicensing(builder.Configuration)
     .AddStorage(builder.Configuration)
-    .AddApplicationServices()
+    .AddApplicationServices(builder.Configuration, builder.Environment)
     .AddApiDocumentation();
 
 var app = builder.Build();
@@ -32,6 +33,7 @@ await app.InitializeDatabaseAsync();
 app.UseApiDocumentation();
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 

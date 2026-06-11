@@ -52,7 +52,9 @@ public static class LicencaEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao consultar licenca atual");
-            return Results.BadRequest(new { message = "Erro ao consultar licenca", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao consultar licenca",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
@@ -77,7 +79,9 @@ public static class LicencaEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao consultar licenca do usuario {UserId}", userId);
-            return Results.BadRequest(new { message = "Erro ao consultar licenca", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao consultar licenca",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
@@ -103,7 +107,9 @@ public static class LicencaEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao atualizar licenca do usuario {UserId}", userId);
-            return Results.BadRequest(new { message = "Erro ao atualizar licenca", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao atualizar licenca",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
@@ -129,7 +135,9 @@ public static class LicencaEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao liberar licenca completa do usuario {UserId}", userId);
-            return Results.BadRequest(new { message = "Erro ao liberar licenca completa", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao liberar licenca completa",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 }

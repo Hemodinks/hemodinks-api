@@ -126,6 +126,56 @@ public class ApiEndpointIntegrationTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
+    [Fact]
+    public async Task PasswordResetFlow_WhenTokenIsValid_AllowsAuthenticationWithNewPassword()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+
+        var requestResponse = await client.PostAsJsonAsync("/api/users/password/reset", new
+        {
+            email = "gmarcone@gmail.com"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, requestResponse.StatusCode);
+        using var requestJson = await ReadJsonAsync(requestResponse);
+        var token = requestJson.RootElement.GetProperty("debugToken").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(token));
+
+        var confirmResponse = await client.PostAsJsonAsync("/api/users/password/reset/confirm", new
+        {
+            token,
+            novaSenha = "NovaSenha@123"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, confirmResponse.StatusCode);
+
+        var loginResponse = await client.PostAsJsonAsync("/api/users/authenticate", new
+        {
+            Email = "gmarcone@gmail.com",
+            Senha = "NovaSenha@123"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+    }
+
+    [Fact]
+    public async Task PasswordResetRequest_WhenEmailDoesNotExist_ReturnsGenericResponse()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/users/password/reset", new
+        {
+            email = "nao-existe@email.com"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        Assert.False(json.RootElement.TryGetProperty("debugToken", out var token)
+            && token.ValueKind != JsonValueKind.Null);
+    }
+
     private static async Task AuthenticateAsync(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/users/authenticate", new

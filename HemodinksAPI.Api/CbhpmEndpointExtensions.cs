@@ -49,7 +49,9 @@ public static class CbhpmEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao buscar procedimentos CBHPM");
-            return Results.BadRequest(new { message = "Erro ao buscar procedimentos CBHPM", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao buscar procedimentos CBHPM",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
@@ -69,7 +71,9 @@ public static class CbhpmEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao importar procedimentos CBHPM");
-            return Results.BadRequest(new { message = "Erro ao importar procedimentos CBHPM", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao importar procedimentos CBHPM",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 }

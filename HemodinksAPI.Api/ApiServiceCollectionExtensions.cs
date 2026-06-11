@@ -5,6 +5,7 @@ using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.Licencas;
+using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Utils;
@@ -18,10 +19,11 @@ using HemodinksAPI.Infrastructure.Storage;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
+using System.Threading.RateLimiting;
 
 namespace HemodinksAPI.Api;
 
@@ -42,15 +44,16 @@ public static class ApiServiceCollectionExtensions
                     {
                         sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name);
                         sqlOptions.EnableRetryOnFailure();
-                    })
-                .ConfigureWarnings(warnings =>
-                    warnings.Ignore(RelationalEventId.PendingModelChangesWarning)));
+                    }));
         services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
 
         return services;
     }
 
-    public static IServiceCollection AddAuth(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddAuth(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
     {
         var jwtSettings = configuration.GetSection("JwtSettings").Get<JwtSettings>()
             ?? throw new InvalidOperationException("JwtSettings nao configurado");
@@ -86,7 +89,7 @@ public static class ApiServiceCollectionExtensions
         })
         .AddJwtBearer(x =>
         {
-            x.RequireHttpsMetadata = false;
+            x.RequireHttpsMetadata = !environment.IsDevelopment() && !environment.IsEnvironment("Testing");
             x.SaveToken = true;
             x.TokenValidationParameters = new TokenValidationParameters
             {
@@ -158,6 +161,28 @@ public static class ApiServiceCollectionExtensions
         return services;
     }
 
+    public static IServiceCollection AddApiRateLimiting(this IServiceCollection services)
+    {
+        services.AddRateLimiter(options =>
+        {
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddPolicy("PasswordReset", context =>
+            {
+                var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ =>
+                    new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 5,
+                        Window = TimeSpan.FromMinutes(5),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    });
+            });
+        });
+
+        return services;
+    }
+
     public static IServiceCollection AddLicensing(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<LicencaOptions>(configuration.GetSection("Licensing"));
@@ -189,10 +214,21 @@ public static class ApiServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
+    public static IServiceCollection AddApplicationServices(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
     {
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IUserPatientSyncService, UserPatientSyncService>();
+        services.Configure<PasswordResetOptions>(options =>
+        {
+            configuration.GetSection("PasswordReset").Bind(options);
+            if (!environment.IsProduction() && !configuration.GetSection("PasswordReset").Exists())
+            {
+                options.ExposeTokenInResponse = true;
+            }
+        });
         services.AddMemoryCache();
         services.AddScoped<ICbhpmCache, CbhpmCache>();
         services.AddScoped<UserSeeder>();
