@@ -644,15 +644,18 @@ public class ResetUserPasswordCommandHandler : IRequestHandler<ResetUserPassword
 public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserPasswordByEmailCommand, RequestPasswordResetResponse>
 {
     private readonly IAppDbContext _context;
+    private readonly IPasswordResetNotificationSender _passwordResetNotificationSender;
     private readonly PasswordResetOptions _options;
     private readonly ILogger<ResetUserPasswordByEmailCommandHandler> _logger;
 
     public ResetUserPasswordByEmailCommandHandler(
         IAppDbContext context,
+        IPasswordResetNotificationSender passwordResetNotificationSender,
         IOptions<PasswordResetOptions> options,
         ILogger<ResetUserPasswordByEmailCommandHandler> logger)
     {
         _context = context;
+        _passwordResetNotificationSender = passwordResetNotificationSender;
         _options = options.Value;
         _logger = logger;
     }
@@ -699,6 +702,19 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
         await _context.SaveChangesAsync(cancellationToken);
 
         _logger.LogInformation("Token de reset de senha criado para usuario {UserId}", user.Id);
+
+        try
+        {
+            await _passwordResetNotificationSender.SendAsync(new PasswordResetNotification(
+                user.Email,
+                user.Nome,
+                token,
+                tokenEntity.ExpiresAt), cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Erro ao enviar email de reset de senha para usuario {UserId}", user.Id);
+        }
 
         response.DebugToken = _options.ExposeTokenInResponse ? token : null;
         return response;

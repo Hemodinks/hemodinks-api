@@ -460,8 +460,10 @@ public class UserCommandHandlerTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
+        var passwordResetSender = new FakePasswordResetNotificationSender();
         var handler = new ResetUserPasswordByEmailCommandHandler(
             context,
+            passwordResetSender,
             Options.Create(new PasswordResetOptions { ExposeTokenInResponse = true }),
             NullLogger<ResetUserPasswordByEmailCommandHandler>.Instance);
 
@@ -476,6 +478,8 @@ public class UserCommandHandlerTests
         Assert.NotNull(response.DebugToken);
         Assert.NotNull(response.ExpiresAt);
         Assert.Equal(1, await context.PasswordResetTokens.CountAsync());
+        Assert.Single(passwordResetSender.Notifications);
+        Assert.Equal("reset-email@email.com", passwordResetSender.Notifications[0].Email);
     }
 
     [Fact]
@@ -493,6 +497,7 @@ public class UserCommandHandlerTests
 
         var requestHandler = new ResetUserPasswordByEmailCommandHandler(
             context,
+            new FakePasswordResetNotificationSender(),
             Options.Create(new PasswordResetOptions { ExposeTokenInResponse = true }),
             NullLogger<ResetUserPasswordByEmailCommandHandler>.Instance);
 
@@ -526,8 +531,10 @@ public class UserCommandHandlerTests
     public async Task ResetUserPasswordByEmail_WhenEmailDoesNotExist_ReturnsGenericResponse()
     {
         await using var context = TestDbContextFactory.Create();
+        var passwordResetSender = new FakePasswordResetNotificationSender();
         var handler = new ResetUserPasswordByEmailCommandHandler(
             context,
+            passwordResetSender,
             Options.Create(new PasswordResetOptions { ExposeTokenInResponse = true }),
             NullLogger<ResetUserPasswordByEmailCommandHandler>.Instance);
 
@@ -539,6 +546,7 @@ public class UserCommandHandlerTests
         Assert.Null(response.DebugToken);
         Assert.NotNull(response.ExpiresAt);
         Assert.Equal(0, await context.PasswordResetTokens.CountAsync());
+        Assert.Empty(passwordResetSender.Notifications);
     }
 
     private static User CreateUser(
@@ -648,6 +656,17 @@ public class UserCommandHandlerTests
 
         public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
         {
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class FakePasswordResetNotificationSender : IPasswordResetNotificationSender
+    {
+        public List<PasswordResetNotification> Notifications { get; } = new();
+
+        public Task SendAsync(PasswordResetNotification notification, CancellationToken cancellationToken)
+        {
+            Notifications.Add(notification);
             return Task.CompletedTask;
         }
     }

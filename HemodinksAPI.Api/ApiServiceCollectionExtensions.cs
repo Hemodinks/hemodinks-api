@@ -221,6 +221,9 @@ public static class ApiServiceCollectionExtensions
     {
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IUserPatientSyncService, UserPatientSyncService>();
+        services.Configure<EmailOptions>(configuration.GetSection("Email"));
+        services.Configure<FrontendOptions>(configuration.GetSection("Frontend"));
+        services.AddScoped<IPasswordResetNotificationSender, SmtpPasswordResetNotificationSender>();
         services.Configure<PasswordResetOptions>(options =>
         {
             configuration.GetSection("PasswordReset").Bind(options);
