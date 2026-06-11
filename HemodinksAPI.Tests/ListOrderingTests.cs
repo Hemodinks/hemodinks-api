@@ -1,7 +1,8 @@
-using HemodinksAPI.Api.Features.Pacientes.Queries;
-using HemodinksAPI.Api.Features.Users.Queries;
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Utils;
+using HemodinksAPI.Application.Features.Pacientes.Queries;
+using HemodinksAPI.Application.Features.Users.Queries;
+using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Utils;
+using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 

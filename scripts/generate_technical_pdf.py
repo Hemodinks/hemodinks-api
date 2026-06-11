@@ -165,7 +165,7 @@ def page_overview(c: canvas.Canvas, page: int) -> int:
     y = HEIGHT - 100
     y = draw_wrapped(
         c,
-        "O Hemodinks e uma aplicacao web composta por frontend React/Vite, API ASP.NET Core/.NET 10, banco SQL Server/Azure SQL e Azure Blob Storage para arquivos. A API usa CQRS com MediatR, JWT Bearer, EF Core, Serilog, Swagger, Scalar e IMemoryCache para consultas CBHPM.",
+        "O Hemodinks e uma aplicacao web composta por frontend React/Vite, API ASP.NET Core/.NET 10, banco SQL Server/Azure SQL e Azure Blob Storage para arquivos. A API usa Clean Architecture pragmatica, CQRS com MediatR, validacao em pipeline, JWT Bearer, EF Core, Serilog, Swagger, Scalar, agenda com lembretes e IMemoryCache para consultas CBHPM.",
         MARGIN,
         y,
         720,
@@ -202,7 +202,9 @@ def page_overview(c: canvas.Canvas, page: int) -> int:
         [
             "Azure SQL Database: persistencia relacional via Entity Framework Core.",
             "Azure Blob Storage: containers profile-photos e patient-files.",
-            "Azure Queue Storage / Service Bus: nao utilizado na versao atual; reservado para processos assincronos futuros.",
+            "Agenda: lembretes processados por BackgroundService interno, sem fila paga nesta fase.",
+            "Licencas: controle de trial, plano completo e features liberadas para medicos.",
+            "Azure Queue Storage / Service Bus: nao utilizado na versao atual; reservado para escala futura.",
             "IMemoryCache: cache local da API, sem recurso Azure separado.",
         ],
         MARGIN,
@@ -215,26 +217,35 @@ def page_overview(c: canvas.Canvas, page: int) -> int:
 
 
 def page_architecture(c: canvas.Canvas, page: int) -> int:
-    title(c, "Arquitetura e Comunicacao", "Fluxo de frontend, API, cache, banco e servicos Azure")
-    box(c, 45, 370, 105, 52, "Browser", LIGHT_BLUE, BLUE)
-    box(c, 195, 370, 125, 52, "React/Vite Frontend\nVercel", LIGHT_BLUE, BLUE)
-    box(c, 365, 370, 135, 52, "ASP.NET Core API\nRender Docker", LIGHT_GREEN, GREEN)
-    box(c, 555, 452, 130, 50, "IMemoryCache\nCBHPM", LIGHT_ORANGE, ORANGE)
-    box(c, 555, 360, 130, 50, "Azure SQL\nDatabase", LIGHT_PURPLE, PURPLE)
-    box(c, 555, 268, 130, 50, "Azure Blob\nStorage", LIGHT_PURPLE, PURPLE)
-    box(c, 555, 176, 130, 50, "Azure Queue\nnao usado", LIGHT_RED, RED)
-    arrow(c, 150, 396, 195, 396, "HTTPS")
-    arrow(c, 320, 396, 365, 396, "REST + JWT")
-    arrow(c, 500, 406, 555, 472, "cache local")
-    arrow(c, 500, 390, 555, 385, "EF Core SQL")
-    arrow(c, 500, 374, 555, 293, "Blob SDK")
-    arrow(c, 500, 358, 555, 201, "futuro", RED, dashed=True)
+    title(c, "Arquitetura e Comunicacao", "Clean Architecture pragmatica e integracoes externas")
+    box(c, 45, 390, 95, 45, "Browser", LIGHT_BLUE, BLUE)
+    box(c, 175, 390, 120, 45, "React/Vite\nVercel", LIGHT_BLUE, BLUE)
+    box(c, 330, 390, 105, 45, "Api\nMinimal APIs", LIGHT_GREEN, GREEN)
+    box(c, 470, 455, 125, 42, "Application\nCQRS + validacao", LIGHT_GREEN, GREEN)
+    box(c, 470, 390, 125, 42, "Domain\nEntidades", LIGHT_GREEN, GREEN)
+    box(c, 470, 325, 125, 42, "Infrastructure\nEF/Storage/Worker", LIGHT_GREEN, GREEN)
+    box(c, 640, 455, 130, 42, "IMemoryCache\nCBHPM", LIGHT_ORANGE, ORANGE)
+    box(c, 640, 390, 130, 42, "Azure SQL\nDatabase", LIGHT_PURPLE, PURPLE)
+    box(c, 640, 325, 130, 42, "Azure Blob\nStorage", LIGHT_PURPLE, PURPLE)
+    box(c, 640, 260, 130, 42, "Worker Agenda\ninterno", LIGHT_ORANGE, ORANGE)
+    box(c, 640, 195, 130, 42, "Queue/Service Bus\nfuturo", LIGHT_RED, RED)
+    arrow(c, 140, 412, 175, 412, "HTTPS")
+    arrow(c, 295, 412, 330, 412, "REST + JWT")
+    arrow(c, 435, 413, 470, 476)
+    arrow(c, 435, 407, 470, 411)
+    arrow(c, 435, 401, 470, 346)
+    arrow(c, 595, 476, 640, 476, "cache")
+    arrow(c, 595, 346, 640, 411, "EF")
+    arrow(c, 595, 346, 640, 346, "Blob SDK")
+    arrow(c, 595, 346, 640, 281, "lembretes")
+    arrow(c, 595, 330, 640, 216, "escala futura", RED, dashed=True)
     y = 130
     bullet_list(
         c,
         [
             "Swagger e Scalar sao servidos pela propria API e consomem o documento OpenAPI gerado por Swashbuckle.",
             "A consulta CBHPM aquece o cache na primeira chamada; filtros e paginacao seguintes rodam em memoria.",
+            "Agenda usa BackgroundService interno e NextReminderAt para consultar apenas lembretes vencidos.",
             "Uploads usam Azure Blob Storage; o banco guarda a URL e os metadados.",
         ],
         MARGIN,
@@ -252,78 +263,83 @@ def page_mer(c: canvas.Canvas, page: int) -> int:
         "Id PK",
         "PerfilId FK",
         "Nome, Email UK, Telefone",
-        "Cpf UK nullable",
-        "FotoPerfil",
-        "Senha hash",
-        "DataCadastro, DataAtualizacao",
-        "DataNascimento",
+        "Cpf UK, CRM, CRM UF",
+        "FotoPerfil, Senha hash",
+        "Cadastro, Atualizacao",
         "Ativo, PrecisaTrocarSenha",
     ]
     pacientes_fields = [
         "Id PK",
         "UserId FK UK",
-        "Data, NomePaciente",
-        "Hospital, Medico, Convenio",
-        "CbhpmCodigo",
-        "CbhpmPorte",
-        "Procedimento",
-        "Autorizacao, Pagamento",
-        "RepasseGlosa, StatusPago",
+        "HospitalId, ConvenioId",
+        "MedicoUserId FK",
+        "NomePaciente",
+        "CbhpmCodigo/Porte",
+        "Procedimento, StatusPago",
     ]
     cbhpm_fields = [
         "Id PK",
         "Codigo UK",
         "Procedimento",
         "Porte",
-        "CustoOperacional",
+        "Custo, ValorReferencia",
         "Capitulo, Grupo",
         "PaginaPdf",
     ]
+    licenca_fields = ["Id PK", "UserId FK UK", "Plano, Status", "Inicio/Fim trial", "Fim licenca", "Features, Obs"]
+    event_fields = ["Id PK", "UserId FK", "MedicalUserId FK", "Title, Start, End", "Notify flags", "NextReminderAt", "IsCompleted"]
+    catalog_fields = ["Id PK", "Nome/Descricao UK"]
     perfil_fields = ["Id PK", "Nome UK"]
     arquivos_fields = ["Id PK", "OwnerId FK", "NomeOriginal", "ContentType", "Url", "DataUpload"]
 
-    table_box(c, 45, 365, 135, "Perfis", perfil_fields, stroke=PURPLE)
-    table_box(c, 230, 305, 180, "Users", users_fields, stroke=BLUE)
-    table_box(c, 470, 305, 180, "Pacientes", pacientes_fields, stroke=GREEN)
-    table_box(c, 690, 320, 115, "CBHPMGeral", cbhpm_fields, stroke=ORANGE)
-    table_box(c, 230, 120, 180, "UserArquivos", arquivos_fields, stroke=GRAY)
-    table_box(c, 470, 120, 180, "PacienteArquivos", arquivos_fields, stroke=GRAY)
+    table_box(c, 35, 420, 110, "Perfis", perfil_fields, stroke=PURPLE)
+    table_box(c, 185, 365, 155, "Users", users_fields, stroke=BLUE)
+    table_box(c, 385, 365, 155, "Pacientes", pacientes_fields, stroke=GREEN)
+    table_box(c, 585, 390, 130, "CBHPMGeral", cbhpm_fields, stroke=ORANGE)
+    table_box(c, 35, 215, 145, "Licencas", licenca_fields, stroke=PURPLE)
+    table_box(c, 220, 205, 145, "Events", event_fields, stroke=ORANGE)
+    table_box(c, 405, 205, 145, "Arquivos", arquivos_fields, stroke=GRAY)
+    table_box(c, 590, 205, 120, "Hospitais/\nConvenios", catalog_fields, stroke=GREEN)
 
-    arrow(c, 180, 392, 230, 392, "1:N")
-    arrow(c, 410, 392, 470, 392, "1:1")
-    arrow(c, 650, 392, 690, 392, "codigo logico")
-    arrow(c, 320, 305, 320, 236, "1:N")
-    arrow(c, 560, 305, 560, 236, "1:N")
+    arrow(c, 145, 445, 185, 445, "1:N")
+    arrow(c, 340, 445, 385, 445, "1:1")
+    arrow(c, 540, 445, 585, 445, "codigo")
+    arrow(c, 260, 365, 110, 320, "1:1")
+    arrow(c, 285, 365, 292, 320, "1:N")
+    arrow(c, 465, 365, 477, 320, "1:N")
+    arrow(c, 530, 365, 590, 300, "refs")
     footer(c, page)
     c.showPage()
     return page + 1
 
 
 def page_backend_flow(c: canvas.Canvas, page: int) -> int:
-    title(c, "Fluxo de Classes do Backend", "Minimal APIs, MediatR, regras, cache, storage e EF Core")
-    box(c, 55, 410, 125, 50, "Program.cs\nDI + middleware", LIGHT_BLUE, BLUE)
-    box(c, 230, 410, 145, 50, "Endpoint Extensions\nUsers/Pacientes/CBHPM", LIGHT_BLUE, BLUE)
-    box(c, 425, 410, 120, 50, "MediatR", LIGHT_GREEN, GREEN)
-    box(c, 595, 458, 150, 45, "Command Handlers", LIGHT_GREEN, GREEN)
-    box(c, 595, 382, 150, 45, "Query Handlers", LIGHT_GREEN, GREEN)
-    box(c, 425, 295, 150, 48, "Regras de dominio\nPacienteRules", LIGHT_ORANGE, ORANGE)
-    box(c, 225, 230, 145, 48, "ICbhpmCache\nCbhpmCache", LIGHT_ORANGE, ORANGE)
-    box(c, 425, 215, 150, 48, "AppDbContext\nEF Core", LIGHT_PURPLE, PURPLE)
-    box(c, 625, 230, 150, 48, "Storage Services\nAzure Blob", LIGHT_PURPLE, PURPLE)
-    box(c, 425, 120, 150, 45, "SQL Server /\nAzure SQL", LIGHT_PURPLE, PURPLE)
-    box(c, 625, 120, 150, 45, "Blob Storage", LIGHT_PURPLE, PURPLE)
+    title(c, "Fluxo de Classes do Backend", "Minimal APIs, MediatR, validacao, contratos e Infrastructure")
+    box(c, 45, 410, 120, 50, "Program.cs\nDI + middleware", LIGHT_BLUE, BLUE)
+    box(c, 205, 410, 135, 50, "Endpoint Extensions\nAPI", LIGHT_BLUE, BLUE)
+    box(c, 380, 410, 120, 50, "MediatR", LIGHT_GREEN, GREEN)
+    box(c, 540, 470, 150, 42, "ValidationBehavior", LIGHT_GREEN, GREEN)
+    box(c, 540, 410, 150, 42, "Command Handlers", LIGHT_GREEN, GREEN)
+    box(c, 540, 350, 150, 42, "Query Handlers", LIGHT_GREEN, GREEN)
+    box(c, 350, 285, 150, 45, "Domain Models\nRules", LIGHT_ORANGE, ORANGE)
+    box(c, 120, 230, 145, 45, "Application\nContracts", LIGHT_ORANGE, ORANGE)
+    box(c, 350, 215, 150, 45, "AppDbContext\nEF Core", LIGHT_PURPLE, PURPLE)
+    box(c, 560, 230, 150, 45, "Storage/Notification\nWorker", LIGHT_PURPLE, PURPLE)
+    box(c, 350, 120, 150, 42, "SQL Server /\nAzure SQL", LIGHT_PURPLE, PURPLE)
+    box(c, 560, 120, 150, 42, "Blob Storage /\nlogs", LIGHT_PURPLE, PURPLE)
 
-    arrow(c, 180, 435, 230, 435)
-    arrow(c, 375, 435, 425, 435)
-    arrow(c, 545, 438, 595, 480)
-    arrow(c, 545, 424, 595, 405)
-    arrow(c, 670, 458, 575, 340)
-    arrow(c, 670, 382, 575, 320)
-    arrow(c, 425, 315, 370, 255)
-    arrow(c, 500, 295, 500, 263)
-    arrow(c, 575, 315, 625, 255)
-    arrow(c, 500, 215, 500, 165)
-    arrow(c, 700, 230, 700, 165)
+    arrow(c, 165, 435, 205, 435)
+    arrow(c, 340, 435, 380, 435)
+    arrow(c, 500, 438, 540, 491)
+    arrow(c, 500, 432, 540, 431)
+    arrow(c, 500, 426, 540, 371)
+    arrow(c, 615, 410, 500, 320)
+    arrow(c, 615, 350, 500, 300)
+    arrow(c, 350, 305, 265, 252)
+    arrow(c, 425, 285, 425, 260)
+    arrow(c, 500, 305, 560, 252)
+    arrow(c, 425, 215, 425, 162)
+    arrow(c, 635, 230, 635, 162)
 
     footer(c, page)
     c.showPage()
@@ -371,6 +387,54 @@ def page_business_flow(c: canvas.Canvas, page: int) -> int:
         ],
         45,
         135,
+        760,
+    )
+    footer(c, page)
+    c.showPage()
+    return page + 1
+
+
+def page_agenda_licensing(c: canvas.Canvas, page: int) -> int:
+    title(c, "Agenda, Lembretes e Licencas", "Eventos, notificacoes internas e controle de acesso por feature")
+    box(c, 55, 430, 120, 44, "Calendario\nfrontend", LIGHT_BLUE, BLUE)
+    box(c, 210, 430, 120, 44, "POST/PUT\n/api/events", LIGHT_BLUE, BLUE)
+    box(c, 365, 430, 135, 44, "EventFeatureRules\nValidationBehavior", LIGHT_GREEN, GREEN)
+    box(c, 535, 430, 120, 44, "Events SQL", LIGHT_PURPLE, PURPLE)
+    box(c, 55, 310, 135, 44, "NextReminderAt", LIGHT_ORANGE, ORANGE)
+    box(c, 225, 310, 155, 44, "EventNotification\nHostedService", LIGHT_ORANGE, ORANGE)
+    box(c, 420, 310, 135, 44, "NotificationService\nfake/log", LIGHT_ORANGE, ORANGE)
+    box(c, 595, 310, 130, 44, "Recalcula\nproximo lembrete", LIGHT_ORANGE, ORANGE)
+
+    arrow(c, 175, 452, 210, 452)
+    arrow(c, 330, 452, 365, 452)
+    arrow(c, 500, 452, 535, 452)
+    arrow(c, 595, 430, 125, 354, "consulta vencidos")
+    arrow(c, 190, 332, 225, 332)
+    arrow(c, 380, 332, 420, 332)
+    arrow(c, 555, 332, 595, 332)
+    arrow(c, 660, 310, 595, 430, "salva")
+
+    box(c, 55, 185, 135, 44, "JWT Claims\nperfilId", LIGHT_BLUE, BLUE)
+    box(c, 225, 185, 155, 44, "LicencaFeature\nAuthorizationHandler", LIGHT_GREEN, GREEN)
+    box(c, 420, 185, 135, 44, "ILicencaService", LIGHT_GREEN, GREEN)
+    box(c, 595, 185, 130, 44, "Licencas SQL", LIGHT_PURPLE, PURPLE)
+    arrow(c, 190, 207, 225, 207)
+    arrow(c, 380, 207, 420, 207)
+    arrow(c, 555, 207, 595, 207)
+
+    c.setFont("Helvetica-Bold", 11)
+    c.setFillColor(NAVY)
+    c.drawString(55, 130, "Regras principais")
+    bullet_list(
+        c,
+        [
+            "Agenda pergunta se deve notificar usuario e/ou perfil medico e salva reminderPeriodMinutes.",
+            "Worker interno consulta somente lembretes vencidos por NextReminderAt; evento concluido nao gera novos lembretes.",
+            "Licencas controlam Dashboard, Pacientes e CBHPM por feature; administrador pode liberar plano completo.",
+            "NotificationService atual registra logs; a interface permite trocar por push, email, FCM ou fila futura.",
+        ],
+        55,
+        112,
         760,
     )
     footer(c, page)
@@ -432,11 +496,15 @@ def page_endpoints(c: canvas.Canvas, page: int) -> int:
         ("GET", "/api/users", "Usuarios paginados"),
         ("GET", "/api/pacientes", "Pacientes paginados"),
         ("POST", "/api/pacientes", "Cadastro de paciente"),
-        ("PUT", "/api/pacientes/{id}", "Edicao de paciente"),
         ("GET", "/api/cbhpm", "Consulta CBHPM paginada com cache"),
-        ("POST", "/api/cbhpm/import", "Importacao CBHPM admin"),
         ("GET", "/api/dashboard/summary", "Resumo do dashboard"),
-        ("GET", "/api/dashboard/notifications", "Notificacoes"),
+        ("GET", "/api/events", "Eventos da agenda por periodo"),
+        ("POST", "/api/events", "Criacao de evento com lembretes"),
+        ("POST", "/api/events/{id}/complete", "Conclusao de evento"),
+        ("GET", "/api/licencas/current", "Licenca do usuario autenticado"),
+        ("PUT", "/api/licencas/users/{userId}", "Atualizacao de licenca admin"),
+        ("GET", "/api/hospitais", "Catalogo de hospitais"),
+        ("GET", "/api/convenios", "Catalogo de convenios"),
     ]
     x = 55
     y = 455
@@ -488,6 +556,7 @@ def generate() -> None:
     page = page_mer(c, page)
     page = page_backend_flow(c, page)
     page = page_business_flow(c, page)
+    page = page_agenda_licensing(c, page)
     page = page_cbhpm_flow(c, page)
     page = page_endpoints(c, page)
     c.save()

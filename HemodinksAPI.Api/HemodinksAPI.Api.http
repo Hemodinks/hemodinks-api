@@ -26,3 +26,26 @@ Authorization: Bearer {{token}}
 ### Pacientes
 GET {{baseUrl}}/api/pacientes?page=1&pageSize=10
 Authorization: Bearer {{token}}
+
+### Licenca atual
+GET {{baseUrl}}/api/licencas/current
+Authorization: Bearer {{token}}
+
+### Agenda
+GET {{baseUrl}}/api/events?from=2026-06-01T00:00:00.000Z&to=2026-06-30T23:59:59.000Z
+Authorization: Bearer {{token}}
+
+### Criar evento
+POST {{baseUrl}}/api/events
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "title": "Consulta de acompanhamento",
+  "description": "Retorno com paciente",
+  "start": "2026-06-15T13:00:00.000Z",
+  "end": "2026-06-15T14:00:00.000Z",
+  "notifyMedicalProfile": true,
+  "notifyUser": true,
+  "reminderPeriodMinutes": 60
+}

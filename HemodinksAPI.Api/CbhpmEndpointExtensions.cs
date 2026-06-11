@@ -1,5 +1,6 @@
-using HemodinksAPI.Api.Features.Cbhpm.Commands;
-using HemodinksAPI.Api.Features.Cbhpm.Queries;
+using HemodinksAPI.Application.Features.Cbhpm.Commands;
+using HemodinksAPI.Application.Features.Cbhpm.Queries;
+using HemodinksAPI.Application.Features.Licencas;
 using MediatR;
 
 namespace HemodinksAPI.Api;
@@ -14,7 +15,8 @@ public static class CbhpmEndpointExtensions
 
         group.MapGet("/", GetCbhpmGeral)
             .WithName("GetCbhpmGeral")
-            .WithSummary("Listar procedimentos CBHPM");
+            .WithSummary("Listar procedimentos CBHPM")
+            .RequireAuthorization(LicencaPolicies.CbhpmConsultar);
 
         group.MapPost("/import", ImportCbhpmGeral)
             .RequireAuthorization("Administrador")
@@ -47,7 +49,9 @@ public static class CbhpmEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao buscar procedimentos CBHPM");
-            return Results.BadRequest(new { message = "Erro ao buscar procedimentos CBHPM", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao buscar procedimentos CBHPM",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 
@@ -67,7 +71,9 @@ public static class CbhpmEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao importar procedimentos CBHPM");
-            return Results.BadRequest(new { message = "Erro ao importar procedimentos CBHPM", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao importar procedimentos CBHPM",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 }

@@ -65,21 +65,20 @@ Azure SQL:
 Listar migrations:
 
 ```powershell
-cd HemodinksAPI.Api
-dotnet ef migrations list
+dotnet ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure --no-connect
 ```
 
 Aplicar manualmente:
 
 ```powershell
-dotnet ef database update
+dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
 ```
 
 Em desenvolvimento, para reset completo:
 
 ```powershell
-dotnet ef database drop -f
-dotnet ef database update
+dotnet ef database drop -f --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
+dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
 ```
 
 ## Login retorna 401
@@ -117,7 +116,7 @@ curl "http://localhost:5000/api/cbhpm?page=1&pageSize=10" `
 
 Se a tabela estiver vazia:
 
-- confirme se `HemodinksAPI.Api/Data/SeedData/cbhpm-geral.json` foi copiado no publish
+- confirme se `HemodinksAPI.Infrastructure/Data/SeedData/cbhpm-geral.json` foi copiado no publish
 - reinicie a API para rodar o seed
 - ou use `POST /api/cbhpm/import` com usuario administrador
 
@@ -126,6 +125,28 @@ Se os filtros nao retornarem:
 - teste sem `codigo`, `procedimento` e `porte`
 - use codigo parcial, por exemplo `1.01`
 - use procedimento sem acentos quando estiver em duvida
+
+## Agenda retorna `Invalid column name 'NextReminderAt'`
+
+Isso indica que o banco tem a tabela `Events`, mas ainda nao tem as colunas de lembrete esperadas pela versao atual da API.
+
+Solucoes:
+
+1. Publique a versao que contem a migration `20260610234500_EnsureEventReminderColumns`.
+2. Reinicie a API para o startup executar `Database.MigrateAsync()`.
+3. Se precisar aplicar manualmente:
+
+```powershell
+dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
+```
+
+Valide no SQL Server:
+
+```sql
+SELECT COL_LENGTH('dbo.Events', 'NextReminderAt') AS NextReminderAtColumn;
+```
+
+Se retornar `NULL`, a migration ainda nao foi aplicada no banco usado pela API.
 
 ## Upload para Azure Blob falha
 

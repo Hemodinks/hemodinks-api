@@ -1,4 +1,4 @@
-using HemodinksAPI.Api.Data;
+using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Tests;

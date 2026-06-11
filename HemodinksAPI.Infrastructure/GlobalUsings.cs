@@ -1,0 +1,11 @@
+global using HemodinksAPI.Application.Authentication;
+global using HemodinksAPI.Application.Authorization;
+global using HemodinksAPI.Application.Data;
+global using HemodinksAPI.Application.Services;
+global using HemodinksAPI.Application.Storage;
+global using HemodinksAPI.Application.Utils;
+global using HemodinksAPI.Domain.Utils;
+global using Microsoft.AspNetCore.Http;
+global using Microsoft.Extensions.DependencyInjection;
+global using Microsoft.Extensions.Hosting;
+global using Microsoft.Extensions.Logging;

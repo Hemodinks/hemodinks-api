@@ -1,0 +1,62 @@
+using Microsoft.EntityFrameworkCore.Migrations;
+
+#nullable disable
+
+namespace HemodinksAPI.Infrastructure.Data.Migrations
+{
+    /// <inheritdoc />
+    public partial class AddPacienteMedicoUser : Migration
+    {
+        /// <inheritdoc />
+        protected override void Up(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.AddColumn<int>(
+                name: "MedicoUserId",
+                table: "Pacientes",
+                type: "int",
+                nullable: true);
+
+            migrationBuilder.Sql("""
+                UPDATE p
+                SET MedicoUserId = u.Id
+                FROM [Pacientes] p
+                CROSS APPLY (
+                    SELECT TOP (1) [Id]
+                    FROM [Users]
+                    WHERE [Nome] = p.[Medico] AND [PerfilId] = 2
+                    ORDER BY [Id]
+                ) u
+                WHERE p.[Medico] IS NOT NULL AND p.[MedicoUserId] IS NULL
+                """);
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Pacientes_MedicoUserId",
+                table: "Pacientes",
+                column: "MedicoUserId");
+
+            migrationBuilder.AddForeignKey(
+                name: "FK_Pacientes_Users_MedicoUserId",
+                table: "Pacientes",
+                column: "MedicoUserId",
+                principalTable: "Users",
+                principalColumn: "Id",
+                onDelete: ReferentialAction.Restrict);
+        }
+
+        /// <inheritdoc />
+        protected override void Down(MigrationBuilder migrationBuilder)
+        {
+            migrationBuilder.DropForeignKey(
+                name: "FK_Pacientes_Users_MedicoUserId",
+                table: "Pacientes");
+
+            migrationBuilder.DropIndex(
+                name: "IX_Pacientes_MedicoUserId",
+                table: "Pacientes");
+
+            migrationBuilder.DropColumn(
+                name: "MedicoUserId",
+                table: "Pacientes");
+        }
+    }
+}

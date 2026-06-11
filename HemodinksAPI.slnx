@@ -1,4 +1,7 @@
 <Solution>
+  <Project Path="HemodinksAPI.Domain/HemodinksAPI.Domain.csproj" />
+  <Project Path="HemodinksAPI.Application/HemodinksAPI.Application.csproj" />
+  <Project Path="HemodinksAPI.Infrastructure/HemodinksAPI.Infrastructure.csproj" />
   <Project Path="HemodinksAPI.Api/HemodinksAPI.Api.csproj" />
   <Project Path="HemodinksAPI.Tests/HemodinksAPI.Tests.csproj" />
 </Solution>

@@ -2,71 +2,108 @@
 
 Este documento resume a implementacao atual do backend.
 
-## Arquitetura
+## Estrutura
 
-O projeto usa Minimal APIs com extensoes por modulo:
+| Projeto | Conteudo |
+| --- | --- |
+| `HemodinksAPI.Domain` | entidades (`User`, `Paciente`, `Event`, `Licenca`, etc.) e utilitarios puros (`CpfUtils`, `DefaultUserPassword`) |
+| `HemodinksAPI.Application` | features por modulo, CQRS, DTOs, validadores, contratos e regras de aplicacao |
+| `HemodinksAPI.Infrastructure` | `AppDbContext`, migrations, seeders, JWT, storage Azure, notificacoes e hosted services |
+| `HemodinksAPI.Api` | endpoints Minimal API, autenticacao, autorizacao, CORS, Swagger/Scalar e DI |
+| `HemodinksAPI.Tests` | testes unitarios e de integracao |
 
-- `UserEndpointExtensions`
-- `PacienteEndpointExtensions`
-- `CbhpmEndpointExtensions`
-- `DashboardEndpointExtensions`
+## Padrao de fluxo
 
-Cada endpoint delega a operacao para MediatR:
-
-- Commands: criacao, atualizacao, exclusao, upload, importacao.
-- Queries: listagens, detalhes, dashboard, CBHPM.
-
-O `AppDbContext` concentra o mapeamento EF Core e aplica indices, chaves, relacionamentos e seed de perfis.
+1. Endpoint recebe a requisicao HTTP.
+2. Autenticacao JWT e policies verificam acesso.
+3. Endpoint monta command/query e envia via MediatR.
+4. `ValidationBehavior` executa validadores registrados.
+5. Handler aplica regras, usa contratos da Application e persiste via `IAppDbContext`.
+6. Infrastructure fornece implementacoes concretas de banco, storage, notificacao e hash.
 
 ## Modulos
 
-### Users
+### Usuarios
 
 Responsavel por autenticacao, cadastro de usuarios, senha, foto de perfil e documentos de cadastro medico.
 
 Classes principais:
 
-- `User`
-- `Perfil`
-- `UserArquivo`
+- `CreateUserCommandHandler`
+- `AuthenticateUserCommandHandler`
+- `GetAllUsersQueryHandler`
 - `JwtTokenService`
 - `PasswordHasher`
 - `UserPatientSyncService`
 - `AzureBlobProfilePhotoStorage`
-- `AzureBlobPatientFileStorage`
 
 ### Pacientes
 
 Responsavel pelo cadastro clinico/administrativo do paciente, vinculo com usuario do perfil Pacientes, anexos e selecao de procedimento CBHPM.
 
-Campos CBHPM persistidos no paciente:
+Regras relevantes:
 
-- `CbhpmCodigo`
-- `CbhpmPorte`
-- `Procedimento`
-
-Quando o payload informa `CbhpmCodigo`, o backend consulta o cache CBHPM e normaliza `Procedimento` e `CbhpmPorte` com o item cadastrado na tabela `CBHPMGeral`.
+- CPF e email obrigatorios.
+- CPF e email nao podem duplicar.
+- Medico so gerencia pacientes vinculados a ele.
+- Procedimentos CBHPM sao normalizados quando `CbhpmCodigo` e informado.
 
 ### CBHPM
 
 Responsavel pela consulta paginada e importacao administrativa da tabela CBHPM geral.
 
-Fluxo de leitura:
+Fluxo:
 
-1. Endpoint `GET /api/cbhpm` recebe filtros `page`, `pageSize`, `search`, `codigo`, `procedimento`, `porte`.
-2. Handler `GetCbhpmGeralQueryHandler` consulta `ICbhpmCache`.
+1. `GET /api/cbhpm` recebe filtros.
+2. `GetCbhpmGeralQueryHandler` consulta `ICbhpmCache`.
 3. `CbhpmCache` carrega todos os itens da tabela `CBHPMGeral` na primeira chamada.
 4. Filtro e paginacao rodam em memoria.
-5. Resposta retorna `PagedResult<CbhpmGeralDto>`.
-
-Fluxo de invalidacao:
-
-- `ImportCbhpmGeralCommandHandler` invalida o cache depois de salvar alteracoes.
-- `CbhpmSeeder` invalida o cache depois do seed inicial.
+5. Importacao e seed invalidam o cache.
 
 ### Dashboard
 
-Responsavel por resumo e notificacoes. As consultas respeitam o perfil do usuario autenticado.
+Responsavel por resumo e notificacoes. As consultas respeitam perfil e licenca do usuario autenticado.
+
+O dashboard tambem tenta processar lembretes vencidos da agenda, mas esse processamento e resiliente: falhas no worker de notificacao nao impedem a abertura do painel.
+
+### Agenda
+
+Responsavel por eventos, lembretes e notificacoes.
+
+Endpoints principais:
+
+- `GET /api/events`
+- `GET /api/events/medical-users`
+- `POST /api/events`
+- `PUT /api/events/{id}`
+- `POST /api/events/{id}/complete`
+- `DELETE /api/events/{id}`
+
+Regras:
+
+- Titulo obrigatorio.
+- `End` deve ser maior que `Start`.
+- Periodo de lembrete deve ficar entre 15 minutos e 7 dias.
+- `NextReminderAt` direciona a consulta de lembretes vencidos.
+- Evento concluido deixa de gerar novos lembretes.
+
+### Licencas
+
+Responsavel por trial, plano completo e features liberadas para medicos.
+
+Features atuais:
+
+- `Dashboard.Visualizar`
+- `Pacientes.Visualizar`
+- `Pacientes.Gerenciar`
+- `Cbhpm.Consultar`
+
+Policies:
+
+- `Licenca.Dashboard.Visualizar`
+- `Licenca.Pacientes.Visualizar`
+- `Licenca.Pacientes.Gerenciar`
+- `Licenca.Cbhpm.Consultar`
 
 ## Documentacao da API
 
@@ -88,74 +125,65 @@ O documento OpenAPI inclui:
 
 Banco relacional: SQL Server local, SQL Server em container ou Azure SQL Database.
 
-Tabelas:
+Tabelas principais:
 
 - `Perfis`
 - `Users`
+- `Licencas`
 - `Pacientes`
 - `PacienteArquivos`
+- `PacienteProcedimentos`
 - `UserArquivos`
 - `CBHPMGeral`
+- `Hospitais`
+- `Convenios`
+- `Events`
 
-Migrations relevantes:
+Migrations ficam em:
 
-- `InitialCreate`
-- `AddUserProfiles`
-- `AddUserProfilePhoto`
-- `AddPatientsAndCpf`
-- `FixPatientFileUrls`
-- `AddUserArquivos`
-- `AddUserUpdateDate`
-- `AddCbhpmGeral`
-- `AddPacienteCbhpmSelection`
+```text
+HemodinksAPI.Infrastructure/Data/Migrations
+```
+
+Comandos EF Core:
+
+```powershell
+dotnet ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure --no-connect
+dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
+```
 
 ## Arquivos e Azure Storage
 
 Fotos de perfil:
 
-- service: `IProfilePhotoStorage`
+- contrato: `IProfilePhotoStorage`
 - implementacao: `AzureBlobProfilePhotoStorage`
 - container padrao: `profile-photos`
 
 Anexos:
 
-- service: `IPatientFileStorage`
+- contrato: `IPatientFileStorage`
 - implementacao: `AzureBlobPatientFileStorage`
 - container padrao: `patient-files`
 
 Se a connection string do Azure Storage nao estiver configurada, operacoes sem upload continuam funcionando; uploads retornam erro de configuracao.
 
-## Cache CBHPM
+## Processamento de lembretes
 
-Implementacao:
+Implementacao atual:
 
-- interface: `ICbhpmCache`
-- classe: `CbhpmCache`
-- provider: `IMemoryCache`
+- `EventNotificationHostedService`
+- `EventReminderProcessor`
+- `INotificationService`
+- `NotificationService` fake/log
 
-Configuracao:
-
-- expiracao absoluta: 12 horas
-- expiracao deslizante: 2 horas
-- prioridade alta
-
-Esse cache e local ao processo da API. Em deploy com mais de uma instancia, cada instancia tera seu proprio cache.
-
-## Azure Queue
-
-Nao existe uso de Azure Queue Storage ou Azure Service Bus no codigo atual. O ponto natural para introduzir fila futuramente seria:
-
-- processamento de uploads grandes
-- geracao de relatatorios
-- notificacoes assincronas
-- auditoria fora do fluxo principal da requisicao
+Esse desenho nao exige custo adicional de fila/worker externo. Para producao em escala, a interface permite trocar a implementacao por push, email, FCM, APNs, fila ou worker dedicado.
 
 ## Testes
 
-Suite atual:
-
 ```powershell
-dotnet test .\HemodinksAPI.Tests\HemodinksAPI.Tests.csproj
+dotnet build HemodinksAPI.slnx
+dotnet test HemodinksAPI.slnx --no-build
 ```
 
 Cobertura existente valida:
@@ -164,8 +192,7 @@ Cobertura existente valida:
 - regras de pacientes
 - consulta CBHPM com cache
 - importacao/seed CBHPM
+- licencas
+- endpoints de agenda
+- dashboard resiliente a falha de lembretes
 - permissoes e filtros principais
-
-## Observacoes de custo
-
-O uso de `IMemoryCache` nao cria recurso pago separado na Azure; ele consome memoria da propria instancia onde a API roda. Azure SQL Database e Azure Blob Storage continuam sendo recursos cobrados conforme uso/plano. Azure Queue so gera custo se um recurso desse tipo for criado e usado.

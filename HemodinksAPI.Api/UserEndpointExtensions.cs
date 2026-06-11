@@ -1,12 +1,8 @@
 using System.Security.Claims;
-using HemodinksAPI.Api.Authorization;
-using HemodinksAPI.Api.Data;
-using HemodinksAPI.Api.Features.Users.Commands;
-using HemodinksAPI.Api.Features.Users.Queries;
-using HemodinksAPI.Api.Models;
-using HemodinksAPI.Api.Storage;
+using HemodinksAPI.Application.Authorization;
+using HemodinksAPI.Application.Features.Users.Commands;
+using HemodinksAPI.Application.Features.Users.Queries;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
 
@@ -79,7 +75,14 @@ public static class UserEndpointExtensions
         group.MapPost("/password/reset", ResetPasswordByEmail)
             .WithName("ResetPasswordByEmail")
             .WithSummary("Resetar senha por email")
-            .WithDescription("Reseta a senha do usuario para a senha padrao pelo email informado");
+            .WithDescription("Solicita um token temporario para redefinicao de senha")
+            .RequireRateLimiting("PasswordReset");
+
+        group.MapPost("/password/reset/confirm", ConfirmPasswordReset)
+            .WithName("ConfirmPasswordReset")
+            .WithSummary("Confirmar reset de senha")
+            .WithDescription("Redefine a senha usando token temporario")
+            .RequireRateLimiting("PasswordReset");
 
         group.MapPut("/{id}/password/reset", ResetPassword)
             .WithName("ResetPassword")
@@ -100,58 +103,45 @@ public static class UserEndpointExtensions
             .RequireAuthorization();
     }
 
-    private static async Task<IResult> CreateUser(
+    private static Task<IResult> CreateUser(
         CreateUserCommand command,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var result = await mediator.Send(command);
+            var result = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/users/{result.Id}", result);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao criar usuario");
-            return Results.BadRequest(new { message = "Erro ao criar usuario", error = ex.Message });
-        }
+        }, logger, "Erro ao criar usuario", "Erro ao criar usuario");
     }
 
-    private static async Task<IResult> AuthenticateUser(
+    private static Task<IResult> AuthenticateUser(
         AuthenticateUserCommand command,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var result = await mediator.Send(command);
+            var result = await mediator.Send(command, cancellationToken);
             return Results.Ok(result);
-        }
-        catch (UnauthorizedAccessException ex)
+        }, logger, "Falha na autenticacao", "Erro ao autenticar usuario", new EndpointErrorOptions
         {
-            logger.LogWarning(ex, "Falha na autenticacao");
-            return Results.Unauthorized();
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao autenticar usuario");
-            return Results.BadRequest(new { message = "Erro ao autenticar usuario", error = ex.Message });
-        }
+            UnauthorizedAccessAsUnauthorized = true
+        });
     }
 
-    private static async Task<IResult> GetAllUsers(
+    private static Task<IResult> GetAllUsers(
         int? page,
         int? pageSize,
         string? search,
         int? profileId,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
             var result = await mediator.Send(new GetAllUsersQuery
             {
@@ -159,332 +149,202 @@ public static class UserEndpointExtensions
                 PageSize = pageSize.GetValueOrDefault(10),
                 Search = search,
                 ProfileId = profileId
-            });
+            }, cancellationToken);
+
             return Results.Ok(result);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao buscar usuarios");
-            return Results.BadRequest(new { message = "Erro ao buscar usuarios", error = ex.Message });
-        }
+        }, logger, "Erro ao buscar usuarios", "Erro ao buscar usuarios");
     }
 
-    private static async Task<IResult> GetUserById(
+    private static Task<IResult> GetUserById(
         int id,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
-        ILogger<Program> logger)
-    {
-        try
-        {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null || (!currentUser.IsAdministrador && currentUser.Id != id))
-            {
-                return Results.Forbid();
-            }
-
-            var result = await mediator.Send(new GetUserByIdQuery(id));
-            return result == null ? Results.NotFound() : Results.Ok(result);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao buscar usuario por ID");
-            return Results.BadRequest(new { message = "Erro ao buscar usuario", error = ex.Message });
-        }
-    }
-
-    private static async Task<IResult> GetProfilePhoto(
-        int id,
-        ClaimsPrincipal claimsPrincipal,
-        AppDbContext context,
-        IProfilePhotoStorage profilePhotoStorage,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null)
+            var result = await mediator.Send(new GetUserByIdQuery(id)
             {
-                return Results.Forbid();
-            }
+                CurrentUser = GetRequiredCurrentUser(claimsPrincipal)
+            }, cancellationToken);
 
-            var user = await context.Users
-                .AsNoTracking()
-                .Where(item => item.Id == id)
-                .Select(item => new
-                {
-                    item.Id,
-                    item.FotoPerfil
-                })
-                .FirstOrDefaultAsync(cancellationToken);
+            return result == null ? Results.NotFound() : Results.Ok(result);
+        }, logger, "Erro ao buscar usuario por ID", "Erro ao buscar usuario");
+    }
 
-            if (user == null)
+    private static Task<IResult> GetProfilePhoto(
+        int id,
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        return EndpointExecution.RunAsync(async () =>
+        {
+            var photo = await mediator.Send(new GetUserProfilePhotoQuery
             {
-                return Results.NotFound();
-            }
+                Id = id,
+                CurrentUser = GetRequiredCurrentUser(claimsPrincipal)
+            }, cancellationToken);
 
-            if (!currentUser.IsAdministrador && currentUser.Id != id)
-            {
-                var canAccessPatientPhoto = currentUser.IsMedico
-                    && await context.Pacientes
-                        .AsNoTracking()
-                        .AnyAsync(paciente =>
-                            paciente.UserId == id
-                            && (paciente.MedicoUserId == currentUser.Id || paciente.Medico == currentUser.Nome),
-                            cancellationToken);
-
-                if (!canAccessPatientPhoto)
-                {
-                    return Results.Forbid();
-                }
-            }
-
-            var photo = await profilePhotoStorage.GetAsync(user.FotoPerfil, cancellationToken);
             return photo == null
                 ? Results.NotFound()
                 : Results.Stream(photo.Content, photo.ContentType);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao buscar foto de perfil");
-            return Results.BadRequest(new { message = "Erro ao buscar foto de perfil", error = ex.Message });
-        }
+        }, logger, "Erro ao buscar foto de perfil", "Erro ao buscar foto de perfil");
     }
 
-    private static async Task<IResult> GetUserByEmail(
+    private static Task<IResult> GetUserByEmail(
         string email,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var result = await mediator.Send(new GetUserByEmailQuery(email));
+            var result = await mediator.Send(new GetUserByEmailQuery(email), cancellationToken);
             return result == null ? Results.NotFound() : Results.Ok(result);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao buscar usuario por email");
-            return Results.BadRequest(new { message = "Erro ao buscar usuario", error = ex.Message });
-        }
+        }, logger, "Erro ao buscar usuario por email", "Erro ao buscar usuario");
     }
 
-    private static async Task<IResult> UpdateUser(
+    private static Task<IResult> UpdateUser(
         int id,
         UpdateUserCommand command,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null)
-            {
-                return Results.Forbid();
-            }
-
-            if (!currentUser.IsAdministrador)
-            {
-                if (currentUser.Id != id || !currentUser.IsMedico)
-                {
-                    return Results.Forbid();
-                }
-
-                command.PerfilId = Perfil.MedicosId;
-                command.Ativo = true;
-            }
-
             command.Id = id;
-            var result = await mediator.Send(command);
+            command.CurrentUser = GetRequiredCurrentUser(claimsPrincipal);
+
+            var result = await mediator.Send(command, cancellationToken);
             return Results.Ok(result);
-        }
-        catch (KeyNotFoundException)
-        {
-            return Results.NotFound();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao atualizar usuario");
-            return Results.BadRequest(new { message = "Erro ao atualizar usuario", error = ex.Message });
-        }
+        }, logger, "Erro ao atualizar usuario", "Erro ao atualizar usuario");
     }
 
-    private static async Task<IResult> DeleteUser(
+    private static Task<IResult> DeleteUser(
         int id,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            await mediator.Send(new DeleteUserCommand { Id = id });
+            await mediator.Send(new DeleteUserCommand { Id = id }, cancellationToken);
             return Results.NoContent();
-        }
-        catch (KeyNotFoundException)
-        {
-            return Results.NotFound();
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao excluir usuario");
-            return Results.BadRequest(new { message = "Erro ao excluir usuario", error = ex.Message });
-        }
+        }, logger, "Erro ao excluir usuario", "Erro ao excluir usuario");
     }
 
-    private static async Task<IResult> ChangePassword(
+    private static Task<IResult> ChangePassword(
         int id,
         ChangePasswordCommand command,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var loggedUserId = claimsPrincipal.FindFirstValue(ClaimTypes.NameIdentifier);
-
-            if (!int.TryParse(loggedUserId, out var authenticatedUserId) || authenticatedUserId != id)
-            {
-                return Results.Forbid();
-            }
-
             command.UserId = id;
-            var result = await mediator.Send(command);
+            command.CurrentUser = GetRequiredCurrentUser(claimsPrincipal);
+
+            var result = await mediator.Send(command, cancellationToken);
             return Results.Ok(result);
-        }
-        catch (KeyNotFoundException)
+        }, logger, "Erro ao alterar senha", "Erro ao alterar senha", new EndpointErrorOptions
         {
-            return Results.NotFound();
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return Results.Unauthorized();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao alterar senha");
-            return Results.BadRequest(new { message = "Erro ao alterar senha", error = ex.Message });
-        }
+            UnauthorizedAccessAsUnauthorized = true
+        });
     }
 
-    private static async Task<IResult> ResetPassword(
+    private static Task<IResult> ResetPassword(
         int id,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var result = await mediator.Send(new ResetUserPasswordCommand { UserId = id });
+            var result = await mediator.Send(new ResetUserPasswordCommand { UserId = id }, cancellationToken);
             return Results.Ok(result);
-        }
-        catch (KeyNotFoundException)
-        {
-            return Results.NotFound();
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao resetar senha");
-            return Results.BadRequest(new { message = "Erro ao resetar senha", error = ex.Message });
-        }
+        }, logger, "Erro ao resetar senha", "Erro ao resetar senha");
     }
 
-    private static async Task<IResult> ResetPasswordByEmail(
+    private static Task<IResult> ResetPasswordByEmail(
         ResetUserPasswordByEmailCommand command,
+        HttpContext httpContext,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var result = await mediator.Send(command);
+            command.RequestIp = httpContext.Connection.RemoteIpAddress?.ToString();
+            var result = await mediator.Send(command, cancellationToken);
             return Results.Ok(result);
-        }
-        catch (KeyNotFoundException)
-        {
-            return Results.NotFound(new { message = "Email nao encontrado." });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao resetar senha por email");
-            return Results.BadRequest(new { message = "Erro ao resetar senha", error = ex.Message });
-        }
+        }, logger, "Erro ao solicitar reset de senha por email", "Erro ao solicitar reset de senha");
     }
 
-    private static async Task<IResult> UploadArquivo(
+    private static Task<IResult> ConfirmPasswordReset(
+        ConfirmPasswordResetCommand command,
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        return EndpointExecution.RunAsync(async () =>
+        {
+            var result = await mediator.Send(command, cancellationToken);
+            return Results.Ok(result);
+        }, logger, "Erro ao confirmar reset de senha", "Erro ao confirmar reset de senha");
+    }
+
+    private static Task<IResult> UploadArquivo(
         int id,
         IFormFile file,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null || (!currentUser.IsAdministrador && !(currentUser.IsMedico && currentUser.Id == id)))
-            {
-                return Results.Forbid();
-            }
-
             var result = await mediator.Send(new UploadUserArquivoCommand
             {
                 UserId = id,
-                File = file
-            });
+                File = file,
+                CurrentUser = GetRequiredCurrentUser(claimsPrincipal)
+            }, cancellationToken);
 
             return Results.Created($"/api/users/{id}/arquivos/{result.Id}", result);
-        }
-        catch (KeyNotFoundException)
-        {
-            return Results.NotFound();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao enviar arquivo do usuario");
-            return Results.BadRequest(new { message = "Erro ao enviar arquivo", error = ex.Message });
-        }
+        }, logger, "Erro ao enviar arquivo do usuario", "Erro ao enviar arquivo");
     }
 
-    private static async Task<IResult> DeleteArquivo(
+    private static Task<IResult> DeleteArquivo(
         int id,
         int arquivoId,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
-        ILogger<Program> logger)
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null || (!currentUser.IsAdministrador && !(currentUser.IsMedico && currentUser.Id == id)))
-            {
-                return Results.Forbid();
-            }
-
             await mediator.Send(new DeleteUserArquivoCommand
             {
                 UserId = id,
-                ArquivoId = arquivoId
-            });
+                ArquivoId = arquivoId,
+                CurrentUser = GetRequiredCurrentUser(claimsPrincipal)
+            }, cancellationToken);
 
             return Results.NoContent();
-        }
-        catch (KeyNotFoundException)
-        {
-            return Results.NotFound();
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao excluir arquivo do usuario");
-            return Results.BadRequest(new { message = "Erro ao excluir arquivo", error = ex.Message });
-        }
+        }, logger, "Erro ao excluir arquivo do usuario", "Erro ao excluir arquivo");
+    }
+
+    private static CurrentUserContext GetRequiredCurrentUser(ClaimsPrincipal claimsPrincipal)
+    {
+        return claimsPrincipal.ToCurrentUserContext()
+            ?? throw new UnauthorizedAccessException("Usuario autenticado invalido");
     }
 }

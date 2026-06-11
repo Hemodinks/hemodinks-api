@@ -1,4 +1,4 @@
-using HemodinksAPI.Api.Features.Convenios.Queries;
+using HemodinksAPI.Application.Features.Convenios.Queries;
 using MediatR;
 
 namespace HemodinksAPI.Api;
@@ -27,7 +27,9 @@ public static class ConvenioEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao buscar convenios");
-            return Results.BadRequest(new { message = "Erro ao buscar convenios", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao buscar convenios",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 }

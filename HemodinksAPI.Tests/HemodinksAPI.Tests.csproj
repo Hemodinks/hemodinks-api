@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <PackageReference Include="coverlet.collector" Version="6.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.InMemory" Version="10.0.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
     <PackageReference Include="xunit" Version="2.9.3" />
@@ -20,7 +21,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\HemodinksAPI.Application\HemodinksAPI.Application.csproj" />
     <ProjectReference Include="..\HemodinksAPI.Api\HemodinksAPI.Api.csproj" />
+    <ProjectReference Include="..\HemodinksAPI.Domain\HemodinksAPI.Domain.csproj" />
+    <ProjectReference Include="..\HemodinksAPI.Infrastructure\HemodinksAPI.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

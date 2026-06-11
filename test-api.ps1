@@ -15,7 +15,7 @@ Write-Host ""
 # Cores
 $success = "Green"
 $warning = "Yellow"
-$error = "Red"
+$errorColor = "Red"
 $info = "Cyan"
 
 # 1. Testar conexão
@@ -27,7 +27,7 @@ try {
         -ErrorAction SilentlyContinue
     Write-Host "   ✅ API está respondendo" -ForegroundColor $success
 } catch {
-    Write-Host "   ❌ API não está respondendo" -ForegroundColor $error
+    Write-Host "   ❌ API não está respondendo" -ForegroundColor $errorColor
     Write-Host "   Certifique-se de que a API está em execução:" -ForegroundColor $warning
     Write-Host "      dotnet run (no diretório HemodinksAPI.Api)" -ForegroundColor $warning
     exit 1
@@ -51,7 +51,7 @@ try {
     Write-Host "   ✅ Autenticação bem-sucedida!" -ForegroundColor $success
     Write-Host "   Token: $($token.Substring(0, 50))..." -ForegroundColor $warning
 } catch {
-    Write-Host "   ❌ Falha na autenticação" -ForegroundColor $error
+    Write-Host "   ❌ Falha na autenticação" -ForegroundColor $errorColor
     Write-Host "   Erro: $($_.Exception.Message)" -ForegroundColor $warning
     exit 1
 }
@@ -72,7 +72,7 @@ try {
         Write-Host "   ✅ Seed de 50 usuários criado com sucesso!" -ForegroundColor $success
     }
 } catch {
-    Write-Host "   ❌ Falha ao listar usuários" -ForegroundColor $error
+    Write-Host "   ❌ Falha ao listar usuários" -ForegroundColor $errorColor
     Write-Host "   Erro: $($_.Exception.Message)" -ForegroundColor $warning
 }
 
@@ -90,7 +90,7 @@ try {
     Write-Host "      Telefone: $($userResponse.telefone)" -ForegroundColor $warning
     Write-Host "      Nascimento: $($userResponse.dataNascimento)" -ForegroundColor $warning
 } catch {
-    Write-Host "   ❌ Falha ao buscar usuário" -ForegroundColor $error
+    Write-Host "   ❌ Falha ao buscar usuário" -ForegroundColor $errorColor
     Write-Host "   Erro: $($_.Exception.Message)" -ForegroundColor $warning
 }
 
@@ -105,7 +105,7 @@ try {
     Write-Host "   ✅ Usuário encontrado por email!" -ForegroundColor $success
     Write-Host "      Nome: $($emailResponse.nome)" -ForegroundColor $warning
 } catch {
-    Write-Host "   ❌ Falha ao buscar por email" -ForegroundColor $error
+    Write-Host "   ❌ Falha ao buscar por email" -ForegroundColor $errorColor
     Write-Host "   Erro: $($_.Exception.Message)" -ForegroundColor $warning
 }
 
@@ -130,7 +130,7 @@ try {
     Write-Host "      ID: $($createResponse.id)" -ForegroundColor $warning
     Write-Host "      Email: $($createResponse.email)" -ForegroundColor $warning
 } catch {
-    Write-Host "   ❌ Falha ao criar usuário" -ForegroundColor $error
+    Write-Host "   ❌ Falha ao criar usuário" -ForegroundColor $errorColor
     Write-Host "   Erro: $($_.Exception.Message)" -ForegroundColor $warning
 }
 

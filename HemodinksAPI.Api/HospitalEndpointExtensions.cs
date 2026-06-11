@@ -1,4 +1,4 @@
-using HemodinksAPI.Api.Features.Hospitais.Queries;
+using HemodinksAPI.Application.Features.Hospitais.Queries;
 using MediatR;
 
 namespace HemodinksAPI.Api;
@@ -27,7 +27,9 @@ public static class HospitalEndpointExtensions
         catch (Exception ex)
         {
             logger.LogError(ex, "Erro ao buscar hospitais");
-            return Results.BadRequest(new { message = "Erro ao buscar hospitais", error = ex.Message });
+            return Results.Problem(
+                title: "Erro ao buscar hospitais",
+                statusCode: StatusCodes.Status500InternalServerError);
         }
     }
 }
