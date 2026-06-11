@@ -358,6 +358,34 @@ public class UserCommandHandlerTests
     }
 
     [Fact]
+    public async Task ChangePassword_WhenCurrentPasswordIsInvalid_ThrowsInvalidOperationException()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var hasher = new PasswordHasher();
+        var user = CreateUser(
+            id: 11,
+            email: "senha.invalida@email.com",
+            passwordHash: hasher.HashPassword("Senha@123"),
+            precisaTrocarSenha: true);
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var handler = new ChangePasswordCommandHandler(
+            context,
+            hasher,
+            NullLogger<ChangePasswordCommandHandler>.Instance);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new ChangePasswordCommand
+        {
+            UserId = user.Id,
+            SenhaAtual = "SenhaErrada@123",
+            NovaSenha = "NovaSenha@123"
+        }, CancellationToken.None));
+
+        Assert.Equal("Senha atual invalida", exception.Message);
+    }
+
+    [Fact]
     public async Task ChangePassword_WhenNewPasswordIsDefault_ThrowsInvalidOperationException()
     {
         await using var context = TestDbContextFactory.Create();

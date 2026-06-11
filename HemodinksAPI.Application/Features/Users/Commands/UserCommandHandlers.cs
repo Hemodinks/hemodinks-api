@@ -558,7 +558,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
 
             if (!_passwordHasher.VerifyPassword(request.SenhaAtual, user.Senha))
             {
-                throw new UnauthorizedAccessException("Senha atual invalida");
+                throw new InvalidOperationException("Senha atual invalida");
             }
 
             if (_passwordHasher.VerifyPassword(request.NovaSenha, user.Senha))
