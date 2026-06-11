@@ -121,6 +121,7 @@ public class SmtpPasswordResetNotificationSender : IPasswordResetNotificationSen
             EnableSsl = _emailOptions.Smtp.EnableSsl,
             DeliveryMethod = SmtpDeliveryMethod.Network,
             UseDefaultCredentials = false,
+            Timeout = Math.Max(1, _emailOptions.Smtp.TimeoutSeconds) * 1000,
             Credentials = new NetworkCredential(
                 _emailOptions.Smtp.Username,
                 _emailOptions.Smtp.Password)

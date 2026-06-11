@@ -227,7 +227,11 @@ public static class ApiServiceCollectionExtensions
         services.Configure<PasswordResetOptions>(options =>
         {
             configuration.GetSection("PasswordReset").Bind(options);
-            var useEmail = configuration.GetValue<bool?>("PasswordReset:com-email")
+            var useEmail = configuration.GetValue<bool?>("COM_EMAIL")
+                ?? configuration.GetValue<bool?>("PASSWORD_RESET_USE_EMAIL")
+                ?? configuration.GetValue<bool?>("PASSWORD_RESET_COM_EMAIL")
+                ?? configuration.GetValue<bool?>("com-email")
+                ?? configuration.GetValue<bool?>("PasswordReset:com-email")
                 ?? configuration.GetValue<bool?>("PasswordReset:ComEmail")
                 ?? configuration.GetValue<bool?>("PasswordReset:UseEmail");
 
