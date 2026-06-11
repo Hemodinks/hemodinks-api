@@ -2,6 +2,7 @@ using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Seeders;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Scalar.AspNetCore;
 
 namespace HemodinksAPI.Api;
@@ -111,7 +112,30 @@ public static class ApiApplicationExtensions
 
     public static void MapApiEndpoints(this WebApplication app)
     {
-        app.MapGet("/healthz", () => Results.Ok(new { status = "ok" }))
+        app.MapGet("/healthz", async (
+                HealthCheckService healthChecks,
+                CancellationToken cancellationToken) =>
+            {
+                var report = await healthChecks.CheckHealthAsync(cancellationToken);
+                var payload = new
+                {
+                    status = report.Status.ToString(),
+                    checkedAt = DateTimeOffset.UtcNow,
+                    totalDurationMs = report.TotalDuration.TotalMilliseconds,
+                    checks = report.Entries.ToDictionary(
+                        entry => entry.Key,
+                        entry => new
+                        {
+                            status = entry.Value.Status.ToString(),
+                            description = entry.Value.Description,
+                            durationMs = entry.Value.Duration.TotalMilliseconds
+                        })
+                };
+
+                return report.Status == HealthStatus.Healthy
+                    ? Results.Ok(payload)
+                    : Results.Json(payload, statusCode: StatusCodes.Status503ServiceUnavailable);
+            })
             .WithName("HealthCheck")
             .AllowAnonymous();
 

@@ -14,10 +14,19 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
 jobs:
   build-test:
     name: Build and test
     runs-on: ubuntu-latest
+    timeout-minutes: 15
 
     steps:
       - name: Checkout
@@ -35,4 +44,12 @@ jobs:
         run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
 
       - name: Test
-        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --verbosity normal
+        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: TestResults/*.trx
+          if-no-files-found: ignore

@@ -21,6 +21,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Threading.RateLimiting;
@@ -46,6 +47,12 @@ public static class ApiServiceCollectionExtensions
                         sqlOptions.EnableRetryOnFailure();
                     }));
         services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services
+            .AddHealthChecks()
+            .AddCheck<DatabaseHealthCheck>(
+                "database",
+                failureStatus: HealthStatus.Unhealthy,
+                tags: ["ready"]);
 
         return services;
     }

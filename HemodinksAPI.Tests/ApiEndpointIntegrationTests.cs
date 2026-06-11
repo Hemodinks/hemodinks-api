@@ -19,6 +19,12 @@ public class ApiEndpointIntegrationTests
         var response = await client.GetAsync("/healthz");
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.True(response.Headers.Contains("X-Request-ID"));
+
+        using var json = await ReadJsonAsync(response);
+        Assert.Equal("Healthy", json.RootElement.GetProperty("status").GetString());
+        Assert.True(json.RootElement.GetProperty("checks").TryGetProperty("database", out var database));
+        Assert.Equal("Healthy", database.GetProperty("status").GetString());
     }
 
     [Fact]
