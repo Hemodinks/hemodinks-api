@@ -19,6 +19,7 @@ using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 
@@ -35,12 +36,15 @@ public static class ApiServiceCollectionExtensions
         }
 
         services.AddDbContext<AppDbContext>(options =>
-            options.UseSqlServer(defaultConnection,
-                sqlServerOptionsAction: sqlOptions =>
-                {
-                    sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name);
-                    sqlOptions.EnableRetryOnFailure();
-                }));
+            options
+                .UseSqlServer(defaultConnection,
+                    sqlServerOptionsAction: sqlOptions =>
+                    {
+                        sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name);
+                        sqlOptions.EnableRetryOnFailure();
+                    })
+                .ConfigureWarnings(warnings =>
+                    warnings.Ignore(RelationalEventId.PendingModelChangesWarning)));
         services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
 
         return services;
