@@ -28,6 +28,20 @@ public class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task Root_ReturnsHealthCheck()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync("/");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var json = await ReadJsonAsync(response);
+        Assert.Equal("Healthy", json.RootElement.GetProperty("status").GetString());
+    }
+
+    [Fact]
     public async Task AgendaEndpoint_WithoutToken_ReturnsUnauthorized()
     {
         using var factory = new HemodinksApiFactory();

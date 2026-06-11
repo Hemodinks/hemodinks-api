@@ -1,4 +1,5 @@
 using HemodinksAPI.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace HemodinksAPI.Api;
@@ -22,9 +23,28 @@ public sealed class DatabaseHealthCheck : IHealthCheck
             var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             var canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
 
-            return canConnect
-                ? HealthCheckResult.Healthy("Banco conectado")
-                : HealthCheckResult.Unhealthy("Banco indisponivel");
+            if (!canConnect)
+            {
+                return HealthCheckResult.Unhealthy("Banco indisponivel");
+            }
+
+            if (dbContext.Database.IsRelational())
+            {
+                var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
+                var pendingMigrationsList = pendingMigrations.ToList();
+
+                if (pendingMigrationsList.Count > 0)
+                {
+                    return HealthCheckResult.Unhealthy(
+                        "Banco com migrations pendentes",
+                        data: new Dictionary<string, object>
+                        {
+                            ["pendingMigrations"] = pendingMigrationsList
+                        });
+                }
+            }
+
+            return HealthCheckResult.Healthy("Banco conectado e atualizado");
         }
         catch (Exception ex)
         {
