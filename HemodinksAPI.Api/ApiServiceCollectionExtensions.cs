@@ -227,6 +227,15 @@ public static class ApiServiceCollectionExtensions
         services.Configure<PasswordResetOptions>(options =>
         {
             configuration.GetSection("PasswordReset").Bind(options);
+            var useEmail = configuration.GetValue<bool?>("PasswordReset:com-email")
+                ?? configuration.GetValue<bool?>("PasswordReset:ComEmail")
+                ?? configuration.GetValue<bool?>("PasswordReset:UseEmail");
+
+            if (useEmail.HasValue)
+            {
+                options.UseEmail = useEmail.Value;
+            }
+
             if (!environment.IsProduction() && !configuration.GetSection("PasswordReset").Exists())
             {
                 options.ExposeTokenInResponse = true;

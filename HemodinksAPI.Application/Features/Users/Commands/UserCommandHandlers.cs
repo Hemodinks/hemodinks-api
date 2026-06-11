@@ -644,17 +644,20 @@ public class ResetUserPasswordCommandHandler : IRequestHandler<ResetUserPassword
 public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserPasswordByEmailCommand, RequestPasswordResetResponse>
 {
     private readonly IAppDbContext _context;
+    private readonly IPasswordHasher _passwordHasher;
     private readonly IPasswordResetNotificationSender _passwordResetNotificationSender;
     private readonly PasswordResetOptions _options;
     private readonly ILogger<ResetUserPasswordByEmailCommandHandler> _logger;
 
     public ResetUserPasswordByEmailCommandHandler(
         IAppDbContext context,
+        IPasswordHasher passwordHasher,
         IPasswordResetNotificationSender passwordResetNotificationSender,
         IOptions<PasswordResetOptions> options,
         ILogger<ResetUserPasswordByEmailCommandHandler> logger)
     {
         _context = context;
+        _passwordHasher = passwordHasher;
         _passwordResetNotificationSender = passwordResetNotificationSender;
         _options = options.Value;
         _logger = logger;
@@ -663,10 +666,51 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
     public async Task<RequestPasswordResetResponse> Handle(ResetUserPasswordByEmailCommand request, CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
-        var response = PasswordResetRules.CreateRequestResponse(now);
         var email = request.Email.Trim();
 
         _logger.LogInformation("Solicitacao de reset de senha recebida para {Email}", email);
+
+        return _options.UseEmail
+            ? await HandleEmailPasswordResetAsync(email, request.RequestIp, now, cancellationToken)
+            : await HandleDefaultPasswordResetAsync(email, cancellationToken);
+    }
+
+    private async Task<RequestPasswordResetResponse> HandleDefaultPasswordResetAsync(
+        string email,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Reset de senha por email desabilitado. Aplicando senha padrao para {Email}", email);
+
+        var user = await _context.Users
+            .FirstOrDefaultAsync(u => u.Email == email && u.Ativo, cancellationToken);
+
+        if (user == null)
+        {
+            throw new KeyNotFoundException("Usuario nao encontrado");
+        }
+
+        user.Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value);
+        user.PrecisaTrocarSenha = true;
+        user.DataAtualizacao = DateTime.UtcNow;
+
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return new RequestPasswordResetResponse
+        {
+            Id = user.Id,
+            PrecisaTrocarSenha = user.PrecisaTrocarSenha,
+            Message = "Senha resetada para a senha padrao",
+            Mode = PasswordResetModes.DefaultPassword
+        };
+    }
+
+    private async Task<RequestPasswordResetResponse> HandleEmailPasswordResetAsync(
+        string email,
+        string? requestIp,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var response = PasswordResetRules.CreateRequestResponse(now);
 
         var user = await _context.Users
             .FirstOrDefaultAsync(u => u.Email == email && u.Ativo, cancellationToken);
@@ -684,7 +728,7 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
             TokenHash = PasswordResetRules.HashToken(token),
             CreatedAt = now,
             ExpiresAt = now.AddMinutes(30),
-            RequestIp = PasswordResetRules.TrimRequestIp(request.RequestIp)
+            RequestIp = PasswordResetRules.TrimRequestIp(requestIp)
         };
 
         var activeTokens = await _context.PasswordResetTokens
@@ -716,6 +760,8 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
             _logger.LogError(ex, "Erro ao enviar email de reset de senha para usuario {UserId}", user.Id);
         }
 
+        response.Id = user.Id;
+        response.Mode = PasswordResetModes.EmailToken;
         response.DebugToken = _options.ExposeTokenInResponse ? token : null;
         return response;
     }
@@ -786,6 +832,12 @@ internal static class UserCommandAccess
     {
         return currentUser.IsAdministrador || (currentUser.IsMedico && currentUser.Id == userId);
     }
+}
+
+internal static class PasswordResetModes
+{
+    public const string EmailToken = "email-token";
+    public const string DefaultPassword = "default-password";
 }
 
 internal static class UserProfileRules
