@@ -38,6 +38,14 @@ services:
       AzureStorage__PatientFilesContainerName: "${AZURE_STORAGE_PATIENT_FILES_CONTAINER_NAME:-patient-files}"
       AzureStorage__PatientFilesPublicBaseUrl: "${AZURE_STORAGE_PATIENT_FILES_PUBLIC_BASE_URL:-}"
       AzureStorage__PatientFileMaxBytes: "${AZURE_STORAGE_PATIENT_FILE_MAX_BYTES:-10485760}"
+      Email__Provider: "${Email__Provider:-GmailSmtp}"
+      Email__Smtp__Host: "${Email__Smtp__Host:-smtp.gmail.com}"
+      Email__Smtp__Port: "${Email__Smtp__Port:-587}"
+      Email__Smtp__Username: "${Email__Smtp__Username:-hemodinks.gestao.saude@gmail.com}"
+      Email__Smtp__Password: "${Email__Smtp__Password:-}"
+      Email__FromEmail: "${Email__FromEmail:-hemodinks.gestao.saude@gmail.com}"
+      Email__FromName: "${Email__FromName:-Hemodinks}"
+      Frontend__ResetPasswordUrl: "${Frontend__ResetPasswordUrl:-http://localhost:5173/reset-password}"
     ports:
       - "5000:5000"
     depends_on:
