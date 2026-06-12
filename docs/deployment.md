@@ -79,6 +79,9 @@ Variaveis ja declaradas no blueprint:
 | --- | --- |
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
 | `ASPNETCORE_URLS` | `http://0.0.0.0:10000` |
+| `Database__RunMigrationsOnStartup` | `true` |
+| `Seed__CbhpmOnStartup` | `false` |
+| `Seed__UsersOnStartup` | `false` |
 | `JwtSettings__Issuer` | `HemodinksAPI` |
 | `JwtSettings__Audience` | `HemodinksAPI` |
 | `JwtSettings__ExpirationMinutes` | `60` |
@@ -129,8 +132,8 @@ Nao copie a connection string de producao para homologacao, a menos que queira i
 Uso:
 
 - persistencia relacional da API
-- migrations automaticas no startup
-- seed automatico de perfis, usuarios iniciais e CBHPM
+- migrations automaticas no startup quando `Database__RunMigrationsOnStartup=true`
+- seed automatico de perfis, usuarios iniciais e CBHPM apenas quando habilitado por ambiente
 - tabelas de usuarios, pacientes, licencas, agenda, CBHPM, hospitais e convenios
 
 Checklist:
@@ -146,7 +149,7 @@ Migrations ficam no projeto `HemodinksAPI.Infrastructure`. Para validar localmen
 dotnet ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure --no-connect
 ```
 
-Se a agenda retornar `Invalid column name 'NextReminderAt'`, publique a versao com a migration `EnsureEventReminderColumns` e reinicie o servico para o startup aplicar o reparo no banco.
+Se a agenda retornar `Invalid object name 'Events'` ou `Invalid column name 'NextReminderAt'`, publique a versao com a migration `EnsureEventReminderColumns`, confirme `Database__RunMigrationsOnStartup=true` no Render e reinicie o servico para o startup aplicar o reparo no banco.
 
 ## Azure Blob Storage
 

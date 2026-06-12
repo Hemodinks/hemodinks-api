@@ -14,6 +14,12 @@ services:
         value: Production
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:10000
+      - key: Database__RunMigrationsOnStartup
+        value: "true"
+      - key: Seed__CbhpmOnStartup
+        value: "false"
+      - key: Seed__UsersOnStartup
+        value: "false"
       - key: ConnectionStrings__DefaultConnection
         sync: false
       - key: JwtSettings__SecretKey

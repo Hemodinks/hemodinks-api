@@ -6,7 +6,7 @@ Este checklist registra o que ja esta coberto no repositorio e o que ainda depen
 
 - [x] CI com restore, build e testes em `.github/workflows/ci.yml`.
 - [x] API com `/healthz` publico.
-- [x] `/healthz` valida conectividade com o banco.
+- [x] `/healthz` e `/` validam conectividade com o banco e migrations pendentes.
 - [x] Logs HTTP com Serilog, `TraceIdentifier` e header `X-Request-ID`.
 - [x] Reset de senha alternavel por ambiente: `PasswordReset__UseEmail=true|false`.
 - [x] Trial/licenca com politicas por feature.
@@ -59,6 +59,7 @@ O workflow `CI / Build and test` ja esta no repositorio. Para ele bloquear deplo
 - [ ] Force push bloqueado em `main`.
 - [ ] Render apontando para a branch correta.
 - [ ] Render usando deploy apenas apos checks passarem.
+- [ ] Render com `Database__RunMigrationsOnStartup=true` no servico de producao.
 
 Fluxo recomendado:
 
@@ -73,7 +74,8 @@ Fluxo recomendado:
 No codigo:
 
 - `/healthz` retorna `Healthy` ou `Unhealthy`.
-- O check `database` valida conectividade com o banco.
+- `/` tambem responde ao health check para plataformas que testam a raiz por padrao.
+- O check `database` valida conectividade com o banco e migrations pendentes.
 - Cada resposta inclui `X-Request-ID`.
 - Serilog registra metodo, path, status code, tempo e trace id.
 
@@ -130,6 +132,7 @@ Obrigatorias:
 - `JwtSettings__Issuer`
 - `JwtSettings__Audience`
 - `JwtSettings__ExpirationMinutes`
+- `Database__RunMigrationsOnStartup=true`
 - `PasswordReset__UseEmail`
 
 Quando usar storage:
