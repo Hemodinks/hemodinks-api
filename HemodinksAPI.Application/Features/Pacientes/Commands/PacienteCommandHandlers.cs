@@ -666,36 +666,54 @@ internal static class PacienteRules
         CancellationToken cancellationToken)
     {
         var codigo = TrimOptional(item.CbhpmCodigo);
+        var procedimento = TrimOptional(item.Procedimento);
+        var porte = TrimOptional(item.CbhpmPorte);
+
         if (codigo == null)
         {
-            var procedimento = TrimOptional(item.Procedimento);
             if (procedimento == null)
             {
                 return null;
             }
 
-            if (procedimento.Length > 1000)
-            {
-                throw new InvalidOperationException("Procedimento excede 1000 caracteres");
-            }
-
-            var porte = TrimOptional(item.CbhpmPorte);
-            if (porte?.Length > 10)
-            {
-                throw new InvalidOperationException("Porte CBHPM invalido");
-            }
+            ValidateManualProcedimento(procedimento, porte);
 
             return new ResolvedProcedimento(null, procedimento, porte, item.ValorReferencia);
         }
 
-        var cbhpm = await cbhpmCache.GetByCodigoAsync(codigo, cancellationToken);
-
-        if (cbhpm == null)
+        if (codigo.Length > 20)
         {
-            throw new InvalidOperationException("Procedimento CBHPM nao encontrado");
+            throw new InvalidOperationException("Codigo CBHPM invalido");
         }
 
-        return new ResolvedProcedimento(cbhpm.Codigo, cbhpm.Procedimento, cbhpm.Porte, cbhpm.ValorReferencia);
+        var cbhpm = await cbhpmCache.GetByCodigoAsync(codigo, cancellationToken);
+
+        if (cbhpm != null)
+        {
+            return new ResolvedProcedimento(cbhpm.Codigo, cbhpm.Procedimento, cbhpm.Porte, cbhpm.ValorReferencia);
+        }
+
+        if (procedimento == null)
+        {
+            throw new InvalidOperationException("Informe a descricao do procedimento para o codigo CBHPM nao cadastrado");
+        }
+
+        ValidateManualProcedimento(procedimento, porte);
+
+        return new ResolvedProcedimento(codigo, procedimento, porte, item.ValorReferencia);
+    }
+
+    private static void ValidateManualProcedimento(string procedimento, string? porte)
+    {
+        if (procedimento.Length > 1000)
+        {
+            throw new InvalidOperationException("Procedimento excede 1000 caracteres");
+        }
+
+        if (porte?.Length > 10)
+        {
+            throw new InvalidOperationException("Porte CBHPM invalido");
+        }
     }
 }
 

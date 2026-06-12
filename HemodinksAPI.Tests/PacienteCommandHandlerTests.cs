@@ -114,6 +114,118 @@ public class PacienteCommandHandlerTests
     }
 
     [Fact]
+    public async Task CreatePaciente_WhenCbhpmCodeDoesNotExist_StoresManualProcedure()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var doctor = new User
+        {
+            Nome = "Dra. Ana",
+            Email = "dra.ana.manual@hemodinks.com",
+            Telefone = "+5581999887766",
+            Cpf = "39053344705",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1985, 1, 1),
+            PerfilId = Perfil.MedicosId
+        };
+        context.Users.Add(doctor);
+        await context.SaveChangesAsync();
+
+        var handler = new CreatePacienteCommandHandler(
+            context,
+            CreateCbhpmCache(context),
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            NullLogger<CreatePacienteCommandHandler>.Instance);
+
+        var response = await handler.Handle(new CreatePacienteCommand
+        {
+            NomePaciente = "Paciente Manual",
+            Email = "paciente.manual@hemodinks.com",
+            Telefone = "+5581999999999",
+            Cpf = "52998224725",
+            DataNascimento = new DateTime(1990, 1, 1),
+            Data = new DateTime(2026, 6, 1),
+            HospitalId = 1,
+            MedicoUserId = doctor.Id,
+            Medico = doctor.Nome,
+            Procedimentos =
+            [
+                new PacienteProcedimentoCommandDto
+                {
+                    CbhpmCodigo = "9.99.99.99-9",
+                    Procedimento = "Procedimento manual Hemodinks",
+                    CbhpmPorte = "1A",
+                    ValorReferencia = 250m
+                }
+            ],
+            CurrentPerfilId = Perfil.AdministradorId
+        }, CancellationToken.None);
+
+        var storedPaciente = await context.Pacientes
+            .Include(paciente => paciente.Procedimentos)
+            .SingleAsync();
+        var storedProcedimento = Assert.Single(storedPaciente.Procedimentos);
+
+        Assert.Equal("9.99.99.99-9", storedPaciente.CbhpmCodigo);
+        Assert.Equal("Procedimento manual Hemodinks", storedPaciente.Procedimento);
+        Assert.Equal("1A", storedPaciente.CbhpmPorte);
+        Assert.Equal("9.99.99.99-9", response.CbhpmCodigo);
+        Assert.Equal("Procedimento manual Hemodinks", response.Procedimento);
+        Assert.Equal("9.99.99.99-9", storedProcedimento.CbhpmCodigo);
+        Assert.Equal("Procedimento manual Hemodinks", storedProcedimento.Procedimento);
+        Assert.Equal("1A", storedProcedimento.CbhpmPorte);
+        Assert.Equal(250m, storedProcedimento.ValorReferencia);
+        Assert.Empty(await context.CbhpmGeral.Where(item => item.Codigo == "9.99.99.99-9").ToListAsync());
+    }
+
+    [Fact]
+    public async Task CreatePaciente_WhenCbhpmCodeDoesNotExistWithoutDescription_ThrowsInvalidOperationException()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var doctor = new User
+        {
+            Nome = "Dra. Ana",
+            Email = "dra.ana.sem.descricao@hemodinks.com",
+            Telefone = "+5581999887766",
+            Cpf = "39053344705",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1985, 1, 1),
+            PerfilId = Perfil.MedicosId
+        };
+        context.Users.Add(doctor);
+        await context.SaveChangesAsync();
+
+        var handler = new CreatePacienteCommandHandler(
+            context,
+            CreateCbhpmCache(context),
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            NullLogger<CreatePacienteCommandHandler>.Instance);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreatePacienteCommand
+        {
+            NomePaciente = "Paciente Manual",
+            Email = "paciente.manual.sem.descricao@hemodinks.com",
+            Telefone = "+5581999999999",
+            Cpf = "52998224725",
+            DataNascimento = new DateTime(1990, 1, 1),
+            Data = new DateTime(2026, 6, 1),
+            HospitalId = 1,
+            MedicoUserId = doctor.Id,
+            Medico = doctor.Nome,
+            Procedimentos =
+            [
+                new PacienteProcedimentoCommandDto { CbhpmCodigo = "9.99.99.99-9" }
+            ],
+            CurrentPerfilId = Perfil.AdministradorId
+        }, CancellationToken.None));
+
+        Assert.Equal("Informe a descricao do procedimento para o codigo CBHPM nao cadastrado", exception.Message);
+        Assert.Empty(await context.Pacientes.ToListAsync());
+        Assert.Empty(await context.Users.Where(user => user.PerfilId == Perfil.PacientesId).ToListAsync());
+    }
+
+    [Fact]
     public async Task CreatePaciente_WhenLoggedDoctor_ThrowsUnauthorizedAccessException()
     {
         await using var context = TestDbContextFactory.Create();
