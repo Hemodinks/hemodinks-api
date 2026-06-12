@@ -28,27 +28,28 @@ public static class PacienteEndpointExtensions
         group.MapPost("/", CreatePaciente)
             .WithName("CreatePaciente")
             .WithSummary("Criar paciente")
-            .RequireAuthorization(LicencaPolicies.PacientesGerenciar);
+            .RequireAuthorization("Administrador");
 
         group.MapPut("/{id}", UpdatePaciente)
             .WithName("UpdatePaciente")
             .WithSummary("Atualizar paciente")
-            .RequireAuthorization(LicencaPolicies.PacientesGerenciar);
+            .RequireAuthorization("Administrador");
 
         group.MapDelete("/{id}", DeletePaciente)
             .WithName("DeletePaciente")
-            .WithSummary("Excluir paciente");
+            .WithSummary("Excluir paciente")
+            .RequireAuthorization("Administrador");
 
         group.MapPost("/{id}/arquivos", UploadArquivo)
             .WithName("UploadPacienteArquivo")
             .WithSummary("Enviar arquivo do paciente")
             .DisableAntiforgery()
-            .RequireAuthorization(LicencaPolicies.PacientesGerenciar);
+            .RequireAuthorization("Administrador");
 
         group.MapDelete("/{id}/arquivos/{arquivoId}", DeleteArquivo)
             .WithName("DeletePacienteArquivo")
             .WithSummary("Excluir arquivo do paciente")
-            .RequireAuthorization(LicencaPolicies.PacientesGerenciar);
+            .RequireAuthorization("Administrador");
     }
 
     private static Task<IResult> GetAllPacientes(

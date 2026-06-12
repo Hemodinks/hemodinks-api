@@ -127,7 +127,7 @@ Perfis seedados:
 Regras principais:
 
 - Administrador gerencia usuarios, pacientes, CBHPM, agenda, licencas e exclusoes.
-- Medico visualiza/edita seus dados, pacientes vinculados e eventos da sua agenda.
+- Medico visualiza/edita seus dados, visualiza pacientes vinculados e eventos da sua agenda.
 - Paciente acessa somente o proprio cadastro quando houver vinculo.
 - Licencas controlam acesso a dashboard, pacientes e CBHPM para medicos.
 
@@ -149,11 +149,11 @@ Regras principais:
 | `DELETE` | `/api/users/{id}/arquivos/{arquivoId}` | sim | exclui documento medico |
 | `GET` | `/api/pacientes` | licenca | lista paginada de pacientes |
 | `GET` | `/api/pacientes/{id}` | licenca | detalhe do paciente |
-| `POST` | `/api/pacientes` | licenca | cria paciente |
-| `PUT` | `/api/pacientes/{id}` | licenca | atualiza paciente |
+| `POST` | `/api/pacientes` | admin | cria paciente |
+| `PUT` | `/api/pacientes/{id}` | admin | atualiza paciente |
 | `DELETE` | `/api/pacientes/{id}` | admin | exclui paciente |
-| `POST` | `/api/pacientes/{id}/arquivos` | licenca | upload de anexo do paciente |
-| `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | licenca | exclui anexo |
+| `POST` | `/api/pacientes/{id}/arquivos` | admin | upload de anexo do paciente |
+| `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | admin | exclui anexo |
 | `GET` | `/api/cbhpm` | licenca | consulta CBHPM paginada |
 | `POST` | `/api/cbhpm/import` | admin | importa/substitui itens CBHPM |
 | `GET` | `/api/dashboard/summary` | licenca | resumo do dashboard |

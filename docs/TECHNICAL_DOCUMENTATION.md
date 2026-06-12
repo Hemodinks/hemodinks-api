@@ -209,7 +209,6 @@ Features atuais:
 
 - `Dashboard.Visualizar`
 - `Pacientes.Visualizar`
-- `Pacientes.Gerenciar`
 - `Cbhpm.Consultar`
 
 ## Fluxo de CBHPM
