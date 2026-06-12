@@ -96,6 +96,7 @@ Use variaveis de ambiente, `.env` no Docker ou User Secrets localmente.
 | `JwtSettings__Issuer` | emissor JWT |
 | `JwtSettings__Audience` | audiencia JWT |
 | `JwtSettings__ExpirationMinutes` | expiracao do token |
+| `Database__RunMigrationsOnStartup` | aplica migrations no startup quando `true` |
 | `Cors__AllowedOrigins__0` | origem adicional do frontend |
 | `AzureStorage__ConnectionString` | Storage Account Azure |
 | `AzureStorage__ContainerName` | container de fotos, padrao `profile-photos` |
@@ -215,7 +216,7 @@ Entidades principais:
 - `Convenios`
 - `Events`
 
-Migrations rodam automaticamente no startup via `Database.MigrateAsync()`. Para usar EF CLI depois da separacao em projetos:
+Migrations rodam no startup via `Database.MigrateAsync()` quando `Database__RunMigrationsOnStartup=true`. O blueprint de producao do Render habilita essa variavel para que deploy automatico atualize o schema antes dos workers da agenda. Para usar EF CLI depois da separacao em projetos:
 
 ```powershell
 dotnet ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure --no-connect

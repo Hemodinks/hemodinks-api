@@ -81,6 +81,18 @@ dotnet ef database drop -f --project HemodinksAPI.Infrastructure --startup-proje
 dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
 ```
 
+## Agenda retorna `Invalid object name 'Events'`
+
+Isso indica que a API subiu apontando para um banco que ainda nao recebeu a migration da agenda. Em producao no Render, confirme que a variavel abaixo esta configurada no servico:
+
+```text
+Database__RunMigrationsOnStartup=true
+```
+
+Depois faca um novo deploy ou reinicie o servico. O startup deve registrar `Iniciando migracao do banco de dados` e aplicar a migration `20260610234500_EnsureEventReminderColumns`, que cria a tabela `Events` quando ela ainda nao existe.
+
+Se o servico foi criado manualmente no dashboard e nao pelo `render.yaml`, adicione essa variavel no dashboard do Render tambem.
+
 ## Login retorna 401
 
 Possiveis causas:
@@ -133,8 +145,9 @@ Isso indica que o banco tem a tabela `Events`, mas ainda nao tem as colunas de l
 Solucoes:
 
 1. Publique a versao que contem a migration `20260610234500_EnsureEventReminderColumns`.
-2. Reinicie a API para o startup executar `Database.MigrateAsync()`.
-3. Se precisar aplicar manualmente:
+2. Confirme `Database__RunMigrationsOnStartup=true` no ambiente.
+3. Reinicie a API para o startup executar `Database.MigrateAsync()`.
+4. Se precisar aplicar manualmente:
 
 ```powershell
 dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure

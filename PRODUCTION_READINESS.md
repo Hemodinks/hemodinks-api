@@ -59,6 +59,7 @@ O workflow `CI / Build and test` ja esta no repositorio. Para ele bloquear deplo
 - [ ] Force push bloqueado em `main`.
 - [ ] Render apontando para a branch correta.
 - [ ] Render usando deploy apenas apos checks passarem.
+- [ ] Render com `Database__RunMigrationsOnStartup=true` no servico de producao.
 
 Fluxo recomendado:
 
@@ -131,6 +132,7 @@ Obrigatorias:
 - `JwtSettings__Issuer`
 - `JwtSettings__Audience`
 - `JwtSettings__ExpirationMinutes`
+- `Database__RunMigrationsOnStartup=true`
 - `PasswordReset__UseEmail`
 
 Quando usar storage:
