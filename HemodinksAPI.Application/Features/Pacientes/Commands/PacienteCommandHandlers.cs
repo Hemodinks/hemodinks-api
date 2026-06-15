@@ -42,8 +42,10 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             }
 
             PacienteRules.ValidateNome(request.NomePaciente);
+            var diagnostico = PacienteRules.TrimAndValidateOptional(request.Diagnostico, 1500, "Diagnostico excede 1500 caracteres");
             var cpf = await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, null, cancellationToken);
-            await PacienteRules.ValidateEmailAsync(_context, request.Email, null, cancellationToken);
+            var email = await PacienteRules.ResolveEmailAsync(_context, request.Email, cpf, null, cancellationToken);
+            var telefone = PacienteRules.ResolveTelefone(request.Telefone);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, null, cancellationToken);
             var medico = await PacienteRules.ResolveMedicoAsync(
                 _context,
@@ -53,6 +55,17 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 request.MedicoUserId,
                 request.Medico,
                 cancellationToken);
+            var medicoAuxiliar1 = await PacienteRules.ResolveOptionalMedicoAsync(
+                _context,
+                request.MedicoAuxiliar1UserId,
+                request.MedicoAuxiliar1,
+                cancellationToken);
+            var medicoAuxiliar2 = await PacienteRules.ResolveOptionalMedicoAsync(
+                _context,
+                request.MedicoAuxiliar2UserId,
+                request.MedicoAuxiliar2,
+                cancellationToken);
+            PacienteRules.ValidateDistinctMedicos(medico, medicoAuxiliar1, medicoAuxiliar2);
             var hospital = await PacienteRules.ResolveHospitalAsync(
                 _context,
                 request.HospitalId,
@@ -62,6 +75,11 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 _context,
                 request.ConvenioId,
                 request.Convenio,
+                cancellationToken);
+            var opmeFornecedor = await PacienteRules.ResolveOpmeFornecedorAsync(
+                _context,
+                request.OpmeFornecedorId,
+                request.OpmeFornecedor,
                 cancellationToken);
             var procedimentos = await PacienteRules.ResolveProcedimentosAsync(
                 _cbhpmCache,
@@ -75,8 +93,8 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             var user = new User
             {
                 Nome = request.NomePaciente.Trim(),
-                Email = request.Email.Trim(),
-                Telefone = request.Telefone,
+                Email = email,
+                Telefone = telefone,
                 Cpf = cpf,
                 FotoPerfil = fotoPerfil,
                 Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
@@ -96,12 +114,20 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 User = user,
                 Data = request.Data,
                 NomePaciente = user.Nome,
+                Diagnostico = diagnostico,
                 HospitalId = hospital.Id,
                 Hospital = hospital.Nome,
                 MedicoUserId = medico.UserId,
                 Medico = medico.Nome,
+                MedicoAuxiliar1UserId = medicoAuxiliar1.UserId,
+                MedicoAuxiliar1 = medicoAuxiliar1.Nome,
+                MedicoAuxiliar2UserId = medicoAuxiliar2.UserId,
+                MedicoAuxiliar2 = medicoAuxiliar2.Nome,
                 ConvenioId = convenio?.Id,
                 Convenio = convenio?.Descricao,
+                OpmeFornecedorId = opmeFornecedor?.Id > 0 ? opmeFornecedor.Id : null,
+                OpmeFornecedorReferencia = opmeFornecedor?.FornecedorReferencia,
+                OpmeFornecedor = opmeFornecedor?.Fornecedor,
                 CbhpmCodigo = procedimentoPrincipal?.Codigo,
                 CbhpmPorte = procedimentoPrincipal?.Porte,
                 Procedimento = procedimentoPrincipal?.Nome,
@@ -161,13 +187,20 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(paciente, request.CurrentPerfilId, request.CurrentUserId))
+            if (!PacienteCommandAccess.CanManage(request.CurrentPerfilId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para atualizar paciente");
             }
 
-            var cpf = await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, paciente.UserId, cancellationToken);
-            await PacienteRules.ValidateEmailAsync(_context, request.Email, paciente.UserId, cancellationToken);
+            var cpf = string.IsNullOrWhiteSpace(request.Cpf)
+                ? paciente.User.Cpf
+                : await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, paciente.UserId, cancellationToken);
+            var email = string.IsNullOrWhiteSpace(request.Email)
+                ? paciente.User.Email
+                : await PacienteRules.ResolveEmailAsync(_context, request.Email, cpf, paciente.UserId, cancellationToken);
+            var telefone = string.IsNullOrWhiteSpace(request.Telefone)
+                ? paciente.User.Telefone
+                : PacienteRules.ResolveTelefone(request.Telefone);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, paciente.User.FotoPerfil, cancellationToken);
             var medico = await PacienteRules.ResolveMedicoAsync(
                 _context,
@@ -177,6 +210,17 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 request.MedicoUserId,
                 request.Medico,
                 cancellationToken);
+            var medicoAuxiliar1 = await PacienteRules.ResolveOptionalMedicoAsync(
+                _context,
+                request.MedicoAuxiliar1UserId,
+                request.MedicoAuxiliar1,
+                cancellationToken);
+            var medicoAuxiliar2 = await PacienteRules.ResolveOptionalMedicoAsync(
+                _context,
+                request.MedicoAuxiliar2UserId,
+                request.MedicoAuxiliar2,
+                cancellationToken);
+            PacienteRules.ValidateDistinctMedicos(medico, medicoAuxiliar1, medicoAuxiliar2);
             var hospital = await PacienteRules.ResolveHospitalAsync(
                 _context,
                 request.HospitalId,
@@ -186,6 +230,11 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 _context,
                 request.ConvenioId,
                 request.Convenio,
+                cancellationToken);
+            var opmeFornecedor = await PacienteRules.ResolveOpmeFornecedorAsync(
+                _context,
+                request.OpmeFornecedorId,
+                request.OpmeFornecedor,
                 cancellationToken);
             var procedimentos = await PacienteRules.ResolveProcedimentosAsync(
                 _cbhpmCache,
@@ -197,8 +246,8 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             var procedimentoPrincipal = procedimentos.FirstOrDefault();
 
             paciente.User.Nome = request.NomePaciente.Trim();
-            paciente.User.Email = request.Email.Trim();
-            paciente.User.Telefone = request.Telefone;
+            paciente.User.Email = email;
+            paciente.User.Telefone = telefone;
             paciente.User.Cpf = cpf;
             paciente.User.FotoPerfil = fotoPerfil;
             paciente.User.DataNascimento = request.DataNascimento;
@@ -208,12 +257,20 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
 
             paciente.Data = request.Data;
             paciente.NomePaciente = paciente.User.Nome;
+            paciente.Diagnostico = PacienteRules.TrimAndValidateOptional(request.Diagnostico, 1500, "Diagnostico excede 1500 caracteres");
             paciente.HospitalId = hospital.Id;
             paciente.Hospital = hospital.Nome;
             paciente.MedicoUserId = medico.UserId;
             paciente.Medico = medico.Nome;
+            paciente.MedicoAuxiliar1UserId = medicoAuxiliar1.UserId;
+            paciente.MedicoAuxiliar1 = medicoAuxiliar1.Nome;
+            paciente.MedicoAuxiliar2UserId = medicoAuxiliar2.UserId;
+            paciente.MedicoAuxiliar2 = medicoAuxiliar2.Nome;
             paciente.ConvenioId = convenio?.Id;
             paciente.Convenio = convenio?.Descricao;
+            paciente.OpmeFornecedorId = opmeFornecedor?.Id > 0 ? opmeFornecedor.Id : null;
+            paciente.OpmeFornecedorReferencia = opmeFornecedor?.FornecedorReferencia;
+            paciente.OpmeFornecedor = opmeFornecedor?.Fornecedor;
             paciente.CbhpmCodigo = procedimentoPrincipal?.Codigo;
             paciente.CbhpmPorte = procedimentoPrincipal?.Porte;
             paciente.Procedimento = procedimentoPrincipal?.Nome;
@@ -327,7 +384,7 @@ public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacient
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(paciente, request.CurrentPerfilId, request.CurrentUserId))
+            if (!PacienteCommandAccess.CanManage(request.CurrentPerfilId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para enviar arquivo do paciente");
             }
@@ -387,7 +444,7 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
                 throw new KeyNotFoundException("Arquivo nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(arquivo.Paciente, request.CurrentPerfilId, request.CurrentUserId))
+            if (!PacienteCommandAccess.CanManage(request.CurrentPerfilId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para excluir arquivo do paciente");
             }
@@ -410,13 +467,12 @@ internal static class PacienteCommandAccess
 {
     public static bool CanCreate(int perfilId)
     {
-        return perfilId == Perfil.AdministradorId || perfilId == Perfil.MedicosId;
+        return perfilId == Perfil.AdministradorId;
     }
 
-    public static bool CanManage(Paciente paciente, int perfilId, int userId)
+    public static bool CanManage(int perfilId)
     {
-        return perfilId == Perfil.AdministradorId
-            || (perfilId == Perfil.MedicosId && paciente.MedicoUserId == userId);
+        return perfilId == Perfil.AdministradorId;
     }
 }
 
@@ -430,12 +486,17 @@ internal static class PacienteRules
         }
     }
 
-    public static async Task<string> NormalizeAndValidateCpfAsync(
+    public static async Task<string?> NormalizeAndValidateCpfAsync(
         IAppDbContext context,
         string? cpf,
         int? currentUserId,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(cpf))
+        {
+            return null;
+        }
+
         if (!CpfUtils.IsValid(cpf))
         {
             throw new InvalidOperationException("CPF invalido");
@@ -451,6 +512,40 @@ internal static class PacienteRules
         }
 
         return normalizedCpf;
+    }
+
+    public static async Task<string> ResolveEmailAsync(
+        IAppDbContext context,
+        string? email,
+        string? cpf,
+        int? currentUserId,
+        CancellationToken cancellationToken)
+    {
+        var resolvedEmail = string.IsNullOrWhiteSpace(email)
+            ? GenerateTechnicalEmail(cpf)
+            : email.Trim();
+
+        var emailAlreadyExists = await context.Users
+            .AnyAsync(u => u.Email == resolvedEmail && (!currentUserId.HasValue || u.Id != currentUserId.Value), cancellationToken);
+
+        if (emailAlreadyExists)
+        {
+            throw new InvalidOperationException("Email ja cadastrado");
+        }
+
+        return resolvedEmail;
+    }
+
+    public static string ResolveTelefone(string? telefone)
+    {
+        return TrimOptional(telefone) ?? string.Empty;
+    }
+
+    private static string GenerateTechnicalEmail(string? cpf)
+    {
+        return !string.IsNullOrWhiteSpace(cpf)
+            ? $"paciente-{cpf}@hemodinks.local"
+            : $"paciente-{Guid.NewGuid():N}@hemodinks.local";
     }
 
     public static async Task ValidateEmailAsync(
@@ -477,6 +572,17 @@ internal static class PacienteRules
     public static string? TrimOptional(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    public static string? TrimAndValidateOptional(string? value, int maxLength, string errorMessage)
+    {
+        var trimmed = TrimOptional(value);
+        if (trimmed?.Length > maxLength)
+        {
+            throw new InvalidOperationException(errorMessage);
+        }
+
+        return trimmed;
     }
 
     public static async Task<ResolvedHospital> ResolveHospitalAsync(
@@ -547,6 +653,45 @@ internal static class PacienteRules
         return new ResolvedConvenio(convenio.IdConvenio, convenio.DescricaoConvenio);
     }
 
+    public static async Task<ResolvedOpmeFornecedor?> ResolveOpmeFornecedorAsync(
+        IAppDbContext context,
+        int? fornecedorId,
+        string? fornecedorNome,
+        CancellationToken cancellationToken)
+    {
+        HemodinksAPI.Domain.Models.Opme? fornecedor = null;
+
+        if (fornecedorId.HasValue)
+        {
+            fornecedor = await context.OPME
+                .FirstOrDefaultAsync(item => item.IdFornecedor == fornecedorId.Value, cancellationToken);
+        }
+        else
+        {
+            var nome = TrimAndValidateOptional(fornecedorNome, 255, "Fornecedor OPME excede 255 caracteres");
+            if (nome == null)
+            {
+                return null;
+            }
+
+            fornecedor = await context.OPME
+                .FirstOrDefaultAsync(item => item.Fornecedor == nome, cancellationToken);
+
+            if (fornecedor == null)
+            {
+                fornecedor = new HemodinksAPI.Domain.Models.Opme { Fornecedor = nome };
+                context.OPME.Add(fornecedor);
+            }
+        }
+
+        if (fornecedor == null)
+        {
+            throw new InvalidOperationException("Fornecedor OPME invalido");
+        }
+
+        return new ResolvedOpmeFornecedor(fornecedor.IdFornecedor, fornecedor.Fornecedor, fornecedor);
+    }
+
     public static async Task<ResolvedMedico> ResolveMedicoAsync(
         IAppDbContext context,
         int currentPerfilId,
@@ -596,6 +741,46 @@ internal static class PacienteRules
         }
 
         return new ResolvedMedico(medicoPorNome.Id, medicoPorNome.Nome);
+    }
+
+    public static Task<ResolvedMedico> ResolveOptionalMedicoAsync(
+        IAppDbContext context,
+        int? medicoUserId,
+        string? medicoNome,
+        CancellationToken cancellationToken)
+    {
+        return ResolveMedicoAsync(
+            context,
+            Perfil.AdministradorId,
+            0,
+            string.Empty,
+            medicoUserId,
+            medicoNome,
+            cancellationToken);
+    }
+
+    public static void ValidateDistinctMedicos(params ResolvedMedico[] medicos)
+    {
+        var selectedIds = new HashSet<int>();
+        var selectedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var medico in medicos)
+        {
+            if (medico.UserId.HasValue)
+            {
+                if (!selectedIds.Add(medico.UserId.Value))
+                {
+                    throw new InvalidOperationException("Cirurgiao e medicos auxiliares devem ser diferentes");
+                }
+
+                continue;
+            }
+
+            if (medico.Nome != null && !selectedNames.Add(medico.Nome))
+            {
+                throw new InvalidOperationException("Cirurgiao e medicos auxiliares devem ser diferentes");
+            }
+        }
     }
 
     public static async Task<List<ResolvedProcedimento>> ResolveProcedimentosAsync(
@@ -666,43 +851,63 @@ internal static class PacienteRules
         PacienteProcedimentoCommandDto item,
         CancellationToken cancellationToken)
     {
-        var codigo = TrimOptional(item.CbhpmCodigo);
+        var codigo = CbhpmCodigoUtils.NormalizeOptional(item.CbhpmCodigo);
+        var procedimento = TrimOptional(item.Procedimento);
+        var porte = TrimOptional(item.CbhpmPorte);
+
         if (codigo == null)
         {
-            var procedimento = TrimOptional(item.Procedimento);
             if (procedimento == null)
             {
                 return null;
             }
 
-            if (procedimento.Length > 1000)
-            {
-                throw new InvalidOperationException("Procedimento excede 1000 caracteres");
-            }
-
-            var porte = TrimOptional(item.CbhpmPorte);
-            if (porte?.Length > 10)
-            {
-                throw new InvalidOperationException("Porte CBHPM invalido");
-            }
+            ValidateManualProcedimento(procedimento, porte);
 
             return new ResolvedProcedimento(null, procedimento, porte, item.ValorReferencia);
         }
 
-        var cbhpm = await cbhpmCache.GetByCodigoAsync(codigo, cancellationToken);
-
-        if (cbhpm == null)
+        if (codigo.Length > 20)
         {
-            throw new InvalidOperationException("Procedimento CBHPM nao encontrado");
+            throw new InvalidOperationException("Codigo CBHPM invalido");
         }
 
-        return new ResolvedProcedimento(cbhpm.Codigo, cbhpm.Procedimento, cbhpm.Porte, cbhpm.ValorReferencia);
+        var cbhpm = await cbhpmCache.GetByCodigoAsync(codigo, cancellationToken);
+
+        if (cbhpm != null)
+        {
+            return new ResolvedProcedimento(CbhpmCodigoUtils.Normalize(cbhpm.Codigo), cbhpm.Procedimento, cbhpm.Porte, cbhpm.ValorReferencia);
+        }
+
+        if (procedimento == null)
+        {
+            throw new InvalidOperationException("Informe a descricao do procedimento para o codigo CBHPM nao cadastrado");
+        }
+
+        ValidateManualProcedimento(procedimento, porte);
+
+        return new ResolvedProcedimento(codigo, procedimento, porte, item.ValorReferencia);
+    }
+
+    private static void ValidateManualProcedimento(string procedimento, string? porte)
+    {
+        if (procedimento.Length > 1000)
+        {
+            throw new InvalidOperationException("Procedimento excede 1000 caracteres");
+        }
+
+        if (porte?.Length > 10)
+        {
+            throw new InvalidOperationException("Porte CBHPM invalido");
+        }
     }
 }
 
 internal sealed record ResolvedHospital(int Id, string Nome);
 
 internal sealed record ResolvedConvenio(int Id, string Descricao);
+
+internal sealed record ResolvedOpmeFornecedor(int Id, string Fornecedor, HemodinksAPI.Domain.Models.Opme FornecedorReferencia);
 
 internal sealed record ResolvedMedico(int? UserId, string? Nome);
 

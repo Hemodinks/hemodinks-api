@@ -13,7 +13,6 @@ public class CbhpmGeralDto
     public decimal? ValorReferencia { get; set; }
     public string? Capitulo { get; set; }
     public string? Grupo { get; set; }
-    public int? PaginaPdf { get; set; }
 }
 
 public class GetCbhpmGeralQuery : IRequest<PagedResult<CbhpmGeralDto>>

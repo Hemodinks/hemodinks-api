@@ -52,7 +52,7 @@ public class LicencaServiceTests
     }
 
     [Fact]
-    public async Task LiberarCompletaAsync_WhenCalled_GrantsPatientManagement()
+    public async Task LiberarCompletaAsync_WhenCalled_KeepsPatientManagementUnavailableToDoctors()
     {
         await using var context = TestDbContextFactory.Create();
         var user = CreateMedico();
@@ -73,7 +73,7 @@ public class LicencaServiceTests
 
         Assert.Equal(LicencaPlanos.Completa, licenca.Plano);
         Assert.True(licenca.AcessoCompleto);
-        Assert.True(canManage);
+        Assert.False(canManage);
     }
 
     [Fact]

@@ -45,7 +45,7 @@ Regras relevantes:
 
 - CPF e email obrigatorios.
 - CPF e email nao podem duplicar.
-- Medico so gerencia pacientes vinculados a ele.
+- Medico so visualiza pacientes vinculados a ele; criacao, edicao, anexos e exclusao sao administrativos.
 - Procedimentos CBHPM sao normalizados quando `CbhpmCodigo` e informado.
 
 ### CBHPM
@@ -95,14 +95,12 @@ Features atuais:
 
 - `Dashboard.Visualizar`
 - `Pacientes.Visualizar`
-- `Pacientes.Gerenciar`
 - `Cbhpm.Consultar`
 
 Policies:
 
 - `Licenca.Dashboard.Visualizar`
 - `Licenca.Pacientes.Visualizar`
-- `Licenca.Pacientes.Gerenciar`
 - `Licenca.Cbhpm.Consultar`
 
 ## Documentacao da API

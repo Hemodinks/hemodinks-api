@@ -46,8 +46,7 @@ public sealed class CbhpmCache : ICbhpmCache
                     item.CustoOperacional,
                     item.ValorReferencia,
                     item.Capitulo,
-                    item.Grupo,
-                    item.PaginaPdf))
+                    item.Grupo))
                 .ToListAsync(cancellationToken);
 
             _logger.LogInformation("Cache CBHPM carregado com {Count} procedimentos", items.Count);
@@ -77,8 +76,7 @@ public sealed record CbhpmCacheItem(
     decimal? CustoOperacional,
     decimal? ValorReferencia,
     string? Capitulo,
-    string? Grupo,
-    int? PaginaPdf);
+    string? Grupo);
 
 public sealed class CbhpmCacheSnapshot
 {
@@ -97,10 +95,20 @@ public sealed class CbhpmCacheSnapshot
 
     public static CbhpmCacheSnapshot Create(IReadOnlyList<CbhpmCacheItem> items)
     {
+        var byCodigo = new Dictionary<string, CbhpmCacheItem>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in items)
+        {
+            byCodigo[item.Codigo] = item;
+
+            var normalizedCodigo = CbhpmCodigoUtils.NormalizeOptional(item.Codigo);
+            if (normalizedCodigo != null)
+            {
+                byCodigo[normalizedCodigo] = item;
+            }
+        }
+
         return new CbhpmCacheSnapshot(
             items,
-            items
-                .GroupBy(item => item.Codigo, StringComparer.OrdinalIgnoreCase)
-                .ToDictionary(group => group.Key, group => group.Last(), StringComparer.OrdinalIgnoreCase));
+            byCodigo);
     }
 }

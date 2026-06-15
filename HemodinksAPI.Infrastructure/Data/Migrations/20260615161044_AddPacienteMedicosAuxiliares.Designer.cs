@@ -4,6 +4,7 @@ using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HemodinksAPI.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260615161044_AddPacienteMedicosAuxiliares")]
+    partial class AddPacienteMedicosAuxiliares
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -305,49 +308,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.ToTable("Licencas", (string)null);
                 });
 
-            modelBuilder.Entity("HemodinksAPI.Domain.Models.Opme", b =>
-                {
-                    b.Property<int>("IdFornecedor")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("IdFornecedor"));
-
-                    b.Property<string>("Fornecedor")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.HasKey("IdFornecedor");
-
-                    b.HasIndex("Fornecedor")
-                        .IsUnique();
-
-                    b.ToTable("OPME", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            IdFornecedor = 1,
-                            Fornecedor = "Promedom"
-                        },
-                        new
-                        {
-                            IdFornecedor = 2,
-                            Fornecedor = "AVL"
-                        },
-                        new
-                        {
-                            IdFornecedor = 3,
-                            Fornecedor = "GE"
-                        },
-                        new
-                        {
-                            IdFornecedor = 4,
-                            Fornecedor = "Spyner"
-                        });
-                });
-
             modelBuilder.Entity("HemodinksAPI.Domain.Models.Paciente", b =>
                 {
                     b.Property<int>("Id")
@@ -377,10 +337,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.Property<DateTime?>("Data")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("Diagnostico")
-                        .HasMaxLength(1500)
-                        .HasColumnType("nvarchar(1500)");
 
                     b.Property<string>("Hospital")
                         .HasMaxLength(255)
@@ -415,13 +371,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
-                    b.Property<string>("OpmeFornecedor")
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<int?>("OpmeFornecedorId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Pagamento")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
@@ -455,8 +404,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.HasIndex("MedicoAuxiliar2UserId");
 
                     b.HasIndex("MedicoUserId");
-
-                    b.HasIndex("OpmeFornecedorId");
 
                     b.HasIndex("UserId")
                         .IsUnique();
@@ -807,11 +754,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasForeignKey("MedicoUserId")
                         .OnDelete(DeleteBehavior.Restrict);
 
-                    b.HasOne("HemodinksAPI.Domain.Models.Opme", "OpmeFornecedorReferencia")
-                        .WithMany("Pacientes")
-                        .HasForeignKey("OpmeFornecedorId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
                     b.HasOne("HemodinksAPI.Domain.Models.User", "User")
                         .WithOne("Paciente")
                         .HasForeignKey("HemodinksAPI.Domain.Models.Paciente", "UserId")
@@ -827,8 +769,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Navigation("MedicoAuxiliar2User");
 
                     b.Navigation("MedicoUser");
-
-                    b.Navigation("OpmeFornecedorReferencia");
 
                     b.Navigation("User");
                 });
@@ -894,11 +834,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.Hospital", b =>
-                {
-                    b.Navigation("Pacientes");
-                });
-
-            modelBuilder.Entity("HemodinksAPI.Domain.Models.Opme", b =>
                 {
                     b.Navigation("Pacientes");
                 });

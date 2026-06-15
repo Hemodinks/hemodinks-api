@@ -15,6 +15,8 @@ public interface IAppDbContext
 
     DbSet<Convenio> Convenios { get; }
 
+    DbSet<Opme> OPME { get; }
+
     DbSet<PacienteArquivo> PacienteArquivos { get; }
 
     DbSet<PacienteProcedimento> PacienteProcedimentos { get; }

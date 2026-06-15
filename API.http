@@ -210,9 +210,9 @@ Content-Type: {{contentType}}
       "procedimento": "Em consultorio (no horario normal ou preestabelecido)",
       "porte": "2B",
       "custoOperacional": null,
+      "valorReferencia": 67.82,
       "capitulo": null,
-      "grupo": null,
-      "paginaPdf": 23
+      "grupo": null
     }
   ]
 }

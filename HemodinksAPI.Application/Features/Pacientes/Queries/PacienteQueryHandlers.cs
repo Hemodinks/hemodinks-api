@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.Common;
 using HemodinksAPI.Domain.Models;
 using MediatR;
@@ -39,18 +40,32 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
             {
                 query = query.Where(p =>
                     p.NomePaciente.Contains(search)
+                    || (p.Diagnostico != null && p.Diagnostico.Contains(search))
                     || p.User.Email.Contains(search)
                     || p.User.Telefone.Contains(search)
                     || (p.HospitalReferencia != null && p.HospitalReferencia.Nome.Contains(search))
                     || (p.Hospital != null && p.Hospital.Contains(search))
                     || (p.MedicoUser != null && p.MedicoUser.Nome.Contains(search))
                     || (p.Medico != null && p.Medico.Contains(search))
+                    || (p.MedicoAuxiliar1User != null && p.MedicoAuxiliar1User.Nome.Contains(search))
+                    || (p.MedicoAuxiliar1 != null && p.MedicoAuxiliar1.Contains(search))
+                    || (p.MedicoAuxiliar2User != null && p.MedicoAuxiliar2User.Nome.Contains(search))
+                    || (p.MedicoAuxiliar2 != null && p.MedicoAuxiliar2.Contains(search))
                     || (p.ConvenioReferencia != null && p.ConvenioReferencia.DescricaoConvenio.Contains(search))
                     || (p.Convenio != null && p.Convenio.Contains(search))
+                    || (p.OpmeFornecedorReferencia != null && p.OpmeFornecedorReferencia.Fornecedor.Contains(search))
+                    || (p.OpmeFornecedor != null && p.OpmeFornecedor.Contains(search))
                     || (p.Procedimento != null && p.Procedimento.Contains(search))
+                    || (p.CbhpmCodigo != null && p.CbhpmCodigo.Contains(search))
+                    || (!string.IsNullOrEmpty(digits)
+                        && p.CbhpmCodigo != null
+                        && p.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
                     || p.Procedimentos.Any(item =>
                         item.Procedimento.Contains(search)
                         || (item.CbhpmCodigo != null && item.CbhpmCodigo.Contains(search))
+                        || (!string.IsNullOrEmpty(digits)
+                            && item.CbhpmCodigo != null
+                            && item.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
                         || (item.CbhpmPorte != null && item.CbhpmPorte.Contains(search)))
                     || (!string.IsNullOrEmpty(digits) && p.User.Cpf != null && p.User.Cpf.Contains(digits))
                     || (!string.IsNullOrEmpty(digits) && p.User.Telefone.Contains(digits)));
@@ -93,12 +108,19 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     DataCadastro = p.User.DataCadastro,
                     DataAtualizacao = p.User.DataAtualizacao,
                     NomePaciente = p.NomePaciente,
+                    Diagnostico = p.Diagnostico,
                     HospitalId = p.HospitalId,
                     Hospital = p.HospitalReferencia != null ? p.HospitalReferencia.Nome : p.Hospital,
                     MedicoUserId = p.MedicoUserId,
                     Medico = p.MedicoUser != null ? p.MedicoUser.Nome : p.Medico,
+                    MedicoAuxiliar1UserId = p.MedicoAuxiliar1UserId,
+                    MedicoAuxiliar1 = p.MedicoAuxiliar1User != null ? p.MedicoAuxiliar1User.Nome : p.MedicoAuxiliar1,
+                    MedicoAuxiliar2UserId = p.MedicoAuxiliar2UserId,
+                    MedicoAuxiliar2 = p.MedicoAuxiliar2User != null ? p.MedicoAuxiliar2User.Nome : p.MedicoAuxiliar2,
                     ConvenioId = p.ConvenioId,
                     Convenio = p.ConvenioReferencia != null ? p.ConvenioReferencia.DescricaoConvenio : p.Convenio,
+                    OpmeFornecedorId = p.OpmeFornecedorId,
+                    OpmeFornecedor = p.OpmeFornecedorReferencia != null ? p.OpmeFornecedorReferencia.Fornecedor : p.OpmeFornecedor,
                     CbhpmCodigo = p.CbhpmCodigo,
                     CbhpmPorte = p.CbhpmPorte,
                     Procedimento = p.Procedimento,
@@ -128,6 +150,11 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     ArquivosCount = p.Arquivos.Count
                 })
                 .ToListAsync(cancellationToken);
+
+            foreach (var paciente in pacientes)
+            {
+                PacienteMapper.NormalizeProcedureCodes(paciente);
+            }
 
             return new PagedResult<PacienteDto>
             {
@@ -170,8 +197,11 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
                 .AsNoTracking()
                 .Include(p => p.User)
                 .Include(p => p.MedicoUser)
+                .Include(p => p.MedicoAuxiliar1User)
+                .Include(p => p.MedicoAuxiliar2User)
                 .Include(p => p.HospitalReferencia)
                 .Include(p => p.ConvenioReferencia)
+                .Include(p => p.OpmeFornecedorReferencia)
                 .Include(p => p.Procedimentos)
                 .Include(p => p.Arquivos);
 
@@ -205,7 +235,10 @@ internal static class PacienteAccess
 
         if (perfilId == Perfil.MedicosId)
         {
-            return query.Where(p => p.MedicoUserId == userId);
+            return query.Where(p =>
+                p.MedicoUserId == userId
+                || p.MedicoAuxiliar1UserId == userId
+                || p.MedicoAuxiliar2UserId == userId);
         }
 
         if (perfilId == Perfil.PacientesId)
@@ -222,7 +255,7 @@ internal static class PacienteMapper
 {
     public static PacienteDto ToDto(Paciente paciente)
     {
-        return new PacienteDto
+        var dto = new PacienteDto
         {
             Id = paciente.Id,
             UserId = paciente.UserId,
@@ -230,12 +263,19 @@ internal static class PacienteMapper
             DataCadastro = paciente.User.DataCadastro,
             DataAtualizacao = paciente.User.DataAtualizacao,
             NomePaciente = paciente.NomePaciente,
+            Diagnostico = paciente.Diagnostico,
             HospitalId = paciente.HospitalId,
             Hospital = paciente.HospitalReferencia?.Nome ?? paciente.Hospital,
             MedicoUserId = paciente.MedicoUserId,
             Medico = paciente.MedicoUser?.Nome ?? paciente.Medico,
+            MedicoAuxiliar1UserId = paciente.MedicoAuxiliar1UserId,
+            MedicoAuxiliar1 = paciente.MedicoAuxiliar1User?.Nome ?? paciente.MedicoAuxiliar1,
+            MedicoAuxiliar2UserId = paciente.MedicoAuxiliar2UserId,
+            MedicoAuxiliar2 = paciente.MedicoAuxiliar2User?.Nome ?? paciente.MedicoAuxiliar2,
             ConvenioId = paciente.ConvenioId,
             Convenio = paciente.ConvenioReferencia?.DescricaoConvenio ?? paciente.Convenio,
+            OpmeFornecedorId = paciente.OpmeFornecedorId,
+            OpmeFornecedor = paciente.OpmeFornecedorReferencia?.Fornecedor ?? paciente.OpmeFornecedor,
             CbhpmCodigo = paciente.CbhpmCodigo,
             CbhpmPorte = paciente.CbhpmPorte,
             Procedimento = paciente.Procedimento,
@@ -256,6 +296,19 @@ internal static class PacienteMapper
                 .Select(ToArquivoDto)
                 .ToList()
         };
+
+        return NormalizeProcedureCodes(dto);
+    }
+
+    public static PacienteDto NormalizeProcedureCodes(PacienteDto paciente)
+    {
+        paciente.CbhpmCodigo = CbhpmCodigoUtils.NormalizeOptional(paciente.CbhpmCodigo);
+        foreach (var procedimento in paciente.Procedimentos)
+        {
+            procedimento.CbhpmCodigo = CbhpmCodigoUtils.NormalizeOptional(procedimento.CbhpmCodigo);
+        }
+
+        return paciente;
     }
 
     private static List<PacienteProcedimentoDto> ToProcedimentoDtos(Paciente paciente)

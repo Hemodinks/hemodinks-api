@@ -5,6 +5,8 @@ import json
 import os
 import re
 import sys
+import unicodedata
+from decimal import Decimal, ROUND_HALF_UP
 from pathlib import Path
 from urllib import request
 from urllib.error import HTTPError
@@ -18,7 +20,64 @@ except ImportError:
 
 CODE_RE = re.compile(r"^(?P<code>\d\.\d{2}\.\d{2}\.\d{2}-\d)\s*(?P<rest>.*)$")
 GROUP_RE = re.compile(r"^(?P<name>.+?)\s+\(\d\.\d{2}\.\d{2}\.\d{2}-\d\)$")
-PORTE_RE = re.compile(r"(?P<porte>\d{1,2}[ABC])(?:\s+(?P<custo>(?:\d{1,6},\d{3}|-)))?$")
+GROUP_CODE_RE = re.compile(r"^(?P<name>.+?)\s+(?P<code>\d\.\d{2}\.\d{2}\.\d{2}-\d)$")
+PORTE_TOKEN_RE = r"(?:\d{1,2}[ABC]|0,\d{1,2}\s+de\s+\d{1,2}[ABC])"
+COST_TOKEN_RE = r"(?:\d{1,6},\d{3,4}|[-\u2013])"
+PORTE_RE = re.compile(
+    rf"(?P<porte>{PORTE_TOKEN_RE})(?:\s+(?P<custo>{COST_TOKEN_RE}))?"
+    rf"(?P<extra>(?:\s+(?:\d+|[-\u2013]|\d+,\d{{3,4}}))*)\s*$",
+    re.IGNORECASE,
+)
+PORTE_FRACIONARIO_RE = re.compile(
+    r"^(?P<fator>0,\d{1,2})\s+de\s+(?P<porte>\d{1,2}[ABC])$",
+    re.IGNORECASE,
+)
+
+UCO_REFERENCIA = Decimal("14.33")
+VALORES_PORTE_REFERENCIA = {
+    "1A": Decimal("12.86"),
+    "1B": Decimal("25.72"),
+    "1C": Decimal("38.58"),
+    "2A": Decimal("51.45"),
+    "2B": Decimal("67.82"),
+    "2C": Decimal("80.26"),
+    "3A": Decimal("109.67"),
+    "3B": Decimal("140.14"),
+    "3C": Decimal("160.52"),
+    "4A": Decimal("191.04"),
+    "4B": Decimal("209.13"),
+    "4C": Decimal("236.26"),
+    "5A": Decimal("254.34"),
+    "5B": Decimal("274.69"),
+    "5C": Decimal("291.64"),
+    "6A": Decimal("317.65"),
+    "6B": Decimal("349.30"),
+    "6C": Decimal("382.08"),
+    "7A": Decimal("412.60"),
+    "7B": Decimal("456.68"),
+    "7C": Decimal("540.33"),
+    "8A": Decimal("583.29"),
+    "8B": Decimal("611.55"),
+    "8C": Decimal("648.85"),
+    "9A": Decimal("689.55"),
+    "9B": Decimal("753.99"),
+    "9C": Decimal("830.84"),
+    "10A": Decimal("891.89"),
+    "10B": Decimal("966.50"),
+    "10C": Decimal("1072.75"),
+    "11A": Decimal("1134.93"),
+    "11B": Decimal("1244.58"),
+    "11C": Decimal("1365.54"),
+    "12A": Decimal("1415.27"),
+    "12B": Decimal("1521.53"),
+    "12C": Decimal("1864.04"),
+    "13A": Decimal("2051.69"),
+    "13B": Decimal("2250.64"),
+    "13C": Decimal("2489.16"),
+    "14A": Decimal("2774.02"),
+    "14B": Decimal("3018.19"),
+    "14C": Decimal("3329.05"),
+}
 
 
 def clean_text(value: str) -> str:
@@ -29,34 +88,95 @@ def clean_text(value: str) -> str:
     return value.strip(" .")
 
 
+def fold_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFD", value)
+    ascii_value = "".join(char for char in normalized if unicodedata.category(char) != "Mn")
+    return ascii_value.upper()
+
+
 def should_skip_line(value: str) -> bool:
     line = value.strip()
     if not line:
         return True
 
-    if "Procedimentos" in line and "Porte" in line:
+    folded = fold_text(line)
+
+    if folded.startswith("CODIGO PROCEDIMENTO PORTE"):
         return True
 
-    if line in {"Custo", "Oper.", "Custo Oper."}:
+    if folded in {
+        "CODIGO",
+        "PROCEDIMENTO",
+        "PORTE",
+        "CUSTO",
+        "OPER.",
+        "CUSTO OPER.",
+        "N\u00b0 DE",
+        "N DE",
+        "NO DE",
+        "AUX.",
+        "ANEST.",
+        "FILME",
+        "OU DOC.",
+        "OU DOC. INCID.",
+        "INCID.",
+    }:
         return True
 
-    if line.startswith("Classifica"):
+    if folded.startswith("CLASSIFICACAO BRASILEIRA"):
+        return True
+
+    if folded.startswith(("PROCEDIMENTOS CLINICOS", "PROCEDIMENTOS CIRURGICOS", "PROCEDIMENTOS DIAGNOSTICOS")):
         return True
 
     if re.match(r"^\d+\s*$", line):
         return True
 
-    if line.upper().startswith("CAP"):
+    if folded.startswith("CAPITULO"):
         return True
 
     return False
 
 
-def parse_cost(value: str | None) -> float | None:
-    if not value or value == "-":
+def parse_cost(value: str | None) -> Decimal | None:
+    if not value or value in {"-", "\u2013"}:
         return None
 
-    return float(value.replace(".", "").replace(",", "."))
+    return Decimal(value.replace(".", "").replace(",", "."))
+
+
+def resolve_valor_porte(porte: str | None) -> Decimal | None:
+    if not porte:
+        return None
+
+    normalized = porte.strip().upper()
+    valor = VALORES_PORTE_REFERENCIA.get(normalized)
+    if valor is not None:
+        return valor
+
+    match = PORTE_FRACIONARIO_RE.match(normalized)
+    if not match:
+        return None
+
+    valor_base = VALORES_PORTE_REFERENCIA.get(match.group("porte").upper())
+    if valor_base is None:
+        return None
+
+    fator = Decimal(match.group("fator").replace(",", "."))
+    return valor_base * fator
+
+
+def calculate_valor_referencia(porte: str | None, custo_operacional: Decimal | None) -> float | None:
+    valor_porte = resolve_valor_porte(porte)
+    if valor_porte is None:
+        return None
+
+    valor = valor_porte + ((custo_operacional or Decimal("0")) * UCO_REFERENCIA)
+    return float(valor.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+def decimal_to_json_number(value: Decimal | None) -> float | None:
+    return None if value is None else float(value)
 
 
 def parse_pdf(pdf_path: Path) -> list[dict[str, object]]:
@@ -82,7 +202,8 @@ def parse_pdf(pdf_path: Path) -> list[dict[str, object]]:
             custo = None
             procedimento = text
 
-        if not procedimento or not porte or procedimento.upper().startswith("OBSERV"):
+        folded_procedimento = fold_text(procedimento)
+        if not procedimento or not porte or folded_procedimento.startswith("OBSERV"):
             current = None
             return
 
@@ -91,27 +212,25 @@ def parse_pdf(pdf_path: Path) -> list[dict[str, object]]:
                 "codigo": current["code"],
                 "procedimento": procedimento,
                 "porte": porte,
-                "custoOperacional": custo,
+                "custoOperacional": decimal_to_json_number(custo),
+                "valorReferencia": calculate_valor_referencia(porte, custo),
                 "capitulo": None,
                 "grupo": current.get("group"),
-                "paginaPdf": current["page"],
             }
         )
         current = None
 
     for page_index, page in enumerate(reader.pages, start=1):
-        if page_index < 23:
-            continue
-
         for raw_line in (page.extract_text() or "").splitlines():
             line = raw_line.strip()
             if should_skip_line(line):
                 continue
 
             group_match = GROUP_RE.match(line)
-            if group_match:
+            group_code_match = GROUP_CODE_RE.match(line)
+            if group_match or (group_code_match and not CODE_RE.match(line)):
                 finalize_current()
-                current_group = clean_text(group_match.group("name"))
+                current_group = clean_text((group_match or group_code_match).group("name"))
                 continue
 
             match = CODE_RE.match(line)
@@ -169,7 +288,11 @@ def authenticate(api_url: str, email: str, password: str) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Import CBHPM rows from the local PDF into Hemodinks API.")
-    parser.add_argument("--pdf", default="Tabela-CBHPM-Geral.pdf", help="Path to Tabela-CBHPM-Geral.pdf")
+    parser.add_argument(
+        "--pdf",
+        default="docs/CBHPM-2022_versao-agosto-2023.pdf",
+        help="Path to the CBHPM PDF",
+    )
     parser.add_argument("--api-url", default=os.environ.get("HEMODINKS_API_URL", "http://localhost:5000"))
     parser.add_argument("--token", default=os.environ.get("HEMODINKS_TOKEN"))
     parser.add_argument("--email", default=os.environ.get("HEMODINKS_EMAIL"))
@@ -193,7 +316,7 @@ def main() -> int:
 
     if args.dry_run or args.output_json:
         for item in items[:5]:
-            print(f"{item['codigo']} | {item['procedimento']} | {item['porte']}")
+            print(f"{item['codigo']} | {item['procedimento']} | {item['porte']} | {item['valorReferencia']}")
         return 0
 
     token = args.token

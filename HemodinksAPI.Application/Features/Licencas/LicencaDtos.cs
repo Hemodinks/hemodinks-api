@@ -20,7 +20,6 @@ public static class LicencaFeatures
     [
         DashboardVisualizar,
         PacientesVisualizar,
-        PacientesGerenciar,
         CbhpmConsultar
     ];
 }

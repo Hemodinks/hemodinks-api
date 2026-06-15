@@ -284,7 +284,6 @@ def page_mer(c: canvas.Canvas, page: int) -> int:
         "Porte",
         "Custo, ValorReferencia",
         "Capitulo, Grupo",
-        "PaginaPdf",
     ]
     licenca_fields = ["Id PK", "UserId FK UK", "Plano, Status", "Inicio/Fim trial", "Fim licenca", "Features, Obs"]
     event_fields = ["Id PK", "UserId FK", "MedicalUserId FK", "Title, Start, End", "Notify flags", "NextReminderAt", "IsCompleted"]

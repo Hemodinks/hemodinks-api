@@ -11,12 +11,19 @@ public class PacienteDto
     public DateTime DataCadastro { get; set; }
     public DateTime? DataAtualizacao { get; set; }
     public string NomePaciente { get; set; } = null!;
+    public string? Diagnostico { get; set; }
     public int? HospitalId { get; set; }
     public string? Hospital { get; set; }
     public int? MedicoUserId { get; set; }
     public string? Medico { get; set; }
+    public int? MedicoAuxiliar1UserId { get; set; }
+    public string? MedicoAuxiliar1 { get; set; }
+    public int? MedicoAuxiliar2UserId { get; set; }
+    public string? MedicoAuxiliar2 { get; set; }
     public int? ConvenioId { get; set; }
     public string? Convenio { get; set; }
+    public int? OpmeFornecedorId { get; set; }
+    public string? OpmeFornecedor { get; set; }
     public string? CbhpmCodigo { get; set; }
     public string? CbhpmPorte { get; set; }
     public string? Procedimento { get; set; }

@@ -27,29 +27,29 @@ internal static class PacienteCommandValidator
 {
     public static void Validate(CreatePacienteCommand request)
     {
-        ValidateProfile(request.NomePaciente, request.Email, request.Cpf);
+        ValidateProfile(request.NomePaciente, request.Diagnostico, request.OpmeFornecedor);
     }
 
     public static void Validate(UpdatePacienteCommand request)
     {
-        ValidateProfile(request.NomePaciente, request.Email, request.Cpf);
+        ValidateProfile(request.NomePaciente, request.Diagnostico, request.OpmeFornecedor);
     }
 
-    private static void ValidateProfile(string? nomePaciente, string? email, string? cpf)
+    private static void ValidateProfile(string? nomePaciente, string? diagnostico, string? opmeFornecedor)
     {
         if (string.IsNullOrWhiteSpace(nomePaciente))
         {
             throw new InvalidOperationException("Nome do paciente obrigatorio");
         }
 
-        if (string.IsNullOrWhiteSpace(email))
+        if (diagnostico?.Trim().Length > 1500)
         {
-            throw new InvalidOperationException("Email obrigatorio");
+            throw new InvalidOperationException("Diagnostico excede 1500 caracteres");
         }
 
-        if (string.IsNullOrWhiteSpace(cpf))
+        if (opmeFornecedor?.Trim().Length > 255)
         {
-            throw new InvalidOperationException("CPF obrigatorio");
+            throw new InvalidOperationException("Fornecedor OPME excede 255 caracteres");
         }
     }
 }

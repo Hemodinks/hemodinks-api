@@ -124,6 +124,7 @@ public static class ApiApplicationExtensions
         app.MapCbhpmEndpoints();
         app.MapHospitalEndpoints();
         app.MapConvenioEndpoints();
+        app.MapOpmeEndpoints();
         app.MapUserEndpoints();
         app.MapPacienteEndpoints();
         app.MapLicencaEndpoints();

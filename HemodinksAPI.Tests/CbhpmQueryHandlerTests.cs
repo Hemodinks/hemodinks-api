@@ -90,6 +90,33 @@ public class CbhpmQueryHandlerTests
     }
 
     [Fact]
+    public async Task ImportCbhpmGeral_CalculatesValorReferenciaFromFractionalPorte()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new ImportCbhpmGeralCommandHandler(
+            context,
+            CreateCbhpmCache(context),
+            NullLogger<ImportCbhpmGeralCommandHandler>.Instance);
+
+        await handler.Handle(new ImportCbhpmGeralCommand
+        {
+            Items =
+            [
+                new CbhpmImportItemDto
+                {
+                    Codigo = "4.03.22.18-1",
+                    Procedimento = "N-Acetilgalactosaminidase, dosagem",
+                    Porte = "0,10 de 1A",
+                    CustoOperacional = 11.719m
+                }
+            ]
+        }, CancellationToken.None);
+
+        var storedItem = await context.CbhpmGeral.SingleAsync();
+        Assert.Equal(169.22m, storedItem.ValorReferencia);
+    }
+
+    [Fact]
     public async Task GetCbhpmGeral_FiltersAndPaginates()
     {
         await using var context = TestDbContextFactory.Create();
@@ -133,7 +160,7 @@ public class CbhpmQueryHandlerTests
         Assert.Equal(1, result.TotalItems);
         Assert.Equal(1, result.TotalPages);
         Assert.Single(result.Items);
-        Assert.Equal("2.01.01.20-1", result.Items[0].Codigo);
+        Assert.Equal("20101201", result.Items[0].Codigo);
         Assert.Equal(6.000m, result.Items[0].CustoOperacional);
         Assert.Equal(125.50m, result.Items[0].ValorReferencia);
     }
@@ -157,13 +184,13 @@ public class CbhpmQueryHandlerTests
 
         var result = await handler.Handle(new GetCbhpmGeralQuery
         {
-            Codigo = "1.01",
+            Codigo = "10101012",
             Procedimento = "Consulta",
             Porte = "2B"
         }, CancellationToken.None);
 
         Assert.Single(result.Items);
-        Assert.Equal("1.01.01.01-2", result.Items[0].Codigo);
+        Assert.Equal("10101012", result.Items[0].Codigo);
     }
 
     private static ICbhpmCache CreateCbhpmCache(AppDbContext context)
