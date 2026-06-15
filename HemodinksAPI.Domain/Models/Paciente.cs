@@ -23,6 +23,9 @@ public class Paciente
     public int? ConvenioId { get; set; }
     public Convenio? ConvenioReferencia { get; set; }
     public string? Convenio { get; set; }
+    public int? OpmeFornecedorId { get; set; }
+    public Opme? OpmeFornecedorReferencia { get; set; }
+    public string? OpmeFornecedor { get; set; }
     public string? CbhpmCodigo { get; set; }
     public string? CbhpmPorte { get; set; }
     public string? Procedimento { get; set; }

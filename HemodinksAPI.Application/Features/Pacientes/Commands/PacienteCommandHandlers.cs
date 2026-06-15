@@ -76,6 +76,11 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 request.ConvenioId,
                 request.Convenio,
                 cancellationToken);
+            var opmeFornecedor = await PacienteRules.ResolveOpmeFornecedorAsync(
+                _context,
+                request.OpmeFornecedorId,
+                request.OpmeFornecedor,
+                cancellationToken);
             var procedimentos = await PacienteRules.ResolveProcedimentosAsync(
                 _cbhpmCache,
                 request.Procedimentos,
@@ -120,6 +125,9 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 MedicoAuxiliar2 = medicoAuxiliar2.Nome,
                 ConvenioId = convenio?.Id,
                 Convenio = convenio?.Descricao,
+                OpmeFornecedorId = opmeFornecedor?.Id > 0 ? opmeFornecedor.Id : null,
+                OpmeFornecedorReferencia = opmeFornecedor?.FornecedorReferencia,
+                OpmeFornecedor = opmeFornecedor?.Fornecedor,
                 CbhpmCodigo = procedimentoPrincipal?.Codigo,
                 CbhpmPorte = procedimentoPrincipal?.Porte,
                 Procedimento = procedimentoPrincipal?.Nome,
@@ -223,6 +231,11 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 request.ConvenioId,
                 request.Convenio,
                 cancellationToken);
+            var opmeFornecedor = await PacienteRules.ResolveOpmeFornecedorAsync(
+                _context,
+                request.OpmeFornecedorId,
+                request.OpmeFornecedor,
+                cancellationToken);
             var procedimentos = await PacienteRules.ResolveProcedimentosAsync(
                 _cbhpmCache,
                 request.Procedimentos,
@@ -255,6 +268,9 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             paciente.MedicoAuxiliar2 = medicoAuxiliar2.Nome;
             paciente.ConvenioId = convenio?.Id;
             paciente.Convenio = convenio?.Descricao;
+            paciente.OpmeFornecedorId = opmeFornecedor?.Id > 0 ? opmeFornecedor.Id : null;
+            paciente.OpmeFornecedorReferencia = opmeFornecedor?.FornecedorReferencia;
+            paciente.OpmeFornecedor = opmeFornecedor?.Fornecedor;
             paciente.CbhpmCodigo = procedimentoPrincipal?.Codigo;
             paciente.CbhpmPorte = procedimentoPrincipal?.Porte;
             paciente.Procedimento = procedimentoPrincipal?.Nome;
@@ -637,6 +653,45 @@ internal static class PacienteRules
         return new ResolvedConvenio(convenio.IdConvenio, convenio.DescricaoConvenio);
     }
 
+    public static async Task<ResolvedOpmeFornecedor?> ResolveOpmeFornecedorAsync(
+        IAppDbContext context,
+        int? fornecedorId,
+        string? fornecedorNome,
+        CancellationToken cancellationToken)
+    {
+        HemodinksAPI.Domain.Models.Opme? fornecedor = null;
+
+        if (fornecedorId.HasValue)
+        {
+            fornecedor = await context.OPME
+                .FirstOrDefaultAsync(item => item.IdFornecedor == fornecedorId.Value, cancellationToken);
+        }
+        else
+        {
+            var nome = TrimAndValidateOptional(fornecedorNome, 255, "Fornecedor OPME excede 255 caracteres");
+            if (nome == null)
+            {
+                return null;
+            }
+
+            fornecedor = await context.OPME
+                .FirstOrDefaultAsync(item => item.Fornecedor == nome, cancellationToken);
+
+            if (fornecedor == null)
+            {
+                fornecedor = new HemodinksAPI.Domain.Models.Opme { Fornecedor = nome };
+                context.OPME.Add(fornecedor);
+            }
+        }
+
+        if (fornecedor == null)
+        {
+            throw new InvalidOperationException("Fornecedor OPME invalido");
+        }
+
+        return new ResolvedOpmeFornecedor(fornecedor.IdFornecedor, fornecedor.Fornecedor, fornecedor);
+    }
+
     public static async Task<ResolvedMedico> ResolveMedicoAsync(
         IAppDbContext context,
         int currentPerfilId,
@@ -851,6 +906,8 @@ internal static class PacienteRules
 internal sealed record ResolvedHospital(int Id, string Nome);
 
 internal sealed record ResolvedConvenio(int Id, string Descricao);
+
+internal sealed record ResolvedOpmeFornecedor(int Id, string Fornecedor, HemodinksAPI.Domain.Models.Opme FornecedorReferencia);
 
 internal sealed record ResolvedMedico(int? UserId, string? Nome);
 

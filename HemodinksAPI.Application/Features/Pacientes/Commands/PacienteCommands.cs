@@ -23,6 +23,8 @@ public class CreatePacienteCommand : IRequest<PacienteDto>
     public string? MedicoAuxiliar2 { get; set; }
     public int? ConvenioId { get; set; }
     public string? Convenio { get; set; }
+    public int? OpmeFornecedorId { get; set; }
+    public string? OpmeFornecedor { get; set; }
     public string? CbhpmCodigo { get; set; }
     public string? CbhpmPorte { get; set; }
     public string? Procedimento { get; set; }
@@ -58,6 +60,8 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
     public string? MedicoAuxiliar2 { get; set; }
     public int? ConvenioId { get; set; }
     public string? Convenio { get; set; }
+    public int? OpmeFornecedorId { get; set; }
+    public string? OpmeFornecedor { get; set; }
     public string? CbhpmCodigo { get; set; }
     public string? CbhpmPorte { get; set; }
     public string? Procedimento { get; set; }

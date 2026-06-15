@@ -53,6 +53,8 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     || (p.MedicoAuxiliar2 != null && p.MedicoAuxiliar2.Contains(search))
                     || (p.ConvenioReferencia != null && p.ConvenioReferencia.DescricaoConvenio.Contains(search))
                     || (p.Convenio != null && p.Convenio.Contains(search))
+                    || (p.OpmeFornecedorReferencia != null && p.OpmeFornecedorReferencia.Fornecedor.Contains(search))
+                    || (p.OpmeFornecedor != null && p.OpmeFornecedor.Contains(search))
                     || (p.Procedimento != null && p.Procedimento.Contains(search))
                     || (p.CbhpmCodigo != null && p.CbhpmCodigo.Contains(search))
                     || (!string.IsNullOrEmpty(digits)
@@ -117,6 +119,8 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     MedicoAuxiliar2 = p.MedicoAuxiliar2User != null ? p.MedicoAuxiliar2User.Nome : p.MedicoAuxiliar2,
                     ConvenioId = p.ConvenioId,
                     Convenio = p.ConvenioReferencia != null ? p.ConvenioReferencia.DescricaoConvenio : p.Convenio,
+                    OpmeFornecedorId = p.OpmeFornecedorId,
+                    OpmeFornecedor = p.OpmeFornecedorReferencia != null ? p.OpmeFornecedorReferencia.Fornecedor : p.OpmeFornecedor,
                     CbhpmCodigo = p.CbhpmCodigo,
                     CbhpmPorte = p.CbhpmPorte,
                     Procedimento = p.Procedimento,
@@ -197,6 +201,7 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
                 .Include(p => p.MedicoAuxiliar2User)
                 .Include(p => p.HospitalReferencia)
                 .Include(p => p.ConvenioReferencia)
+                .Include(p => p.OpmeFornecedorReferencia)
                 .Include(p => p.Procedimentos)
                 .Include(p => p.Arquivos);
 
@@ -269,6 +274,8 @@ internal static class PacienteMapper
             MedicoAuxiliar2 = paciente.MedicoAuxiliar2User?.Nome ?? paciente.MedicoAuxiliar2,
             ConvenioId = paciente.ConvenioId,
             Convenio = paciente.ConvenioReferencia?.DescricaoConvenio ?? paciente.Convenio,
+            OpmeFornecedorId = paciente.OpmeFornecedorId,
+            OpmeFornecedor = paciente.OpmeFornecedorReferencia?.Fornecedor ?? paciente.OpmeFornecedor,
             CbhpmCodigo = paciente.CbhpmCodigo,
             CbhpmPorte = paciente.CbhpmPorte,
             Procedimento = paciente.Procedimento,

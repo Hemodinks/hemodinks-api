@@ -21,6 +21,8 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<Convenio> Convenios { get; set; } = null!;
 
+    public DbSet<Opme> OPME { get; set; } = null!;
+
     public DbSet<PacienteArquivo> PacienteArquivos { get; set; } = null!;
 
     public DbSet<PacienteProcedimento> PacienteProcedimentos { get; set; } = null!;
@@ -313,6 +315,29 @@ public class AppDbContext : DbContext, IAppDbContext
                 new Convenio { IdConvenio = 9, DescricaoConvenio = "Unimed Uberl\u00e2ndia - Plano  Unimed Interc\u00e2mbio" });
         });
 
+        modelBuilder.Entity<Opme>(entity =>
+        {
+            entity.ToTable("OPME");
+
+            entity.HasKey(e => e.IdFornecedor);
+
+            entity.Property(e => e.IdFornecedor)
+                .ValueGeneratedOnAdd();
+
+            entity.Property(e => e.Fornecedor)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.HasIndex(e => e.Fornecedor)
+                .IsUnique();
+
+            entity.HasData(
+                new Opme { IdFornecedor = 1, Fornecedor = "Promedom" },
+                new Opme { IdFornecedor = 2, Fornecedor = "AVL" },
+                new Opme { IdFornecedor = 3, Fornecedor = "GE" },
+                new Opme { IdFornecedor = 4, Fornecedor = "Spyner" });
+        });
+
         modelBuilder.Entity<Paciente>(entity =>
         {
             entity.ToTable("Pacientes");
@@ -348,6 +373,11 @@ public class AppDbContext : DbContext, IAppDbContext
                 .HasMaxLength(255);
 
             entity.HasIndex(e => e.ConvenioId);
+
+            entity.Property(e => e.OpmeFornecedor)
+                .HasMaxLength(255);
+
+            entity.HasIndex(e => e.OpmeFornecedorId);
 
             entity.Property(e => e.CbhpmCodigo)
                 .HasMaxLength(20);
@@ -406,6 +436,11 @@ public class AppDbContext : DbContext, IAppDbContext
             entity.HasOne(e => e.ConvenioReferencia)
                 .WithMany(e => e.Pacientes)
                 .HasForeignKey(e => e.ConvenioId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.OpmeFornecedorReferencia)
+                .WithMany(e => e.Pacientes)
+                .HasForeignKey(e => e.OpmeFornecedorId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasMany(e => e.Procedimentos)

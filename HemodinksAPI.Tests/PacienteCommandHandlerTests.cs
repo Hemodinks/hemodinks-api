@@ -91,6 +91,7 @@ public class PacienteCommandHandlerTests
             MedicoAuxiliar2 = auxiliar2.Nome,
             ConvenioId = 7,
             Convenio = "Particular",
+            OpmeFornecedor = "Fornecedor Manual OPME",
             Procedimentos =
             [
                 new PacienteProcedimentoCommandDto { CbhpmCodigo = "10101012" },
@@ -122,6 +123,7 @@ public class PacienteCommandHandlerTests
         Assert.Equal(auxiliar2.Nome, storedPaciente.MedicoAuxiliar2);
         Assert.Equal(7, storedPaciente.ConvenioId);
         Assert.Equal("Particular", storedPaciente.Convenio);
+        Assert.Equal("Fornecedor Manual OPME", storedPaciente.OpmeFornecedor);
         Assert.Equal("10101012", storedPaciente.CbhpmCodigo);
         Assert.Equal("Em consultorio", storedPaciente.Procedimento);
         Assert.Equal("2B", storedPaciente.CbhpmPorte);
@@ -131,6 +133,8 @@ public class PacienteCommandHandlerTests
         Assert.Equal(storedUser.Id, response.UserId);
         Assert.Equal(7, response.ConvenioId);
         Assert.Equal("Particular", response.Convenio);
+        Assert.Equal("Fornecedor Manual OPME", response.OpmeFornecedor);
+        Assert.Contains(await context.OPME.ToListAsync(), item => item.Fornecedor == "Fornecedor Manual OPME");
         Assert.Equal(auxiliar1.Id, response.MedicoAuxiliar1UserId);
         Assert.Equal(auxiliar1.Nome, response.MedicoAuxiliar1);
         Assert.Equal(auxiliar2.Id, response.MedicoAuxiliar2UserId);
@@ -582,6 +586,8 @@ public class PacienteCommandHandlerTests
             HospitalId = 2,
             MedicoUserId = doctor.Id,
             Medico = doctorName,
+            OpmeFornecedorId = 3,
+            OpmeFornecedor = "GE",
             CurrentUserId = 99,
             CurrentPerfilId = Perfil.AdministradorId,
             CurrentUserName = "Admin"
@@ -592,6 +598,8 @@ public class PacienteCommandHandlerTests
         Assert.Equal(2, response.HospitalId);
         Assert.Equal("Santa Genoveva - Mater Dei", response.Hospital);
         Assert.Equal(doctorName, response.Medico);
+        Assert.Equal(3, response.OpmeFornecedorId);
+        Assert.Equal("GE", response.OpmeFornecedor);
         var storedUser = await context.Users.SingleAsync(storedUser => storedUser.Id == user.Id);
         Assert.NotNull(storedUser.DataAtualizacao);
         Assert.Equal(storedUser.DataAtualizacao, response.DataAtualizacao);
