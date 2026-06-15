@@ -15,6 +15,10 @@ public class PacienteDto
     public string? Hospital { get; set; }
     public int? MedicoUserId { get; set; }
     public string? Medico { get; set; }
+    public int? MedicoAuxiliar1UserId { get; set; }
+    public string? MedicoAuxiliar1 { get; set; }
+    public int? MedicoAuxiliar2UserId { get; set; }
+    public string? MedicoAuxiliar2 { get; set; }
     public int? ConvenioId { get; set; }
     public string? Convenio { get; set; }
     public string? CbhpmCodigo { get; set; }

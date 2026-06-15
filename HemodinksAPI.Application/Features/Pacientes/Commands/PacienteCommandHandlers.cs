@@ -43,7 +43,8 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
 
             PacienteRules.ValidateNome(request.NomePaciente);
             var cpf = await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, null, cancellationToken);
-            await PacienteRules.ValidateEmailAsync(_context, request.Email, null, cancellationToken);
+            var email = await PacienteRules.ResolveEmailAsync(_context, request.Email, cpf, null, cancellationToken);
+            var telefone = PacienteRules.ResolveTelefone(request.Telefone);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, null, cancellationToken);
             var medico = await PacienteRules.ResolveMedicoAsync(
                 _context,
@@ -53,6 +54,17 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 request.MedicoUserId,
                 request.Medico,
                 cancellationToken);
+            var medicoAuxiliar1 = await PacienteRules.ResolveOptionalMedicoAsync(
+                _context,
+                request.MedicoAuxiliar1UserId,
+                request.MedicoAuxiliar1,
+                cancellationToken);
+            var medicoAuxiliar2 = await PacienteRules.ResolveOptionalMedicoAsync(
+                _context,
+                request.MedicoAuxiliar2UserId,
+                request.MedicoAuxiliar2,
+                cancellationToken);
+            PacienteRules.ValidateDistinctMedicos(medico, medicoAuxiliar1, medicoAuxiliar2);
             var hospital = await PacienteRules.ResolveHospitalAsync(
                 _context,
                 request.HospitalId,
@@ -75,8 +87,8 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             var user = new User
             {
                 Nome = request.NomePaciente.Trim(),
-                Email = request.Email.Trim(),
-                Telefone = request.Telefone,
+                Email = email,
+                Telefone = telefone,
                 Cpf = cpf,
                 FotoPerfil = fotoPerfil,
                 Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
@@ -100,6 +112,10 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 Hospital = hospital.Nome,
                 MedicoUserId = medico.UserId,
                 Medico = medico.Nome,
+                MedicoAuxiliar1UserId = medicoAuxiliar1.UserId,
+                MedicoAuxiliar1 = medicoAuxiliar1.Nome,
+                MedicoAuxiliar2UserId = medicoAuxiliar2.UserId,
+                MedicoAuxiliar2 = medicoAuxiliar2.Nome,
                 ConvenioId = convenio?.Id,
                 Convenio = convenio?.Descricao,
                 CbhpmCodigo = procedimentoPrincipal?.Codigo,
@@ -166,8 +182,15 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 throw new UnauthorizedAccessException("Sem permissao para atualizar paciente");
             }
 
-            var cpf = await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, paciente.UserId, cancellationToken);
-            await PacienteRules.ValidateEmailAsync(_context, request.Email, paciente.UserId, cancellationToken);
+            var cpf = string.IsNullOrWhiteSpace(request.Cpf)
+                ? paciente.User.Cpf
+                : await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, paciente.UserId, cancellationToken);
+            var email = string.IsNullOrWhiteSpace(request.Email)
+                ? paciente.User.Email
+                : await PacienteRules.ResolveEmailAsync(_context, request.Email, cpf, paciente.UserId, cancellationToken);
+            var telefone = string.IsNullOrWhiteSpace(request.Telefone)
+                ? paciente.User.Telefone
+                : PacienteRules.ResolveTelefone(request.Telefone);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, paciente.User.FotoPerfil, cancellationToken);
             var medico = await PacienteRules.ResolveMedicoAsync(
                 _context,
@@ -177,6 +200,17 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 request.MedicoUserId,
                 request.Medico,
                 cancellationToken);
+            var medicoAuxiliar1 = await PacienteRules.ResolveOptionalMedicoAsync(
+                _context,
+                request.MedicoAuxiliar1UserId,
+                request.MedicoAuxiliar1,
+                cancellationToken);
+            var medicoAuxiliar2 = await PacienteRules.ResolveOptionalMedicoAsync(
+                _context,
+                request.MedicoAuxiliar2UserId,
+                request.MedicoAuxiliar2,
+                cancellationToken);
+            PacienteRules.ValidateDistinctMedicos(medico, medicoAuxiliar1, medicoAuxiliar2);
             var hospital = await PacienteRules.ResolveHospitalAsync(
                 _context,
                 request.HospitalId,
@@ -197,8 +231,8 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             var procedimentoPrincipal = procedimentos.FirstOrDefault();
 
             paciente.User.Nome = request.NomePaciente.Trim();
-            paciente.User.Email = request.Email.Trim();
-            paciente.User.Telefone = request.Telefone;
+            paciente.User.Email = email;
+            paciente.User.Telefone = telefone;
             paciente.User.Cpf = cpf;
             paciente.User.FotoPerfil = fotoPerfil;
             paciente.User.DataNascimento = request.DataNascimento;
@@ -212,6 +246,10 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             paciente.Hospital = hospital.Nome;
             paciente.MedicoUserId = medico.UserId;
             paciente.Medico = medico.Nome;
+            paciente.MedicoAuxiliar1UserId = medicoAuxiliar1.UserId;
+            paciente.MedicoAuxiliar1 = medicoAuxiliar1.Nome;
+            paciente.MedicoAuxiliar2UserId = medicoAuxiliar2.UserId;
+            paciente.MedicoAuxiliar2 = medicoAuxiliar2.Nome;
             paciente.ConvenioId = convenio?.Id;
             paciente.Convenio = convenio?.Descricao;
             paciente.CbhpmCodigo = procedimentoPrincipal?.Codigo;
@@ -429,12 +467,17 @@ internal static class PacienteRules
         }
     }
 
-    public static async Task<string> NormalizeAndValidateCpfAsync(
+    public static async Task<string?> NormalizeAndValidateCpfAsync(
         IAppDbContext context,
         string? cpf,
         int? currentUserId,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(cpf))
+        {
+            return null;
+        }
+
         if (!CpfUtils.IsValid(cpf))
         {
             throw new InvalidOperationException("CPF invalido");
@@ -450,6 +493,40 @@ internal static class PacienteRules
         }
 
         return normalizedCpf;
+    }
+
+    public static async Task<string> ResolveEmailAsync(
+        IAppDbContext context,
+        string? email,
+        string? cpf,
+        int? currentUserId,
+        CancellationToken cancellationToken)
+    {
+        var resolvedEmail = string.IsNullOrWhiteSpace(email)
+            ? GenerateTechnicalEmail(cpf)
+            : email.Trim();
+
+        var emailAlreadyExists = await context.Users
+            .AnyAsync(u => u.Email == resolvedEmail && (!currentUserId.HasValue || u.Id != currentUserId.Value), cancellationToken);
+
+        if (emailAlreadyExists)
+        {
+            throw new InvalidOperationException("Email ja cadastrado");
+        }
+
+        return resolvedEmail;
+    }
+
+    public static string ResolveTelefone(string? telefone)
+    {
+        return TrimOptional(telefone) ?? string.Empty;
+    }
+
+    private static string GenerateTechnicalEmail(string? cpf)
+    {
+        return !string.IsNullOrWhiteSpace(cpf)
+            ? $"paciente-{cpf}@hemodinks.local"
+            : $"paciente-{Guid.NewGuid():N}@hemodinks.local";
     }
 
     public static async Task ValidateEmailAsync(
@@ -595,6 +672,46 @@ internal static class PacienteRules
         }
 
         return new ResolvedMedico(medicoPorNome.Id, medicoPorNome.Nome);
+    }
+
+    public static Task<ResolvedMedico> ResolveOptionalMedicoAsync(
+        IAppDbContext context,
+        int? medicoUserId,
+        string? medicoNome,
+        CancellationToken cancellationToken)
+    {
+        return ResolveMedicoAsync(
+            context,
+            Perfil.AdministradorId,
+            0,
+            string.Empty,
+            medicoUserId,
+            medicoNome,
+            cancellationToken);
+    }
+
+    public static void ValidateDistinctMedicos(params ResolvedMedico[] medicos)
+    {
+        var selectedIds = new HashSet<int>();
+        var selectedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var medico in medicos)
+        {
+            if (medico.UserId.HasValue)
+            {
+                if (!selectedIds.Add(medico.UserId.Value))
+                {
+                    throw new InvalidOperationException("Cirurgiao e medicos auxiliares devem ser diferentes");
+                }
+
+                continue;
+            }
+
+            if (medico.Nome != null && !selectedNames.Add(medico.Nome))
+            {
+                throw new InvalidOperationException("Cirurgiao e medicos auxiliares devem ser diferentes");
+            }
+        }
     }
 
     public static async Task<List<ResolvedProcedimento>> ResolveProcedimentosAsync(

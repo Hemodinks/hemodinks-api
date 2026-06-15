@@ -331,6 +331,16 @@ public class AppDbContext : DbContext, IAppDbContext
 
             entity.HasIndex(e => e.MedicoUserId);
 
+            entity.Property(e => e.MedicoAuxiliar1)
+                .HasMaxLength(255);
+
+            entity.HasIndex(e => e.MedicoAuxiliar1UserId);
+
+            entity.Property(e => e.MedicoAuxiliar2)
+                .HasMaxLength(255);
+
+            entity.HasIndex(e => e.MedicoAuxiliar2UserId);
+
             entity.Property(e => e.Convenio)
                 .HasMaxLength(255);
 
@@ -378,6 +388,16 @@ public class AppDbContext : DbContext, IAppDbContext
             entity.HasOne(e => e.MedicoUser)
                 .WithMany()
                 .HasForeignKey(e => e.MedicoUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.MedicoAuxiliar1User)
+                .WithMany()
+                .HasForeignKey(e => e.MedicoAuxiliar1UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.MedicoAuxiliar2User)
+                .WithMany()
+                .HasForeignKey(e => e.MedicoAuxiliar2UserId)
                 .OnDelete(DeleteBehavior.Restrict);
 
             entity.HasOne(e => e.ConvenioReferencia)

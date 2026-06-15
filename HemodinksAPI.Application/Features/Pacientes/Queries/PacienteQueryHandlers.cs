@@ -46,6 +46,10 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     || (p.Hospital != null && p.Hospital.Contains(search))
                     || (p.MedicoUser != null && p.MedicoUser.Nome.Contains(search))
                     || (p.Medico != null && p.Medico.Contains(search))
+                    || (p.MedicoAuxiliar1User != null && p.MedicoAuxiliar1User.Nome.Contains(search))
+                    || (p.MedicoAuxiliar1 != null && p.MedicoAuxiliar1.Contains(search))
+                    || (p.MedicoAuxiliar2User != null && p.MedicoAuxiliar2User.Nome.Contains(search))
+                    || (p.MedicoAuxiliar2 != null && p.MedicoAuxiliar2.Contains(search))
                     || (p.ConvenioReferencia != null && p.ConvenioReferencia.DescricaoConvenio.Contains(search))
                     || (p.Convenio != null && p.Convenio.Contains(search))
                     || (p.Procedimento != null && p.Procedimento.Contains(search))
@@ -105,6 +109,10 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     Hospital = p.HospitalReferencia != null ? p.HospitalReferencia.Nome : p.Hospital,
                     MedicoUserId = p.MedicoUserId,
                     Medico = p.MedicoUser != null ? p.MedicoUser.Nome : p.Medico,
+                    MedicoAuxiliar1UserId = p.MedicoAuxiliar1UserId,
+                    MedicoAuxiliar1 = p.MedicoAuxiliar1User != null ? p.MedicoAuxiliar1User.Nome : p.MedicoAuxiliar1,
+                    MedicoAuxiliar2UserId = p.MedicoAuxiliar2UserId,
+                    MedicoAuxiliar2 = p.MedicoAuxiliar2User != null ? p.MedicoAuxiliar2User.Nome : p.MedicoAuxiliar2,
                     ConvenioId = p.ConvenioId,
                     Convenio = p.ConvenioReferencia != null ? p.ConvenioReferencia.DescricaoConvenio : p.Convenio,
                     CbhpmCodigo = p.CbhpmCodigo,
@@ -183,6 +191,8 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
                 .AsNoTracking()
                 .Include(p => p.User)
                 .Include(p => p.MedicoUser)
+                .Include(p => p.MedicoAuxiliar1User)
+                .Include(p => p.MedicoAuxiliar2User)
                 .Include(p => p.HospitalReferencia)
                 .Include(p => p.ConvenioReferencia)
                 .Include(p => p.Procedimentos)
@@ -218,7 +228,10 @@ internal static class PacienteAccess
 
         if (perfilId == Perfil.MedicosId)
         {
-            return query.Where(p => p.MedicoUserId == userId);
+            return query.Where(p =>
+                p.MedicoUserId == userId
+                || p.MedicoAuxiliar1UserId == userId
+                || p.MedicoAuxiliar2UserId == userId);
         }
 
         if (perfilId == Perfil.PacientesId)
@@ -247,6 +260,10 @@ internal static class PacienteMapper
             Hospital = paciente.HospitalReferencia?.Nome ?? paciente.Hospital,
             MedicoUserId = paciente.MedicoUserId,
             Medico = paciente.MedicoUser?.Nome ?? paciente.Medico,
+            MedicoAuxiliar1UserId = paciente.MedicoAuxiliar1UserId,
+            MedicoAuxiliar1 = paciente.MedicoAuxiliar1User?.Nome ?? paciente.MedicoAuxiliar1,
+            MedicoAuxiliar2UserId = paciente.MedicoAuxiliar2UserId,
+            MedicoAuxiliar2 = paciente.MedicoAuxiliar2User?.Nome ?? paciente.MedicoAuxiliar2,
             ConvenioId = paciente.ConvenioId,
             Convenio = paciente.ConvenioReferencia?.DescricaoConvenio ?? paciente.Convenio,
             CbhpmCodigo = paciente.CbhpmCodigo,

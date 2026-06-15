@@ -214,7 +214,12 @@ public class GetUserProfilePhotoQueryHandler : IRequestHandler<GetUserProfilePho
                         .AsNoTracking()
                         .AnyAsync(paciente =>
                             paciente.UserId == request.Id
-                            && (paciente.MedicoUserId == request.CurrentUser.Id || paciente.Medico == request.CurrentUser.Nome),
+                            && (paciente.MedicoUserId == request.CurrentUser.Id
+                                || paciente.MedicoAuxiliar1UserId == request.CurrentUser.Id
+                                || paciente.MedicoAuxiliar2UserId == request.CurrentUser.Id
+                                || paciente.Medico == request.CurrentUser.Nome
+                                || paciente.MedicoAuxiliar1 == request.CurrentUser.Nome
+                                || paciente.MedicoAuxiliar2 == request.CurrentUser.Nome),
                             cancellationToken);
 
                 if (!canAccessPatientPhoto)

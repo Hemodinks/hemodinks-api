@@ -27,29 +27,19 @@ internal static class PacienteCommandValidator
 {
     public static void Validate(CreatePacienteCommand request)
     {
-        ValidateProfile(request.NomePaciente, request.Email, request.Cpf);
+        ValidateProfile(request.NomePaciente);
     }
 
     public static void Validate(UpdatePacienteCommand request)
     {
-        ValidateProfile(request.NomePaciente, request.Email, request.Cpf);
+        ValidateProfile(request.NomePaciente);
     }
 
-    private static void ValidateProfile(string? nomePaciente, string? email, string? cpf)
+    private static void ValidateProfile(string? nomePaciente)
     {
         if (string.IsNullOrWhiteSpace(nomePaciente))
         {
             throw new InvalidOperationException("Nome do paciente obrigatorio");
-        }
-
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            throw new InvalidOperationException("Email obrigatorio");
-        }
-
-        if (string.IsNullOrWhiteSpace(cpf))
-        {
-            throw new InvalidOperationException("CPF obrigatorio");
         }
     }
 }

@@ -28,6 +28,26 @@ public class PacienteCommandHandlerTests
             DataNascimento = new DateTime(1985, 1, 1),
             PerfilId = Perfil.MedicosId
         };
+        var auxiliar1 = new User
+        {
+            Nome = "Dr. Bruno",
+            Email = "dr.bruno@hemodinks.com",
+            Telefone = "+5581999887767",
+            Cpf = "76109277673",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1986, 1, 1),
+            PerfilId = Perfil.MedicosId
+        };
+        var auxiliar2 = new User
+        {
+            Nome = "Dra. Clara",
+            Email = "dra.clara@hemodinks.com",
+            Telefone = "+5581999887768",
+            Cpf = "76009277672",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1987, 1, 1),
+            PerfilId = Perfil.MedicosId
+        };
         context.CbhpmGeral.Add(new CbhpmGeral
         {
             Codigo = "1.01.01.01-2",
@@ -42,7 +62,7 @@ public class PacienteCommandHandlerTests
             Porte = "2A",
             ValorReferencia = 180m
         });
-        context.Users.Add(doctor);
+        context.Users.AddRange(doctor, auxiliar1, auxiliar2);
         await context.SaveChangesAsync();
 
         var hasher = new PasswordHasher();
@@ -64,6 +84,10 @@ public class PacienteCommandHandlerTests
             HospitalId = 1,
             MedicoUserId = doctor.Id,
             Medico = doctor.Nome,
+            MedicoAuxiliar1UserId = auxiliar1.Id,
+            MedicoAuxiliar1 = auxiliar1.Nome,
+            MedicoAuxiliar2UserId = auxiliar2.Id,
+            MedicoAuxiliar2 = auxiliar2.Nome,
             ConvenioId = 7,
             Convenio = "Particular",
             Procedimentos =
@@ -90,6 +114,10 @@ public class PacienteCommandHandlerTests
         Assert.Equal("Santa Clara - Mater Dei", storedPaciente.Hospital);
         Assert.Equal(doctor.Id, storedPaciente.MedicoUserId);
         Assert.Equal(doctor.Nome, storedPaciente.Medico);
+        Assert.Equal(auxiliar1.Id, storedPaciente.MedicoAuxiliar1UserId);
+        Assert.Equal(auxiliar1.Nome, storedPaciente.MedicoAuxiliar1);
+        Assert.Equal(auxiliar2.Id, storedPaciente.MedicoAuxiliar2UserId);
+        Assert.Equal(auxiliar2.Nome, storedPaciente.MedicoAuxiliar2);
         Assert.Equal(7, storedPaciente.ConvenioId);
         Assert.Equal("Particular", storedPaciente.Convenio);
         Assert.Equal("10101012", storedPaciente.CbhpmCodigo);
@@ -100,6 +128,10 @@ public class PacienteCommandHandlerTests
         Assert.Equal(storedUser.Id, response.UserId);
         Assert.Equal(7, response.ConvenioId);
         Assert.Equal("Particular", response.Convenio);
+        Assert.Equal(auxiliar1.Id, response.MedicoAuxiliar1UserId);
+        Assert.Equal(auxiliar1.Nome, response.MedicoAuxiliar1);
+        Assert.Equal(auxiliar2.Id, response.MedicoAuxiliar2UserId);
+        Assert.Equal(auxiliar2.Nome, response.MedicoAuxiliar2);
         Assert.Equal(["Em consultorio", "Visita hospitalar a paciente internado"], response.Procedimentos.Select(item => item.Procedimento));
 
         var storedProcedimentos = await context.PacienteProcedimentos
@@ -111,6 +143,108 @@ public class PacienteCommandHandlerTests
         Assert.Equal(120m, storedProcedimentos[0].ValorReferencia);
         Assert.Equal("10102019", storedProcedimentos[1].CbhpmCodigo);
         Assert.Equal(180m, storedProcedimentos[1].ValorReferencia);
+    }
+
+    [Fact]
+    public async Task CreatePaciente_WithoutCpfTelefone_GeneratesTechnicalProfileData()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var doctor = new User
+        {
+            Nome = "Dra. Ana",
+            Email = "dra.ana.sem.contato@hemodinks.com",
+            Telefone = "+5581999887766",
+            Cpf = "39053344705",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1985, 1, 1),
+            PerfilId = Perfil.MedicosId
+        };
+        context.Users.Add(doctor);
+        context.CbhpmGeral.Add(new CbhpmGeral
+        {
+            Codigo = "1.01.01.01-2",
+            Procedimento = "Em consultorio",
+            Porte = "2B",
+            ValorReferencia = 120m
+        });
+        await context.SaveChangesAsync();
+
+        var handler = new CreatePacienteCommandHandler(
+            context,
+            CreateCbhpmCache(context),
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            NullLogger<CreatePacienteCommandHandler>.Instance);
+
+        var response = await handler.Handle(new CreatePacienteCommand
+        {
+            NomePaciente = "Paciente Sem Contato",
+            DataNascimento = new DateTime(1990, 1, 1),
+            HospitalId = 1,
+            MedicoUserId = doctor.Id,
+            Medico = doctor.Nome,
+            Procedimentos =
+            [
+                new PacienteProcedimentoCommandDto { CbhpmCodigo = "10101012" }
+            ],
+            CurrentPerfilId = Perfil.AdministradorId
+        }, CancellationToken.None);
+
+        var storedUser = await context.Users.SingleAsync(user => user.PerfilId == Perfil.PacientesId);
+
+        Assert.Null(storedUser.Cpf);
+        Assert.Empty(storedUser.Telefone);
+        Assert.StartsWith("paciente-", storedUser.Email);
+        Assert.EndsWith("@hemodinks.local", storedUser.Email);
+        Assert.Equal(storedUser.Id, response.UserId);
+    }
+
+    [Fact]
+    public async Task CreatePaciente_WhenMedicalTeamHasDuplicates_ThrowsInvalidOperationException()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var doctor = new User
+        {
+            Nome = "Dra. Ana",
+            Email = "dra.ana.duplicada@hemodinks.com",
+            Telefone = "+5581999887766",
+            Cpf = "39053344705",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1985, 1, 1),
+            PerfilId = Perfil.MedicosId
+        };
+        context.Users.Add(doctor);
+        await context.SaveChangesAsync();
+
+        var handler = new CreatePacienteCommandHandler(
+            context,
+            CreateCbhpmCache(context),
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            NullLogger<CreatePacienteCommandHandler>.Instance);
+
+        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreatePacienteCommand
+        {
+            NomePaciente = "Paciente Duplicado",
+            DataNascimento = new DateTime(1990, 1, 1),
+            HospitalId = 1,
+            MedicoUserId = doctor.Id,
+            Medico = doctor.Nome,
+            MedicoAuxiliar1UserId = doctor.Id,
+            MedicoAuxiliar1 = doctor.Nome,
+            Procedimentos =
+            [
+                new PacienteProcedimentoCommandDto
+                {
+                    Procedimento = "Procedimento manual Hemodinks",
+                    CbhpmPorte = "1A"
+                }
+            ],
+            CurrentPerfilId = Perfil.AdministradorId
+        }, CancellationToken.None));
+
+        Assert.Equal("Cirurgiao e medicos auxiliares devem ser diferentes", exception.Message);
+        Assert.Empty(await context.Pacientes.ToListAsync());
     }
 
     [Fact]
