@@ -10,6 +10,8 @@ public sealed record CurrentUserContext(int Id, int PerfilId, string Nome)
     public bool IsMedico => PerfilId == Perfil.MedicosId;
 
     public bool IsPaciente => PerfilId == Perfil.PacientesId;
+
+    public bool IsController => PerfilId == Perfil.ControllerId;
 }
 
 public static class CurrentUserContextExtensions

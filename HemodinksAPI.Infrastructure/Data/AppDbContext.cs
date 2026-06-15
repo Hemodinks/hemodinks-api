@@ -65,7 +65,8 @@ public class AppDbContext : DbContext, IAppDbContext
             entity.HasData(
                 new Perfil { Id = Perfil.AdministradorId, Nome = "Administrador" },
                 new Perfil { Id = Perfil.MedicosId, Nome = "Médicos" },
-                new Perfil { Id = Perfil.PacientesId, Nome = "Pacientes" });
+                new Perfil { Id = Perfil.PacientesId, Nome = "Pacientes" },
+                new Perfil { Id = Perfil.ControllerId, Nome = "Controller" });
         });
 
         modelBuilder.Entity<User>(entity =>

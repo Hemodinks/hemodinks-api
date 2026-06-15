@@ -68,6 +68,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
             }
 
             var perfilId = UserProfileRules.NormalizePerfilId(request.PerfilId);
+            UserProfileRules.EnsureAssignablePerfilId(perfilId);
             var perfil = await _context.Perfis
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == perfilId, cancellationToken);
@@ -286,6 +287,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             }
 
             var perfilId = UserProfileRules.NormalizePerfilId(effectivePerfilId);
+            UserProfileRules.EnsureAssignablePerfilId(perfilId);
             var perfil = await _context.Perfis
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == perfilId, cancellationToken);
@@ -853,6 +855,14 @@ internal static class UserProfileRules
     public static int NormalizePerfilId(int perfilId)
     {
         return perfilId == 0 ? Perfil.MedicosId : perfilId;
+    }
+
+    public static void EnsureAssignablePerfilId(int perfilId)
+    {
+        if (perfilId == Perfil.PacientesId)
+        {
+            throw new InvalidOperationException("Perfil Pacientes desativado para cadastro de usuarios");
+        }
     }
 
     public static string GetPerfilNome(User user)
