@@ -665,7 +665,7 @@ internal static class PacienteRules
         PacienteProcedimentoCommandDto item,
         CancellationToken cancellationToken)
     {
-        var codigo = TrimOptional(item.CbhpmCodigo);
+        var codigo = CbhpmCodigoUtils.NormalizeOptional(item.CbhpmCodigo);
         var procedimento = TrimOptional(item.Procedimento);
         var porte = TrimOptional(item.CbhpmPorte);
 
@@ -690,7 +690,7 @@ internal static class PacienteRules
 
         if (cbhpm != null)
         {
-            return new ResolvedProcedimento(cbhpm.Codigo, cbhpm.Procedimento, cbhpm.Porte, cbhpm.ValorReferencia);
+            return new ResolvedProcedimento(CbhpmCodigoUtils.Normalize(cbhpm.Codigo), cbhpm.Procedimento, cbhpm.Porte, cbhpm.ValorReferencia);
         }
 
         if (procedimento == null)

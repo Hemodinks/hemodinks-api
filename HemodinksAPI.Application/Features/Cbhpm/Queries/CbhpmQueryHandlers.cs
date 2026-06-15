@@ -28,7 +28,7 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
             var codigo = CbhpmQueryRules.TrimOptional(request.Codigo);
             if (codigo != null)
             {
-                query = query.Where(item => item.Codigo.Contains(codigo, StringComparison.OrdinalIgnoreCase));
+                query = query.Where(item => CbhpmCodigoUtils.ContainsNormalizedOrOriginal(item.Codigo, codigo));
             }
 
             var procedimento = CbhpmQueryRules.TrimOptional(request.Procedimento);
@@ -49,7 +49,7 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
             if (search != null)
             {
                 query = query.Where(item =>
-                    item.Codigo.Contains(search, StringComparison.OrdinalIgnoreCase)
+                    CbhpmCodigoUtils.ContainsNormalizedOrOriginal(item.Codigo, search)
                     || item.Procedimento.Contains(search, StringComparison.OrdinalIgnoreCase)
                     || (item.Porte != null && item.Porte.Contains(search, StringComparison.OrdinalIgnoreCase))
                     || (item.Grupo != null && item.Grupo.Contains(search, StringComparison.OrdinalIgnoreCase)));
@@ -64,7 +64,7 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
                 .Select(item => new CbhpmGeralDto
                 {
                     Id = item.Id,
-                    Codigo = item.Codigo,
+                    Codigo = CbhpmCodigoUtils.Normalize(item.Codigo),
                     Procedimento = item.Procedimento,
                     Porte = item.Porte,
                     CustoOperacional = item.CustoOperacional,

@@ -133,7 +133,7 @@ public class CbhpmQueryHandlerTests
         Assert.Equal(1, result.TotalItems);
         Assert.Equal(1, result.TotalPages);
         Assert.Single(result.Items);
-        Assert.Equal("2.01.01.20-1", result.Items[0].Codigo);
+        Assert.Equal("20101201", result.Items[0].Codigo);
         Assert.Equal(6.000m, result.Items[0].CustoOperacional);
         Assert.Equal(125.50m, result.Items[0].ValorReferencia);
     }
@@ -157,13 +157,13 @@ public class CbhpmQueryHandlerTests
 
         var result = await handler.Handle(new GetCbhpmGeralQuery
         {
-            Codigo = "1.01",
+            Codigo = "10101012",
             Procedimento = "Consulta",
             Porte = "2B"
         }, CancellationToken.None);
 
         Assert.Single(result.Items);
-        Assert.Equal("1.01.01.01-2", result.Items[0].Codigo);
+        Assert.Equal("10101012", result.Items[0].Codigo);
     }
 
     private static ICbhpmCache CreateCbhpmCache(AppDbContext context)

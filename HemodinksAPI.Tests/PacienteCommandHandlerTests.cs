@@ -68,7 +68,7 @@ public class PacienteCommandHandlerTests
             Convenio = "Particular",
             Procedimentos =
             [
-                new PacienteProcedimentoCommandDto { CbhpmCodigo = "1.01.01.01-2" },
+                new PacienteProcedimentoCommandDto { CbhpmCodigo = "10101012" },
                 new PacienteProcedimentoCommandDto { CbhpmCodigo = "1.01.02.01-9" }
             ],
             Autorizacao = "AUT-123",
@@ -92,7 +92,7 @@ public class PacienteCommandHandlerTests
         Assert.Equal(doctor.Nome, storedPaciente.Medico);
         Assert.Equal(7, storedPaciente.ConvenioId);
         Assert.Equal("Particular", storedPaciente.Convenio);
-        Assert.Equal("1.01.01.01-2", storedPaciente.CbhpmCodigo);
+        Assert.Equal("10101012", storedPaciente.CbhpmCodigo);
         Assert.Equal("Em consultorio", storedPaciente.Procedimento);
         Assert.Equal("2B", storedPaciente.CbhpmPorte);
         Assert.True(storedPaciente.StatusPago);
@@ -107,9 +107,9 @@ public class PacienteCommandHandlerTests
             .ToListAsync();
         Assert.Equal(2, storedProcedimentos.Count);
         Assert.Equal(storedPaciente.Id, storedProcedimentos[0].PacienteId);
-        Assert.Equal("1.01.01.01-2", storedProcedimentos[0].CbhpmCodigo);
+        Assert.Equal("10101012", storedProcedimentos[0].CbhpmCodigo);
         Assert.Equal(120m, storedProcedimentos[0].ValorReferencia);
-        Assert.Equal("1.01.02.01-9", storedProcedimentos[1].CbhpmCodigo);
+        Assert.Equal("10102019", storedProcedimentos[1].CbhpmCodigo);
         Assert.Equal(180m, storedProcedimentos[1].ValorReferencia);
     }
 
@@ -166,12 +166,12 @@ public class PacienteCommandHandlerTests
             .SingleAsync();
         var storedProcedimento = Assert.Single(storedPaciente.Procedimentos);
 
-        Assert.Equal("9.99.99.99-9", storedPaciente.CbhpmCodigo);
+        Assert.Equal("99999999", storedPaciente.CbhpmCodigo);
         Assert.Equal("Procedimento manual Hemodinks", storedPaciente.Procedimento);
         Assert.Equal("1A", storedPaciente.CbhpmPorte);
-        Assert.Equal("9.99.99.99-9", response.CbhpmCodigo);
+        Assert.Equal("99999999", response.CbhpmCodigo);
         Assert.Equal("Procedimento manual Hemodinks", response.Procedimento);
-        Assert.Equal("9.99.99.99-9", storedProcedimento.CbhpmCodigo);
+        Assert.Equal("99999999", storedProcedimento.CbhpmCodigo);
         Assert.Equal("Procedimento manual Hemodinks", storedProcedimento.Procedimento);
         Assert.Equal("1A", storedProcedimento.CbhpmPorte);
         Assert.Equal(250m, storedProcedimento.ValorReferencia);

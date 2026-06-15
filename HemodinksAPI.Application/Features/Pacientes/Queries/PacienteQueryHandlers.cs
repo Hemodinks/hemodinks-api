@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.Common;
 using HemodinksAPI.Domain.Models;
 using MediatR;
@@ -48,9 +49,16 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     || (p.ConvenioReferencia != null && p.ConvenioReferencia.DescricaoConvenio.Contains(search))
                     || (p.Convenio != null && p.Convenio.Contains(search))
                     || (p.Procedimento != null && p.Procedimento.Contains(search))
+                    || (p.CbhpmCodigo != null && p.CbhpmCodigo.Contains(search))
+                    || (!string.IsNullOrEmpty(digits)
+                        && p.CbhpmCodigo != null
+                        && p.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
                     || p.Procedimentos.Any(item =>
                         item.Procedimento.Contains(search)
                         || (item.CbhpmCodigo != null && item.CbhpmCodigo.Contains(search))
+                        || (!string.IsNullOrEmpty(digits)
+                            && item.CbhpmCodigo != null
+                            && item.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
                         || (item.CbhpmPorte != null && item.CbhpmPorte.Contains(search)))
                     || (!string.IsNullOrEmpty(digits) && p.User.Cpf != null && p.User.Cpf.Contains(digits))
                     || (!string.IsNullOrEmpty(digits) && p.User.Telefone.Contains(digits)));
@@ -128,6 +136,11 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     ArquivosCount = p.Arquivos.Count
                 })
                 .ToListAsync(cancellationToken);
+
+            foreach (var paciente in pacientes)
+            {
+                PacienteMapper.NormalizeProcedureCodes(paciente);
+            }
 
             return new PagedResult<PacienteDto>
             {
@@ -222,7 +235,7 @@ internal static class PacienteMapper
 {
     public static PacienteDto ToDto(Paciente paciente)
     {
-        return new PacienteDto
+        var dto = new PacienteDto
         {
             Id = paciente.Id,
             UserId = paciente.UserId,
@@ -256,6 +269,19 @@ internal static class PacienteMapper
                 .Select(ToArquivoDto)
                 .ToList()
         };
+
+        return NormalizeProcedureCodes(dto);
+    }
+
+    public static PacienteDto NormalizeProcedureCodes(PacienteDto paciente)
+    {
+        paciente.CbhpmCodigo = CbhpmCodigoUtils.NormalizeOptional(paciente.CbhpmCodigo);
+        foreach (var procedimento in paciente.Procedimentos)
+        {
+            procedimento.CbhpmCodigo = CbhpmCodigoUtils.NormalizeOptional(procedimento.CbhpmCodigo);
+        }
+
+        return paciente;
     }
 
     private static List<PacienteProcedimentoDto> ToProcedimentoDtos(Paciente paciente)
