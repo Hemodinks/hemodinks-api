@@ -1,7 +1,6 @@
 using System.Text;
 using HemodinksAPI.Application;
 using HemodinksAPI.Application.Authentication;
-using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.Licencas;
@@ -25,6 +24,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
 
 namespace HemodinksAPI.Api;
 
@@ -306,7 +306,9 @@ public static class ApiServiceCollectionExtensions
             options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
             // Render usa redes internas dinâmicas, então limpamos as redes conhecidas 
             // para aceitar os headers vindos do load balancer deles.
-            options.KnownNetworks.Clear();
+            
+            // options.KnownNetworks.Clear();
+            options.KnownIPNetworks.Clear();
             options.KnownProxies.Clear();
         });
 
