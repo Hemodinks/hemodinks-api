@@ -19,6 +19,9 @@ public static class ApiApplicationExtensions
             return;
         }
 
+        // Necessário para identificar HTTPS corretamente atrás do proxy do Render
+        app.UseForwardedHeaders();
+
         app.UseSwagger();
         app.UseSwaggerUI(options =>
         {
@@ -59,7 +62,7 @@ public static class ApiApplicationExtensions
             }
             else
             {
-                logger.LogInformation("Migracao automatica desabilitada para este ambiente");
+            logger.LogWarning("Migracao automatica desabilitada. Se tabelas estiverem faltando, defina Database:RunMigrationsOnStartup=true");
             }
 
             logger.LogInformation("Inicializacao do banco de dados concluida");
