@@ -11,6 +11,7 @@ public class PacienteDto
     public DateTime DataCadastro { get; set; }
     public DateTime? DataAtualizacao { get; set; }
     public string NomePaciente { get; set; } = null!;
+    public string? Diagnostico { get; set; }
     public int? HospitalId { get; set; }
     public string? Hospital { get; set; }
     public int? MedicoUserId { get; set; }

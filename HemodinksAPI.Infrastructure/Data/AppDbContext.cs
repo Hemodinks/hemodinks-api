@@ -323,6 +323,9 @@ public class AppDbContext : DbContext, IAppDbContext
                 .IsRequired()
                 .HasMaxLength(255);
 
+            entity.Property(e => e.Diagnostico)
+                .HasMaxLength(1500);
+
             entity.Property(e => e.Hospital)
                 .HasMaxLength(255);
 

@@ -7,6 +7,7 @@ public class CreatePacienteCommand : IRequest<PacienteDto>
 {
     public DateTime? Data { get; set; }
     public string NomePaciente { get; set; } = null!;
+    public string? Diagnostico { get; set; }
     public string? Cpf { get; set; }
     public string? Email { get; set; }
     public string? Telefone { get; set; }
@@ -41,6 +42,7 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
     public int Id { get; set; }
     public DateTime? Data { get; set; }
     public string NomePaciente { get; set; } = null!;
+    public string? Diagnostico { get; set; }
     public string? Cpf { get; set; }
     public string? Email { get; set; }
     public string? Telefone { get; set; }

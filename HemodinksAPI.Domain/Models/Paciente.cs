@@ -7,6 +7,7 @@ public class Paciente
     public User User { get; set; } = null!;
     public DateTime? Data { get; set; }
     public string NomePaciente { get; set; } = null!;
+    public string? Diagnostico { get; set; }
     public int? HospitalId { get; set; }
     public Hospital? HospitalReferencia { get; set; }
     public string? Hospital { get; set; }

@@ -42,6 +42,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             }
 
             PacienteRules.ValidateNome(request.NomePaciente);
+            var diagnostico = PacienteRules.TrimAndValidateOptional(request.Diagnostico, 1500, "Diagnostico excede 1500 caracteres");
             var cpf = await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, null, cancellationToken);
             var email = await PacienteRules.ResolveEmailAsync(_context, request.Email, cpf, null, cancellationToken);
             var telefone = PacienteRules.ResolveTelefone(request.Telefone);
@@ -108,6 +109,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 User = user,
                 Data = request.Data,
                 NomePaciente = user.Nome,
+                Diagnostico = diagnostico,
                 HospitalId = hospital.Id,
                 Hospital = hospital.Nome,
                 MedicoUserId = medico.UserId,
@@ -242,6 +244,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
 
             paciente.Data = request.Data;
             paciente.NomePaciente = paciente.User.Nome;
+            paciente.Diagnostico = PacienteRules.TrimAndValidateOptional(request.Diagnostico, 1500, "Diagnostico excede 1500 caracteres");
             paciente.HospitalId = hospital.Id;
             paciente.Hospital = hospital.Nome;
             paciente.MedicoUserId = medico.UserId;
@@ -553,6 +556,17 @@ internal static class PacienteRules
     public static string? TrimOptional(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    public static string? TrimAndValidateOptional(string? value, int maxLength, string errorMessage)
+    {
+        var trimmed = TrimOptional(value);
+        if (trimmed?.Length > maxLength)
+        {
+            throw new InvalidOperationException(errorMessage);
+        }
+
+        return trimmed;
     }
 
     public static async Task<ResolvedHospital> ResolveHospitalAsync(

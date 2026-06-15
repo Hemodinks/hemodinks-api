@@ -40,6 +40,7 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
             {
                 query = query.Where(p =>
                     p.NomePaciente.Contains(search)
+                    || (p.Diagnostico != null && p.Diagnostico.Contains(search))
                     || p.User.Email.Contains(search)
                     || p.User.Telefone.Contains(search)
                     || (p.HospitalReferencia != null && p.HospitalReferencia.Nome.Contains(search))
@@ -105,6 +106,7 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     DataCadastro = p.User.DataCadastro,
                     DataAtualizacao = p.User.DataAtualizacao,
                     NomePaciente = p.NomePaciente,
+                    Diagnostico = p.Diagnostico,
                     HospitalId = p.HospitalId,
                     Hospital = p.HospitalReferencia != null ? p.HospitalReferencia.Nome : p.Hospital,
                     MedicoUserId = p.MedicoUserId,
@@ -256,6 +258,7 @@ internal static class PacienteMapper
             DataCadastro = paciente.User.DataCadastro,
             DataAtualizacao = paciente.User.DataAtualizacao,
             NomePaciente = paciente.NomePaciente,
+            Diagnostico = paciente.Diagnostico,
             HospitalId = paciente.HospitalId,
             Hospital = paciente.HospitalReferencia?.Nome ?? paciente.Hospital,
             MedicoUserId = paciente.MedicoUserId,
