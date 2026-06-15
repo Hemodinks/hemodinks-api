@@ -300,6 +300,16 @@ public static class ApiServiceCollectionExtensions
             });
         });
 
+        // Configura suporte para proxies (Render/Cloudflare/Nginx)
+        services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+            // Render usa redes internas dinâmicas, então limpamos as redes conhecidas 
+            // para aceitar os headers vindos do load balancer deles.
+            options.KnownNetworks.Clear();
+            options.KnownProxies.Clear();
+        });
+
         return services;
     }
 }
