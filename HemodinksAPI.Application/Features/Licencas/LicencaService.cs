@@ -126,6 +126,12 @@ public class LicencaService : ILicencaService
                 or LicencaFeatures.CbhpmConsultar;
         }
 
+        if (currentUser.IsController)
+        {
+            return feature is LicencaFeatures.PacientesVisualizar
+                or LicencaFeatures.CbhpmConsultar;
+        }
+
         if (!currentUser.IsMedico)
         {
             return false;

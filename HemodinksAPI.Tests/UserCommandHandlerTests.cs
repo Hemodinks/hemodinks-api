@@ -85,7 +85,7 @@ public class UserCommandHandlerTests
     }
 
     [Fact]
-    public async Task CreateUser_WhenPerfilIsProvided_AssignsPerfil()
+    public async Task CreateUser_WhenControllerPerfilIsProvided_AssignsPerfil()
     {
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
@@ -99,21 +99,42 @@ public class UserCommandHandlerTests
 
         var response = await handler.Handle(new CreateUserCommand
         {
+            Nome = "Controller Teste",
+            Email = "controller@email.com",
+            Telefone = "+5511777777777",
+            Cpf = "11144477735",
+            DataNascimento = new DateTime(1992, 8, 10),
+            PerfilId = Perfil.ControllerId
+        }, CancellationToken.None);
+
+        var storedUser = await context.Users.SingleAsync();
+        Assert.Empty(await context.Pacientes.ToListAsync());
+        Assert.Equal(Perfil.ControllerId, storedUser.PerfilId);
+        Assert.Equal(Perfil.ControllerId, response.PerfilId);
+        Assert.Equal("Controller", response.PerfilNome);
+    }
+
+    [Fact]
+    public async Task CreateUser_WhenPacientePerfilIsProvided_ThrowsInvalidOperationException()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new CreateUserCommandHandler(
+            context,
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
+            NullLogger<CreateUserCommandHandler>.Instance);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
+        {
             Nome = "Paciente Teste",
             Email = "paciente@email.com",
             Telefone = "+5511777777777",
             Cpf = "11144477735",
             DataNascimento = new DateTime(1992, 8, 10),
             PerfilId = Perfil.PacientesId
-        }, CancellationToken.None);
-
-        var storedUser = await context.Users.SingleAsync();
-        var storedPaciente = await context.Pacientes.SingleAsync();
-        Assert.Equal(Perfil.PacientesId, storedUser.PerfilId);
-        Assert.Equal(storedUser.Id, storedPaciente.UserId);
-        Assert.Equal("Paciente Teste", storedPaciente.NomePaciente);
-        Assert.Equal(Perfil.PacientesId, response.PerfilId);
-        Assert.Equal("Pacientes", response.PerfilNome);
+        }, CancellationToken.None));
     }
 
     [Fact]

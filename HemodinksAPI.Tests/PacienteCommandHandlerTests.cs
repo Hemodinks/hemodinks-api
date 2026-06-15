@@ -153,6 +153,59 @@ public class PacienteCommandHandlerTests
     }
 
     [Fact]
+    public async Task CreatePaciente_WhenControllerProfile_CreatesPaciente()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var doctor = new User
+        {
+            Nome = "Dra. Controller",
+            Email = "dra.controller@hemodinks.com",
+            Telefone = "+5581999887761",
+            Cpf = "39053344705",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1985, 1, 1),
+            PerfilId = Perfil.MedicosId
+        };
+        context.CbhpmGeral.Add(new CbhpmGeral
+        {
+            Codigo = "1.01.01.01-2",
+            Procedimento = "Em consultorio",
+            Porte = "2B",
+            ValorReferencia = 120m
+        });
+        context.Users.Add(doctor);
+        await context.SaveChangesAsync();
+
+        var handler = new CreatePacienteCommandHandler(
+            context,
+            CreateCbhpmCache(context),
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            NullLogger<CreatePacienteCommandHandler>.Instance);
+
+        var response = await handler.Handle(new CreatePacienteCommand
+        {
+            NomePaciente = "Paciente Controller",
+            DataNascimento = new DateTime(1990, 1, 1),
+            Data = new DateTime(2026, 6, 10),
+            HospitalId = 1,
+            MedicoUserId = doctor.Id,
+            Procedimentos =
+            [
+                new PacienteProcedimentoCommandDto { CbhpmCodigo = "10101012" }
+            ],
+            CurrentPerfilId = Perfil.ControllerId,
+            CurrentUserId = 999,
+            CurrentUserName = "Controller Teste"
+        }, CancellationToken.None);
+
+        var storedPaciente = await context.Pacientes.SingleAsync();
+        Assert.Equal("Paciente Controller", storedPaciente.NomePaciente);
+        Assert.Equal(doctor.Id, storedPaciente.MedicoUserId);
+        Assert.Equal(response.Id, storedPaciente.Id);
+    }
+
+    [Fact]
     public async Task CreatePaciente_WithoutCpfTelefone_GeneratesTechnicalProfileData()
     {
         await using var context = TestDbContextFactory.Create();

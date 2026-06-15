@@ -28,7 +28,7 @@ public static class PacienteEndpointExtensions
         group.MapPost("/", CreatePaciente)
             .WithName("CreatePaciente")
             .WithSummary("Criar paciente")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("PacienteCadastrar");
 
         group.MapPut("/{id}", UpdatePaciente)
             .WithName("UpdatePaciente")
