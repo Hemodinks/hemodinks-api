@@ -90,6 +90,33 @@ public class CbhpmQueryHandlerTests
     }
 
     [Fact]
+    public async Task ImportCbhpmGeral_CalculatesValorReferenciaFromFractionalPorte()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new ImportCbhpmGeralCommandHandler(
+            context,
+            CreateCbhpmCache(context),
+            NullLogger<ImportCbhpmGeralCommandHandler>.Instance);
+
+        await handler.Handle(new ImportCbhpmGeralCommand
+        {
+            Items =
+            [
+                new CbhpmImportItemDto
+                {
+                    Codigo = "4.03.22.18-1",
+                    Procedimento = "N-Acetilgalactosaminidase, dosagem",
+                    Porte = "0,10 de 1A",
+                    CustoOperacional = 11.719m
+                }
+            ]
+        }, CancellationToken.None);
+
+        var storedItem = await context.CbhpmGeral.SingleAsync();
+        Assert.Equal(169.22m, storedItem.ValorReferencia);
+    }
+
+    [Fact]
     public async Task GetCbhpmGeral_FiltersAndPaginates()
     {
         await using var context = TestDbContextFactory.Create();

@@ -64,13 +64,9 @@ public class CbhpmSeeder
                 existingItem.Procedimento = item.Procedimento;
                 existingItem.Porte = item.Porte;
                 existingItem.CustoOperacional = item.CustoOperacional;
-                if (item.ValorReferencia.HasValue)
-                {
-                    existingItem.ValorReferencia = item.ValorReferencia;
-                }
+                existingItem.ValorReferencia = item.ValorReferencia;
                 existingItem.Capitulo = item.Capitulo;
                 existingItem.Grupo = item.Grupo;
-                existingItem.PaginaPdf = item.PaginaPdf;
                 updatedItems++;
                 continue;
             }
@@ -83,8 +79,7 @@ public class CbhpmSeeder
                 CustoOperacional = item.CustoOperacional,
                 ValorReferencia = item.ValorReferencia,
                 Capitulo = item.Capitulo,
-                Grupo = item.Grupo,
-                PaginaPdf = item.PaginaPdf
+                Grupo = item.Grupo
             });
             insertedItems++;
         }
@@ -109,10 +104,9 @@ public class CbhpmSeeder
         return existingItem.Procedimento != item.Procedimento
             || existingItem.Porte != item.Porte
             || existingItem.CustoOperacional != item.CustoOperacional
-            || (item.ValorReferencia.HasValue && existingItem.ValorReferencia != item.ValorReferencia)
+            || existingItem.ValorReferencia != item.ValorReferencia
             || existingItem.Capitulo != item.Capitulo
-            || existingItem.Grupo != item.Grupo
-            || existingItem.PaginaPdf != item.PaginaPdf;
+            || existingItem.Grupo != item.Grupo;
     }
 
     private sealed class CbhpmSeedPayload

@@ -189,7 +189,7 @@ O processamento atual usa um `BackgroundService` interno gratuito no proprio pro
 
 ## CBHPM
 
-A tabela `CBHPMGeral` e criada por migration e recebe seed automatico de procedimentos a partir do JSON gerado do PDF `Tabela-CBHPM-Geral.pdf`.
+A tabela `CBHPMGeral` e criada por migration e recebe seed automatico de procedimentos a partir do JSON gerado do PDF `docs/CBHPM-2022_versao-agosto-2023.pdf`. O seed inclui porte, custo operacional, grupo e `ValorReferencia` calculado.
 
 Consulta:
 

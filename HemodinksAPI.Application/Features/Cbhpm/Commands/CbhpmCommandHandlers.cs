@@ -50,7 +50,6 @@ public class ImportCbhpmGeralCommandHandler : IRequestHandler<ImportCbhpmGeralCo
                     existingItem.ValorReferencia = item.ValorReferencia;
                     existingItem.Capitulo = item.Capitulo;
                     existingItem.Grupo = item.Grupo;
-                    existingItem.PaginaPdf = item.PaginaPdf;
                     updatedItems++;
                     continue;
                 }
@@ -63,8 +62,7 @@ public class ImportCbhpmGeralCommandHandler : IRequestHandler<ImportCbhpmGeralCo
                     CustoOperacional = item.CustoOperacional,
                     ValorReferencia = item.ValorReferencia,
                     Capitulo = item.Capitulo,
-                    Grupo = item.Grupo,
-                    PaginaPdf = item.PaginaPdf
+                    Grupo = item.Grupo
                 });
                 insertedItems++;
             }
@@ -134,8 +132,7 @@ public static class CbhpmImportRules
             CustoOperacional = item.CustoOperacional,
             ValorReferencia = item.ValorReferencia ?? CbhpmValorReferencia.Calcular(porte, item.CustoOperacional),
             Capitulo = TrimMax(item.Capitulo, 255),
-            Grupo = TrimMax(item.Grupo, 255),
-            PaginaPdf = item.PaginaPdf
+            Grupo = TrimMax(item.Grupo, 255)
         };
     }
 

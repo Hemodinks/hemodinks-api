@@ -70,8 +70,7 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
                     CustoOperacional = item.CustoOperacional,
                     ValorReferencia = item.ValorReferencia,
                     Capitulo = item.Capitulo,
-                    Grupo = item.Grupo,
-                    PaginaPdf = item.PaginaPdf
+                    Grupo = item.Grupo
                 })
                 .ToList();
 

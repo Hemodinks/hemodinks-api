@@ -46,8 +46,7 @@ public sealed class CbhpmCache : ICbhpmCache
                     item.CustoOperacional,
                     item.ValorReferencia,
                     item.Capitulo,
-                    item.Grupo,
-                    item.PaginaPdf))
+                    item.Grupo))
                 .ToListAsync(cancellationToken);
 
             _logger.LogInformation("Cache CBHPM carregado com {Count} procedimentos", items.Count);
@@ -77,8 +76,7 @@ public sealed record CbhpmCacheItem(
     decimal? CustoOperacional,
     decimal? ValorReferencia,
     string? Capitulo,
-    string? Grupo,
-    int? PaginaPdf);
+    string? Grupo);
 
 public sealed class CbhpmCacheSnapshot
 {

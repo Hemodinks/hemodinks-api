@@ -1,8 +1,14 @@
+using System.Globalization;
+using System.Text.RegularExpressions;
+
 namespace HemodinksAPI.Application.Features.Cbhpm;
 
 internal static class CbhpmValorReferencia
 {
     private const decimal Uco2012 = 14.33m;
+    private static readonly Regex PorteFracionarioRegex = new(
+        @"^(?<fator>0,\d{1,2})\s+de\s+(?<porte>\d{1,2}[ABC])$",
+        RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
     private static readonly IReadOnlyDictionary<string, decimal> ValoresPorte2012 =
         new Dictionary<string, decimal>(StringComparer.OrdinalIgnoreCase)
@@ -54,7 +60,7 @@ internal static class CbhpmValorReferencia
     public static decimal? Calcular(string? porte, decimal? custoOperacional)
     {
         if (string.IsNullOrWhiteSpace(porte)
-            || !ValoresPorte2012.TryGetValue(porte.Trim(), out var valorPorte))
+            || !TryResolveValorPorte(porte.Trim(), out var valorPorte))
         {
             return null;
         }
@@ -63,5 +69,29 @@ internal static class CbhpmValorReferencia
             valorPorte + ((custoOperacional ?? 0m) * Uco2012),
             2,
             MidpointRounding.AwayFromZero);
+    }
+
+    private static bool TryResolveValorPorte(string porte, out decimal valorPorte)
+    {
+        if (ValoresPorte2012.TryGetValue(porte, out valorPorte))
+        {
+            return true;
+        }
+
+        var match = PorteFracionarioRegex.Match(porte);
+        if (!match.Success
+            || !ValoresPorte2012.TryGetValue(match.Groups["porte"].Value, out var valorBase)
+            || !decimal.TryParse(
+                match.Groups["fator"].Value.Replace(',', '.'),
+                NumberStyles.Number,
+                CultureInfo.InvariantCulture,
+                out var fator))
+        {
+            valorPorte = 0m;
+            return false;
+        }
+
+        valorPorte = valorBase * fator;
+        return true;
     }
 }

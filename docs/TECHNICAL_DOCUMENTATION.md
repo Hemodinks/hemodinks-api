@@ -144,7 +144,6 @@ erDiagram
         decimal ValorReferencia
         string Capitulo
         string Grupo
-        int PaginaPdf
     }
 ```
 
