@@ -137,6 +137,8 @@ public static class UserEndpointExtensions
         int? pageSize,
         string? search,
         int? profileId,
+        string? sortBy,
+        string? sortDirection,
         IMediator mediator,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
@@ -148,7 +150,9 @@ public static class UserEndpointExtensions
                 Page = page.GetValueOrDefault(1),
                 PageSize = pageSize.GetValueOrDefault(10),
                 Search = search,
-                ProfileId = profileId
+                ProfileId = profileId,
+                SortBy = sortBy,
+                SortDirection = sortDirection
             }, cancellationToken);
 
             return Results.Ok(result);

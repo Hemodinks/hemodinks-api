@@ -59,6 +59,8 @@ public static class PacienteEndpointExtensions
         string? medico,
         string? convenio,
         string? procedimento,
+        string? sortBy,
+        string? sortDirection,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
@@ -75,6 +77,8 @@ public static class PacienteEndpointExtensions
                 Medico = medico,
                 Convenio = convenio,
                 Procedimento = procedimento,
+                SortBy = sortBy,
+                SortDirection = sortDirection,
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId
             }, cancellationToken);

@@ -44,6 +44,10 @@ public class GetAllUsersQuery : IRequest<PagedResult<UserDto>>
     public string? Search { get; set; }
 
     public int? ProfileId { get; set; }
+
+    public string? SortBy { get; set; }
+
+    public string? SortDirection { get; set; }
 }
 
 public class GetUserByIdQuery : IRequest<UserDto?>

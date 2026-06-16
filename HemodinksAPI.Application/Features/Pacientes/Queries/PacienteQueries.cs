@@ -79,6 +79,10 @@ public class GetAllPacientesQuery : IRequest<PagedResult<PacienteDto>>
     public int CurrentUserId { get; set; }
 
     public int CurrentPerfilId { get; set; }
+
+    public string? SortBy { get; set; }
+
+    public string? SortDirection { get; set; }
 }
 
 public class GetPacienteByIdQuery : IRequest<PacienteDto?>
