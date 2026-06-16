@@ -17,6 +17,8 @@ public class DashboardSummaryDto
     public int PatientFilesCount { get; set; }
 
     public int UpcomingEventsCount { get; set; }
+
+    public int UnreadObservationCount { get; set; }
 }
 
 public class DashboardNotificationDto
@@ -33,11 +35,15 @@ public class DashboardNotificationDto
 
     public int? EventId { get; set; }
 
+    public int? ObservacaoId { get; set; }
+
     public string NomePaciente { get; set; } = string.Empty;
 
     public string? Medico { get; set; }
 
     public string? Procedimento { get; set; }
+
+    public string? Autor { get; set; }
 
     public DateTime? Data { get; set; }
 }

@@ -11,6 +11,8 @@ public interface IAppDbContext
 
     DbSet<Paciente> Pacientes { get; }
 
+    DbSet<Observacao> Observacoes { get; }
+
     DbSet<GrupoMedico> GruposMedicos { get; }
 
     DbSet<GrupoMedicoUsuario> GrupoMedicoUsuarios { get; }

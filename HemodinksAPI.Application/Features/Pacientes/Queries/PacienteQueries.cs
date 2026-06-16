@@ -40,6 +40,7 @@ public class PacienteDto
     public DateTime DataNascimento { get; set; }
     public bool Ativo { get; set; }
     public int ArquivosCount { get; set; }
+    public int ObservacoesNaoLidasCount { get; set; }
     public List<PacienteArquivoDto> Arquivos { get; set; } = [];
 }
 

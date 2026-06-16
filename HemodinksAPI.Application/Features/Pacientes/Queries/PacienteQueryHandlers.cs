@@ -146,7 +146,10 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     FotoPerfil = p.User.FotoPerfil,
                     DataNascimento = p.User.DataNascimento,
                     Ativo = p.User.Ativo,
-                    ArquivosCount = p.Arquivos.Count
+                    ArquivosCount = p.Arquivos.Count,
+                    ObservacoesNaoLidasCount = p.Observacoes.Count(observacao =>
+                        observacao.DestinatarioUserId == request.CurrentUserId
+                        && observacao.DataLeitura == null)
                 })
                 .ToListAsync(cancellationToken);
 
@@ -255,6 +258,7 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
                 .Include(p => p.ConvenioReferencia)
                 .Include(p => p.OpmeFornecedorReferencia)
                 .Include(p => p.Procedimentos)
+                .Include(p => p.Observacoes)
                 .Include(p => p.Arquivos);
 
             query = PacienteAccess.ApplyScope(_context, query, request.CurrentPerfilId, request.CurrentUserId);
@@ -263,7 +267,17 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
                 .Where(p => p.Id == request.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            return paciente == null ? null : PacienteMapper.ToDto(paciente);
+            if (paciente == null)
+            {
+                return null;
+            }
+
+            var dto = PacienteMapper.ToDto(paciente);
+            dto.ObservacoesNaoLidasCount = paciente.Observacoes.Count(observacao =>
+                observacao.DestinatarioUserId == request.CurrentUserId
+                && observacao.DataLeitura == null);
+
+            return dto;
         }
         catch (Exception ex)
         {

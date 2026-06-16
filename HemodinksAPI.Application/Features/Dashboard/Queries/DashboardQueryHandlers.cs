@@ -61,6 +61,14 @@ public class GetDashboardSummaryQueryHandler :
             request.CurrentUserId,
             cancellationToken);
 
+        var unreadObservationCount = request.CurrentPerfilId == Perfil.PacientesId
+            ? 0
+            : await _context.Observacoes
+                .AsNoTracking()
+                .CountAsync(observacao =>
+                    observacao.DestinatarioUserId == request.CurrentUserId
+                    && observacao.DataLeitura == null, cancellationToken);
+
         return new DashboardSummaryDto
         {
             UsersCount = usersSummary?.UsersCount ?? 0,
@@ -69,7 +77,8 @@ public class GetDashboardSummaryQueryHandler :
             ActivePatientsCount = patientSummary?.ActivePatientsCount ?? 0,
             PendingPaymentsCount = patientSummary?.PendingPaymentsCount ?? 0,
             PatientFilesCount = patientSummary?.PatientFilesCount ?? 0,
-            UpcomingEventsCount = upcomingEventsCount
+            UpcomingEventsCount = upcomingEventsCount,
+            UnreadObservationCount = unreadObservationCount
         };
     }
 
@@ -138,9 +147,35 @@ public class GetDashboardSummaryQueryHandler :
                 Data = ev.Start
             });
 
+        var observationNotifications = request.CurrentPerfilId == Perfil.PacientesId
+            ? []
+            : await _context.Observacoes
+                .AsNoTracking()
+                .Where(observacao =>
+                    observacao.DestinatarioUserId == request.CurrentUserId
+                    && observacao.DataLeitura == null)
+                .OrderByDescending(observacao => observacao.DataCadastro)
+                .ThenByDescending(observacao => observacao.Id)
+                .Take(limit)
+                .Select(observacao => new DashboardNotificationDto
+                {
+                    Id = observacao.Id,
+                    ObservacaoId = observacao.Id,
+                    Tipo = "ObservacaoPaciente",
+                    Titulo = "Observacao do paciente",
+                    Mensagem = observacao.Texto,
+                    PacienteId = observacao.PacienteId,
+                    NomePaciente = observacao.Paciente.NomePaciente,
+                    Medico = observacao.Medico,
+                    Autor = observacao.AutorUser.Nome,
+                    Data = observacao.DataCadastro
+                })
+                .ToListAsync(cancellationToken);
+
         return pendingNotifications
             .Concat(eventNotifications)
-            .OrderBy(notification => notification.Data ?? DateTime.MinValue)
+            .Concat(observationNotifications)
+            .OrderByDescending(notification => notification.Data ?? DateTime.MinValue)
             .Take(limit)
             .ToList();
     }
