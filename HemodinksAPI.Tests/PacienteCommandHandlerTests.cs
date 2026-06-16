@@ -758,7 +758,64 @@ public class PacienteCommandHandlerTests
     }
 
     [Fact]
-    public async Task UpdatePaciente_WhenLoggedDoctorIsRelated_ThrowsUnauthorizedAccessException()
+    public async Task UpdatePaciente_WhenController_UpdatesPaciente()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var doctor = new User
+        {
+            Nome = "Dra. Ana",
+            Email = "dra.ana.controller@hemodinks.com",
+            Telefone = "+5581999887766",
+            Cpf = "52998224725",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1985, 1, 1),
+            PerfilId = Perfil.MedicosId
+        };
+        var user = new User
+        {
+            Nome = "Paciente Controller",
+            Email = "paciente.controller@hemodinks.com",
+            Telefone = "+5581999999999",
+            Cpf = "11144477735",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1990, 1, 1),
+            PerfilId = Perfil.PacientesId
+        };
+        var paciente = new Paciente
+        {
+            User = user,
+            NomePaciente = user.Nome,
+            MedicoUser = doctor,
+            Medico = doctor.Nome
+        };
+        context.Pacientes.Add(paciente);
+        await context.SaveChangesAsync();
+
+        var handler = new UpdatePacienteCommandHandler(
+            context,
+            CreateCbhpmCache(context),
+            new FakeProfilePhotoStorage(),
+            NullLogger<UpdatePacienteCommandHandler>.Instance);
+
+        var response = await handler.Handle(new UpdatePacienteCommand
+        {
+            Id = paciente.Id,
+            NomePaciente = "Paciente Controller Atualizado",
+            Email = user.Email,
+            Telefone = user.Telefone,
+            Cpf = user.Cpf!,
+            DataNascimento = user.DataNascimento,
+            Ativo = true,
+            CurrentUserId = 999,
+            CurrentPerfilId = Perfil.ControllerId,
+            CurrentUserName = "Controller"
+        }, CancellationToken.None);
+
+        Assert.Equal("Paciente Controller Atualizado", response.NomePaciente);
+    }
+
+    [Fact]
+    public async Task UpdatePaciente_WhenLoggedDoctorIsRelated_UpdatesPaciente()
     {
         await using var context = TestDbContextFactory.Create();
         var doctorName = "Dra. Ana";
@@ -798,7 +855,7 @@ public class PacienteCommandHandlerTests
             new FakeProfilePhotoStorage(),
             NullLogger<UpdatePacienteCommandHandler>.Instance);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new UpdatePacienteCommand
+        var response = await handler.Handle(new UpdatePacienteCommand
         {
             Id = paciente.Id,
             NomePaciente = "Paciente Atualizado",
@@ -811,7 +868,10 @@ public class PacienteCommandHandlerTests
             CurrentUserId = doctor.Id,
             CurrentPerfilId = Perfil.MedicosId,
             CurrentUserName = doctorName
-        }, CancellationToken.None));
+        }, CancellationToken.None);
+
+        Assert.Equal("Paciente Atualizado", response.NomePaciente);
+        Assert.Equal(2, response.HospitalId);
     }
 
     private sealed class FakeProfilePhotoStorage : IProfilePhotoStorage

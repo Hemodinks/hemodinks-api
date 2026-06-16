@@ -187,7 +187,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(request.CurrentPerfilId))
+            if (!PacienteCommandAccess.CanEditPaciente(paciente, request.CurrentPerfilId, request.CurrentUserId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para atualizar paciente");
             }
@@ -477,9 +477,26 @@ internal static class PacienteCommandAccess
         return perfilId == Perfil.AdministradorId;
     }
 
+    public static bool CanEditPaciente(Paciente paciente, int perfilId, int currentUserId)
+    {
+        if (perfilId == Perfil.AdministradorId || perfilId == Perfil.ControllerId)
+        {
+            return true;
+        }
+
+        if (perfilId == Perfil.MedicosId)
+        {
+            return paciente.MedicoUserId == currentUserId
+                || paciente.MedicoAuxiliar1UserId == currentUserId
+                || paciente.MedicoAuxiliar2UserId == currentUserId;
+        }
+
+        return false;
+    }
+
     public static bool CanManagePacienteArquivo(Paciente paciente, int perfilId, int currentUserId)
     {
-        if (perfilId == Perfil.AdministradorId)
+        if (perfilId == Perfil.AdministradorId || perfilId == Perfil.ControllerId)
         {
             return true;
         }

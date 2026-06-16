@@ -33,7 +33,7 @@ public static class PacienteEndpointExtensions
         group.MapPut("/{id}", UpdatePaciente)
             .WithName("UpdatePaciente")
             .WithSummary("Atualizar paciente")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("PacienteEditar");
 
         group.MapDelete("/{id}", DeletePaciente)
             .WithName("DeletePaciente")

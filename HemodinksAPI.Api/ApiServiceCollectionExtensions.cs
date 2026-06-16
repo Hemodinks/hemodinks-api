@@ -120,7 +120,10 @@ public static class ApiServiceCollectionExtensions
                 policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.ControllerId.ToString(), Perfil.MedicosId.ToString()));
 
             options.AddPolicy("PacienteArquivosGerenciar", policy =>
-                policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.MedicosId.ToString()));
+                policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.ControllerId.ToString()));
+
+            options.AddPolicy("PacienteEditar", policy =>
+                policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.ControllerId.ToString()));
 
             options.AddPolicy(LicencaPolicies.DashboardVisualizar, policy =>
                 policy.Requirements.Add(new LicencaFeatureRequirement(LicencaFeatures.DashboardVisualizar)));
