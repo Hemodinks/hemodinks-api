@@ -31,6 +31,8 @@ public static class CbhpmEndpointExtensions
         string? codigo,
         string? procedimento,
         string? porte,
+        string? sortBy,
+        string? sortDirection,
         IMediator mediator,
         ILogger<Program> logger)
     {
@@ -43,7 +45,9 @@ public static class CbhpmEndpointExtensions
                 Search = search,
                 Codigo = codigo,
                 Procedimento = procedimento,
-                Porte = porte
+                Porte = porte,
+                SortBy = sortBy,
+                SortDirection = sortDirection
             }));
         }
         catch (Exception ex)

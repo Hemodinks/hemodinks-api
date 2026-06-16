@@ -42,7 +42,8 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             }
 
             PacienteRules.ValidateNome(request.NomePaciente);
-            var diagnostico = PacienteRules.TrimAndValidateOptional(request.Diagnostico, 1500, "Diagnostico excede 1500 caracteres");
+            var diagnostico = PacienteRules.TrimAndValidateOptional(request.Diagnostico, 100, "Diagnostico excede 100 caracteres");
+            var tratamentoMedico = PacienteRules.TrimAndValidateOptional(request.TratamentoMedico, 100, "Tratamento medico excede 100 caracteres");
             var cpf = await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, null, cancellationToken);
             var email = await PacienteRules.ResolveEmailAsync(_context, request.Email, cpf, null, cancellationToken);
             var telefone = PacienteRules.ResolveTelefone(request.Telefone);
@@ -115,6 +116,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 Data = request.Data,
                 NomePaciente = user.Nome,
                 Diagnostico = diagnostico,
+                TratamentoMedico = tratamentoMedico,
                 HospitalId = hospital.Id,
                 Hospital = hospital.Nome,
                 MedicoUserId = medico.UserId,
@@ -187,7 +189,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(request.CurrentPerfilId))
+            if (!PacienteCommandAccess.CanEditPaciente(paciente, request.CurrentPerfilId, request.CurrentUserId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para atualizar paciente");
             }
@@ -257,7 +259,8 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
 
             paciente.Data = request.Data;
             paciente.NomePaciente = paciente.User.Nome;
-            paciente.Diagnostico = PacienteRules.TrimAndValidateOptional(request.Diagnostico, 1500, "Diagnostico excede 1500 caracteres");
+            paciente.Diagnostico = PacienteRules.TrimAndValidateOptional(request.Diagnostico, 100, "Diagnostico excede 100 caracteres");
+            paciente.TratamentoMedico = PacienteRules.TrimAndValidateOptional(request.TratamentoMedico, 100, "Tratamento medico excede 100 caracteres");
             paciente.HospitalId = hospital.Id;
             paciente.Hospital = hospital.Nome;
             paciente.MedicoUserId = medico.UserId;
@@ -384,7 +387,7 @@ public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacient
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(request.CurrentPerfilId))
+            if (!PacienteCommandAccess.CanManagePacienteArquivo(paciente, request.CurrentPerfilId, request.CurrentUserId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para enviar arquivo do paciente");
             }
@@ -444,7 +447,7 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
                 throw new KeyNotFoundException("Arquivo nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(request.CurrentPerfilId))
+            if (!PacienteCommandAccess.CanManagePacienteArquivo(arquivo.Paciente, request.CurrentPerfilId, request.CurrentUserId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para excluir arquivo do paciente");
             }
@@ -467,12 +470,48 @@ internal static class PacienteCommandAccess
 {
     public static bool CanCreate(int perfilId)
     {
-        return perfilId == Perfil.AdministradorId || perfilId == Perfil.ControllerId;
+        return perfilId == Perfil.AdministradorId
+            || perfilId == Perfil.ControllerId
+            || perfilId == Perfil.MedicosId;
     }
 
     public static bool CanManage(int perfilId)
     {
         return perfilId == Perfil.AdministradorId;
+    }
+
+    public static bool CanEditPaciente(Paciente paciente, int perfilId, int currentUserId)
+    {
+        if (perfilId == Perfil.AdministradorId || perfilId == Perfil.ControllerId)
+        {
+            return true;
+        }
+
+        if (perfilId == Perfil.MedicosId)
+        {
+            return paciente.MedicoUserId == currentUserId
+                || paciente.MedicoAuxiliar1UserId == currentUserId
+                || paciente.MedicoAuxiliar2UserId == currentUserId;
+        }
+
+        return false;
+    }
+
+    public static bool CanManagePacienteArquivo(Paciente paciente, int perfilId, int currentUserId)
+    {
+        if (perfilId == Perfil.AdministradorId || perfilId == Perfil.ControllerId)
+        {
+            return true;
+        }
+
+        if (perfilId == Perfil.MedicosId)
+        {
+            return paciente.MedicoUserId == currentUserId
+                || paciente.MedicoAuxiliar1UserId == currentUserId
+                || paciente.MedicoAuxiliar2UserId == currentUserId;
+        }
+
+        return false;
     }
 }
 

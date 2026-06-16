@@ -28,4 +28,8 @@ public class GetCbhpmGeralQuery : IRequest<PagedResult<CbhpmGeralDto>>
     public string? Procedimento { get; set; }
 
     public string? Porte { get; set; }
+
+    public string? SortBy { get; set; }
+
+    public string? SortDirection { get; set; }
 }

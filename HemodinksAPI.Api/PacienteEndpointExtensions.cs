@@ -33,7 +33,7 @@ public static class PacienteEndpointExtensions
         group.MapPut("/{id}", UpdatePaciente)
             .WithName("UpdatePaciente")
             .WithSummary("Atualizar paciente")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("PacienteEditar");
 
         group.MapDelete("/{id}", DeletePaciente)
             .WithName("DeletePaciente")
@@ -44,12 +44,12 @@ public static class PacienteEndpointExtensions
             .WithName("UploadPacienteArquivo")
             .WithSummary("Enviar arquivo do paciente")
             .DisableAntiforgery()
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("PacienteArquivosGerenciar");
 
         group.MapDelete("/{id}/arquivos/{arquivoId}", DeleteArquivo)
             .WithName("DeletePacienteArquivo")
             .WithSummary("Excluir arquivo do paciente")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("PacienteArquivosGerenciar");
     }
 
     private static Task<IResult> GetAllPacientes(
@@ -59,6 +59,8 @@ public static class PacienteEndpointExtensions
         string? medico,
         string? convenio,
         string? procedimento,
+        string? sortBy,
+        string? sortDirection,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
@@ -75,6 +77,8 @@ public static class PacienteEndpointExtensions
                 Medico = medico,
                 Convenio = convenio,
                 Procedimento = procedimento,
+                SortBy = sortBy,
+                SortDirection = sortDirection,
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId
             }, cancellationToken);

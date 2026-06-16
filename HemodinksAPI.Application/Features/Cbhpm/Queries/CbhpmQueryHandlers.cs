@@ -56,6 +56,7 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
             }
 
             var filteredItems = query.ToList();
+            filteredItems = ApplyOrdering(filteredItems, request.SortBy, request.SortDirection);
             var totalItems = filteredItems.Count;
 
             var items = filteredItems
@@ -88,6 +89,37 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
             _logger.LogError(ex, "Erro ao buscar procedimentos CBHPM");
             throw;
         }
+    }
+
+    private static List<CbhpmCacheItem> ApplyOrdering(List<CbhpmCacheItem> items, string? sortBy, string? sortDirection)
+    {
+        var normalizedSortBy = NormalizeSortBy(sortBy);
+        var isDescending = !string.Equals(sortDirection, "asc", StringComparison.OrdinalIgnoreCase);
+
+        IEnumerable<CbhpmCacheItem> ordered = normalizedSortBy switch
+        {
+            "procedimento" => isDescending
+                ? items.OrderByDescending(item => item.Procedimento, StringComparer.OrdinalIgnoreCase).ThenByDescending(item => item.Id)
+                : items.OrderBy(item => item.Procedimento, StringComparer.OrdinalIgnoreCase).ThenBy(item => item.Id),
+            "porte" => isDescending
+                ? items.OrderByDescending(item => item.Porte, StringComparer.OrdinalIgnoreCase).ThenByDescending(item => item.Id)
+                : items.OrderBy(item => item.Porte, StringComparer.OrdinalIgnoreCase).ThenBy(item => item.Id),
+            "valorreferencia" => isDescending
+                ? items.OrderByDescending(item => item.ValorReferencia ?? decimal.MinValue).ThenByDescending(item => item.Codigo).ThenByDescending(item => item.Id)
+                : items.OrderBy(item => item.ValorReferencia ?? decimal.MinValue).ThenBy(item => item.Codigo).ThenBy(item => item.Id),
+            _ => isDescending
+                ? items.OrderByDescending(item => item.Codigo, StringComparer.OrdinalIgnoreCase).ThenByDescending(item => item.Id)
+                : items.OrderBy(item => item.Codigo, StringComparer.OrdinalIgnoreCase).ThenBy(item => item.Id),
+        };
+
+        return ordered.ToList();
+    }
+
+    private static string NormalizeSortBy(string? sortBy)
+    {
+        return string.IsNullOrWhiteSpace(sortBy)
+            ? "codigo"
+            : sortBy.Trim().ToLowerInvariant();
     }
 }
 

@@ -12,6 +12,7 @@ public class PacienteDto
     public DateTime? DataAtualizacao { get; set; }
     public string NomePaciente { get; set; } = null!;
     public string? Diagnostico { get; set; }
+    public string? TratamentoMedico { get; set; }
     public int? HospitalId { get; set; }
     public string? Hospital { get; set; }
     public int? MedicoUserId { get; set; }
@@ -79,6 +80,10 @@ public class GetAllPacientesQuery : IRequest<PagedResult<PacienteDto>>
     public int CurrentUserId { get; set; }
 
     public int CurrentPerfilId { get; set; }
+
+    public string? SortBy { get; set; }
+
+    public string? SortDirection { get; set; }
 }
 
 public class GetPacienteByIdQuery : IRequest<PacienteDto?>

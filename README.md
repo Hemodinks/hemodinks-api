@@ -149,11 +149,11 @@ Regras principais:
 | `DELETE` | `/api/users/{id}/arquivos/{arquivoId}` | sim | exclui documento medico |
 | `GET` | `/api/pacientes` | licenca | lista paginada de pacientes |
 | `GET` | `/api/pacientes/{id}` | licenca | detalhe do paciente |
-| `POST` | `/api/pacientes` | admin | cria paciente |
-| `PUT` | `/api/pacientes/{id}` | admin | atualiza paciente |
+| `POST` | `/api/pacientes` | admin/medico/controller | cria paciente |
+| `PUT` | `/api/pacientes/{id}` | admin/medico/controller | atualiza paciente |
 | `DELETE` | `/api/pacientes/{id}` | admin | exclui paciente |
-| `POST` | `/api/pacientes/{id}/arquivos` | admin | upload de anexo do paciente |
-| `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | admin | exclui anexo |
+| `POST` | `/api/pacientes/{id}/arquivos` | admin/medico | upload de anexo do paciente |
+| `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | admin/medico | exclui anexo |
 | `GET` | `/api/cbhpm` | licenca | consulta CBHPM paginada |
 | `POST` | `/api/cbhpm/import` | admin | importa/substitui itens CBHPM |
 | `GET` | `/api/dashboard/summary` | licenca | resumo do dashboard |
