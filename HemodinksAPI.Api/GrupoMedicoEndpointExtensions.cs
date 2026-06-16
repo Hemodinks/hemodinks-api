@@ -27,7 +27,7 @@ public static class GrupoMedicoEndpointExtensions
 
         group.MapPost("/", Create)
             .WithSummary("Criar grupo medico")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("GrupoMedicoCadastrar");
 
         group.MapPut("/{id}", Update)
             .WithSummary("Atualizar grupo medico")
