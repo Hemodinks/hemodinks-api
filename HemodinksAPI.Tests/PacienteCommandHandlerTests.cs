@@ -77,6 +77,7 @@ public class PacienteCommandHandlerTests
         {
             NomePaciente = "Paciente Novo",
             Diagnostico = "Diagnostico clinico de teste",
+            TratamentoMedico = "Tratamento clinico de teste",
             Email = "paciente.novo@hemodinks.com",
             Telefone = "+5581999999999",
             Cpf = "52998224725",
@@ -111,6 +112,7 @@ public class PacienteCommandHandlerTests
         Assert.Equal(Perfil.PacientesId, storedUser.PerfilId);
         Assert.Equal("Paciente Novo", storedUser.Nome);
         Assert.Equal("Diagnostico clinico de teste", storedPaciente.Diagnostico);
+        Assert.Equal("Tratamento clinico de teste", storedPaciente.TratamentoMedico);
         Assert.Equal("52998224725", storedUser.Cpf);
         Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
         Assert.Equal(1, storedPaciente.HospitalId);
@@ -130,6 +132,7 @@ public class PacienteCommandHandlerTests
         Assert.True(storedPaciente.StatusPago);
         Assert.Equal(storedPaciente.Id, response.Id);
         Assert.Equal("Diagnostico clinico de teste", response.Diagnostico);
+        Assert.Equal("Tratamento clinico de teste", response.TratamentoMedico);
         Assert.Equal(storedUser.Id, response.UserId);
         Assert.Equal(7, response.ConvenioId);
         Assert.Equal("Particular", response.Convenio);
@@ -730,6 +733,7 @@ public class PacienteCommandHandlerTests
             Id = paciente.Id,
             NomePaciente = "Paciente Atualizado",
             Diagnostico = "Diagnostico atualizado",
+            TratamentoMedico = "Tratamento atualizado",
             Email = user.Email,
             Telefone = user.Telefone,
             Cpf = user.Cpf!,
@@ -747,6 +751,7 @@ public class PacienteCommandHandlerTests
 
         Assert.Equal("Paciente Atualizado", response.NomePaciente);
         Assert.Equal("Diagnostico atualizado", response.Diagnostico);
+        Assert.Equal("Tratamento atualizado", response.TratamentoMedico);
         Assert.Equal(2, response.HospitalId);
         Assert.Equal("Santa Genoveva - Mater Dei", response.Hospital);
         Assert.Equal(doctorName, response.Medico);

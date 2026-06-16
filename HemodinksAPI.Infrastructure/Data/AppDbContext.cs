@@ -350,7 +350,10 @@ public class AppDbContext : DbContext, IAppDbContext
                 .HasMaxLength(255);
 
             entity.Property(e => e.Diagnostico)
-                .HasMaxLength(1500);
+                .HasMaxLength(100);
+
+            entity.Property(e => e.TratamentoMedico)
+                .HasMaxLength(100);
 
             entity.Property(e => e.Hospital)
                 .HasMaxLength(255);

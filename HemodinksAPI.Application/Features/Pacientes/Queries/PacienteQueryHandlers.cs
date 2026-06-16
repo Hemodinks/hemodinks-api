@@ -315,6 +315,7 @@ internal static class PacienteMapper
             DataAtualizacao = paciente.User.DataAtualizacao,
             NomePaciente = paciente.NomePaciente,
             Diagnostico = paciente.Diagnostico,
+            TratamentoMedico = paciente.TratamentoMedico,
             HospitalId = paciente.HospitalId,
             Hospital = paciente.HospitalReferencia?.Nome ?? paciente.Hospital,
             MedicoUserId = paciente.MedicoUserId,
