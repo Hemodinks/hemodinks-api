@@ -1,5 +1,6 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Common;
+using HemodinksAPI.Application.Features.GruposMedicos;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Storage;
 using MediatR;
@@ -242,14 +243,12 @@ public class GetUserProfilePhotoQueryHandler : IRequestHandler<GetUserProfilePho
                 var canAccessPatientPhoto = request.CurrentUser.IsMedico
                     && await _context.Pacientes
                         .AsNoTracking()
+                        .Where(paciente =>
+                            (paciente.MedicoUserId.HasValue && MedicalGroupScope.BuildScopedMedicalUserIdsQuery(_context, request.CurrentUser.PerfilId, request.CurrentUser.Id).Contains(paciente.MedicoUserId.Value))
+                            || (paciente.MedicoAuxiliar1UserId.HasValue && MedicalGroupScope.BuildScopedMedicalUserIdsQuery(_context, request.CurrentUser.PerfilId, request.CurrentUser.Id).Contains(paciente.MedicoAuxiliar1UserId.Value))
+                            || (paciente.MedicoAuxiliar2UserId.HasValue && MedicalGroupScope.BuildScopedMedicalUserIdsQuery(_context, request.CurrentUser.PerfilId, request.CurrentUser.Id).Contains(paciente.MedicoAuxiliar2UserId.Value)))
                         .AnyAsync(paciente =>
-                            paciente.UserId == request.Id
-                            && (paciente.MedicoUserId == request.CurrentUser.Id
-                                || paciente.MedicoAuxiliar1UserId == request.CurrentUser.Id
-                                || paciente.MedicoAuxiliar2UserId == request.CurrentUser.Id
-                                || paciente.Medico == request.CurrentUser.Nome
-                                || paciente.MedicoAuxiliar1 == request.CurrentUser.Nome
-                                || paciente.MedicoAuxiliar2 == request.CurrentUser.Nome),
+                            paciente.UserId == request.Id,
                             cancellationToken);
 
                 if (!canAccessPatientPhoto)

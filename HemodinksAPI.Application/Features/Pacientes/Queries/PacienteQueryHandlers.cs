@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.Common;
+using HemodinksAPI.Application.Features.GruposMedicos;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -34,7 +35,7 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
             var procedimento = canUseAdminFilters ? TrimOptional(request.Procedimento) : null;
 
             var query = _context.Pacientes.AsNoTracking();
-            query = PacienteAccess.ApplyScope(query, request.CurrentPerfilId, request.CurrentUserId);
+            query = PacienteAccess.ApplyScope(_context, query, request.CurrentPerfilId, request.CurrentUserId);
 
             if (!string.IsNullOrWhiteSpace(search))
             {
@@ -256,7 +257,7 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
                 .Include(p => p.Procedimentos)
                 .Include(p => p.Arquivos);
 
-            query = PacienteAccess.ApplyScope(query, request.CurrentPerfilId, request.CurrentUserId);
+            query = PacienteAccess.ApplyScope(_context, query, request.CurrentPerfilId, request.CurrentUserId);
 
             var paciente = await query
                 .Where(p => p.Id == request.Id)
@@ -275,6 +276,7 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
 internal static class PacienteAccess
 {
     public static IQueryable<Paciente> ApplyScope(
+        IAppDbContext context,
         IQueryable<Paciente> query,
         int perfilId,
         int userId)
@@ -286,10 +288,11 @@ internal static class PacienteAccess
 
         if (perfilId == Perfil.MedicosId)
         {
+            var accessibleMedicalUserIds = MedicalGroupScope.BuildScopedMedicalUserIdsQuery(context, perfilId, userId);
             return query.Where(p =>
-                p.MedicoUserId == userId
-                || p.MedicoAuxiliar1UserId == userId
-                || p.MedicoAuxiliar2UserId == userId);
+                (p.MedicoUserId.HasValue && accessibleMedicalUserIds.Contains(p.MedicoUserId.Value))
+                || (p.MedicoAuxiliar1UserId.HasValue && accessibleMedicalUserIds.Contains(p.MedicoAuxiliar1UserId.Value))
+                || (p.MedicoAuxiliar2UserId.HasValue && accessibleMedicalUserIds.Contains(p.MedicoAuxiliar2UserId.Value)));
         }
 
         if (perfilId == Perfil.PacientesId)

@@ -17,6 +17,10 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<Paciente> Pacientes { get; set; } = null!;
 
+    public DbSet<GrupoMedico> GruposMedicos { get; set; } = null!;
+
+    public DbSet<GrupoMedicoUsuario> GrupoMedicoUsuarios { get; set; } = null!;
+
     public DbSet<Hospital> Hospitais { get; set; } = null!;
 
     public DbSet<Convenio> Convenios { get; set; } = null!;
@@ -148,6 +152,58 @@ public class AppDbContext : DbContext, IAppDbContext
             entity.HasOne(e => e.Licenca)
                 .WithOne(e => e.User)
                 .HasForeignKey<Licenca>(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.GruposMedicos)
+                .WithOne(e => e.User)
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<GrupoMedico>(entity =>
+        {
+            entity.ToTable("GruposMedicos");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Nome)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.Property(e => e.Ativo)
+                .IsRequired()
+                .HasDefaultValue(true);
+
+            entity.Property(e => e.DataCadastro)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(e => e.DataAtualizacao);
+
+            entity.HasIndex(e => e.Nome)
+                .IsUnique();
+        });
+
+        modelBuilder.Entity<GrupoMedicoUsuario>(entity =>
+        {
+            entity.ToTable("GrupoMedicoUsuarios");
+
+            entity.HasKey(e => new { e.GrupoMedicoId, e.UserId });
+
+            entity.Property(e => e.DataCadastro)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.HasIndex(e => e.UserId);
+
+            entity.HasOne(e => e.GrupoMedico)
+                .WithMany(e => e.Membros)
+                .HasForeignKey(e => e.GrupoMedicoId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.User)
+                .WithMany(e => e.GruposMedicos)
+                .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
 

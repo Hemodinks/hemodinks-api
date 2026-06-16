@@ -552,6 +552,8 @@ public class PacienteCommandHandlerTests
         {
             User = user,
             NomePaciente = user.Nome,
+            HospitalId = 2,
+            Hospital = "Hospital Controller",
             MedicoUser = doctor,
             Medico = doctor.Nome
         };
@@ -811,6 +813,7 @@ public class PacienteCommandHandlerTests
             Cpf = user.Cpf!,
             DataNascimento = user.DataNascimento,
             Ativo = true,
+            HospitalId = 2,
             CurrentUserId = 999,
             CurrentPerfilId = Perfil.ControllerId,
             CurrentUserName = "Controller"
@@ -848,6 +851,8 @@ public class PacienteCommandHandlerTests
         {
             User = user,
             NomePaciente = user.Nome,
+            HospitalId = 2,
+            Hospital = "Hospital Relacionado",
             MedicoUser = doctor,
             Medico = doctorName
         };

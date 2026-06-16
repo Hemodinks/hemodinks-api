@@ -1,5 +1,6 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Cbhpm;
+using HemodinksAPI.Application.Features.GruposMedicos;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
@@ -58,11 +59,15 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 cancellationToken);
             var medicoAuxiliar1 = await PacienteRules.ResolveOptionalMedicoAsync(
                 _context,
+                request.CurrentPerfilId,
+                request.CurrentUserId,
                 request.MedicoAuxiliar1UserId,
                 request.MedicoAuxiliar1,
                 cancellationToken);
             var medicoAuxiliar2 = await PacienteRules.ResolveOptionalMedicoAsync(
                 _context,
+                request.CurrentPerfilId,
+                request.CurrentUserId,
                 request.MedicoAuxiliar2UserId,
                 request.MedicoAuxiliar2,
                 cancellationToken);
@@ -189,7 +194,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanEditPaciente(paciente, request.CurrentPerfilId, request.CurrentUserId))
+            if (!await PacienteCommandAccess.CanEditPacienteAsync(_context, paciente, request.CurrentPerfilId, request.CurrentUserId, cancellationToken))
             {
                 throw new UnauthorizedAccessException("Sem permissao para atualizar paciente");
             }
@@ -214,11 +219,15 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 cancellationToken);
             var medicoAuxiliar1 = await PacienteRules.ResolveOptionalMedicoAsync(
                 _context,
+                request.CurrentPerfilId,
+                request.CurrentUserId,
                 request.MedicoAuxiliar1UserId,
                 request.MedicoAuxiliar1,
                 cancellationToken);
             var medicoAuxiliar2 = await PacienteRules.ResolveOptionalMedicoAsync(
                 _context,
+                request.CurrentPerfilId,
+                request.CurrentUserId,
                 request.MedicoAuxiliar2UserId,
                 request.MedicoAuxiliar2,
                 cancellationToken);
@@ -387,7 +396,7 @@ public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacient
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManagePacienteArquivo(paciente, request.CurrentPerfilId, request.CurrentUserId))
+            if (!await PacienteCommandAccess.CanManagePacienteArquivoAsync(_context, paciente, request.CurrentPerfilId, request.CurrentUserId, cancellationToken))
             {
                 throw new UnauthorizedAccessException("Sem permissao para enviar arquivo do paciente");
             }
@@ -447,7 +456,7 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
                 throw new KeyNotFoundException("Arquivo nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManagePacienteArquivo(arquivo.Paciente, request.CurrentPerfilId, request.CurrentUserId))
+            if (!await PacienteCommandAccess.CanManagePacienteArquivoAsync(_context, arquivo.Paciente, request.CurrentPerfilId, request.CurrentUserId, cancellationToken))
             {
                 throw new UnauthorizedAccessException("Sem permissao para excluir arquivo do paciente");
             }
@@ -480,7 +489,7 @@ internal static class PacienteCommandAccess
         return perfilId == Perfil.AdministradorId;
     }
 
-    public static bool CanEditPaciente(Paciente paciente, int perfilId, int currentUserId)
+    public static async Task<bool> CanEditPacienteAsync(IAppDbContext context, Paciente paciente, int perfilId, int currentUserId, CancellationToken cancellationToken)
     {
         if (perfilId == Perfil.AdministradorId || perfilId == Perfil.ControllerId)
         {
@@ -489,29 +498,18 @@ internal static class PacienteCommandAccess
 
         if (perfilId == Perfil.MedicosId)
         {
-            return paciente.MedicoUserId == currentUserId
-                || paciente.MedicoAuxiliar1UserId == currentUserId
-                || paciente.MedicoAuxiliar2UserId == currentUserId;
+            var accessibleMedicalUserIds = await MedicalGroupScope.GetScopedMedicalUserIdsAsync(context, perfilId, currentUserId, cancellationToken);
+            return (paciente.MedicoUserId.HasValue && accessibleMedicalUserIds.Contains(paciente.MedicoUserId.Value))
+                || (paciente.MedicoAuxiliar1UserId.HasValue && accessibleMedicalUserIds.Contains(paciente.MedicoAuxiliar1UserId.Value))
+                || (paciente.MedicoAuxiliar2UserId.HasValue && accessibleMedicalUserIds.Contains(paciente.MedicoAuxiliar2UserId.Value));
         }
 
         return false;
     }
 
-    public static bool CanManagePacienteArquivo(Paciente paciente, int perfilId, int currentUserId)
+    public static Task<bool> CanManagePacienteArquivoAsync(IAppDbContext context, Paciente paciente, int perfilId, int currentUserId, CancellationToken cancellationToken)
     {
-        if (perfilId == Perfil.AdministradorId || perfilId == Perfil.ControllerId)
-        {
-            return true;
-        }
-
-        if (perfilId == Perfil.MedicosId)
-        {
-            return paciente.MedicoUserId == currentUserId
-                || paciente.MedicoAuxiliar1UserId == currentUserId
-                || paciente.MedicoAuxiliar2UserId == currentUserId;
-        }
-
-        return false;
+        return CanEditPacienteAsync(context, paciente, perfilId, currentUserId, cancellationToken);
     }
 }
 
@@ -742,7 +740,40 @@ internal static class PacienteRules
     {
         if (currentPerfilId == Perfil.MedicosId)
         {
-            return new ResolvedMedico(currentUserId, currentUserName);
+            var accessibleMedicalUsers = MedicalGroupScope.BuildScopedMedicalUsersQuery(context, currentPerfilId, currentUserId, onlyActive: false);
+
+            if (!medicoUserId.HasValue && string.IsNullOrWhiteSpace(medicoNome))
+            {
+                return new ResolvedMedico(currentUserId, currentUserName);
+            }
+
+            if (medicoUserId.HasValue)
+            {
+                var scopedMedico = await accessibleMedicalUsers
+                    .Where(user => user.Id == medicoUserId.Value)
+                    .Select(user => new { user.Id, user.Nome })
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (scopedMedico == null)
+                {
+                    throw new InvalidOperationException("Medico invalido para o grupo do usuario.");
+                }
+
+                return new ResolvedMedico(scopedMedico.Id, scopedMedico.Nome);
+            }
+
+            var medicoNomeNormalizado = TrimOptional(medicoNome);
+            var scopedMedicoPorNome = await accessibleMedicalUsers
+                .Where(user => user.Nome == medicoNomeNormalizado)
+                .Select(user => new { user.Id, user.Nome })
+                .FirstOrDefaultAsync(cancellationToken);
+
+            if (scopedMedicoPorNome == null)
+            {
+                throw new InvalidOperationException("Medico invalido para o grupo do usuario.");
+            }
+
+            return new ResolvedMedico(scopedMedicoPorNome.Id, scopedMedicoPorNome.Nome);
         }
 
         var nome = TrimOptional(medicoNome);
@@ -784,14 +815,21 @@ internal static class PacienteRules
 
     public static Task<ResolvedMedico> ResolveOptionalMedicoAsync(
         IAppDbContext context,
+        int currentPerfilId,
+        int currentUserId,
         int? medicoUserId,
         string? medicoNome,
         CancellationToken cancellationToken)
     {
+        if (!medicoUserId.HasValue && string.IsNullOrWhiteSpace(medicoNome))
+        {
+            return Task.FromResult(new ResolvedMedico(null, null));
+        }
+
         return ResolveMedicoAsync(
             context,
-            Perfil.AdministradorId,
-            0,
+            currentPerfilId,
+            currentUserId,
             string.Empty,
             medicoUserId,
             medicoNome,
