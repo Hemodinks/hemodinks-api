@@ -40,6 +40,7 @@ public class GetDashboardSummaryQueryHandler :
             .AsQueryable();
 
         patientQuery = PacienteAccess.ApplyScope(
+            _context,
             patientQuery,
             request.CurrentPerfilId,
             request.CurrentUserId);
@@ -80,6 +81,7 @@ public class GetDashboardSummaryQueryHandler :
             .AsQueryable();
 
         patientQuery = PacienteAccess.ApplyScope(
+            _context,
             patientQuery,
             request.CurrentPerfilId,
             request.CurrentUserId);

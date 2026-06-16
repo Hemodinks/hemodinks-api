@@ -78,4 +78,6 @@ public class User
     public ICollection<PasswordResetToken> PasswordResetTokens { get; set; } = new List<PasswordResetToken>();
 
     public ICollection<UserArquivo> Arquivos { get; set; } = new List<UserArquivo>();
+
+    public ICollection<GrupoMedicoUsuario> GruposMedicos { get; set; } = new List<GrupoMedicoUsuario>();
 }
