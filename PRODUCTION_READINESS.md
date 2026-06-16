@@ -110,7 +110,7 @@ Trial atual:
 
 Completa:
 
-- Dashboard, pacientes para visualizacao e CBHPM. Gerenciamento de pacientes permanece administrativo.
+- Dashboard, pacientes para visualizacao e CBHPM. Criacao de pacientes e liberada para medico/controller; edicao, anexos e exclusao permanecem administrativos.
 
 Checklist antes de vender:
 
@@ -118,7 +118,7 @@ Checklist antes de vender:
 - [ ] Remover ou trocar senhas de usuarios seed/teste.
 - [ ] Confirmar `Licensing__TrialDays`.
 - [ ] Validar fluxo manual: criar medico, trial ativo, liberar completa, suspender licenca.
-- [ ] Validar que medico trial/completo nao consegue acessar acoes administrativas de pacientes.
+- [ ] Validar que medico trial/completo consegue cadastrar paciente sem acessar acoes administrativas.
 - [ ] Validar que medico completo consegue acessar as features contratadas de visualizacao/consulta.
 - [ ] Definir politica comercial para licenca expirada ou suspensa.
 

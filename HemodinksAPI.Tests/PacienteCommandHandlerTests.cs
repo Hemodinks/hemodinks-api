@@ -420,9 +420,29 @@ public class PacienteCommandHandlerTests
     }
 
     [Fact]
-    public async Task CreatePaciente_WhenLoggedDoctor_ThrowsUnauthorizedAccessException()
+    public async Task CreatePaciente_WhenLoggedDoctor_CreatesPaciente()
     {
         await using var context = TestDbContextFactory.Create();
+        var doctor = new User
+        {
+            Nome = "Dra. Ana",
+            Email = "dra.ana.permitida@hemodinks.com",
+            Telefone = "+5581999887766",
+            Cpf = "39053344705",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1985, 1, 1),
+            PerfilId = Perfil.MedicosId
+        };
+        context.Users.Add(doctor);
+        context.CbhpmGeral.Add(new CbhpmGeral
+        {
+            Codigo = "1.01.01.01-2",
+            Procedimento = "Em consultorio",
+            Porte = "2B",
+            ValorReferencia = 120m
+        });
+        await context.SaveChangesAsync();
+
         var handler = new CreatePacienteCommandHandler(
             context,
             CreateCbhpmCache(context),
@@ -430,12 +450,28 @@ public class PacienteCommandHandlerTests
             new FakeProfilePhotoStorage(),
             NullLogger<CreatePacienteCommandHandler>.Instance);
 
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new CreatePacienteCommand
+        var response = await handler.Handle(new CreatePacienteCommand
         {
+            NomePaciente = "Paciente Medico",
+            DataNascimento = new DateTime(1990, 1, 1),
+            Data = new DateTime(2026, 6, 10),
+            HospitalId = 1,
+            Procedimentos =
+            [
+                new PacienteProcedimentoCommandDto { CbhpmCodigo = "10101012" }
+            ],
+            CurrentUserId = doctor.Id,
+            CurrentUserName = doctor.Nome,
             CurrentPerfilId = Perfil.MedicosId,
-            CurrentUserId = 10,
-            CurrentUserName = "Dra. Ana"
-        }, CancellationToken.None));
+        }, CancellationToken.None);
+
+        var storedPaciente = await context.Pacientes.Include(paciente => paciente.User).SingleAsync();
+
+        Assert.Equal("Paciente Medico", storedPaciente.NomePaciente);
+        Assert.Equal(doctor.Id, storedPaciente.MedicoUserId);
+        Assert.Equal(doctor.Nome, storedPaciente.Medico);
+        Assert.Equal(response.Id, storedPaciente.Id);
+        Assert.Equal(Perfil.PacientesId, storedPaciente.User.PerfilId);
     }
 
     [Fact]

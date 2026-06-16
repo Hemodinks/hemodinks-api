@@ -117,7 +117,7 @@ public static class ApiServiceCollectionExtensions
                 policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString()));
 
             options.AddPolicy("PacienteCadastrar", policy =>
-                policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.ControllerId.ToString()));
+                policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.ControllerId.ToString(), Perfil.MedicosId.ToString()));
 
             options.AddPolicy(LicencaPolicies.DashboardVisualizar, policy =>
                 policy.Requirements.Add(new LicencaFeatureRequirement(LicencaFeatures.DashboardVisualizar)));

@@ -467,7 +467,9 @@ internal static class PacienteCommandAccess
 {
     public static bool CanCreate(int perfilId)
     {
-        return perfilId == Perfil.AdministradorId || perfilId == Perfil.ControllerId;
+        return perfilId == Perfil.AdministradorId
+            || perfilId == Perfil.ControllerId
+            || perfilId == Perfil.MedicosId;
     }
 
     public static bool CanManage(int perfilId)
