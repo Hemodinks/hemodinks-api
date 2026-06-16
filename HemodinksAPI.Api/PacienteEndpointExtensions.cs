@@ -44,12 +44,12 @@ public static class PacienteEndpointExtensions
             .WithName("UploadPacienteArquivo")
             .WithSummary("Enviar arquivo do paciente")
             .DisableAntiforgery()
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("PacienteArquivosGerenciar");
 
         group.MapDelete("/{id}/arquivos/{arquivoId}", DeleteArquivo)
             .WithName("DeletePacienteArquivo")
             .WithSummary("Excluir arquivo do paciente")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("PacienteArquivosGerenciar");
     }
 
     private static Task<IResult> GetAllPacientes(

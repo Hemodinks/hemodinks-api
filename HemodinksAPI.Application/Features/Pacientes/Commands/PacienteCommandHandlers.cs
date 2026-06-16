@@ -384,7 +384,7 @@ public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacient
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(request.CurrentPerfilId))
+            if (!PacienteCommandAccess.CanManagePacienteArquivo(paciente, request.CurrentPerfilId, request.CurrentUserId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para enviar arquivo do paciente");
             }
@@ -444,7 +444,7 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
                 throw new KeyNotFoundException("Arquivo nao encontrado");
             }
 
-            if (!PacienteCommandAccess.CanManage(request.CurrentPerfilId))
+            if (!PacienteCommandAccess.CanManagePacienteArquivo(arquivo.Paciente, request.CurrentPerfilId, request.CurrentUserId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para excluir arquivo do paciente");
             }
@@ -475,6 +475,23 @@ internal static class PacienteCommandAccess
     public static bool CanManage(int perfilId)
     {
         return perfilId == Perfil.AdministradorId;
+    }
+
+    public static bool CanManagePacienteArquivo(Paciente paciente, int perfilId, int currentUserId)
+    {
+        if (perfilId == Perfil.AdministradorId)
+        {
+            return true;
+        }
+
+        if (perfilId == Perfil.MedicosId)
+        {
+            return paciente.MedicoUserId == currentUserId
+                || paciente.MedicoAuxiliar1UserId == currentUserId
+                || paciente.MedicoAuxiliar2UserId == currentUserId;
+        }
+
+        return false;
     }
 }
 

@@ -110,7 +110,7 @@ Trial atual:
 
 Completa:
 
-- Dashboard, pacientes para visualizacao e CBHPM. Criacao de pacientes e liberada para medico/controller; edicao, anexos e exclusao permanecem administrativos.
+- Dashboard, pacientes para visualizacao e CBHPM. Criacao de pacientes e liberada para medico/controller; anexos do paciente tambem sao permitidos para medico vinculado. Edicao e exclusao permanecem administrativas.
 
 Checklist antes de vender:
 

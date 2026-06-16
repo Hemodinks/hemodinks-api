@@ -45,7 +45,7 @@ Regras relevantes:
 
 - CPF e email obrigatorios.
 - CPF e email nao podem duplicar.
-- Medico so visualiza pacientes vinculados a ele; criacao e liberada para medico/controller, mas edicao, anexos e exclusao continuam restritas ao administrador.
+- Medico so visualiza pacientes vinculados a ele; criacao e liberada para medico/controller, e anexos do proprio paciente tambem podem ser enviados/excluidos pelo medico vinculado. Edicao e exclusao continuam restritas ao administrador.
 - Procedimentos CBHPM sao normalizados quando `CbhpmCodigo` e informado.
 
 ### CBHPM

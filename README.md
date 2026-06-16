@@ -152,8 +152,8 @@ Regras principais:
 | `POST` | `/api/pacientes` | admin/medico/controller | cria paciente |
 | `PUT` | `/api/pacientes/{id}` | admin | atualiza paciente |
 | `DELETE` | `/api/pacientes/{id}` | admin | exclui paciente |
-| `POST` | `/api/pacientes/{id}/arquivos` | admin | upload de anexo do paciente |
-| `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | admin | exclui anexo |
+| `POST` | `/api/pacientes/{id}/arquivos` | admin/medico | upload de anexo do paciente |
+| `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | admin/medico | exclui anexo |
 | `GET` | `/api/cbhpm` | licenca | consulta CBHPM paginada |
 | `POST` | `/api/cbhpm/import` | admin | importa/substitui itens CBHPM |
 | `GET` | `/api/dashboard/summary` | licenca | resumo do dashboard |
