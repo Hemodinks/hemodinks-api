@@ -1,6 +1,8 @@
 using HemodinksAPI.Application.Authorization;
+using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Features.Events;
 
@@ -29,6 +31,123 @@ internal static class EventFeatureRules
         if (!currentUser.IsAdministrador && ev.UserId != currentUser.Id)
         {
             throw new UnauthorizedAccessException();
+        }
+    }
+
+    public static IReadOnlyList<int> ResolveNotificationRecipientUserIds(
+        IAppDbContext context,
+        CurrentUserContext currentUser,
+        EventRequest request)
+    {
+        var allowedRecipients = BuildAllowedNotificationRecipientUserIds(context, currentUser);
+        var recipientIds = new HashSet<int>();
+
+        if (request.NotifyAllAllowedRecipients)
+        {
+            recipientIds.UnionWith(allowedRecipients);
+        }
+
+        foreach (var userId in request.NotificationUserIds.Distinct().Where(id => id > 0))
+        {
+            if (!allowedRecipients.Contains(userId))
+            {
+                throw new UnauthorizedAccessException("Um ou mais destinatarios selecionados nao sao permitidos para o perfil atual.");
+            }
+
+            recipientIds.Add(userId);
+        }
+
+        var allowedGroupMemberIds = BuildAllowedNotificationGroupMemberIds(context, currentUser, request.NotificationGroupIds);
+        recipientIds.UnionWith(allowedGroupMemberIds);
+
+        recipientIds.Remove(currentUser.Id);
+        return recipientIds.ToList();
+    }
+
+    public static HashSet<int> BuildAllowedNotificationRecipientUserIds(IAppDbContext context, CurrentUserContext currentUser)
+    {
+        if (currentUser.IsAdministrador || currentUser.IsController)
+        {
+            return context.Users
+                .AsNoTracking()
+                .Where(user => user.Ativo && user.PerfilId != Perfil.PacientesId && user.Id != currentUser.Id)
+                .Select(user => user.Id)
+                .ToHashSet();
+        }
+
+        if (currentUser.IsMedico)
+        {
+            return context.Users
+                .AsNoTracking()
+                .Where(user => user.Ativo
+                    && user.Id != currentUser.Id
+                    && (user.PerfilId == Perfil.AdministradorId || user.PerfilId == Perfil.ControllerId))
+                .Select(user => user.Id)
+                .ToHashSet();
+        }
+
+        return [];
+    }
+
+    public static IReadOnlyList<int> BuildAllowedNotificationGroupMemberIds(
+        IAppDbContext context,
+        CurrentUserContext currentUser,
+        IEnumerable<int> requestedGroupIds)
+    {
+        var groupIds = requestedGroupIds.Distinct().Where(id => id > 0).ToList();
+        if (!groupIds.Any())
+        {
+            return [];
+        }
+
+        if (currentUser.IsMedico)
+        {
+            var allowedGroupIds = context.GrupoMedicoUsuarios
+                .AsNoTracking()
+                .Where(member => member.UserId == currentUser.Id)
+                .Select(member => member.GrupoMedicoId)
+                .ToHashSet();
+
+            if (groupIds.Any(groupId => !allowedGroupIds.Contains(groupId)))
+            {
+                throw new UnauthorizedAccessException("Um ou mais grupos selecionados nao fazem parte do escopo do medico.");
+            }
+        }
+
+        if (!groupIds.Any())
+        {
+            return [];
+        }
+
+        return context.GrupoMedicoUsuarios
+            .AsNoTracking()
+            .Where(member => groupIds.Contains(member.GrupoMedicoId)
+                && member.User.Ativo
+                && member.User.PerfilId == Perfil.MedicosId)
+            .Select(member => member.UserId)
+            .ToList();
+    }
+
+    public static void ValidateNotificationRequest(EventRequest request)
+    {
+        var hasMessage = !string.IsNullOrWhiteSpace(request.NotificationMessage);
+        var hasRecipients = request.NotifyAllAllowedRecipients
+            || request.NotificationUserIds.Any()
+            || request.NotificationGroupIds.Any();
+
+        if (hasRecipients && !hasMessage)
+        {
+            throw new InvalidOperationException("Informe a mensagem da notificacao.");
+        }
+
+        if (!hasRecipients && hasMessage)
+        {
+            throw new InvalidOperationException("Selecione ao menos um destinatario para enviar a notificacao.");
+        }
+
+        if (request.NotificationMessage is { Length: > 500 })
+        {
+            throw new InvalidOperationException("A mensagem da notificacao deve ter no maximo 500 caracteres.");
         }
     }
 

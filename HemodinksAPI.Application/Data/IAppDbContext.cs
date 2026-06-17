@@ -35,6 +35,8 @@ public interface IAppDbContext
 
     DbSet<Event> Events { get; }
 
+    DbSet<AgendaNotification> AgendaNotifications { get; }
+
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);

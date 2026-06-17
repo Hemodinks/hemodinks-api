@@ -19,6 +19,8 @@ public class DashboardSummaryDto
     public int UpcomingEventsCount { get; set; }
 
     public int UnreadObservationCount { get; set; }
+
+    public int UnreadAgendaNotificationCount { get; set; }
 }
 
 public class DashboardNotificationDto
@@ -46,6 +48,8 @@ public class DashboardNotificationDto
     public string? Autor { get; set; }
 
     public DateTime? Data { get; set; }
+
+    public DateTime? DataLeitura { get; set; }
 }
 
 public class GetDashboardSummaryQuery : IRequest<DashboardSummaryDto>

@@ -21,6 +21,14 @@ public sealed class EventRequest
     public int? ReminderPeriodMinutes { get; set; }
 
     public bool? IsCompleted { get; set; }
+
+    public string? NotificationMessage { get; set; }
+
+    public bool NotifyAllAllowedRecipients { get; set; }
+
+    public List<int> NotificationUserIds { get; set; } = [];
+
+    public List<int> NotificationGroupIds { get; set; } = [];
 }
 
 public sealed class EventDto
@@ -67,4 +75,37 @@ public sealed class EventMedicalUserDto
     public int Id { get; set; }
 
     public string Nome { get; set; } = string.Empty;
+}
+
+public sealed class AgendaNotificationRecipientUserDto
+{
+    public int Id { get; set; }
+
+    public string Nome { get; set; } = string.Empty;
+
+    public string Email { get; set; } = string.Empty;
+
+    public int PerfilId { get; set; }
+
+    public string PerfilNome { get; set; } = string.Empty;
+}
+
+public sealed class AgendaNotificationRecipientGroupDto
+{
+    public int Id { get; set; }
+
+    public string Nome { get; set; } = string.Empty;
+
+    public int MembrosCount { get; set; }
+}
+
+public sealed class AgendaNotificationRecipientOptionsDto
+{
+    public bool CanNotifyAllAllowedRecipients { get; set; }
+
+    public string AllRecipientsLabel { get; set; } = string.Empty;
+
+    public List<AgendaNotificationRecipientUserDto> Users { get; set; } = [];
+
+    public List<AgendaNotificationRecipientGroupDto> Groups { get; set; } = [];
 }

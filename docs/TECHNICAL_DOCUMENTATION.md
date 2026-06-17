@@ -276,7 +276,7 @@ Os endpoints estao agrupados por tags:
 - `Dashboard`
 - `Usuarios`
 - `Pacientes`
-- `Agenda`
+- `Agenda e notificacoes`
 - `Licencas`
 - `CBHPM`
 - `Hospitais`
