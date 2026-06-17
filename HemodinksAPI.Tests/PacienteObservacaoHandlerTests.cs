@@ -157,6 +157,57 @@ public class PacienteObservacaoHandlerTests
     }
 
     [Fact]
+    public async Task GetPacienteObservacoes_ReturnsMostRecentMessagesFirst()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var admin = CreateUser("Administrador", "admin@hemodinks.com", "52998224725", Perfil.AdministradorId);
+        var doctor = CreateUser("Dr. Principal", "principal@hemodinks.com", "11144477735", Perfil.MedicosId);
+        var patientUser = CreateUser("Paciente", "paciente@hemodinks.com", "39053344705", Perfil.PacientesId);
+        var paciente = new Paciente
+        {
+            User = patientUser,
+            NomePaciente = "Paciente",
+            MedicoUser = doctor,
+            Medico = doctor.Nome,
+            Observacoes =
+            [
+                new Observacao
+                {
+                    AutorUser = admin,
+                    DestinatarioUser = doctor,
+                    Texto = "Mensagem mais antiga",
+                    DataCadastro = new DateTime(2026, 6, 1, 10, 0, 0, DateTimeKind.Utc)
+                },
+                new Observacao
+                {
+                    AutorUser = doctor,
+                    DestinatarioUser = admin,
+                    Texto = "Mensagem mais recente",
+                    DataCadastro = new DateTime(2026, 6, 1, 11, 0, 0, DateTimeKind.Utc)
+                }
+            ]
+        };
+
+        context.AddRange(admin, doctor, patientUser, paciente);
+        await context.SaveChangesAsync();
+
+        var handler = new GetPacienteObservacoesQueryHandler(
+            context,
+            NullLogger<GetPacienteObservacoesQueryHandler>.Instance);
+
+        var result = await handler.Handle(new GetPacienteObservacoesQuery
+        {
+            PacienteId = paciente.Id,
+            CurrentUserId = doctor.Id,
+            CurrentPerfilId = Perfil.MedicosId
+        }, CancellationToken.None);
+
+        Assert.Equal(
+            ["Mensagem mais recente", "Mensagem mais antiga"],
+            result.Select(item => item.Texto).ToArray());
+    }
+
+    [Fact]
     public async Task DashboardNotifications_IncludeUnreadPatientObservations()
     {
         await using var context = TestDbContextFactory.Create();

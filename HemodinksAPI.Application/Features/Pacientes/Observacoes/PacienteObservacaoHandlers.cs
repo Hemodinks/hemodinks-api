@@ -171,8 +171,8 @@ public class GetPacienteObservacoesQueryHandler : IRequestHandler<GetPacienteObs
                 .Where(observacao =>
                     observacao.PacienteId == request.PacienteId
                     && (observacao.AutorUserId == request.CurrentUserId || observacao.DestinatarioUserId == request.CurrentUserId))
-                .OrderBy(observacao => observacao.DataCadastro)
-                .ThenBy(observacao => observacao.Id)
+                .OrderByDescending(observacao => observacao.DataCadastro)
+                .ThenByDescending(observacao => observacao.Id)
                 .Select(observacao => new PacienteObservacaoDto
                 {
                     Id = observacao.Id,
