@@ -17,6 +17,8 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<Paciente> Pacientes { get; set; } = null!;
 
+    public DbSet<Observacao> Observacoes { get; set; } = null!;
+
     public DbSet<GrupoMedico> GruposMedicos { get; set; } = null!;
 
     public DbSet<GrupoMedicoUsuario> GrupoMedicoUsuarios { get; set; } = null!;
@@ -38,6 +40,8 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<Licenca> Licencas { get; set; } = null!;
 
     public DbSet<Event> Events { get; set; } = null!;
+
+    public DbSet<AgendaNotification> AgendaNotifications { get; set; } = null!;
 
     public DbSet<PasswordResetToken> PasswordResetTokens { get; set; } = null!;
 
@@ -158,6 +162,16 @@ public class AppDbContext : DbContext, IAppDbContext
                 .WithOne(e => e.User)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasMany(e => e.ObservacoesEnviadas)
+                .WithOne(e => e.AutorUser)
+                .HasForeignKey(e => e.AutorUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasMany(e => e.ObservacoesRecebidas)
+                .WithOne(e => e.DestinatarioUser)
+                .HasForeignKey(e => e.DestinatarioUserId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<GrupoMedico>(entity =>
@@ -297,6 +311,46 @@ public class AppDbContext : DbContext, IAppDbContext
                 .OnDelete(DeleteBehavior.Restrict);
         });
 
+        modelBuilder.Entity<AgendaNotification>(entity =>
+        {
+            entity.ToTable("AgendaNotifications");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Title)
+                .IsRequired()
+                .HasMaxLength(255);
+
+            entity.Property(e => e.Message)
+                .IsRequired()
+                .HasMaxLength(500);
+
+            entity.Property(e => e.CreatedAt)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(e => e.ReadAt);
+
+            entity.HasIndex(e => new { e.RecipientUserId, e.ReadAt, e.CreatedAt });
+            entity.HasIndex(e => e.EventId);
+            entity.HasIndex(e => e.SenderUserId);
+
+            entity.HasOne(e => e.Event)
+                .WithMany()
+                .HasForeignKey(e => e.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.SenderUser)
+                .WithMany()
+                .HasForeignKey(e => e.SenderUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            entity.HasOne(e => e.RecipientUser)
+                .WithMany()
+                .HasForeignKey(e => e.RecipientUserId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
         modelBuilder.Entity<PasswordResetToken>(entity =>
         {
             entity.ToTable("PasswordResetTokens");
@@ -326,6 +380,46 @@ public class AppDbContext : DbContext, IAppDbContext
                 .WithMany(e => e.PasswordResetTokens)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<Observacao>(entity =>
+        {
+            entity.ToTable("Observacoes");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.Texto)
+                .IsRequired()
+                .HasMaxLength(500);
+
+            entity.Property(e => e.DataCadastro)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(e => e.Medico)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.MedicoAuxiliar1)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.MedicoAuxiliar2)
+                .HasMaxLength(255);
+
+            entity.HasIndex(e => new { e.PacienteId, e.DataCadastro });
+
+            entity.HasIndex(e => new { e.DestinatarioUserId, e.DataLeitura, e.DataCadastro });
+
+            entity.HasIndex(e => new { e.AutorUserId, e.DataCadastro });
+
+            entity.HasOne(e => e.Paciente)
+                .WithMany(e => e.Observacoes)
+                .HasForeignKey(e => e.PacienteId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.ObservacaoPai)
+                .WithMany()
+                .HasForeignKey(e => e.ObservacaoPaiId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<Hospital>(entity =>

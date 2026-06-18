@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Features.Pacientes.Commands;
+using HemodinksAPI.Application.Features.Pacientes.Observacoes;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
 using MediatR;
 
@@ -50,6 +51,21 @@ public static class PacienteEndpointExtensions
             .WithName("DeletePacienteArquivo")
             .WithSummary("Excluir arquivo do paciente")
             .RequireAuthorization("PacienteArquivosGerenciar");
+
+        group.MapGet("/{id}/observacoes", GetObservacoes)
+            .WithName("GetPacienteObservacoes")
+            .WithSummary("Listar observacoes do paciente")
+            .RequireAuthorization("PacienteObservacaoGerenciar");
+
+        group.MapPost("/{id}/observacoes", CreateObservacao)
+            .WithName("CreatePacienteObservacao")
+            .WithSummary("Registrar observacao do paciente")
+            .RequireAuthorization("PacienteObservacaoGerenciar");
+
+        group.MapPost("/{id}/observacoes/marcar-lidas", MarkObservacoesAsRead)
+            .WithName("MarkPacienteObservacoesAsRead")
+            .WithSummary("Marcar observacoes do paciente como lidas")
+            .RequireAuthorization("PacienteObservacaoGerenciar");
     }
 
     private static Task<IResult> GetAllPacientes(
@@ -202,6 +218,64 @@ public static class PacienteEndpointExtensions
         }, logger, "Erro ao excluir arquivo do paciente", "Erro ao excluir arquivo");
     }
 
+    private static Task<IResult> GetObservacoes(
+        int id,
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        return EndpointExecution.RunAsync(async () =>
+        {
+            var currentUser = GetRequiredCurrentUser(claimsPrincipal);
+            var result = await mediator.Send(new GetPacienteObservacoesQuery
+            {
+                PacienteId = id,
+                CurrentUserId = currentUser.Id,
+                CurrentPerfilId = currentUser.PerfilId
+            }, cancellationToken);
+
+            return Results.Ok(result);
+        }, logger, "Erro ao buscar observacoes do paciente", "Erro ao buscar observacoes do paciente");
+    }
+
+    private static Task<IResult> CreateObservacao(
+        int id,
+        CreatePacienteObservacaoCommand command,
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        return EndpointExecution.RunAsync(async () =>
+        {
+            command.PacienteId = id;
+            ApplyCurrentUser(command, GetRequiredCurrentUser(claimsPrincipal));
+            return Results.Ok(await mediator.Send(command, cancellationToken));
+        }, logger, "Erro ao registrar observacao do paciente", "Erro ao registrar observacao do paciente");
+    }
+
+    private static Task<IResult> MarkObservacoesAsRead(
+        int id,
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        return EndpointExecution.RunAsync(async () =>
+        {
+            var currentUser = GetRequiredCurrentUser(claimsPrincipal);
+            var result = await mediator.Send(new MarkPacienteObservacoesAsReadCommand
+            {
+                PacienteId = id,
+                CurrentUserId = currentUser.Id,
+                CurrentPerfilId = currentUser.PerfilId
+            }, cancellationToken);
+
+            return Results.Ok(result);
+        }, logger, "Erro ao marcar observacoes do paciente como lidas", "Erro ao atualizar observacoes do paciente");
+    }
+
     private static void ApplyCurrentUser(CreatePacienteCommand command, CurrentUserContext currentUser)
     {
         command.CurrentUserId = currentUser.Id;
@@ -210,6 +284,13 @@ public static class PacienteEndpointExtensions
     }
 
     private static void ApplyCurrentUser(UpdatePacienteCommand command, CurrentUserContext currentUser)
+    {
+        command.CurrentUserId = currentUser.Id;
+        command.CurrentPerfilId = currentUser.PerfilId;
+        command.CurrentUserName = currentUser.Nome;
+    }
+
+    private static void ApplyCurrentUser(CreatePacienteObservacaoCommand command, CurrentUserContext currentUser)
     {
         command.CurrentUserId = currentUser.Id;
         command.CurrentPerfilId = currentUser.PerfilId;

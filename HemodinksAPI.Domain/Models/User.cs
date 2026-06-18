@@ -80,4 +80,8 @@ public class User
     public ICollection<UserArquivo> Arquivos { get; set; } = new List<UserArquivo>();
 
     public ICollection<GrupoMedicoUsuario> GruposMedicos { get; set; } = new List<GrupoMedicoUsuario>();
+
+    public ICollection<Observacao> ObservacoesEnviadas { get; set; } = new List<Observacao>();
+
+    public ICollection<Observacao> ObservacoesRecebidas { get; set; } = new List<Observacao>();
 }

@@ -61,6 +61,20 @@ public class GetDashboardSummaryQueryHandler :
             request.CurrentUserId,
             cancellationToken);
 
+        var unreadObservationCount = request.CurrentPerfilId == Perfil.PacientesId
+            ? 0
+            : await _context.Observacoes
+                .AsNoTracking()
+                .CountAsync(observacao =>
+                    observacao.DestinatarioUserId == request.CurrentUserId
+                    && observacao.DataLeitura == null, cancellationToken);
+
+        var unreadAgendaNotificationCount = await _context.AgendaNotifications
+            .AsNoTracking()
+            .CountAsync(notification =>
+                notification.RecipientUserId == request.CurrentUserId
+                && notification.ReadAt == null, cancellationToken);
+
         return new DashboardSummaryDto
         {
             UsersCount = usersSummary?.UsersCount ?? 0,
@@ -69,7 +83,9 @@ public class GetDashboardSummaryQueryHandler :
             ActivePatientsCount = patientSummary?.ActivePatientsCount ?? 0,
             PendingPaymentsCount = patientSummary?.PendingPaymentsCount ?? 0,
             PatientFilesCount = patientSummary?.PatientFilesCount ?? 0,
-            UpcomingEventsCount = upcomingEventsCount
+            UpcomingEventsCount = upcomingEventsCount,
+            UnreadObservationCount = unreadObservationCount,
+            UnreadAgendaNotificationCount = unreadAgendaNotificationCount
         };
     }
 
@@ -138,9 +154,57 @@ public class GetDashboardSummaryQueryHandler :
                 Data = ev.Start
             });
 
+        var observationNotifications = request.CurrentPerfilId == Perfil.PacientesId
+            ? []
+            : await _context.Observacoes
+                .AsNoTracking()
+                .Where(observacao =>
+                    observacao.DestinatarioUserId == request.CurrentUserId
+                    && observacao.DataLeitura == null)
+                .OrderByDescending(observacao => observacao.DataCadastro)
+                .ThenByDescending(observacao => observacao.Id)
+                .Take(limit)
+                .Select(observacao => new DashboardNotificationDto
+                {
+                    Id = observacao.Id,
+                    ObservacaoId = observacao.Id,
+                    Tipo = "ObservacaoPaciente",
+                    Titulo = "Observacao do paciente",
+                    Mensagem = observacao.Texto,
+                    PacienteId = observacao.PacienteId,
+                    NomePaciente = observacao.Paciente.NomePaciente,
+                    Medico = observacao.Medico,
+                    Autor = observacao.AutorUser.Nome,
+                    Data = observacao.DataCadastro,
+                    DataLeitura = observacao.DataLeitura
+                })
+                .ToListAsync(cancellationToken);
+
+        var agendaNotifications = await _context.AgendaNotifications
+            .AsNoTracking()
+            .Where(notification => notification.RecipientUserId == request.CurrentUserId)
+            .OrderByDescending(notification => notification.CreatedAt)
+            .ThenByDescending(notification => notification.Id)
+            .Take(limit)
+            .Select(notification => new DashboardNotificationDto
+            {
+                Id = notification.Id,
+                Tipo = "NotificacaoAgenda",
+                Titulo = notification.Title,
+                Mensagem = notification.Message,
+                PacienteId = 0,
+                NomePaciente = string.Empty,
+                Autor = notification.SenderUser.Nome,
+                Data = notification.CreatedAt,
+                DataLeitura = notification.ReadAt
+            })
+            .ToListAsync(cancellationToken);
+
         return pendingNotifications
             .Concat(eventNotifications)
-            .OrderBy(notification => notification.Data ?? DateTime.MinValue)
+            .Concat(observationNotifications)
+            .Concat(agendaNotifications)
+            .OrderByDescending(notification => notification.Data ?? DateTime.MinValue)
             .Take(limit)
             .ToList();
     }

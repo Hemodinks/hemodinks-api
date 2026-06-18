@@ -36,4 +36,5 @@ public class Paciente
     public bool StatusPago { get; set; }
     public ICollection<PacienteProcedimento> Procedimentos { get; set; } = new List<PacienteProcedimento>();
     public ICollection<PacienteArquivo> Arquivos { get; set; } = new List<PacienteArquivo>();
+    public ICollection<Observacao> Observacoes { get; set; } = new List<Observacao>();
 }

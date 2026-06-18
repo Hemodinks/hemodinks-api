@@ -11,6 +11,8 @@ public interface IAppDbContext
 
     DbSet<Paciente> Pacientes { get; }
 
+    DbSet<Observacao> Observacoes { get; }
+
     DbSet<GrupoMedico> GruposMedicos { get; }
 
     DbSet<GrupoMedicoUsuario> GrupoMedicoUsuarios { get; }
@@ -32,6 +34,8 @@ public interface IAppDbContext
     DbSet<Licenca> Licencas { get; }
 
     DbSet<Event> Events { get; }
+
+    DbSet<AgendaNotification> AgendaNotifications { get; }
 
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
 

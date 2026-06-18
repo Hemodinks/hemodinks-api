@@ -21,6 +21,8 @@ public sealed class EventCommandHandler :
 
     public async Task<EventDto> Handle(CreateEventCommand request, CancellationToken cancellationToken)
     {
+        EventFeatureRules.ValidateNotificationRequest(request.Request);
+
         var ownerUserId = await ResolveOwnerUserIdAsync(
             request.Request.UserId,
             request.CurrentUser,
@@ -39,6 +41,7 @@ public sealed class EventCommandHandler :
             isCreate: true);
 
         _context.Events.Add(ev);
+        AddAgendaNotifications(ev, request.CurrentUser, request.Request);
         await _context.SaveChangesAsync(cancellationToken);
 
         return await FindEventDtoAsync(ev.Id, cancellationToken);
@@ -172,5 +175,32 @@ public sealed class EventCommandHandler :
         }
 
         return medicalUserId.Value;
+    }
+
+    private void AddAgendaNotifications(Event ev, CurrentUserContext currentUser, EventRequest request)
+    {
+        var recipientUserIds = EventFeatureRules.ResolveNotificationRecipientUserIds(_context, currentUser, request);
+        if (recipientUserIds.Count == 0)
+        {
+            return;
+        }
+
+        var title = ev.Title.Trim();
+        var message = string.IsNullOrWhiteSpace(request.NotificationMessage)
+            ? (ev.Description?.Trim() ?? title)
+            : request.NotificationMessage.Trim();
+
+        foreach (var recipientUserId in recipientUserIds)
+        {
+            _context.AgendaNotifications.Add(new AgendaNotification
+            {
+                Event = ev,
+                SenderUserId = currentUser.Id,
+                RecipientUserId = recipientUserId,
+                Title = title,
+                Message = message,
+                CreatedAt = DateTime.UtcNow
+            });
+        }
     }
 }

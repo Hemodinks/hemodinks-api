@@ -12,7 +12,7 @@ public static class EventEndpointExtensions
     public static void MapEventEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/events")
-            .WithTags("Agenda")
+            .WithTags("Agenda e notificacoes")
             .RequireAuthorization();
 
         group.MapGet("/", GetEvents)
@@ -22,6 +22,14 @@ public static class EventEndpointExtensions
         group.MapGet("/medical-users", GetMedicalUsers)
             .WithName("GetEventMedicalUsers")
             .WithSummary("Listar medicos ativos para notificacao de eventos");
+
+        group.MapGet("/notification-recipients", GetNotificationRecipients)
+            .WithName("GetEventNotificationRecipients")
+            .WithSummary("Listar destinatarios permitidos para notificacoes da agenda");
+
+        group.MapPost("/notifications/mark-read", MarkNotificationsRead)
+            .WithName("MarkAgendaNotificationsRead")
+            .WithSummary("Marcar notificacoes da agenda como lidas");
 
         group.MapGet("/{id:int}", GetEventById)
             .WithName("GetEventById")
@@ -58,6 +66,68 @@ public static class EventEndpointExtensions
             logger.LogError(ex, "Erro ao buscar medicos para agenda");
             return Results.Problem(
                 title: "Erro ao buscar medicos para agenda",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    private static async Task<IResult> GetNotificationRecipients(
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null || currentUser.IsPaciente)
+            {
+                return Results.Forbid();
+            }
+
+            return Results.Ok(await mediator.Send(new GetAgendaNotificationRecipientOptionsQuery
+            {
+                CurrentUser = currentUser
+            }, cancellationToken));
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return Results.Forbid();
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Erro ao buscar destinatarios de notificacoes da agenda");
+            return Results.Problem(
+                title: "Erro ao buscar destinatarios de notificacoes da agenda",
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    private static async Task<IResult> MarkNotificationsRead(
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var currentUser = claimsPrincipal.ToCurrentUserContext();
+            if (currentUser == null || currentUser.IsPaciente)
+            {
+                return Results.Forbid();
+            }
+
+            var updatedCount = await mediator.Send(new MarkAgendaNotificationsAsReadCommand
+            {
+                CurrentUser = currentUser
+            }, cancellationToken);
+
+            return Results.Ok(new { updatedCount });
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Erro ao marcar notificacoes da agenda como lidas");
+            return Results.Problem(
+                title: "Erro ao marcar notificacoes da agenda como lidas",
                 statusCode: StatusCodes.Status500InternalServerError);
         }
     }
