@@ -17,6 +17,8 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<Paciente> Pacientes { get; set; } = null!;
 
+    public DbSet<FaturamentoMedico> FaturamentosMedicos { get; set; } = null!;
+
     public DbSet<Observacao> Observacoes { get; set; } = null!;
 
     public DbSet<GrupoMedico> GruposMedicos { get; set; } = null!;
@@ -601,6 +603,91 @@ public class AppDbContext : DbContext, IAppDbContext
                 .WithOne(e => e.Paciente)
                 .HasForeignKey(e => e.PacienteId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne(e => e.FaturamentoMedico)
+                .WithOne(e => e.Paciente)
+                .HasForeignKey<FaturamentoMedico>(e => e.PacienteId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<FaturamentoMedico>(entity =>
+        {
+            entity.ToTable("FaturamentosMedicos");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.HonorariosCirurgiao)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(e => e.HonorariosAuxiliares)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(e => e.HonorariosAnestesista)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(e => e.AnestesistaFaturadoSeparado)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.Anestesista)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.CodigoTussCbhpmAmb)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.PorteCirurgicoAnestesico)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.GuiaAutorizacaoConvenio)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.GuiaInternacaoOuSadt)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.OpmeMateriaisEspeciais)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.TissXmlStatus)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.ValorGlosa)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(e => e.GlosaStatus)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.RecursoGlosa)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.ConferenciaPagamentoRealizada)
+                .IsRequired()
+                .HasDefaultValue(false);
+
+            entity.Property(e => e.RepasseMedico)
+                .HasColumnType("decimal(18,2)");
+
+            entity.Property(e => e.RepasseMedicoObservacao)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.TipoFaturamentoParticular)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.ReciboNotaContrato)
+                .HasMaxLength(255);
+
+            entity.Property(e => e.Observacoes)
+                .HasMaxLength(2000);
+
+            entity.Property(e => e.DataCadastro)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(e => e.DataAtualizacao);
+
+            entity.HasIndex(e => e.PacienteId)
+                .IsUnique();
+
+            entity.HasIndex(e => e.ConferenciaPagamentoRealizada);
         });
 
         modelBuilder.Entity<PacienteProcedimento>(entity =>

@@ -1,5 +1,6 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Cbhpm;
+using HemodinksAPI.Application.Features.Faturamentos;
 using HemodinksAPI.Application.Features.GruposMedicos;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Domain.Models;
@@ -146,6 +147,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             };
 
             _context.Pacientes.Add(paciente);
+            FaturamentoMedicoSync.EnsureSynced(paciente, DateTime.UtcNow);
             await _context.SaveChangesAsync(cancellationToken);
 
             return PacienteMapper.ToDto(paciente);
@@ -186,6 +188,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             var paciente = await _context.Pacientes
                 .Include(p => p.User)
                 .Include(p => p.Arquivos)
+                .Include(p => p.FaturamentoMedico)
                 .Include(p => p.Procedimentos)
                 .FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken);
 
@@ -296,6 +299,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 paciente.Procedimentos.Add(procedimentoItem);
             }
 
+            FaturamentoMedicoSync.EnsureSynced(paciente, DateTime.UtcNow);
             await _context.SaveChangesAsync(cancellationToken);
 
             return PacienteMapper.ToDto(paciente);

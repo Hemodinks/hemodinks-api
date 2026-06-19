@@ -147,6 +147,33 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                     DataNascimento = p.User.DataNascimento,
                     Ativo = p.User.Ativo,
                     ArquivosCount = p.Arquivos.Count,
+                    Faturamento = p.FaturamentoMedico == null ? null : new PacienteFaturamentoDto
+                    {
+                        Id = p.FaturamentoMedico.Id,
+                        PacienteId = p.FaturamentoMedico.PacienteId,
+                        HonorariosCirurgiao = p.FaturamentoMedico.HonorariosCirurgiao,
+                        HonorariosAuxiliares = p.FaturamentoMedico.HonorariosAuxiliares,
+                        HonorariosAnestesista = p.FaturamentoMedico.HonorariosAnestesista,
+                        AnestesistaFaturadoSeparado = p.FaturamentoMedico.AnestesistaFaturadoSeparado,
+                        Anestesista = p.FaturamentoMedico.Anestesista,
+                        CodigoTussCbhpmAmb = p.FaturamentoMedico.CodigoTussCbhpmAmb,
+                        PorteCirurgicoAnestesico = p.FaturamentoMedico.PorteCirurgicoAnestesico,
+                        GuiaAutorizacaoConvenio = p.FaturamentoMedico.GuiaAutorizacaoConvenio,
+                        GuiaInternacaoOuSadt = p.FaturamentoMedico.GuiaInternacaoOuSadt,
+                        OpmeMateriaisEspeciais = p.FaturamentoMedico.OpmeMateriaisEspeciais,
+                        TissXmlStatus = p.FaturamentoMedico.TissXmlStatus,
+                        ValorGlosa = p.FaturamentoMedico.ValorGlosa,
+                        GlosaStatus = p.FaturamentoMedico.GlosaStatus,
+                        RecursoGlosa = p.FaturamentoMedico.RecursoGlosa,
+                        ConferenciaPagamentoRealizada = p.FaturamentoMedico.ConferenciaPagamentoRealizada,
+                        RepasseMedico = p.FaturamentoMedico.RepasseMedico,
+                        RepasseMedicoObservacao = p.FaturamentoMedico.RepasseMedicoObservacao,
+                        TipoFaturamentoParticular = p.FaturamentoMedico.TipoFaturamentoParticular,
+                        ReciboNotaContrato = p.FaturamentoMedico.ReciboNotaContrato,
+                        Observacoes = p.FaturamentoMedico.Observacoes,
+                        DataCadastro = p.FaturamentoMedico.DataCadastro,
+                        DataAtualizacao = p.FaturamentoMedico.DataAtualizacao
+                    },
                     ObservacoesNaoLidasCount = p.Observacoes.Count(observacao =>
                         observacao.DestinatarioUserId == request.CurrentUserId
                         && observacao.DataLeitura == null)
@@ -257,6 +284,7 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
                 .Include(p => p.HospitalReferencia)
                 .Include(p => p.ConvenioReferencia)
                 .Include(p => p.OpmeFornecedorReferencia)
+                .Include(p => p.FaturamentoMedico)
                 .Include(p => p.Procedimentos)
                 .Include(p => p.Observacoes)
                 .Include(p => p.Arquivos);
@@ -360,6 +388,7 @@ internal static class PacienteMapper
             DataNascimento = paciente.User.DataNascimento,
             Ativo = paciente.User.Ativo,
             ArquivosCount = paciente.Arquivos.Count,
+            Faturamento = ToFaturamentoDto(paciente.FaturamentoMedico),
             Arquivos = paciente.Arquivos
                 .OrderByDescending(arquivo => arquivo.DataUpload)
                 .Select(ToArquivoDto)
@@ -423,6 +452,42 @@ internal static class PacienteMapper
             TamanhoBytes = arquivo.TamanhoBytes,
             Url = arquivo.Url,
             DataUpload = arquivo.DataUpload
+        };
+    }
+
+    public static PacienteFaturamentoDto? ToFaturamentoDto(FaturamentoMedico? faturamento)
+    {
+        if (faturamento == null)
+        {
+            return null;
+        }
+
+        return new PacienteFaturamentoDto
+        {
+            Id = faturamento.Id,
+            PacienteId = faturamento.PacienteId,
+            HonorariosCirurgiao = faturamento.HonorariosCirurgiao,
+            HonorariosAuxiliares = faturamento.HonorariosAuxiliares,
+            HonorariosAnestesista = faturamento.HonorariosAnestesista,
+            AnestesistaFaturadoSeparado = faturamento.AnestesistaFaturadoSeparado,
+            Anestesista = faturamento.Anestesista,
+            CodigoTussCbhpmAmb = faturamento.CodigoTussCbhpmAmb,
+            PorteCirurgicoAnestesico = faturamento.PorteCirurgicoAnestesico,
+            GuiaAutorizacaoConvenio = faturamento.GuiaAutorizacaoConvenio,
+            GuiaInternacaoOuSadt = faturamento.GuiaInternacaoOuSadt,
+            OpmeMateriaisEspeciais = faturamento.OpmeMateriaisEspeciais,
+            TissXmlStatus = faturamento.TissXmlStatus,
+            ValorGlosa = faturamento.ValorGlosa,
+            GlosaStatus = faturamento.GlosaStatus,
+            RecursoGlosa = faturamento.RecursoGlosa,
+            ConferenciaPagamentoRealizada = faturamento.ConferenciaPagamentoRealizada,
+            RepasseMedico = faturamento.RepasseMedico,
+            RepasseMedicoObservacao = faturamento.RepasseMedicoObservacao,
+            TipoFaturamentoParticular = faturamento.TipoFaturamentoParticular,
+            ReciboNotaContrato = faturamento.ReciboNotaContrato,
+            Observacoes = faturamento.Observacoes,
+            DataCadastro = faturamento.DataCadastro,
+            DataAtualizacao = faturamento.DataAtualizacao
         };
     }
 }
