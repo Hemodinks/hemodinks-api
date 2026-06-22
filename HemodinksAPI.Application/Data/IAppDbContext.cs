@@ -41,7 +41,5 @@ public interface IAppDbContext
 
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
 
-    DbSet<ConfiguracaoSistema> ConfiguracoesSistema { get; }
-
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

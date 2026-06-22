@@ -1,61 +1,45 @@
-using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.ConfiguracoesSistema.Commands;
 using HemodinksAPI.Application.Features.ConfiguracoesSistema.Queries;
-using HemodinksAPI.Domain.Models;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Features.ConfiguracoesSistema;
 
-public sealed class ConfiguracaoSistemaHandler :
-    IRequestHandler<GetConfiguracaoSistemaQuery, ConfiguracaoSistemaDto>,
-    IRequestHandler<UpdateConfiguracaoSistemaCommand, ConfiguracaoSistemaDto>
+public sealed class GetConfiguracaoSistemaHandler : IRequestHandler<GetConfiguracaoSistemaQuery, ConfiguracaoSistemaDto>
 {
-    private readonly IAppDbContext _context;
+    private readonly IConfiguracaoSistemaRepository _repository;
 
-    public ConfiguracaoSistemaHandler(IAppDbContext context)
+    public GetConfiguracaoSistemaHandler(IConfiguracaoSistemaRepository repository)
     {
-        _context = context;
+        _repository = repository;
     }
 
     public async Task<ConfiguracaoSistemaDto> Handle(GetConfiguracaoSistemaQuery request, CancellationToken cancellationToken)
     {
-        var configuracao = await GetOrCreateAsync(cancellationToken);
+        var configuracao = await _repository.GetCurrentOrCreateAsync(cancellationToken);
         return ConfiguracaoSistemaMapper.ToDto(configuracao);
+    }
+}
+
+public sealed class UpdateConfiguracaoSistemaHandler : IRequestHandler<UpdateConfiguracaoSistemaCommand, ConfiguracaoSistemaDto>
+{
+    private readonly IConfiguracaoSistemaRepository _repository;
+    private readonly TimeProvider _timeProvider;
+
+    public UpdateConfiguracaoSistemaHandler(IConfiguracaoSistemaRepository repository, TimeProvider timeProvider)
+    {
+        _repository = repository;
+        _timeProvider = timeProvider;
     }
 
     public async Task<ConfiguracaoSistemaDto> Handle(UpdateConfiguracaoSistemaCommand request, CancellationToken cancellationToken)
     {
-        var configuracao = await GetOrCreateAsync(cancellationToken);
+        var configuracao = await _repository.GetCurrentOrCreateAsync(cancellationToken);
 
         configuracao.NomeEmpresa = request.NomeEmpresa.Trim();
-        configuracao.DataAtualizacao = DateTime.UtcNow;
+        configuracao.DataAtualizacao = _timeProvider.GetUtcNow().UtcDateTime;
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await _repository.SaveChangesAsync(cancellationToken);
 
         return ConfiguracaoSistemaMapper.ToDto(configuracao);
-    }
-
-    private async Task<ConfiguracaoSistema> GetOrCreateAsync(CancellationToken cancellationToken)
-    {
-        var configuracao = await _context.ConfiguracoesSistema
-            .FirstOrDefaultAsync(item => item.Id == ConfiguracaoSistema.DefaultId, cancellationToken);
-
-        if (configuracao != null)
-        {
-            return configuracao;
-        }
-
-        configuracao = new ConfiguracaoSistema
-        {
-            Id = ConfiguracaoSistema.DefaultId,
-            NomeEmpresa = "Hemodinks",
-            DataCadastro = DateTime.UtcNow
-        };
-
-        _context.ConfiguracoesSistema.Add(configuracao);
-        await _context.SaveChangesAsync(cancellationToken);
-
-        return configuracao;
     }
 }

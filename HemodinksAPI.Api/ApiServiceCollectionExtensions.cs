@@ -3,6 +3,7 @@ using HemodinksAPI.Application;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Cbhpm;
+using HemodinksAPI.Application.Features.ConfiguracoesSistema;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Application.Services;
@@ -12,6 +13,7 @@ using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Authentication;
 using HemodinksAPI.Infrastructure.Authorization;
 using HemodinksAPI.Infrastructure.Data;
+using HemodinksAPI.Infrastructure.Data.Repositories;
 using HemodinksAPI.Infrastructure.Seeders;
 using HemodinksAPI.Infrastructure.Services;
 using HemodinksAPI.Infrastructure.Storage;
@@ -244,7 +246,9 @@ public static class ApiServiceCollectionExtensions
         IConfiguration configuration,
         IWebHostEnvironment environment)
     {
+        services.AddSingleton(TimeProvider.System);
         services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<IConfiguracaoSistemaRepository, ConfiguracaoSistemaRepository>();
         services.AddScoped<IUserPatientSyncService, UserPatientSyncService>();
         services.Configure<EmailOptions>(configuration.GetSection("Email"));
         services.Configure<FrontendOptions>(configuration.GetSection("Frontend"));

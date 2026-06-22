@@ -405,7 +405,7 @@ public class AppDbContext : DbContext, IAppDbContext
             entity.HasData(new ConfiguracaoSistema
             {
                 Id = ConfiguracaoSistema.DefaultId,
-                NomeEmpresa = "Hemodinks",
+                NomeEmpresa = ConfiguracaoSistema.DefaultNomeEmpresa,
                 DataCadastro = new DateTime(2026, 6, 22, 0, 0, 0, DateTimeKind.Utc)
             });
         });
