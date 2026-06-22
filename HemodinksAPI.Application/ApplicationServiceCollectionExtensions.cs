@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Features.Events.Commands;
+using HemodinksAPI.Application.Features.ConfiguracoesSistema.Commands;
 using HemodinksAPI.Application.Features.GruposMedicos.Commands;
 using HemodinksAPI.Application.Features.Pacientes.Commands;
 using HemodinksAPI.Application.Features.Pacientes.Observacoes;
@@ -28,6 +29,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddTransient<IRequestValidator<CreateUserCommand>, CreateUserCommandValidator>();
         services.AddTransient<IRequestValidator<UpdateUserCommand>, UpdateUserCommandValidator>();
         services.AddTransient<IRequestValidator<ChangePasswordCommand>, ChangePasswordCommandValidator>();
+        services.AddTransient<IRequestValidator<UpdateConfiguracaoSistemaCommand>, UpdateConfiguracaoSistemaCommandValidator>();
 
         return services;
     }

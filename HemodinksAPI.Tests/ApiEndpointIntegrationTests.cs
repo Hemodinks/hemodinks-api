@@ -147,6 +147,31 @@ public class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task ConfiguracoesSistema_AllowsPublicReadAndAdminUpdate()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+
+        var getResponse = await client.GetAsync("/api/configuracoes-sistema/current");
+
+        Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
+        using var getJson = await ReadJsonAsync(getResponse);
+        Assert.Equal("Hemodinks", getJson.RootElement.GetProperty("nomeEmpresa").GetString());
+
+        await AuthenticateAsync(client);
+
+        var updateResponse = await client.PutAsJsonAsync("/api/configuracoes-sistema/current", new
+        {
+            nomeEmpresa = "Clinica Alfa"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        using var updateJson = await ReadJsonAsync(updateResponse);
+        Assert.Equal("Clinica Alfa", updateJson.RootElement.GetProperty("nomeEmpresa").GetString());
+        Assert.NotEqual(JsonValueKind.Null, updateJson.RootElement.GetProperty("dataAtualizacao").ValueKind);
+    }
+
+    [Fact]
     public async Task PasswordResetFlow_WhenTokenIsValid_AllowsAuthenticationWithNewPassword()
     {
         using var factory = new HemodinksApiFactory();

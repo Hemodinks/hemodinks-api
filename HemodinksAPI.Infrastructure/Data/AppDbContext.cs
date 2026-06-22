@@ -47,6 +47,8 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<PasswordResetToken> PasswordResetTokens { get; set; } = null!;
 
+    public DbSet<ConfiguracaoSistema> ConfiguracoesSistema { get; set; } = null!;
+
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
     {
     }
@@ -382,6 +384,30 @@ public class AppDbContext : DbContext, IAppDbContext
                 .WithMany(e => e.PasswordResetTokens)
                 .HasForeignKey(e => e.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<ConfiguracaoSistema>(entity =>
+        {
+            entity.ToTable("ConfiguracoesSistema");
+
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.NomeEmpresa)
+                .IsRequired()
+                .HasMaxLength(120);
+
+            entity.Property(e => e.DataCadastro)
+                .IsRequired()
+                .HasDefaultValueSql("GETUTCDATE()");
+
+            entity.Property(e => e.DataAtualizacao);
+
+            entity.HasData(new ConfiguracaoSistema
+            {
+                Id = ConfiguracaoSistema.DefaultId,
+                NomeEmpresa = "Hemodinks",
+                DataCadastro = new DateTime(2026, 6, 22, 0, 0, 0, DateTimeKind.Utc)
+            });
         });
 
         modelBuilder.Entity<Observacao>(entity =>

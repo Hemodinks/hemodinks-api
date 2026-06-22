@@ -129,6 +129,7 @@ public static class ApiApplicationExtensions
         app.MapConvenioEndpoints();
         app.MapOpmeEndpoints();
         app.MapGrupoMedicoEndpoints();
+        app.MapConfiguracaoSistemaEndpoints();
         app.MapUserEndpoints();
         app.MapPacienteEndpoints();
         app.MapFaturamentoMedicoEndpoints();
