@@ -3,6 +3,7 @@ using Serilog;
 using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddNonProductionUserSecretsFallback(builder.Environment);
 
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Information()

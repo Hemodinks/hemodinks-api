@@ -24,6 +24,9 @@ packages/
 out/
 dist/
 
+# Database dumps
+*.bacpac
+
 # OS
 .DS_Store
 Thumbs.db
