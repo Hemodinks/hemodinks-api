@@ -124,6 +124,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 Diagnostico = diagnostico,
                 TratamentoMedico = tratamentoMedico,
                 HospitalId = hospital.Id,
+                HospitalReferencia = hospital.Referencia,
                 Hospital = hospital.Nome,
                 MedicoUserId = medico.UserId,
                 Medico = medico.Nome,
@@ -132,6 +133,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 MedicoAuxiliar2UserId = medicoAuxiliar2.UserId,
                 MedicoAuxiliar2 = medicoAuxiliar2.Nome,
                 ConvenioId = convenio?.Id,
+                ConvenioReferencia = convenio?.Referencia,
                 Convenio = convenio?.Descricao,
                 OpmeFornecedorId = opmeFornecedor?.Id > 0 ? opmeFornecedor.Id : null,
                 OpmeFornecedorReferencia = opmeFornecedor?.FornecedorReferencia,
@@ -274,6 +276,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             paciente.Diagnostico = PacienteRules.TrimAndValidateOptional(request.Diagnostico, 100, "Diagnostico excede 100 caracteres");
             paciente.TratamentoMedico = PacienteRules.TrimAndValidateOptional(request.TratamentoMedico, 100, "Tratamento medico excede 100 caracteres");
             paciente.HospitalId = hospital.Id;
+            paciente.HospitalReferencia = hospital.Referencia;
             paciente.Hospital = hospital.Nome;
             paciente.MedicoUserId = medico.UserId;
             paciente.Medico = medico.Nome;
@@ -282,6 +285,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             paciente.MedicoAuxiliar2UserId = medicoAuxiliar2.UserId;
             paciente.MedicoAuxiliar2 = medicoAuxiliar2.Nome;
             paciente.ConvenioId = convenio?.Id;
+            paciente.ConvenioReferencia = convenio?.Referencia;
             paciente.Convenio = convenio?.Descricao;
             paciente.OpmeFornecedorId = opmeFornecedor?.Id > 0 ? opmeFornecedor.Id : null;
             paciente.OpmeFornecedorReferencia = opmeFornecedor?.FornecedorReferencia;
@@ -637,17 +641,23 @@ internal static class PacienteRules
         if (hospitalId.HasValue)
         {
             hospital = await context.Hospitais
-                .AsNoTracking()
                 .FirstOrDefaultAsync(item => item.Id == hospitalId.Value, cancellationToken);
         }
         else
         {
-            var nome = TrimOptional(hospitalNome);
-            if (nome != null)
+            var nome = TrimAndValidateOptional(hospitalNome, 255, "Hospital excede 255 caracteres");
+            if (nome == null)
             {
-                hospital = await context.Hospitais
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(item => item.Nome == nome, cancellationToken);
+                throw new InvalidOperationException("Hospital invalido");
+            }
+
+            hospital = await context.Hospitais
+                .FirstOrDefaultAsync(item => item.Nome == nome, cancellationToken);
+
+            if (hospital == null)
+            {
+                hospital = new Hospital { Nome = nome };
+                context.Hospitais.Add(hospital);
             }
         }
 
@@ -656,7 +666,7 @@ internal static class PacienteRules
             throw new InvalidOperationException("Hospital invalido");
         }
 
-        return new ResolvedHospital(hospital.Id, hospital.Nome);
+        return new ResolvedHospital(hospital.Id, hospital.Nome, hospital);
     }
 
     public static async Task<ResolvedConvenio?> ResolveConvenioAsync(
@@ -670,20 +680,24 @@ internal static class PacienteRules
         if (convenioId.HasValue)
         {
             convenio = await context.Convenios
-                .AsNoTracking()
                 .FirstOrDefaultAsync(item => item.IdConvenio == convenioId.Value, cancellationToken);
         }
         else
         {
-            var descricao = TrimOptional(convenioDescricao);
+            var descricao = TrimAndValidateOptional(convenioDescricao, 255, "Convenio excede 255 caracteres");
             if (descricao == null)
             {
                 return null;
             }
 
             convenio = await context.Convenios
-                .AsNoTracking()
                 .FirstOrDefaultAsync(item => item.DescricaoConvenio == descricao, cancellationToken);
+
+            if (convenio == null)
+            {
+                convenio = new Convenio { DescricaoConvenio = descricao };
+                context.Convenios.Add(convenio);
+            }
         }
 
         if (convenio == null)
@@ -691,7 +705,7 @@ internal static class PacienteRules
             throw new InvalidOperationException("Convenio invalido");
         }
 
-        return new ResolvedConvenio(convenio.IdConvenio, convenio.DescricaoConvenio);
+        return new ResolvedConvenio(convenio.IdConvenio, convenio.DescricaoConvenio, convenio);
     }
 
     public static async Task<ResolvedOpmeFornecedor?> ResolveOpmeFornecedorAsync(
@@ -984,9 +998,9 @@ internal static class PacienteRules
     }
 }
 
-internal sealed record ResolvedHospital(int Id, string Nome);
+internal sealed record ResolvedHospital(int Id, string Nome, Hospital Referencia);
 
-internal sealed record ResolvedConvenio(int Id, string Descricao);
+internal sealed record ResolvedConvenio(int Id, string Descricao, Convenio Referencia);
 
 internal sealed record ResolvedOpmeFornecedor(int Id, string Fornecedor, HemodinksAPI.Domain.Models.Opme FornecedorReferencia);
 
