@@ -1,4 +1,6 @@
 using HemodinksAPI.Api;
+using HemodinksAPI.Infrastructure.Storage;
+using Microsoft.Extensions.FileProviders;
 using Serilog;
 using Serilog.Events;
 
@@ -24,13 +26,29 @@ builder.Services
     .AddFrontendCors(builder.Configuration)
     .AddApiRateLimiting()
     .AddLicensing(builder.Configuration)
-    .AddStorage(builder.Configuration)
+    .AddStorage(builder.Configuration, builder.Environment)
     .AddApplicationServices(builder.Configuration, builder.Environment)
     .AddApiDocumentation();
 
 var app = builder.Build();
 
 await app.InitializeDatabaseAsync();
+
+if (!app.Environment.IsProduction() && string.IsNullOrWhiteSpace(app.Configuration["AzureStorage:ConnectionString"]))
+{
+    var localStorageRootPath = LocalStoragePathHelper.ResolveRootPath(
+        app.Configuration["LocalStorage:RootPath"],
+        app.Environment.ContentRootPath);
+    var localStorageRequestPath = LocalStoragePathHelper.NormalizeRequestPath(app.Configuration["LocalStorage:RequestPath"]);
+
+    Directory.CreateDirectory(localStorageRootPath);
+
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(localStorageRootPath),
+        RequestPath = localStorageRequestPath
+    });
+}
 
 app.UseApiDocumentation();
 app.Use(async (context, next) =>

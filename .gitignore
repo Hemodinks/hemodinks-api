@@ -15,6 +15,7 @@ obj/
 # Logs
 logs/
 *.log
+local-storage/
 
 # Dependências
 packages/

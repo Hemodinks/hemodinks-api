@@ -27,6 +27,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.Extensions.Hosting;
 
 namespace HemodinksAPI.Api;
 
@@ -219,7 +220,10 @@ public static class ApiServiceCollectionExtensions
         return services;
     }
 
-    public static IServiceCollection AddStorage(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddStorage(
+        this IServiceCollection services,
+        IConfiguration configuration,
+        IWebHostEnvironment environment)
     {
         services.Configure<ProfilePhotoStorageOptions>(configuration.GetSection("AzureStorage"));
         services.Configure<PatientFileStorageOptions>(options =>
@@ -234,9 +238,30 @@ public static class ApiServiceCollectionExtensions
                 options.MaxBytes = maxBytes;
             }
         });
+        services.Configure<LocalStorageOptions>(options =>
+        {
+            configuration.GetSection("LocalStorage").Bind(options);
+            options.RootPath = LocalStoragePathHelper.ResolveRootPath(options.RootPath, environment.ContentRootPath);
+            options.RequestPath = LocalStoragePathHelper.NormalizeRequestPath(options.RequestPath);
+            options.PublicBaseUrl = LocalStoragePathHelper.NormalizePublicBaseUrl(options.PublicBaseUrl);
+        });
 
-        services.AddSingleton<IProfilePhotoStorage, AzureBlobProfilePhotoStorage>();
-        services.AddSingleton<IPatientFileStorage, AzureBlobPatientFileStorage>();
+        var azureConnectionString = configuration["AzureStorage:ConnectionString"];
+
+        if (!string.IsNullOrWhiteSpace(azureConnectionString))
+        {
+            services.AddSingleton<IProfilePhotoStorage, AzureBlobProfilePhotoStorage>();
+            services.AddSingleton<IPatientFileStorage, AzureBlobPatientFileStorage>();
+            return services;
+        }
+
+        if (environment.IsProduction())
+        {
+            throw new InvalidOperationException("AzureStorage:ConnectionString must be configured in production.");
+        }
+
+        services.AddSingleton<IProfilePhotoStorage, LocalDiskProfilePhotoStorage>();
+        services.AddSingleton<IPatientFileStorage, LocalDiskPatientFileStorage>();
 
         return services;
     }
