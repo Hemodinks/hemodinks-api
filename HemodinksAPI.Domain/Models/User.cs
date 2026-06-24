@@ -51,7 +51,7 @@ public class User
     /// <summary>
     /// Data de nascimento do usuário
     /// </summary>
-    public DateTime DataNascimento { get; set; }
+    public DateTime? DataNascimento { get; set; }
 
     /// <summary>
     /// Indica se o usuário está ativo

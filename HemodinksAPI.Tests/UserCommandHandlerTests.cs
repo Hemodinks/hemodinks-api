@@ -62,6 +62,35 @@ public class UserCommandHandlerTests
     }
 
     [Fact]
+    public async Task CreateUser_WhenCpfAndBirthDateAreNotProvided_AllowsNullValues()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new CreateUserCommandHandler(
+            context,
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
+            NullLogger<CreateUserCommandHandler>.Instance);
+
+        var response = await handler.Handle(new CreateUserCommand
+        {
+            Nome = "Usuario Sem Cpf",
+            Email = "sem.cpf@email.com",
+            Telefone = "+5511999999999",
+            Crm = "12345",
+            CrmUf = "PE",
+            PerfilId = Perfil.MedicosId
+        }, CancellationToken.None);
+
+        var storedUser = await context.Users.SingleAsync();
+        Assert.Null(storedUser.Cpf);
+        Assert.Null(response.Cpf);
+        Assert.Null(storedUser.DataNascimento);
+        Assert.Null(response.DataNascimento);
+    }
+
+    [Fact]
     public async Task CreateUser_WhenMedicalProfileHasNoCrm_ThrowsInvalidOperationException()
     {
         await using var context = TestDbContextFactory.Create();

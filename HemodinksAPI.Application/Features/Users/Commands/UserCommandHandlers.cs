@@ -59,12 +59,15 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
             }
 
             var cpf = UserProfileRules.NormalizeAndValidateCpf(request.Cpf);
-            var cpfAlreadyExists = await _context.Users
-                .AnyAsync(u => u.Cpf == cpf, cancellationToken);
-
-            if (cpfAlreadyExists)
+            if (cpf != null)
             {
-                throw new InvalidOperationException("CPF ja cadastrado");
+                var cpfAlreadyExists = await _context.Users
+                    .AnyAsync(u => u.Cpf == cpf, cancellationToken);
+
+                if (cpfAlreadyExists)
+                {
+                    throw new InvalidOperationException("CPF ja cadastrado");
+                }
             }
 
             var perfilId = UserProfileRules.NormalizePerfilId(request.PerfilId);
@@ -278,12 +281,15 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             }
 
             var cpf = UserProfileRules.NormalizeAndValidateCpf(request.Cpf);
-            var cpfAlreadyExists = await _context.Users
-                .AnyAsync(u => u.Id != request.Id && u.Cpf == cpf, cancellationToken);
-
-            if (cpfAlreadyExists)
+            if (cpf != null)
             {
-                throw new InvalidOperationException("CPF ja cadastrado");
+                var cpfAlreadyExists = await _context.Users
+                    .AnyAsync(u => u.Id != request.Id && u.Cpf == cpf, cancellationToken);
+
+                if (cpfAlreadyExists)
+                {
+                    throw new InvalidOperationException("CPF ja cadastrado");
+                }
             }
 
             var perfilId = UserProfileRules.NormalizePerfilId(effectivePerfilId);
@@ -870,14 +876,19 @@ internal static class UserProfileRules
         return user.Perfil?.Nome ?? string.Empty;
     }
 
-    public static string NormalizeAndValidateCpf(string? cpf)
+    public static string? NormalizeAndValidateCpf(string? cpf)
     {
+        if (string.IsNullOrWhiteSpace(cpf))
+        {
+            return null;
+        }
+
         if (!CpfUtils.IsValid(cpf))
         {
             throw new InvalidOperationException("CPF invalido");
         }
 
-        return CpfUtils.Normalize(cpf)!;
+        return CpfUtils.Normalize(cpf);
     }
 
     public static (string? Crm, string? CrmUf) NormalizeAndValidateMedicalRegistration(

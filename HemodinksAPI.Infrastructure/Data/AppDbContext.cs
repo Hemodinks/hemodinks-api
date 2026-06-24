@@ -119,8 +119,7 @@ public class AppDbContext : DbContext, IAppDbContext
 
             entity.Property(e => e.DataAtualizacao);
 
-            entity.Property(e => e.DataNascimento)
-                .IsRequired();
+            entity.Property(e => e.DataNascimento);
 
             entity.Property(e => e.Ativo)
                 .IsRequired()
