@@ -48,6 +48,22 @@ Recomendacao:
 - Azure SQL e uma boa opcao por ter backup automatico, point-in-time restore e long-term retention.
 - Banco em container ou plano sem backup nao deve ser usado para producao comercial.
 
+## Migrations e rollback
+
+Checklist minimo antes de publicar schema novo:
+
+- [ ] Rodar `pwsh ./scripts/Test-Migrations.ps1`.
+- [ ] Gerar e guardar o SQL idempotente com `pwsh ./scripts/Export-MigrationScripts.ps1`.
+- [ ] Classificar a migration como `Schema`, `Data` ou `Repair`.
+- [ ] Revisar manualmente migrations com `migrationBuilder.Sql(...)`.
+- [ ] Definir o rollback: `Down()`, script direcionado ou restore/PITR.
+
+Politica recomendada:
+
+- `Down()` sozinho nao e estrategia suficiente para producao.
+- `Data` e `Repair` devem preferir restore/PITR ou forward fix.
+- Se `Database__RunMigrationsOnStartup=true`, o restore do banco precisa estar pronto antes do deploy.
+
 ## CI, branch protection e deploy
 
 O workflow `CI / Build and test` ja esta no repositorio. Para ele bloquear deploy/merge de verdade, configure no GitHub:
@@ -60,6 +76,7 @@ O workflow `CI / Build and test` ja esta no repositorio. Para ele bloquear deplo
 - [ ] Render apontando para a branch correta.
 - [ ] Render usando deploy apenas apos checks passarem.
 - [ ] Render com `Database__RunMigrationsOnStartup=true` no servico de producao.
+- [ ] Workflow rodando `pwsh ./scripts/Test-Migrations.ps1`.
 
 Fluxo recomendado:
 

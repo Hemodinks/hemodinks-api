@@ -146,8 +146,18 @@ Checklist:
 Migrations ficam no projeto `HemodinksAPI.Infrastructure`. Para validar localmente:
 
 ```powershell
-dotnet ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure --no-connect
+dotnet tool restore
+pwsh ./scripts/Test-Migrations.ps1
+dotnet tool run dotnet-ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api --no-connect
 ```
+
+Para gerar o SQL do rollout antes do deploy:
+
+```powershell
+pwsh ./scripts/Export-MigrationScripts.ps1
+```
+
+Se a release trouxer migration de `Data` ou `Repair`, prefira rollback por restore/PITR ou forward fix, nao apenas por `Down()`.
 
 Se a agenda retornar `Invalid object name 'Events'` ou `Invalid column name 'NextReminderAt'`, publique a versao com a migration `EnsureEventReminderColumns`, confirme `Database__RunMigrationsOnStartup=true` no Render e reinicie o servico para o startup aplicar o reparo no banco.
 

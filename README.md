@@ -78,6 +78,7 @@ A API aplica migrations no startup, cria perfis, seeda usuarios quando necessari
 
 ```powershell
 dotnet restore
+dotnet tool restore
 dotnet user-secrets set --project HemodinksAPI.Api "ConnectionStrings:DefaultConnection" "Server=.;Database=HemodinksDB;Integrated Security=true;TrustServerCertificate=true;Encrypt=false"
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:SecretKey" "troque_por_uma_chave_com_32_caracteres_ou_mais"
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Issuer" "HemodinksAPI"
@@ -216,11 +217,19 @@ Entidades principais:
 - `Convenios`
 - `Events`
 
-Migrations rodam no startup via `Database.MigrateAsync()` quando `Database__RunMigrationsOnStartup=true`. O blueprint de producao do Render habilita essa variavel para que deploy automatico atualize o schema antes dos workers da agenda. Para usar EF CLI depois da separacao em projetos:
+Migrations rodam no startup via `Database.MigrateAsync()` quando `Database__RunMigrationsOnStartup=true`. O blueprint de producao do Render habilita essa variavel para que deploy automatico atualize o schema antes da API atender trafego normal. A organizacao da pasta e a politica de rollback estao em [Migrations README](./HemodinksAPI.Infrastructure/Data/Migrations/README.md). Para validar e gerar artefatos locais:
 
 ```powershell
-dotnet ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure --no-connect
-dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
+pwsh ./scripts/Test-Migrations.ps1
+pwsh ./scripts/Export-MigrationScripts.ps1
+```
+
+Para usar EF CLI manualmente:
+
+```powershell
+dotnet tool restore
+dotnet tool run dotnet-ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api --no-connect
+dotnet tool run dotnet-ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api
 ```
 
 ## Documentacao interativa
@@ -238,6 +247,7 @@ O documento OpenAPI inclui o esquema `Bearer`. Em producao, evite expor tokens r
 
 ```powershell
 dotnet build HemodinksAPI.slnx
+pwsh ./scripts/Test-Migrations.ps1 -NoBuild
 dotnet test HemodinksAPI.slnx --no-build
 ```
 
@@ -248,5 +258,6 @@ dotnet test HemodinksAPI.slnx --no-build
 - [Troubleshooting](./TROUBLESHOOTING.md)
 - [Deploy](./docs/deployment.md)
 - [Documentacao tecnica](./docs/TECHNICAL_DOCUMENTATION.md)
+- [Migrations README](./HemodinksAPI.Infrastructure/Data/Migrations/README.md)
 - [Exemplos HTTP](./API.http)
 - [Documentacao tecnica PDF](./docs/Hemodinks-Documentacao-Tecnica.pdf)

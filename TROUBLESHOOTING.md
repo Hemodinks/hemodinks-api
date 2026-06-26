@@ -65,20 +65,28 @@ Azure SQL:
 Listar migrations:
 
 ```powershell
-dotnet ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure --no-connect
+dotnet tool restore
+pwsh ./scripts/Test-Migrations.ps1
+dotnet tool run dotnet-ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api --no-connect
 ```
 
 Aplicar manualmente:
 
 ```powershell
-dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
+dotnet tool run dotnet-ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api
 ```
 
 Em desenvolvimento, para reset completo:
 
 ```powershell
-dotnet ef database drop -f --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
-dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
+dotnet tool run dotnet-ef database drop -f --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api
+dotnet tool run dotnet-ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api
+```
+
+Para preparar um rollback revisado antes de mexer em producao:
+
+```powershell
+pwsh ./scripts/Export-MigrationScripts.ps1
 ```
 
 ## Agenda retorna `Invalid object name 'Events'`
@@ -150,7 +158,7 @@ Solucoes:
 4. Se precisar aplicar manualmente:
 
 ```powershell
-dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
+dotnet tool run dotnet-ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api
 ```
 
 Valide no SQL Server:

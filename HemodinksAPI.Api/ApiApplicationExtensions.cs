@@ -51,10 +51,30 @@ public static class ApiApplicationExtensions
 
             var runMigrations = app.Configuration.GetValue<bool?>("Database:RunMigrationsOnStartup")
                 ?? !app.Environment.IsProduction();
+            var isRelational = dbContext.Database.IsRelational();
+            var pendingMigrations = isRelational
+                ? (await dbContext.Database.GetPendingMigrationsAsync()).ToList()
+                : [];
 
-            if (runMigrations && dbContext.Database.IsRelational())
+            if (pendingMigrations.Count > 0)
             {
-                await dbContext.Database.MigrateAsync();
+                logger.LogWarning(
+                    "Encontradas {Count} migration(s) pendente(s): {Migrations}",
+                    pendingMigrations.Count,
+                    pendingMigrations);
+            }
+            else if (isRelational)
+            {
+                logger.LogInformation("Nenhuma migration pendente encontrada");
+            }
+
+            if (runMigrations && isRelational)
+            {
+                if (pendingMigrations.Count > 0)
+                {
+                    await dbContext.Database.MigrateAsync();
+                    logger.LogInformation("Migrations pendentes aplicadas com sucesso");
+                }
             }
             else if (runMigrations)
             {
@@ -62,7 +82,7 @@ public static class ApiApplicationExtensions
             }
             else
             {
-            logger.LogWarning("Migracao automatica desabilitada. Se tabelas estiverem faltando, defina Database:RunMigrationsOnStartup=true");
+                logger.LogWarning("Migracao automatica desabilitada. Se tabelas estiverem faltando, defina Database:RunMigrationsOnStartup=true");
             }
 
             logger.LogInformation("Inicializacao do banco de dados concluida");
