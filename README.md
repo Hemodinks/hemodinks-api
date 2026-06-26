@@ -10,6 +10,7 @@ API ASP.NET Core/.NET 10 para gestao de usuarios, pacientes, agenda, licencas, d
 - Entity Framework Core 10 com SQL Server/Azure SQL
 - JWT Bearer para autenticacao e autorizacao por perfil/licenca
 - Serilog para logs em console e arquivo
+- OpenTelemetry via OTLP para traces, metricas e correlacao de logs
 - Azure Blob Storage para fotos de perfil e anexos de pacientes
 - `BackgroundService` interno para lembretes da agenda
 - `IMemoryCache` para consulta CBHPM em memoria
@@ -83,12 +84,24 @@ dotnet user-secrets set --project HemodinksAPI.Api "ConnectionStrings:DefaultCon
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:SecretKey" "troque_por_uma_chave_com_32_caracteres_ou_mais"
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Issuer" "HemodinksAPI"
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Audience" "HemodinksAPI"
+# Opcional para observabilidade local com collector ou Aspire Dashboard
+# dotnet user-secrets set --project HemodinksAPI.Api "OTEL_EXPORTER_OTLP_ENDPOINT" "http://localhost:4317"
 dotnet run --project HemodinksAPI.Api
 ```
 
 ## Configuracao
 
 Use variaveis de ambiente, `.env` no Docker ou User Secrets localmente.
+
+Variaveis opcionais de observabilidade:
+
+| Chave | Descricao |
+| --- | --- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | endpoint OTLP do collector ou backend observability |
+| `OTEL_SERVICE_NAME` | sobrescreve o nome do servico enviado pelo OpenTelemetry |
+| `OTEL_EXPORTER_OTLP_HEADERS` | headers para autenticacao quando o backend exigir token |
+
+A API exporta traces de requests ASP.NET Core, chamadas HTTP de saida e operacoes SQL Server. Os paths de health check (`/` e `/healthz`) ficam fora dos traces para reduzir ruido operacional.
 
 | Chave | Uso |
 | --- | --- |

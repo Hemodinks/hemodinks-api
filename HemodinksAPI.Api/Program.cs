@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using HemodinksAPI.Api;
 using HemodinksAPI.Infrastructure.Storage;
 using Microsoft.Extensions.FileProviders;
@@ -7,18 +8,10 @@ using Serilog.Events;
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddNonProductionUserSecretsFallback(builder.Environment);
 
-Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Information()
-    .WriteTo.Console()
-    .WriteTo.File("logs/hemodinks-api-.txt",
-        rollingInterval: RollingInterval.Day,
-        outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
-    .Enrich.FromLogContext()
-    .Enrich.WithEnvironmentUserName()
-    .Enrich.WithThreadId()
-    .CreateLogger();
-
-builder.Host.UseSerilog();
+builder.Host.UseSerilog(
+    (_, _, loggerConfiguration) => Program.ConfigureSerilog(loggerConfiguration),
+    preserveStaticLogger: false,
+    writeToProviders: true);
 
 builder.Services
     .AddDatabase(builder.Configuration)
@@ -30,7 +23,13 @@ builder.Services
     .AddApplicationServices(builder.Configuration, builder.Environment)
     .AddApiDocumentation();
 
+builder.AddOpenTelemetryObservability();
+
 var app = builder.Build();
+var otlpEndpointConfigured = !string.IsNullOrWhiteSpace(app.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
+app.Logger.LogInformation(
+    "OpenTelemetry observability initialized. OTLP exporter configured: {OtlpEndpointConfigured}",
+    otlpEndpointConfigured);
 
 await app.InitializeDatabaseAsync();
 
@@ -63,7 +62,7 @@ app.Use(async (context, next) =>
 });
 app.UseSerilogRequestLogging(options =>
 {
-    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
+    options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms [request_id: {TraceIdentifier}, trace_id: {TraceId}, span_id: {SpanId}]";
     options.GetLevel = (httpContext, _, exception) =>
     {
         if (httpContext.Request.Path.StartsWithSegments("/healthz"))
@@ -77,9 +76,17 @@ app.UseSerilogRequestLogging(options =>
     };
     options.EnrichDiagnosticContext = (diagnosticContext, httpContext) =>
     {
+        var activity = Activity.Current;
+
         diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
         diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
         diagnosticContext.Set("TraceIdentifier", httpContext.TraceIdentifier);
+
+        if (activity is not null)
+        {
+            diagnosticContext.Set("TraceId", activity.TraceId.ToString());
+            diagnosticContext.Set("SpanId", activity.SpanId.ToString());
+        }
     };
 });
 app.UseHttpsRedirection();
@@ -94,4 +101,16 @@ app.Run();
 
 public partial class Program
 {
+    public static void ConfigureSerilog(LoggerConfiguration loggerConfiguration)
+    {
+        loggerConfiguration
+            .MinimumLevel.Information()
+            .WriteTo.Console()
+            .WriteTo.File("logs/hemodinks-api-.txt",
+                rollingInterval: RollingInterval.Day,
+                outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .Enrich.FromLogContext()
+            .Enrich.WithEnvironmentUserName()
+            .Enrich.WithThreadId();
+    }
 }

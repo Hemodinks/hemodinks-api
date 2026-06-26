@@ -94,13 +94,15 @@ No codigo:
 - `/` tambem responde ao health check para plataformas que testam a raiz por padrao.
 - O check `database` valida conectividade com o banco e migrations pendentes.
 - Cada resposta inclui `X-Request-ID`.
-- Serilog registra metodo, path, status code, tempo e trace id.
+- Serilog registra metodo, path, status code, tempo, request id e trace id.
+- OpenTelemetry coleta traces HTTP/SQL, metricas ASP.NET/HttpClient e pode exportar tudo via OTLP.
 
 Configuracoes externas recomendadas:
 
 - [ ] Monitor externo chamando `/healthz` a cada 1 a 5 minutos.
 - [ ] Alerta por email/WhatsApp/Slack quando `/healthz` falhar.
 - [ ] Log stream do Render para Better Stack, Datadog, Grafana Cloud ou similar.
+- [ ] `OTEL_EXPORTER_OTLP_ENDPOINT` configurado no ambiente publicado.
 - [ ] Alerta para aumento de respostas 5xx.
 - [ ] Alerta para falhas de login/reset acima do normal.
 

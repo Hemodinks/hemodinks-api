@@ -73,6 +73,14 @@ Variaveis obrigatorias no Render:
 | `AzureStorage__PatientFilesPublicBaseUrl` | URL publica do container `patient-files` |
 | `Cors__AllowedOrigins__0` | `https://hemodinks-saude.vercel.app` |
 
+Variaveis opcionais para observabilidade via OpenTelemetry:
+
+| Chave | Descricao |
+| --- | --- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | endpoint OTLP do collector, Grafana Cloud, Azure Monitor ou outro backend compativel |
+| `OTEL_SERVICE_NAME` | nome do servico exibido na plataforma de observabilidade |
+| `OTEL_EXPORTER_OTLP_HEADERS` | headers de autenticacao exigidos pelo backend OTLP |
+
 Variaveis ja declaradas no blueprint:
 
 | Chave | Valor |
@@ -89,6 +97,8 @@ Variaveis ja declaradas no blueprint:
 | `AzureStorage__MaxBytes` | `1048576` |
 | `AzureStorage__PatientFilesContainerName` | `patient-files` |
 | `AzureStorage__PatientFileMaxBytes` | `10485760` |
+
+Quando `OTEL_EXPORTER_OTLP_ENDPOINT` nao estiver configurado, a API continua instrumentada, mas exporta telemetria apenas para os sinks atuais de log. Quando o endpoint estiver presente, traces, metricas e logs estruturados passam a ser enviados por OTLP tambem.
 
 Render nao fornece SQL Server gerenciado. Use Azure SQL Database, SQL Server em VM ou outro provider SQL Server compativel.
 
