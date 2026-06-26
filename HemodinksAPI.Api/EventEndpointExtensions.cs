@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Events;
@@ -37,7 +38,8 @@ public static class EventEndpointExtensions
 
         group.MapPost("/", CreateEvent)
             .WithName("CreateEvent")
-            .WithSummary("Criar evento na agenda");
+            .WithSummary("Criar evento na agenda")
+            .WithDescription("Cria evento na agenda. Envie Idempotency-Key para tornar retries seguros.");
 
         group.MapPut("/{id:int}", UpdateEvent)
             .WithName("UpdateEvent")
@@ -198,7 +200,9 @@ public static class EventEndpointExtensions
 
     private static async Task<IResult> CreateEvent(
         ClaimsPrincipal claimsPrincipal,
+        HttpContext httpContext,
         EventRequest request,
+        RequestIdempotencyService requestIdempotencyService,
         IMediator mediator,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
@@ -211,13 +215,32 @@ public static class EventEndpointExtensions
                 return Results.Forbid();
             }
 
-            var result = await mediator.Send(new CreateEventCommand
-            {
-                CurrentUser = currentUser,
-                Request = request
-            }, cancellationToken);
+            var execution = await requestIdempotencyService.ExecuteAsync(
+                httpContext,
+                operation: "events.create",
+                scope: currentUser.Id.ToString(CultureInfo.InvariantCulture),
+                requestPayload: request,
+                successStatusCode: StatusCodes.Status201Created,
+                action: async ct =>
+                {
+                    var result = await mediator.Send(new CreateEventCommand
+                    {
+                        CurrentUser = currentUser,
+                        Request = request
+                    }, ct);
 
-            return Results.Created($"/api/events/{result.Id}", result);
+                    return new StoredIdempotentResponse<EventDto>(
+                        result,
+                        $"/api/events/{result.Id}");
+                },
+                cancellationToken);
+
+            if (!execution.IsSuccessful)
+            {
+                return RequestIdempotencyHttpResults.ToFailureResult(execution);
+            }
+
+            return Results.Created(execution.ResourceLocation!, execution.Payload);
         }
         catch (UnauthorizedAccessException)
         {

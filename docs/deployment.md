@@ -100,6 +100,15 @@ Variaveis ja declaradas no blueprint:
 
 Quando `OTEL_EXPORTER_OTLP_ENDPOINT` nao estiver configurado, a API continua instrumentada, mas exporta telemetria apenas para os sinks atuais de log. Quando o endpoint estiver presente, traces, metricas e logs estruturados passam a ser enviados por OTLP tambem.
 
+## Idempotencia em producao
+
+Os fluxos de criacao de evento e reset de senha agora suportam `Idempotency-Key`. Para aproveitar isso em retries do front, gateway ou automacoes:
+
+- gere uma chave unica por tentativa logica
+- reuse a mesma chave apenas quando quiser repetir exatamente o mesmo payload
+- trate `Idempotency-Status: replayed` como sucesso reaproveitado
+- trate `409 Conflict` como erro de reutilizacao incorreta da chave
+
 Render nao fornece SQL Server gerenciado. Use Azure SQL Database, SQL Server em VM ou outro provider SQL Server compativel.
 
 ### Homologacao Render: confirmation

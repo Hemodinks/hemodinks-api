@@ -96,6 +96,7 @@ No codigo:
 - Cada resposta inclui `X-Request-ID`.
 - Serilog registra metodo, path, status code, tempo, request id e trace id.
 - OpenTelemetry coleta traces HTTP/SQL, metricas ASP.NET/HttpClient e pode exportar tudo via OTLP.
+- Fluxos criticos de agenda/reset aceitam `Idempotency-Key` para retries seguros.
 
 Configuracoes externas recomendadas:
 
@@ -103,6 +104,7 @@ Configuracoes externas recomendadas:
 - [ ] Alerta por email/WhatsApp/Slack quando `/healthz` falhar.
 - [ ] Log stream do Render para Better Stack, Datadog, Grafana Cloud ou similar.
 - [ ] `OTEL_EXPORTER_OTLP_ENDPOINT` configurado no ambiente publicado.
+- [ ] Clientes que fazem retry em `POST /api/events/` e reset de senha enviando `Idempotency-Key`.
 - [ ] Alerta para aumento de respostas 5xx.
 - [ ] Alerta para falhas de login/reset acima do normal.
 

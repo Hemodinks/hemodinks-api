@@ -303,6 +303,7 @@ public static class ApiServiceCollectionExtensions
         services.AddScoped<ICbhpmCache, CbhpmCache>();
         services.AddScoped<UserSeeder>();
         services.AddScoped<CbhpmSeeder>();
+        services.AddScoped<RequestIdempotencyService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IEventReminderProcessor, EventReminderProcessor>();
         services.AddHostedService<HemodinksAPI.Infrastructure.HostedServices.EventNotificationHostedService>();

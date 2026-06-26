@@ -103,6 +103,16 @@ Variaveis opcionais de observabilidade:
 
 A API exporta traces de requests ASP.NET Core, chamadas HTTP de saida e operacoes SQL Server. Os paths de health check (`/` e `/healthz`) ficam fora dos traces para reduzir ruido operacional.
 
+## Idempotencia
+
+Os endpoints abaixo aceitam o header opcional `Idempotency-Key`:
+
+- `POST /api/events/`
+- `POST /api/users/password/reset`
+- `POST /api/users/password/reset/confirm`
+
+Quando a mesma requisicao bem-sucedida chega novamente com a mesma chave, a API reaproveita a resposta anterior e devolve `Idempotency-Status: replayed`. Na primeira execucao persistida, a resposta inclui `Idempotency-Status: stored`. Se a mesma chave for reutilizada com payload diferente, a API responde `409 Conflict`.
+
 | Chave | Uso |
 | --- | --- |
 | `ConnectionStrings__DefaultConnection` | SQL Server/Azure SQL |

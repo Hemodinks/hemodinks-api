@@ -2,8 +2,10 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
+using HemodinksAPI.Api;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Domain.Utils;
+using HemodinksAPI.Infrastructure.Data;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
@@ -89,6 +91,89 @@ public class ApiEndpointIntegrationTests
         using var listJson = await ReadJsonAsync(listResponse);
         Assert.Contains(listJson.RootElement.EnumerateArray(), item =>
             item.GetProperty("title").GetString() == "Evento de integracao");
+    }
+
+    [Fact]
+    public async Task AgendaEndpoint_WhenRetriedWithSameIdempotencyKey_ReplaysCreatedEventWithoutDuplicateInsert()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        var key = Guid.NewGuid().ToString("N");
+        var start = DateTime.UtcNow.AddDays(1);
+        var payload = new
+        {
+            title = "Evento idempotente",
+            description = "Criado uma vez e reaproveitado no retry",
+            start,
+            end = start.AddHours(1),
+            notifyMedicalProfile = false,
+            notifyUser = true,
+            reminderPeriodMinutes = 30
+        };
+
+        var firstResponse = await PostAsJsonWithIdempotencyKeyAsync(client, "/api/events/", key, payload);
+        var secondResponse = await PostAsJsonWithIdempotencyKeyAsync(client, "/api/events/", key, payload);
+
+        Assert.Equal(HttpStatusCode.Created, firstResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, secondResponse.StatusCode);
+        Assert.Equal("stored", firstResponse.Headers.GetValues(RequestIdempotencyService.IdempotencyStatusHeaderName).Single());
+        Assert.Equal("replayed", secondResponse.Headers.GetValues(RequestIdempotencyService.IdempotencyStatusHeaderName).Single());
+
+        using var firstJson = await ReadJsonAsync(firstResponse);
+        using var secondJson = await ReadJsonAsync(secondResponse);
+
+        var firstId = firstJson.RootElement.GetProperty("id").GetInt32();
+        var secondId = secondJson.RootElement.GetProperty("id").GetInt32();
+
+        Assert.Equal(firstId, secondId);
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Equal(1, dbContext.Events.Count(item => item.Title == "Evento idempotente"));
+        Assert.Equal(1, dbContext.IdempotencyRequests.Count(item => item.Operation == "events.create"));
+    }
+
+    [Fact]
+    public async Task AgendaEndpoint_WhenSameIdempotencyKeyIsReusedWithDifferentPayload_ReturnsConflict()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        var key = Guid.NewGuid().ToString("N");
+        var start = DateTime.UtcNow.AddDays(2);
+
+        var firstResponse = await PostAsJsonWithIdempotencyKeyAsync(client, "/api/events/", key, new
+        {
+            title = "Evento original",
+            description = "Primeira versao",
+            start,
+            end = start.AddHours(1),
+            notifyMedicalProfile = false,
+            notifyUser = true,
+            reminderPeriodMinutes = 45
+        });
+
+        var secondResponse = await PostAsJsonWithIdempotencyKeyAsync(client, "/api/events/", key, new
+        {
+            title = "Evento alterado",
+            description = "Payload diferente com a mesma chave",
+            start,
+            end = start.AddHours(2),
+            notifyMedicalProfile = false,
+            notifyUser = true,
+            reminderPeriodMinutes = 45
+        });
+
+        Assert.Equal(HttpStatusCode.Created, firstResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, secondResponse.StatusCode);
+
+        using var secondJson = await ReadJsonAsync(secondResponse);
+        Assert.Equal(
+            "A mesma Idempotency-Key nao pode ser reutilizada com payload diferente.",
+            secondJson.RootElement.GetProperty("message").GetString());
     }
 
     [Fact]
@@ -205,6 +290,92 @@ public class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task PasswordResetRequest_WhenRetriedWithSameIdempotencyKey_ReplaysSameToken()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+
+        var key = Guid.NewGuid().ToString("N");
+
+        var firstResponse = await PostAsJsonWithIdempotencyKeyAsync(client, "/api/users/password/reset", key, new
+        {
+            email = "gmarcone@gmail.com"
+        });
+
+        var secondResponse = await PostAsJsonWithIdempotencyKeyAsync(client, "/api/users/password/reset", key, new
+        {
+            email = "gmarcone@gmail.com"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, firstResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, secondResponse.StatusCode);
+        Assert.Equal("stored", firstResponse.Headers.GetValues(RequestIdempotencyService.IdempotencyStatusHeaderName).Single());
+        Assert.Equal("replayed", secondResponse.Headers.GetValues(RequestIdempotencyService.IdempotencyStatusHeaderName).Single());
+
+        using var firstJson = await ReadJsonAsync(firstResponse);
+        using var secondJson = await ReadJsonAsync(secondResponse);
+
+        Assert.Equal(
+            firstJson.RootElement.GetProperty("debugToken").GetString(),
+            secondJson.RootElement.GetProperty("debugToken").GetString());
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Equal(1, dbContext.PasswordResetTokens.Count());
+        Assert.Equal(1, dbContext.IdempotencyRequests.Count(item => item.Operation == "users.password-reset.request"));
+    }
+
+    [Fact]
+    public async Task PasswordResetConfirm_WhenRetriedWithSameIdempotencyKey_ReplaysSuccess()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+
+        var requestResponse = await client.PostAsJsonAsync("/api/users/password/reset", new
+        {
+            email = "gmarcone@gmail.com"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, requestResponse.StatusCode);
+        using var requestJson = await ReadJsonAsync(requestResponse);
+        var token = requestJson.RootElement.GetProperty("debugToken").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(token));
+
+        var key = Guid.NewGuid().ToString("N");
+        var firstConfirm = await PostAsJsonWithIdempotencyKeyAsync(client, "/api/users/password/reset/confirm", key, new
+        {
+            token,
+            novaSenha = "SenhaRetry@123"
+        });
+
+        var secondConfirm = await PostAsJsonWithIdempotencyKeyAsync(client, "/api/users/password/reset/confirm", key, new
+        {
+            token,
+            novaSenha = "SenhaRetry@123"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, firstConfirm.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, secondConfirm.StatusCode);
+        Assert.Equal("stored", firstConfirm.Headers.GetValues(RequestIdempotencyService.IdempotencyStatusHeaderName).Single());
+        Assert.Equal("replayed", secondConfirm.Headers.GetValues(RequestIdempotencyService.IdempotencyStatusHeaderName).Single());
+
+        using var firstJson = await ReadJsonAsync(firstConfirm);
+        using var secondJson = await ReadJsonAsync(secondConfirm);
+
+        Assert.Equal(
+            firstJson.RootElement.GetProperty("message").GetString(),
+            secondJson.RootElement.GetProperty("message").GetString());
+
+        var loginResponse = await client.PostAsJsonAsync("/api/users/authenticate", new
+        {
+            Email = "gmarcone@gmail.com",
+            Senha = "SenhaRetry@123"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task PasswordResetRequest_WhenEmailDoesNotExist_ReturnsGenericResponse()
     {
         using var factory = new HemodinksApiFactory();
@@ -236,6 +407,21 @@ public class ApiEndpointIntegrationTests
         Assert.False(string.IsNullOrWhiteSpace(token));
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    }
+
+    private static Task<HttpResponseMessage> PostAsJsonWithIdempotencyKeyAsync(
+        HttpClient client,
+        string uri,
+        string idempotencyKey,
+        object payload)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, uri)
+        {
+            Content = JsonContent.Create(payload)
+        };
+
+        request.Headers.Add(RequestIdempotencyService.IdempotencyKeyHeaderName, idempotencyKey);
+        return client.SendAsync(request);
     }
 
     private static async Task<JsonDocument> ReadJsonAsync(HttpResponseMessage response)
