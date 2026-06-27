@@ -9,7 +9,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddNonProductionUserSecretsFallback(builder.Environment);
 
 builder.Host.UseSerilog(
-    (_, _, loggerConfiguration) => Program.ConfigureSerilog(loggerConfiguration),
+    (_, _, loggerConfiguration) => Program.ConfigureSerilog(loggerConfiguration, builder.Environment.ContentRootPath),
     preserveStaticLogger: false,
     writeToProviders: true);
 
@@ -101,12 +101,16 @@ app.Run();
 
 public partial class Program
 {
-    public static void ConfigureSerilog(LoggerConfiguration loggerConfiguration)
+    public static void ConfigureSerilog(LoggerConfiguration loggerConfiguration, string contentRootPath)
     {
+        var logDirectory = Path.Combine(contentRootPath, "logs");
+        Directory.CreateDirectory(logDirectory);
+        var logFilePath = Path.Combine(logDirectory, "hemodinks-api-.txt");
+
         loggerConfiguration
             .MinimumLevel.Information()
             .WriteTo.Console()
-            .WriteTo.File("logs/hemodinks-api-.txt",
+            .WriteTo.File(logFilePath,
                 rollingInterval: RollingInterval.Day,
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
             .Enrich.FromLogContext()
