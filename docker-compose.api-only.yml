@@ -1,23 +1,4 @@
 services:
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: hemodinks-mssql
-    environment:
-      ACCEPT_EULA: Y
-      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}"
-      MSSQL_PID: Developer
-    ports:
-      - "1433:1433"
-    volumes:
-      - sqlserver_data:/var/opt/mssql
-    networks:
-      - hemodinks-network
-    healthcheck:
-      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-C", "-S", "localhost", "-U", "sa", "-P", "${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}", "-Q", "SELECT 1"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-
   api:
     build:
       context: .
@@ -26,7 +7,7 @@ services:
     environment:
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
       ASPNETCORE_URLS: http://+:5000
-      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=${MSSQL_DATABASE:-HemodinksDB};User Id=sa;Password=${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env};TrustServerCertificate=true;Encrypt=false"
+      ConnectionStrings__DefaultConnection: "${EXTERNAL_SQLSERVER_CONNECTION_STRING:?Set EXTERNAL_SQLSERVER_CONNECTION_STRING in .env to point to your existing SQL Server container}"
       JwtSettings__SecretKey: "${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}"
       JwtSettings__Issuer: "${JWT_ISSUER:-HemodinksAPI}"
       JwtSettings__Audience: "${JWT_AUDIENCE:-HemodinksAPI}"
@@ -52,17 +33,7 @@ services:
       NEW_RELIC_APP_NAME: "${NEW_RELIC_APP_NAME:-Hemodinks API Local}"
     ports:
       - "5000:5000"
-    depends_on:
-      sqlserver:
-        condition: service_healthy
-    networks:
-      - hemodinks-network
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - ./logs:/app/logs
-
-volumes:
-  sqlserver_data:
-
-networks:
-  hemodinks-network:
-    driver: bridge
