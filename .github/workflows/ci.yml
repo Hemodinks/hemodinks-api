@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - developer
+      - dev-local
   pull_request:
     branches:
       - main
       - developer
+      - dev-local
   workflow_dispatch:
 
 permissions:
