@@ -25,5 +25,9 @@ COPY --from=publish /app/publish .
 
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
+ENV CORECLR_PROFILER={36032161-FFC0-4B61-B559-F6C5D41BAE5A}
+ENV CORECLR_NEWRELIC_HOME=/app/newrelic
+ENV CORECLR_PROFILER_PATH=/app/newrelic/libNewRelicProfiler.so
+ENV NEWRELIC_LOG_DIRECTORY=/app/logs
 
 ENTRYPOINT ["dotnet", "HemodinksAPI.Api.dll"]

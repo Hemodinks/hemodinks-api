@@ -23,13 +23,13 @@ builder.Services
     .AddApplicationServices(builder.Configuration, builder.Environment)
     .AddApiDocumentation();
 
-builder.AddOpenTelemetryObservability();
-
 var app = builder.Build();
-var otlpEndpointConfigured = !string.IsNullOrWhiteSpace(app.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
+var newRelicProfilingEnabled = string.Equals(app.Configuration["CORECLR_ENABLE_PROFILING"], "1", StringComparison.Ordinal);
+var newRelicAppNameConfigured = !string.IsNullOrWhiteSpace(app.Configuration["NEW_RELIC_APP_NAME"]);
 app.Logger.LogInformation(
-    "OpenTelemetry observability initialized. OTLP exporter configured: {OtlpEndpointConfigured}",
-    otlpEndpointConfigured);
+    "New Relic profiler requested: {NewRelicProfilingEnabled}. App name configured: {NewRelicAppNameConfigured}",
+    newRelicProfilingEnabled,
+    newRelicAppNameConfigured);
 
 await app.InitializeDatabaseAsync();
 

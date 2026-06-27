@@ -73,13 +73,13 @@ Variaveis obrigatorias no Render:
 | `AzureStorage__PatientFilesPublicBaseUrl` | URL publica do container `patient-files` |
 | `Cors__AllowedOrigins__0` | `https://hemodinks-saude.vercel.app` |
 
-Variaveis opcionais para observabilidade via OpenTelemetry:
+Variaveis opcionais para observabilidade via New Relic:
 
 | Chave | Descricao |
 | --- | --- |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | endpoint OTLP do collector, Grafana Cloud, Azure Monitor ou outro backend compativel |
-| `OTEL_SERVICE_NAME` | nome do servico exibido na plataforma de observabilidade |
-| `OTEL_EXPORTER_OTLP_HEADERS` | headers de autenticacao exigidos pelo backend OTLP |
+| `CORECLR_ENABLE_PROFILING` | ativa o profiler oficial quando `1` |
+| `NEW_RELIC_LICENSE_KEY` | license key da conta New Relic |
+| `NEW_RELIC_APP_NAME` | nome exibido no APM da New Relic |
 
 Variaveis ja declaradas no blueprint:
 
@@ -87,18 +87,20 @@ Variaveis ja declaradas no blueprint:
 | --- | --- |
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
 | `ASPNETCORE_URLS` | `http://0.0.0.0:10000` |
+| `CORECLR_ENABLE_PROFILING` | `1` |
 | `Database__RunMigrationsOnStartup` | `true` |
 | `Seed__CbhpmOnStartup` | `false` |
 | `Seed__UsersOnStartup` | `false` |
 | `JwtSettings__Issuer` | `HemodinksAPI` |
 | `JwtSettings__Audience` | `HemodinksAPI` |
 | `JwtSettings__ExpirationMinutes` | `60` |
+| `NEW_RELIC_APP_NAME` | `Hemodinks API` |
 | `AzureStorage__ContainerName` | `profile-photos` |
 | `AzureStorage__MaxBytes` | `1048576` |
 | `AzureStorage__PatientFilesContainerName` | `patient-files` |
 | `AzureStorage__PatientFileMaxBytes` | `10485760` |
 
-Quando `OTEL_EXPORTER_OTLP_ENDPOINT` nao estiver configurado, a API continua instrumentada, mas exporta telemetria apenas para os sinks atuais de log. Quando o endpoint estiver presente, traces, metricas e logs estruturados passam a ser enviados por OTLP tambem.
+O `Dockerfile` ja deixa `CORECLR_PROFILER`, `CORECLR_NEWRELIC_HOME` e `CORECLR_PROFILER_PATH` apontando para `/app/newrelic`, que e publicado junto com a aplicacao pelo pacote `NewRelic.Agent`. Para a telemetria sair de fato, configure `NEW_RELIC_LICENSE_KEY` no servico publicado.
 
 ## Idempotencia em producao
 
@@ -136,6 +138,7 @@ Variaveis que devem ser diferentes de producao:
 | `JwtSettings__SecretKey` | usar outra chave JWT |
 | `JwtSettings__Issuer` | `HemodinksAPI.Confirmation` |
 | `JwtSettings__Audience` | `HemodinksAPI.Confirmation` |
+| `NEW_RELIC_APP_NAME` | `Hemodinks API Confirmation` |
 | `AzureStorage__ContainerName` | `profile-photos-confirmation` |
 | `AzureStorage__PatientFilesContainerName` | `patient-files-confirmation` |
 | `AzureStorage__PublicBaseUrl` | URL do container `profile-photos-confirmation` |

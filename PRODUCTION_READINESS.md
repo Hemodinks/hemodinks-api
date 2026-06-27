@@ -95,7 +95,7 @@ No codigo:
 - O check `database` valida conectividade com o banco e migrations pendentes.
 - Cada resposta inclui `X-Request-ID`.
 - Serilog registra metodo, path, status code, tempo, request id e trace id.
-- OpenTelemetry coleta traces HTTP/SQL, metricas ASP.NET/HttpClient e pode exportar tudo via OTLP.
+- O agente New Relic APM coleta transacoes HTTP, chamadas externas, SQL Server e excecoes quando o profiler esta habilitado.
 - Fluxos criticos de agenda/reset aceitam `Idempotency-Key` para retries seguros.
 
 Configuracoes externas recomendadas:
@@ -103,7 +103,8 @@ Configuracoes externas recomendadas:
 - [ ] Monitor externo chamando `/healthz` a cada 1 a 5 minutos.
 - [ ] Alerta por email/WhatsApp/Slack quando `/healthz` falhar.
 - [ ] Log stream do Render para Better Stack, Datadog, Grafana Cloud ou similar.
-- [ ] `OTEL_EXPORTER_OTLP_ENDPOINT` configurado no ambiente publicado.
+- [ ] `NEW_RELIC_LICENSE_KEY` configurado no ambiente publicado.
+- [ ] Alertas basicos criados no New Relic para erro e indisponibilidade.
 - [ ] Clientes que fazem retry em `POST /api/events/` e reset de senha enviando `Idempotency-Key`.
 - [ ] Alerta para aumento de respostas 5xx.
 - [ ] Alerta para falhas de login/reset acima do normal.

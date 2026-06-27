@@ -10,7 +10,7 @@ API ASP.NET Core/.NET 10 para gestao de usuarios, pacientes, agenda, licencas, d
 - Entity Framework Core 10 com SQL Server/Azure SQL
 - JWT Bearer para autenticacao e autorizacao por perfil/licenca
 - Serilog para logs em console e arquivo
-- OpenTelemetry via OTLP para traces, metricas e correlacao de logs
+- New Relic APM via agente oficial .NET
 - Azure Blob Storage para fotos de perfil e anexos de pacientes
 - `BackgroundService` interno para lembretes da agenda
 - `IMemoryCache` para consulta CBHPM em memoria
@@ -84,8 +84,13 @@ dotnet user-secrets set --project HemodinksAPI.Api "ConnectionStrings:DefaultCon
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:SecretKey" "troque_por_uma_chave_com_32_caracteres_ou_mais"
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Issuer" "HemodinksAPI"
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Audience" "HemodinksAPI"
-# Opcional para observabilidade local com collector ou Aspire Dashboard
-# dotnet user-secrets set --project HemodinksAPI.Api "OTEL_EXPORTER_OTLP_ENDPOINT" "http://localhost:4317"
+# Opcional para observabilidade local com New Relic ao usar `dotnet run`
+# $env:CORECLR_ENABLE_PROFILING="1"
+# $env:CORECLR_PROFILER="{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"
+# $env:CORECLR_NEWRELIC_HOME="$PWD\\HemodinksAPI.Api\\bin\\Debug\\net10.0\\newrelic"
+# $env:CORECLR_PROFILER_PATH="$PWD\\HemodinksAPI.Api\\bin\\Debug\\net10.0\\newrelic\\NewRelic.Profiler.dll"
+# $env:NEW_RELIC_LICENSE_KEY="<sua-license-key>"
+# $env:NEW_RELIC_APP_NAME="Hemodinks API Local"
 dotnet run --project HemodinksAPI.Api
 ```
 
@@ -97,11 +102,13 @@ Variaveis opcionais de observabilidade:
 
 | Chave | Descricao |
 | --- | --- |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | endpoint OTLP do collector ou backend observability |
-| `OTEL_SERVICE_NAME` | sobrescreve o nome do servico enviado pelo OpenTelemetry |
-| `OTEL_EXPORTER_OTLP_HEADERS` | headers para autenticacao quando o backend exigir token |
+| `CORECLR_ENABLE_PROFILING` | ativa o profiler do New Relic quando `1` |
+| `NEW_RELIC_LICENSE_KEY` | license key da conta New Relic |
+| `NEW_RELIC_APP_NAME` | nome exibido no APM da New Relic |
 
-A API exporta traces de requests ASP.NET Core, chamadas HTTP de saida e operacoes SQL Server. Os paths de health check (`/` e `/healthz`) ficam fora dos traces para reduzir ruido operacional.
+No Docker/Render, o `Dockerfile` ja define `CORECLR_PROFILER`, `CORECLR_NEWRELIC_HOME` e `CORECLR_PROFILER_PATH` apontando para `/app/newrelic`, pasta que o pacote `NewRelic.Agent` publica junto com a API. Em execucao local com `dotnet run`, esses caminhos precisam ser configurados no shell antes de subir a aplicacao.
+
+O agente New Relic observa requests ASP.NET Core, chamadas HTTP de saida, SQL Server e excecoes sem bootstrap adicional no codigo. Os logs estruturados continuam saindo por Serilog em console e arquivo.
 
 ## Idempotencia
 
