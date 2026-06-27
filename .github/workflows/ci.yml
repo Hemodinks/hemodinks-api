@@ -48,7 +48,13 @@ jobs:
       - name: Build
         run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
 
+      - name: Validate migrations (dev-local)
+        if: github.ref_name == 'dev-local' || github.base_ref == 'dev-local'
+        shell: pwsh
+        run: ./scripts/Test-Migrations.ps1
+
       - name: Validate migrations
+        if: github.ref_name != 'dev-local' && github.base_ref != 'dev-local'
         shell: pwsh
         run: ./scripts/Test-Migrations.ps1 -NoBuild
 
