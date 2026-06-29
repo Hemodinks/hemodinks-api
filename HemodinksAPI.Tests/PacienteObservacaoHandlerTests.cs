@@ -234,15 +234,16 @@ public class PacienteObservacaoHandlerTests
         context.AddRange(admin, doctor, patientUser, paciente, observacao);
         await context.SaveChangesAsync();
 
-        var handler = new GetDashboardSummaryQueryHandler(context, NullLogger<GetDashboardSummaryQueryHandler>.Instance);
+        var summaryHandler = new GetDashboardSummaryQueryHandler(context, NullLogger<GetDashboardSummaryQueryHandler>.Instance);
+        var notificationsHandler = new GetDashboardNotificationsQueryHandler(context, NullLogger<GetDashboardNotificationsQueryHandler>.Instance);
 
-        var summary = await handler.Handle(new GetDashboardSummaryQuery
+        var summary = await summaryHandler.Handle(new GetDashboardSummaryQuery
         {
             CurrentUserId = doctor.Id,
             CurrentPerfilId = Perfil.MedicosId
         }, CancellationToken.None);
 
-        var notifications = await handler.Handle(new GetDashboardNotificationsQuery
+        var notifications = await notificationsHandler.Handle(new GetDashboardNotificationsQuery
         {
             CurrentUserId = doctor.Id,
             CurrentPerfilId = Perfil.MedicosId

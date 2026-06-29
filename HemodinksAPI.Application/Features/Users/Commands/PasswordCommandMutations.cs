@@ -1,5 +1,4 @@
 using HemodinksAPI.Application.Data;
-using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;

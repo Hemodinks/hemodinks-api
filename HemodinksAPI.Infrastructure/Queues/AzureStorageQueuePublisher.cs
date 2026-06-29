@@ -1,6 +1,5 @@
 using System.Text.Json;
 using Azure.Storage.Queues;
-using Azure.Storage.Queues.Models;
 using HemodinksAPI.Application.Async;
 using Microsoft.Extensions.Options;
 

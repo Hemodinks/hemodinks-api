@@ -1,6 +1,5 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Licencas;
-using HemodinksAPI.Application.Features.Users.Queries;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Utils;

@@ -1,5 +1,4 @@
 using HemodinksAPI.Application.Async;
-using HemodinksAPI.Application.Authorization;
 using MediatR;
 
 namespace HemodinksAPI.Application.Features.Exports.Commands;

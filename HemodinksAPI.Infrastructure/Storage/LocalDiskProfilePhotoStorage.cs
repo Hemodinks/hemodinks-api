@@ -4,13 +4,6 @@ namespace HemodinksAPI.Infrastructure.Storage;
 
 public class LocalDiskProfilePhotoStorage : IProfilePhotoStorage
 {
-    private static readonly IReadOnlyDictionary<string, string> AllowedContentTypes = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-    {
-        ["image/jpeg"] = ".jpg",
-        ["image/png"] = ".png",
-        ["image/webp"] = ".webp"
-    };
-
     private static readonly IReadOnlyDictionary<string, string> ContentTypesByExtension = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         [".jpg"] = "image/jpeg",
@@ -37,46 +30,32 @@ public class LocalDiskProfilePhotoStorage : IProfilePhotoStorage
 
     public async Task<string?> SaveAsync(string? fotoPerfil, string? currentFotoPerfil, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(fotoPerfil))
+        var change = ProfilePhotoStorageSupport.EvaluateRequestedChange(
+            fotoPerfil,
+            currentFotoPerfil,
+            _options.MaxBytes);
+
+        if (change.Kind == ProfilePhotoChangeKind.RemoveCurrent)
         {
             await DeleteAsync(currentFotoPerfil, cancellationToken);
             return null;
         }
 
-        if (!IsDataUrl(fotoPerfil))
+        if (change.Kind == ProfilePhotoChangeKind.KeepCurrent)
         {
-            if (!string.IsNullOrWhiteSpace(currentFotoPerfil)
-                && string.Equals(fotoPerfil, currentFotoPerfil, StringComparison.Ordinal))
-            {
-                return currentFotoPerfil;
-            }
-
-            throw new InvalidOperationException("Foto de perfil invalida");
+            return currentFotoPerfil;
         }
 
-        var parsedPhoto = ParseDataUrl(fotoPerfil);
-
-        if (parsedPhoto.Bytes.Length > _options.MaxBytes)
-        {
-            throw new InvalidOperationException($"A foto deve ter no maximo {_options.MaxBytes / 1024 / 1024} MB");
-        }
-
-        var relativePath = $"users/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{parsedPhoto.Extension}";
-        var physicalPath = LocalStoragePathHelper.GetPhysicalPath(_localOptions, StorageFolder, relativePath);
-        var directoryPath = Path.GetDirectoryName(physicalPath)
-            ?? throw new InvalidOperationException("Nao foi possivel resolver a pasta da foto");
-
-        Directory.CreateDirectory(directoryPath);
-        await File.WriteAllBytesAsync(physicalPath, parsedPhoto.Bytes, cancellationToken);
+        var photoUrl = await SaveNewPhotoAsync(change.Photo!, cancellationToken);
 
         await DeleteAsync(currentFotoPerfil, cancellationToken);
 
-        return LocalStoragePathHelper.BuildPublicUrl(_localOptions, StorageFolder, relativePath);
+        return photoUrl;
     }
 
     public Task DeleteAsync(string? fotoPerfil, CancellationToken cancellationToken)
     {
-        if (string.IsNullOrWhiteSpace(fotoPerfil) || IsDataUrl(fotoPerfil))
+        if (string.IsNullOrWhiteSpace(fotoPerfil) || ProfilePhotoStorageSupport.IsDataUrl(fotoPerfil))
         {
             return Task.CompletedTask;
         }
@@ -111,10 +90,9 @@ public class LocalDiskProfilePhotoStorage : IProfilePhotoStorage
             return null;
         }
 
-        if (IsDataUrl(fotoPerfil))
+        if (ProfilePhotoStorageSupport.IsDataUrl(fotoPerfil))
         {
-            var parsedPhoto = ParseDataUrl(fotoPerfil);
-            return new ProfilePhotoFile(new MemoryStream(parsedPhoto.Bytes), parsedPhoto.ContentType);
+            return ProfilePhotoStorageSupport.ReadInlinePhoto(fotoPerfil);
         }
 
         var relativePath = LocalStoragePathHelper.TryGetRelativePath(_localOptions, StorageFolder, fotoPerfil);
@@ -138,47 +116,21 @@ public class LocalDiskProfilePhotoStorage : IProfilePhotoStorage
         return await Task.FromResult(new ProfilePhotoFile(stream, contentType));
     }
 
-    private static bool IsDataUrl(string value)
+    private async Task<string> SaveNewPhotoAsync(ParsedProfilePhoto photo, CancellationToken cancellationToken)
     {
-        return value.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase);
+        var relativePath = BuildRelativePath(photo.Extension);
+        var physicalPath = LocalStoragePathHelper.GetPhysicalPath(_localOptions, StorageFolder, relativePath);
+        var directoryPath = Path.GetDirectoryName(physicalPath)
+            ?? throw new InvalidOperationException("Nao foi possivel resolver a pasta da foto");
+
+        Directory.CreateDirectory(directoryPath);
+        await File.WriteAllBytesAsync(physicalPath, photo.Bytes, cancellationToken);
+
+        return LocalStoragePathHelper.BuildPublicUrl(_localOptions, StorageFolder, relativePath);
     }
 
-    private static ParsedProfilePhoto ParseDataUrl(string dataUrl)
+    private static string BuildRelativePath(string extension)
     {
-        var commaIndex = dataUrl.IndexOf(',');
-
-        if (commaIndex <= 0)
-        {
-            throw new InvalidOperationException("Foto de perfil invalida");
-        }
-
-        var header = dataUrl[..commaIndex];
-
-        if (!header.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
-            || !header.EndsWith(";base64", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException("Foto de perfil invalida");
-        }
-
-        var contentType = header[5..^7];
-
-        if (!AllowedContentTypes.TryGetValue(contentType, out var extension))
-        {
-            throw new InvalidOperationException("Use uma foto PNG, JPG ou WEBP");
-        }
-
-        try
-        {
-            return new ParsedProfilePhoto(
-                contentType,
-                extension,
-                Convert.FromBase64String(dataUrl[(commaIndex + 1)..]));
-        }
-        catch (FormatException ex)
-        {
-            throw new InvalidOperationException("Foto de perfil invalida", ex);
-        }
+        return $"users/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{extension}";
     }
-
-    private sealed record ParsedProfilePhoto(string ContentType, string Extension, byte[] Bytes);
 }

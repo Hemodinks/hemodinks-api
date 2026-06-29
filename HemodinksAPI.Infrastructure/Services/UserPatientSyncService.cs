@@ -1,4 +1,3 @@
-using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 

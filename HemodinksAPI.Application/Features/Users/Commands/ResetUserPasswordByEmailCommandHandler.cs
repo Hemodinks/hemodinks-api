@@ -2,7 +2,6 @@ using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Utils;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;

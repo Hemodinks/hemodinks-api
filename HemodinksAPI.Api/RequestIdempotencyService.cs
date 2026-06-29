@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-using System.Text.Json;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -11,8 +8,6 @@ public sealed class RequestIdempotencyService
 {
     public const string IdempotencyKeyHeaderName = "Idempotency-Key";
     public const string IdempotencyStatusHeaderName = "Idempotency-Status";
-
-    private static readonly JsonSerializerOptions SerializerOptions = new(JsonSerializerDefaults.Web);
 
     private readonly AppDbContext _context;
     private readonly ILogger<RequestIdempotencyService> _logger;
@@ -37,35 +32,34 @@ public sealed class RequestIdempotencyService
         if (!httpContext.Request.Headers.TryGetValue(IdempotencyKeyHeaderName, out var headerValues))
         {
             var freshResponse = await action(cancellationToken);
-            return RequestIdempotencyExecutionResult<TResponse>.Executed(freshResponse.Payload, freshResponse.ResourceLocation);
+            return RequestIdempotencyExecutionResult<TResponse>.Executed(
+                freshResponse.Payload,
+                freshResponse.ResourceLocation);
         }
 
-        var key = NormalizeKey(headerValues.ToString());
-        if (key.Length == 0)
+        var key = RequestIdempotencySupport.NormalizeKey(headerValues.ToString());
+        var keyValidation = RequestIdempotencySupport.ValidateKey(key);
+        if (keyValidation is not null)
         {
-            return RequestIdempotencyExecutionResult<TResponse>.Invalid(
-                "O header Idempotency-Key nao pode ser vazio.");
+            return RequestIdempotencyExecutionResult<TResponse>.Invalid(keyValidation);
         }
 
-        if (key.Length > 200)
-        {
-            return RequestIdempotencyExecutionResult<TResponse>.Invalid(
-                "O header Idempotency-Key deve ter no maximo 200 caracteres.");
-        }
+        var normalizedScope = RequestIdempotencySupport.NormalizeScope(scope);
+        var requestHash = RequestIdempotencySupport.ComputeHash(requestPayload);
 
-        scope = NormalizeScope(scope);
-        var requestHash = ComputeHash(requestPayload);
-
-        var existingRequest = await FindExistingAsync(operation, scope, key, cancellationToken);
+        var existingRequest = await FindExistingAsync(operation, normalizedScope, key, cancellationToken);
         if (existingRequest is not null)
         {
-            return BuildExistingResult<TResponse>(httpContext, existingRequest, requestHash);
+            return RequestIdempotencyReplay.BuildExistingResult<TResponse>(
+                httpContext,
+                existingRequest,
+                requestHash);
         }
 
         var record = new IdempotencyRequest
         {
             Operation = operation,
-            Scope = scope,
+            Scope = normalizedScope,
             IdempotencyKey = key,
             RequestHash = requestHash,
             State = IdempotencyRequestStates.InProgress,
@@ -80,13 +74,16 @@ public sealed class RequestIdempotencyService
         }
         catch (DbUpdateException ex)
         {
-            _logger.LogDebug(ex, "Conflito ao registrar idempotencia para {Operation}/{Scope}", operation, scope);
+            _logger.LogDebug(ex, "Conflito ao registrar idempotencia para {Operation}/{Scope}", operation, normalizedScope);
 
-            existingRequest = await FindExistingAsync(operation, scope, key, cancellationToken);
+            existingRequest = await FindExistingAsync(operation, normalizedScope, key, cancellationToken);
             if (existingRequest is not null)
             {
                 _context.Entry(record).State = EntityState.Detached;
-                return BuildExistingResult<TResponse>(httpContext, existingRequest, requestHash);
+                return RequestIdempotencyReplay.BuildExistingResult<TResponse>(
+                    httpContext,
+                    existingRequest,
+                    requestHash);
             }
 
             throw;
@@ -96,11 +93,11 @@ public sealed class RequestIdempotencyService
         {
             var response = await action(cancellationToken);
 
-            record.State = IdempotencyRequestStates.Completed;
-            record.StatusCode = successStatusCode;
-            record.ResourceLocation = response.ResourceLocation;
-            record.ResponseJson = JsonSerializer.Serialize(response.Payload, SerializerOptions);
-            record.CompletedAt = DateTime.UtcNow;
+            RequestIdempotencySupport.MarkAsCompleted(
+                record,
+                response.Payload,
+                response.ResourceLocation,
+                successStatusCode);
 
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -124,7 +121,7 @@ public sealed class RequestIdempotencyService
                     cleanupException,
                     "Falha ao remover registro de idempotencia incompleto para {Operation}/{Scope}",
                     operation,
-                    scope);
+                    normalizedScope);
             }
 
             throw;
@@ -133,46 +130,7 @@ public sealed class RequestIdempotencyService
 
     public static string ComputeHash(object payload)
     {
-        var json = JsonSerializer.Serialize(payload, SerializerOptions);
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(json));
-        return Convert.ToHexString(bytes);
-    }
-
-    private static RequestIdempotencyExecutionResult<TResponse> BuildExistingResult<TResponse>(
-        HttpContext httpContext,
-        IdempotencyRequest existingRequest,
-        string requestHash)
-    {
-        if (!string.Equals(existingRequest.RequestHash, requestHash, StringComparison.Ordinal))
-        {
-            return RequestIdempotencyExecutionResult<TResponse>.Conflict(
-                "A mesma Idempotency-Key nao pode ser reutilizada com payload diferente.");
-        }
-
-        if (!string.Equals(existingRequest.State, IdempotencyRequestStates.Completed, StringComparison.Ordinal))
-        {
-            return RequestIdempotencyExecutionResult<TResponse>.InProgress(
-                "Ja existe uma requisicao com esta Idempotency-Key em processamento.");
-        }
-
-        if (string.IsNullOrWhiteSpace(existingRequest.ResponseJson))
-        {
-            return RequestIdempotencyExecutionResult<TResponse>.Conflict(
-                "O registro de idempotencia existente nao possui resposta para replay.");
-        }
-
-        var payload = JsonSerializer.Deserialize<TResponse>(existingRequest.ResponseJson, SerializerOptions);
-        if (payload is null)
-        {
-            return RequestIdempotencyExecutionResult<TResponse>.Conflict(
-                "Nao foi possivel reconstruir a resposta do registro de idempotencia.");
-        }
-
-        httpContext.Response.Headers[IdempotencyStatusHeaderName] = "replayed";
-
-        return RequestIdempotencyExecutionResult<TResponse>.Replayed(
-            payload,
-            existingRequest.ResourceLocation);
+        return RequestIdempotencySupport.ComputeHash(payload);
     }
 
     private Task<IdempotencyRequest?> FindExistingAsync(
@@ -188,104 +146,5 @@ public sealed class RequestIdempotencyService
                     && item.Scope == scope
                     && item.IdempotencyKey == key,
                 cancellationToken);
-    }
-
-    private static string NormalizeKey(string? key)
-    {
-        return key?.Trim() ?? string.Empty;
-    }
-
-    private static string NormalizeScope(string? scope)
-    {
-        return string.IsNullOrWhiteSpace(scope)
-            ? "anonymous"
-            : scope.Trim();
-    }
-}
-
-public sealed record StoredIdempotentResponse<TResponse>(
-    TResponse Payload,
-    string? ResourceLocation = null);
-
-public enum RequestIdempotencyOutcome
-{
-    Executed,
-    Replayed,
-    Conflict,
-    InProgress,
-    Invalid
-}
-
-public sealed class RequestIdempotencyExecutionResult<TResponse>
-{
-    private RequestIdempotencyExecutionResult(
-        RequestIdempotencyOutcome outcome,
-        TResponse? payload,
-        string? resourceLocation,
-        string? message)
-    {
-        Outcome = outcome;
-        Payload = payload;
-        ResourceLocation = resourceLocation;
-        Message = message;
-    }
-
-    public RequestIdempotencyOutcome Outcome { get; }
-
-    public TResponse? Payload { get; }
-
-    public string? ResourceLocation { get; }
-
-    public string? Message { get; }
-
-    public bool IsSuccessful => Outcome is RequestIdempotencyOutcome.Executed or RequestIdempotencyOutcome.Replayed;
-
-    public static RequestIdempotencyExecutionResult<TResponse> Executed(
-        TResponse payload,
-        string? resourceLocation = null)
-    {
-        return new RequestIdempotencyExecutionResult<TResponse>(
-            RequestIdempotencyOutcome.Executed,
-            payload,
-            resourceLocation,
-            null);
-    }
-
-    public static RequestIdempotencyExecutionResult<TResponse> Replayed(
-        TResponse payload,
-        string? resourceLocation = null)
-    {
-        return new RequestIdempotencyExecutionResult<TResponse>(
-            RequestIdempotencyOutcome.Replayed,
-            payload,
-            resourceLocation,
-            null);
-    }
-
-    public static RequestIdempotencyExecutionResult<TResponse> Conflict(string message)
-    {
-        return new RequestIdempotencyExecutionResult<TResponse>(
-            RequestIdempotencyOutcome.Conflict,
-            default,
-            null,
-            message);
-    }
-
-    public static RequestIdempotencyExecutionResult<TResponse> InProgress(string message)
-    {
-        return new RequestIdempotencyExecutionResult<TResponse>(
-            RequestIdempotencyOutcome.InProgress,
-            default,
-            null,
-            message);
-    }
-
-    public static RequestIdempotencyExecutionResult<TResponse> Invalid(string message)
-    {
-        return new RequestIdempotencyExecutionResult<TResponse>(
-            RequestIdempotencyOutcome.Invalid,
-            default,
-            null,
-            message);
     }
 }

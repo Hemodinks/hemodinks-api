@@ -1,6 +1,5 @@
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
-using HemodinksAPI.Infrastructure.Data.Configurations;
 
 namespace HemodinksAPI.Infrastructure.Data;
 

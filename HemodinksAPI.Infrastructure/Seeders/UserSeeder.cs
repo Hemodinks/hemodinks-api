@@ -1,5 +1,4 @@
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Application.Utils;
 
 namespace HemodinksAPI.Infrastructure.Seeders;
 
