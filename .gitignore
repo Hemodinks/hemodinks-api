@@ -16,6 +16,7 @@ obj/
 logs/
 *.log
 local-storage/
+.azurite/
 
 # Dependências
 packages/
@@ -36,6 +37,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+local.settings.json
 
 # Docker
 docker-compose.override.yml

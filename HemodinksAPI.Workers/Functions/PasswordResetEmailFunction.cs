@@ -24,7 +24,7 @@ public class PasswordResetEmailFunction
 
     [Function(nameof(SendPasswordResetEmail))]
     public async Task SendPasswordResetEmail(
-        [QueueTrigger("%PasswordResetEmailQueueName%", Connection = "AzureWebJobsStorage")] string queueMessage,
+        [QueueTrigger(AsyncQueueNames.PasswordResetEmails, Connection = "AzureWebJobsStorage")] string queueMessage,
         CancellationToken cancellationToken)
     {
         var message = JsonSerializer.Deserialize<PasswordResetEmailQueueMessage>(queueMessage, JsonOptions)
