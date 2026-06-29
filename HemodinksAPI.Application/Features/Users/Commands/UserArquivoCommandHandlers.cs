@@ -60,7 +60,7 @@ public class UploadUserArquivoCommandHandler : IRequestHandler<UploadUserArquivo
             _context.UserArquivos.Add(arquivo);
             await _context.SaveChangesAsync(cancellationToken);
 
-            return UserMapper.ToArquivoDto(arquivo);
+            return UserQueryMapper.ToArquivoDto(arquivo);
         }
         catch (Exception ex)
         {
