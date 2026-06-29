@@ -1,13 +1,15 @@
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Authorization;
+using HemodinksAPI.Application.Features.Users.Queries;
+using MediatR;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
 /// <summary>
 /// DTO para criação de usuário
 /// </summary>
-public partial class CreateUserCommand
+public partial class CreateUserCommand : IRequest<CreateUserResponse>
 {
     public string Nome { get; set; } = null!;
     public string Email { get; set; } = null!;
@@ -45,7 +47,7 @@ public class CreateUserResponse
 /// <summary>
 /// DTO para autenticação de usuário
 /// </summary>
-public partial class AuthenticateUserCommand
+public partial class AuthenticateUserCommand : IRequest<AuthenticateUserResponse>
 {
     public string Email { get; set; } = null!;
     public string Senha { get; set; } = null!;
@@ -73,7 +75,7 @@ public class AuthenticateUserResponse
 /// <summary>
 /// DTO para atualização de usuário
 /// </summary>
-public partial class UpdateUserCommand
+public partial class UpdateUserCommand : IRequest<UserDto>
 {
     public int Id { get; set; }
     public CurrentUserContext? CurrentUser { get; set; }
@@ -92,19 +94,19 @@ public partial class UpdateUserCommand
 /// <summary>
 /// DTO para exclusão de usuário
 /// </summary>
-public partial class DeleteUserCommand
+public partial class DeleteUserCommand : IRequest
 {
     public int Id { get; set; }
 }
 
-public partial class UploadUserArquivoCommand
+public partial class UploadUserArquivoCommand : IRequest<UserArquivoDto>
 {
     public int UserId { get; set; }
     public IFormFile File { get; set; } = null!;
     public CurrentUserContext? CurrentUser { get; set; }
 }
 
-public partial class DeleteUserArquivoCommand
+public partial class DeleteUserArquivoCommand : IRequest
 {
     public int UserId { get; set; }
     public int ArquivoId { get; set; }
@@ -114,7 +116,7 @@ public partial class DeleteUserArquivoCommand
 /// <summary>
 /// DTO para troca de senha do usuário autenticado
 /// </summary>
-public partial class ChangePasswordCommand
+public partial class ChangePasswordCommand : IRequest<ChangePasswordResponse>
 {
     public int UserId { get; set; }
     public CurrentUserContext? CurrentUser { get; set; }
@@ -135,7 +137,7 @@ public class ChangePasswordResponse
 /// <summary>
 /// DTO para reset de senha do usuario.
 /// </summary>
-public partial class ResetUserPasswordCommand
+public partial class ResetUserPasswordCommand : IRequest<ResetUserPasswordResponse>
 {
     public int UserId { get; set; }
 }
@@ -143,14 +145,14 @@ public partial class ResetUserPasswordCommand
 /// <summary>
 /// DTO para solicitar reset de senha pelo email do usuario.
 /// </summary>
-public partial class ResetUserPasswordByEmailCommand
+public partial class ResetUserPasswordByEmailCommand : IRequest<RequestPasswordResetResponse>
 {
     public string Email { get; set; } = null!;
 
     public string? RequestIp { get; set; }
 }
 
-public partial class ConfirmPasswordResetCommand
+public partial class ConfirmPasswordResetCommand : IRequest<ResetUserPasswordResponse>
 {
     public string Token { get; set; } = null!;
 
