@@ -36,6 +36,14 @@ services:
         sync: false
       - key: NEW_RELIC_APP_NAME
         value: Hemodinks API
+      - key: AsyncQueues__Enabled
+        value: "false"
+      - key: AsyncQueues__ConnectionString
+        sync: false
+      - key: AsyncQueues__PasswordResetEmailQueueName
+        value: password-reset-emails
+      - key: AsyncQueues__FileExportQueueName
+        value: file-export-jobs
       - key: AzureStorage__ConnectionString
         sync: false
       - key: AzureStorage__ContainerName

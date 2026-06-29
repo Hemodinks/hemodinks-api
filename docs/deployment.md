@@ -203,15 +203,47 @@ Se as URLs publicas nao forem informadas, a API usa a URL retornada pelo SDK do 
 
 ## Azure Queue / Service Bus
 
-Nao ha recurso de fila em uso atualmente. Nao crie Azure Queue Storage ou Service Bus para esta versao, a menos que uma nova funcionalidade assincrona seja implementada.
+Azure Queue Storage agora e usado de forma opcional para dois fluxos assincronos:
+
+- envio de email de reset de senha
+- exportacoes PDF/XLSX solicitadas por `/api/exports`
+
+A funcao de exportacao ja grava arquivos no container de exports com os metadados do job. O conteudo de negocio de cada relatorio deve evoluir dentro do `HemodinksAPI.Workers`, sem mover autorizacao, idempotencia ou regras sensiveis para fora da API.
+
+Ative apenas depois de publicar o Function App `HemodinksAPI.Workers`.
+
+Variaveis da API:
+
+| Chave | Descricao |
+| --- | --- |
+| `AsyncQueues__Enabled` | `true` para usar filas; `false` mantem SMTP direto e bloqueia exportacoes |
+| `AsyncQueues__ConnectionString` | connection string da Storage Account das filas; se vazio, usa `AzureStorage__ConnectionString` |
+| `AsyncQueues__PasswordResetEmailQueueName` | padrao `password-reset-emails` |
+| `AsyncQueues__FileExportQueueName` | padrao `file-export-jobs` |
+
+Variaveis do Azure Functions:
+
+| Chave | Descricao |
+| --- | --- |
+| `AzureWebJobsStorage` | Storage Account usada pelos triggers, filas e container de exports |
+| `FUNCTIONS_WORKER_RUNTIME` | `dotnet-isolated` |
+| `PasswordResetEmailQueueName` | mesmo valor de `AsyncQueues__PasswordResetEmailQueueName` |
+| `FileExportQueueName` | mesmo valor de `AsyncQueues__FileExportQueueName` |
+| `ExportsContainerName` | container dos arquivos gerados, padrao `exports` |
+| `Email__Provider` | `GmailSmtp` ou `Smtp` |
+| `Email__FromEmail` | remetente |
+| `Email__FromName` | nome do remetente |
+| `Email__Smtp__Host` | host SMTP |
+| `Email__Smtp__Port` | porta SMTP |
+| `Email__Smtp__Username` | usuario SMTP |
+| `Email__Smtp__Password` | senha/app password SMTP |
+| `Frontend__ResetPasswordUrl` | URL da tela de reset no frontend |
+
+Para homologacao, use filas e container separados, por exemplo `password-reset-emails-confirmation`, `file-export-jobs-confirmation` e `exports-confirmation`.
 
 A agenda usa um `BackgroundService` interno no proprio processo da API. Esse desenho evita custo adicional no Render Free e e adequado para a fase atual.
 
-Possiveis usos futuros:
-
-- processamento de upload
-- notificacoes
-- relatorios
+Se `AsyncQueues__Enabled=true` e a Function nao estiver ativa, a API continuara respondendo `202/200` apos enfileirar, mas emails e arquivos ficarao parados na fila ate o worker processar.
 - auditoria assincrona
 
 ## Frontend

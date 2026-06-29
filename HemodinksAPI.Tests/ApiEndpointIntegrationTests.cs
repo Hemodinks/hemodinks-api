@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using HemodinksAPI.Api;
+using HemodinksAPI.Application.Async;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Data;
@@ -392,6 +393,42 @@ public class ApiEndpointIntegrationTests
             && token.ValueKind != JsonValueKind.Null);
     }
 
+    [Fact]
+    public async Task ExportEndpoint_WhenAuthenticated_QueuesExportJob()
+    {
+        var fileExportQueue = new CapturingFileExportQueue();
+        using var factory = new HemodinksApiFactory(services =>
+        {
+            var descriptor = services.FirstOrDefault(item => item.ServiceType == typeof(IFileExportQueue));
+            if (descriptor != null)
+            {
+                services.Remove(descriptor);
+            }
+
+            services.AddSingleton<IFileExportQueue>(fileExportQueue);
+        });
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/exports/", new
+        {
+            resource = "faturamentos-medicos",
+            format = "xlsx",
+            filters = new Dictionary<string, string?>
+            {
+                ["medico"] = "Dr. Teste"
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        Assert.Equal("queued", json.RootElement.GetProperty("status").GetString());
+        Assert.Equal("faturamentos-medicos", json.RootElement.GetProperty("resource").GetString());
+        Assert.Equal("xlsx", json.RootElement.GetProperty("format").GetString());
+        Assert.Single(fileExportQueue.Messages);
+        Assert.Equal("Dr. Teste", fileExportQueue.Messages[0].Filters["medico"]);
+    }
+
     private static async Task AuthenticateAsync(HttpClient client)
     {
         var response = await client.PostAsJsonAsync("/api/users/authenticate", new
@@ -435,6 +472,17 @@ public class ApiEndpointIntegrationTests
         public Task<int> ProcessDueRemindersAsync(CancellationToken cancellationToken)
         {
             throw new InvalidOperationException("Falha simulada no processamento de lembretes.");
+        }
+    }
+
+    private sealed class CapturingFileExportQueue : IFileExportQueue
+    {
+        public List<FileExportQueueMessage> Messages { get; } = new();
+
+        public Task EnqueueAsync(FileExportQueueMessage message, CancellationToken cancellationToken)
+        {
+            Messages.Add(message);
+            return Task.CompletedTask;
         }
     }
 }

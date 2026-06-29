@@ -30,6 +30,14 @@ services:
         sync: false
       - key: NEW_RELIC_APP_NAME
         value: Hemodinks API Confirmation
+      - key: AsyncQueues__Enabled
+        value: "false"
+      - key: AsyncQueues__ConnectionString
+        sync: false
+      - key: AsyncQueues__PasswordResetEmailQueueName
+        value: password-reset-emails-confirmation
+      - key: AsyncQueues__FileExportQueueName
+        value: file-export-jobs-confirmation
       - key: Cors__AllowedOrigins__0
         value: https://hemodinks-front-confirmation.onrender.com
       - key: AzureStorage__ConnectionString

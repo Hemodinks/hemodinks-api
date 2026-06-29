@@ -155,6 +155,7 @@ public static class ApiApplicationExtensions
         app.MapFaturamentoMedicoEndpoints();
         app.MapLicencaEndpoints();
         app.MapEventEndpoints();
+        app.MapExportEndpoints();
     }
 
     private static async Task<IResult> HealthCheckAsync(

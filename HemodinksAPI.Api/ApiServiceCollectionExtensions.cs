@@ -1,5 +1,6 @@
 using System.Text;
 using HemodinksAPI.Application;
+using HemodinksAPI.Application.Async;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Cbhpm;
@@ -16,6 +17,7 @@ using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.Data.Repositories;
 using HemodinksAPI.Infrastructure.Seeders;
 using HemodinksAPI.Infrastructure.Services;
+using HemodinksAPI.Infrastructure.Queues;
 using HemodinksAPI.Infrastructure.Storage;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -277,7 +279,26 @@ public static class ApiServiceCollectionExtensions
         services.AddScoped<IUserPatientSyncService, UserPatientSyncService>();
         services.Configure<EmailOptions>(configuration.GetSection("Email"));
         services.Configure<FrontendOptions>(configuration.GetSection("Frontend"));
-        services.AddScoped<IPasswordResetNotificationSender, SmtpPasswordResetNotificationSender>();
+        var asyncQueuesEnabled = configuration.GetValue<bool>("AsyncQueues:Enabled");
+        services.Configure<AsyncQueueOptions>(options =>
+        {
+            configuration.GetSection("AsyncQueues").Bind(options);
+            options.ConnectionString = configuration["AsyncQueues:ConnectionString"]
+                ?? configuration["AzureStorage:ConnectionString"];
+        });
+
+        if (asyncQueuesEnabled)
+        {
+            services.AddSingleton<IAsyncQueuePublisher, AzureStorageQueuePublisher>();
+            services.AddScoped<IFileExportQueue, AzureFileExportQueue>();
+            services.AddScoped<IPasswordResetNotificationSender, AzureQueuePasswordResetNotificationSender>();
+        }
+        else
+        {
+            services.AddScoped<IFileExportQueue, DisabledFileExportQueue>();
+            services.AddScoped<IPasswordResetNotificationSender, SmtpPasswordResetNotificationSender>();
+        }
+
         services.Configure<PasswordResetOptions>(options =>
         {
             configuration.GetSection("PasswordReset").Bind(options);

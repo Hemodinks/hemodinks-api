@@ -1,4 +1,8 @@
 using HemodinksAPI.Api;
+using HemodinksAPI.Application.Async;
+using HemodinksAPI.Application.Services;
+using HemodinksAPI.Infrastructure.Queues;
+using HemodinksAPI.Infrastructure.Services;
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Infrastructure.Storage;
 using Microsoft.AspNetCore.Hosting;
@@ -59,6 +63,49 @@ public class StorageRegistrationTests
             services.AddStorage(configuration, new TestWebHostEnvironment(Environments.Production)));
 
         Assert.Equal("AzureStorage:ConnectionString must be configured in production.", exception.Message);
+    }
+
+    [Fact]
+    public void AddApplicationServices_WhenAsyncQueuesAreDisabled_UsesSmtpAndDisablesExportQueue()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AsyncQueues:Enabled"] = "false"
+            })
+            .Build();
+
+        services.AddApplicationServices(configuration, new TestWebHostEnvironment(Environments.Development));
+
+        using var serviceProvider = services.BuildServiceProvider();
+
+        Assert.IsType<SmtpPasswordResetNotificationSender>(serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
+        Assert.IsType<DisabledFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
+    }
+
+    [Fact]
+    public void AddApplicationServices_WhenAsyncQueuesAreEnabled_UsesAzureQueues()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AsyncQueues:Enabled"] = "true",
+                ["AzureStorage:ConnectionString"] = "UseDevelopmentStorage=true"
+            })
+            .Build();
+
+        services.AddApplicationServices(configuration, new TestWebHostEnvironment(Environments.Development));
+
+        using var serviceProvider = services.BuildServiceProvider();
+
+        Assert.IsType<AzureQueuePasswordResetNotificationSender>(serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
+        Assert.IsType<AzureFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
     }
 
     private sealed class TestWebHostEnvironment(string environmentName) : IWebHostEnvironment

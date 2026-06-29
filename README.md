@@ -12,6 +12,7 @@ API ASP.NET Core/.NET 10 para gestao de usuarios, pacientes, agenda, licencas, d
 - Serilog para logs em console e arquivo
 - New Relic APM via agente oficial .NET
 - Azure Blob Storage para fotos de perfil e anexos de pacientes
+- Azure Queue Storage + Azure Functions opcionais para email de reset e exportacoes PDF/XLSX
 - `BackgroundService` interno para lembretes da agenda
 - `IMemoryCache` para consulta CBHPM em memoria
 - Swagger/OpenAPI e Scalar para documentacao interativa
@@ -135,6 +136,10 @@ Quando a mesma requisicao bem-sucedida chega novamente com a mesma chave, a API 
 | `AzureStorage__PatientFilesContainerName` | container de anexos, padrao `patient-files` |
 | `AzureStorage__PatientFilesPublicBaseUrl` | URL publica do container de anexos |
 | `AzureStorage__PatientFileMaxBytes` | limite de upload de anexos |
+| `AsyncQueues__Enabled` | liga filas para reset por email e exportacoes quando `true` |
+| `AsyncQueues__ConnectionString` | connection string da Storage Account usada pelas filas; se vazio, usa `AzureStorage__ConnectionString` |
+| `AsyncQueues__PasswordResetEmailQueueName` | fila de emails de reset, padrao `password-reset-emails` |
+| `AsyncQueues__FileExportQueueName` | fila de exportacoes, padrao `file-export-jobs` |
 | `Licensing__TrialDays` | dias de trial para licencas medicas |
 
 Segredos nao devem ser gravados em `appsettings.json`.
@@ -169,6 +174,7 @@ Regras principais:
 | `GET` | `/healthz` | nao | health check |
 | `POST` | `/api/users/authenticate` | nao | login JWT |
 | `POST` | `/api/users/password/reset` | nao | reset por email |
+| `POST` | `/api/exports` | sim | enfileira exportacao PDF/XLSX |
 | `GET` | `/api/users` | admin | lista paginada de usuarios |
 | `POST` | `/api/users` | admin | cria usuario |
 | `GET` | `/api/users/{id}` | sim | busca usuario |
