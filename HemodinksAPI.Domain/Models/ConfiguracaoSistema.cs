@@ -10,6 +10,8 @@ public class ConfiguracaoSistema
 
     public string NomeEmpresa { get; set; } = DefaultNomeEmpresa;
 
+    public string? FotoEmpresa { get; set; }
+
     public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
 
     public DateTime? DataAtualizacao { get; set; }

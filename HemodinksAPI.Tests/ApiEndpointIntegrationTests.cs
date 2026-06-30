@@ -243,17 +243,20 @@ public class ApiEndpointIntegrationTests
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
         using var getJson = await ReadJsonAsync(getResponse);
         Assert.Equal("Hemodinks", getJson.RootElement.GetProperty("nomeEmpresa").GetString());
+        Assert.Equal(JsonValueKind.Null, getJson.RootElement.GetProperty("fotoEmpresa").ValueKind);
 
         await AuthenticateAsync(client);
 
         var updateResponse = await client.PutAsJsonAsync("/api/configuracoes-sistema/current", new
         {
-            nomeEmpresa = "Clinica Alfa"
+            nomeEmpresa = "Clinica Alfa",
+            fotoEmpresa = "data:image/png;base64,Zm90by1kYS1lbXByZXNh"
         });
 
         Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
         using var updateJson = await ReadJsonAsync(updateResponse);
         Assert.Equal("Clinica Alfa", updateJson.RootElement.GetProperty("nomeEmpresa").GetString());
+        Assert.Equal("data:image/png;base64,Zm90by1kYS1lbXByZXNh", updateJson.RootElement.GetProperty("fotoEmpresa").GetString());
         Assert.NotEqual(JsonValueKind.Null, updateJson.RootElement.GetProperty("dataAtualizacao").ValueKind);
     }
 

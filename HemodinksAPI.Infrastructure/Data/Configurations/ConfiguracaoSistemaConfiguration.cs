@@ -16,6 +16,9 @@ internal sealed class ConfiguracaoSistemaConfiguration : IEntityTypeConfiguratio
             .IsRequired()
             .HasMaxLength(120);
 
+        entity.Property(e => e.FotoEmpresa)
+            .HasColumnType("nvarchar(max)");
+
         entity.Property(e => e.DataCadastro)
             .IsRequired()
             .HasDefaultValueSql("GETUTCDATE()");

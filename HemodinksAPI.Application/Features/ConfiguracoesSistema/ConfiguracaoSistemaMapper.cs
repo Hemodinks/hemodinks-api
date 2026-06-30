@@ -10,6 +10,7 @@ internal static class ConfiguracaoSistemaMapper
         {
             Id = configuracao.Id,
             NomeEmpresa = configuracao.NomeEmpresa,
+            FotoEmpresa = configuracao.FotoEmpresa,
             DataCadastro = configuracao.DataCadastro,
             DataAtualizacao = configuracao.DataAtualizacao
         };

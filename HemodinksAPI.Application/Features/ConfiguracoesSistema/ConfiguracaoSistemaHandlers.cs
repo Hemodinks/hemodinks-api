@@ -36,6 +36,9 @@ public sealed class UpdateConfiguracaoSistemaHandler : IRequestHandler<UpdateCon
         var configuracao = await _repository.GetCurrentOrCreateAsync(cancellationToken);
 
         configuracao.NomeEmpresa = request.NomeEmpresa.Trim();
+        configuracao.FotoEmpresa = string.IsNullOrWhiteSpace(request.FotoEmpresa)
+            ? null
+            : request.FotoEmpresa.Trim();
         configuracao.DataAtualizacao = _timeProvider.GetUtcNow().UtcDateTime;
 
         await _repository.SaveChangesAsync(cancellationToken);
