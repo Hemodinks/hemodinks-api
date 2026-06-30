@@ -197,6 +197,25 @@ public class AzureBlobProfilePhotoStorage : IProfilePhotoStorage
             return null;
         }
 
+        var directLocation = ResolveContainerRelativePath(normalizedPath, defaultContainerName);
+        if (directLocation != null)
+        {
+            return directLocation;
+        }
+
+        var firstSlashIndex = normalizedPath.IndexOf('/');
+
+        if (firstSlashIndex > 0)
+        {
+            var remainingPath = normalizedPath[(firstSlashIndex + 1)..];
+            return ResolveContainerRelativePath(remainingPath, defaultContainerName);
+        }
+
+        return null;
+    }
+
+    private static BlobLocation? ResolveContainerRelativePath(string normalizedPath, string defaultContainerName)
+    {
         var defaultContainerPrefix = $"{defaultContainerName}/";
 
         if (normalizedPath.StartsWith(defaultContainerPrefix, StringComparison.OrdinalIgnoreCase))
