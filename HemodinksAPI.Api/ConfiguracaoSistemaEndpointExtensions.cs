@@ -17,6 +17,11 @@ public static class ConfiguracaoSistemaEndpointExtensions
             .WithSummary("Consultar configuracao do sistema")
             .AllowAnonymous();
 
+        group.MapGet("/current/foto-empresa", GetCurrentPhoto)
+            .WithName("GetConfiguracaoSistemaPhoto")
+            .WithSummary("Consultar foto da empresa")
+            .AllowAnonymous();
+
         group.MapPut("/current", Update)
             .WithName("UpdateConfiguracaoSistema")
             .WithSummary("Atualizar configuracao do sistema")
@@ -33,6 +38,20 @@ public static class ConfiguracaoSistemaEndpointExtensions
             var result = await mediator.Send(new GetConfiguracaoSistemaQuery(), cancellationToken);
             return Results.Ok(result);
         }, logger, "Erro ao consultar configuracao do sistema", "Erro ao consultar configuracao do sistema");
+    }
+
+    private static Task<IResult> GetCurrentPhoto(
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        return EndpointExecution.RunAsync(async () =>
+        {
+            var photo = await mediator.Send(new GetConfiguracaoSistemaPhotoQuery(), cancellationToken);
+            return photo == null
+                ? Results.NotFound()
+                : Results.Stream(photo.Content, photo.ContentType);
+        }, logger, "Erro ao consultar foto da empresa", "Erro ao consultar foto da empresa");
     }
 
     private static Task<IResult> Update(

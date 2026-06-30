@@ -256,8 +256,16 @@ public class ApiEndpointIntegrationTests
         Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
         using var updateJson = await ReadJsonAsync(updateResponse);
         Assert.Equal("Clinica Alfa", updateJson.RootElement.GetProperty("nomeEmpresa").GetString());
-        Assert.Equal("data:image/png;base64,Zm90by1kYS1lbXByZXNh", updateJson.RootElement.GetProperty("fotoEmpresa").GetString());
+        var fotoEmpresa = updateJson.RootElement.GetProperty("fotoEmpresa").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(fotoEmpresa));
+        Assert.False(fotoEmpresa!.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase));
         Assert.NotEqual(JsonValueKind.Null, updateJson.RootElement.GetProperty("dataAtualizacao").ValueKind);
+
+        var photoResponse = await client.GetAsync("/api/configuracoes-sistema/current/foto-empresa");
+
+        Assert.Equal(HttpStatusCode.OK, photoResponse.StatusCode);
+        Assert.Equal("image/png", photoResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal("foto-da-empresa", await photoResponse.Content.ReadAsStringAsync());
     }
 
     [Fact]
