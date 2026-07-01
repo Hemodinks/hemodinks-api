@@ -246,15 +246,15 @@ Para homologacao, use filas e container separados, por exemplo `password-reset-e
 
 A agenda usa um `BackgroundService` interno no proprio processo da API. Esse desenho evita custo adicional no Render Free e e adequado para a fase atual.
 
-No formato hibrido recomendado para a Hemodinks:
+No formato recomendado atual para a Hemodinks no Render Free:
 
 - `PasswordReset__UseEmail=true`
-- `AsyncQueues__PasswordResetEnabled=false`
+- `AsyncQueues__PasswordResetEnabled=true`
 - `AsyncQueues__FileExportEnabled=true`
 
-Assim, o reset de senha usa SMTP direto na API e nao depende de worker no Render, enquanto as exportacoes continuam assincronas pela Azure Function.
+Assim, tanto o reset de senha quanto as exportacoes passam pela Azure Function. Isso evita o bloqueio de SMTP de saida do Render Free nas portas `25`, `465` e `587`.
 
-Se `AsyncQueues__FileExportEnabled=true` e a Function nao estiver ativa, a API continuara respondendo `202/200` apos enfileirar, mas os arquivos ficarao parados na fila ate o worker processar.
+Se `AsyncQueues__PasswordResetEnabled=true` ou `AsyncQueues__FileExportEnabled=true` e a Function nao estiver ativa, a API continuara respondendo `200/202` apos enfileirar, mas os emails e arquivos ficarao parados na fila ate o worker processar.
 - auditoria assincrona
 
 ## Frontend

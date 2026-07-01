@@ -37,7 +37,7 @@ services:
       - key: AsyncQueues__Enabled
         value: "false"
       - key: AsyncQueues__PasswordResetEnabled
-        value: "false"
+        value: "true"
       - key: AsyncQueues__FileExportEnabled
         value: "true"
       - key: AsyncQueues__ConnectionString
