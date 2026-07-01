@@ -217,14 +217,12 @@ Variaveis da API:
 
 | Chave | Descricao |
 | --- | --- |
-| `PasswordReset__UseEmail` | `true` para gerar token e enviar reset por email |
-| `Frontend__ResetPasswordUrl` | URL publica da tela `/reset-password` |
-| `AsyncQueues__Enabled` | `true` para usar filas; `false` mantem SMTP direto e bloqueia exportacoes |
+| `AsyncQueues__Enabled` | fallback global das filas quando nao houver override por recurso |
+| `AsyncQueues__PasswordResetEnabled` | `true` para mandar reset por email para a Function; `false` usa SMTP direto na API |
+| `AsyncQueues__FileExportEnabled` | `true` para exportacoes assincronas pela Function |
 | `AsyncQueues__ConnectionString` | connection string da Storage Account das filas; se vazio, usa `AzureStorage__ConnectionString` |
 | `AsyncQueues__PasswordResetEmailQueueName` | padrao `password-reset-emails` |
 | `AsyncQueues__FileExportQueueName` | padrao `file-export-jobs` |
-| `StorageFunctions__BaseUrl` | URL base do Function App quando a API deve terceirizar uploads de foto/anexos |
-| `StorageFunctions__FunctionKey` | function key usada nos uploads HTTP |
 
 Variaveis do Azure Functions:
 
@@ -235,13 +233,6 @@ Variaveis do Azure Functions:
 | `PasswordResetEmailQueueName` | mesmo valor de `AsyncQueues__PasswordResetEmailQueueName` |
 | `FileExportQueueName` | mesmo valor de `AsyncQueues__FileExportQueueName` |
 | `ExportsContainerName` | container dos arquivos gerados, padrao `exports` |
-| `AzureStorage__ConnectionString` | opcional; se vazio, os uploads HTTP usam `AzureWebJobsStorage` |
-| `AzureStorage__ContainerName` | container das fotos de perfil |
-| `AzureStorage__PublicBaseUrl` | URL publica do container de fotos |
-| `AzureStorage__MaxBytes` | limite da foto de perfil |
-| `AzureStorage__PatientFilesContainerName` | container dos anexos |
-| `AzureStorage__PatientFilesPublicBaseUrl` | URL publica do container de anexos |
-| `AzureStorage__PatientFileMaxBytes` | limite dos anexos |
 | `Email__Provider` | `GmailSmtp` ou `Smtp` |
 | `Email__FromEmail` | remetente |
 | `Email__FromName` | nome do remetente |
@@ -251,17 +242,19 @@ Variaveis do Azure Functions:
 | `Email__Smtp__Password` | senha/app password SMTP |
 | `Frontend__ResetPasswordUrl` | URL da tela de reset no frontend |
 
-Para homologacao, use filas e container separados, por exemplo `password-reset-emails-confirmation`, `file-export-jobs-confirmation`, `exports-confirmation`, `profile-photos-confirmation` e `patient-files-confirmation`.
-
-Quando `StorageFunctions__BaseUrl` estiver configurado, a API passa a usar o `HemodinksAPI.Workers` para uploads HTTP de:
-
-- foto de perfil
-- anexos de usuarios medicos
-- anexos de pacientes
+Para homologacao, use filas e container separados, por exemplo `password-reset-emails-confirmation`, `file-export-jobs-confirmation` e `exports-confirmation`.
 
 A agenda usa um `BackgroundService` interno no proprio processo da API. Esse desenho evita custo adicional no Render Free e e adequado para a fase atual.
 
-Se `AsyncQueues__Enabled=true` e a Function nao estiver ativa, a API continuara respondendo `202/200` apos enfileirar, mas emails e arquivos ficarao parados na fila ate o worker processar.
+No formato recomendado atual para a Hemodinks no Render Free:
+
+- `PasswordReset__UseEmail=true`
+- `AsyncQueues__PasswordResetEnabled=true`
+- `AsyncQueues__FileExportEnabled=true`
+
+Assim, tanto o reset de senha quanto as exportacoes passam pela Azure Function. Isso evita o bloqueio de SMTP de saida do Render Free nas portas `25`, `465` e `587`.
+
+Se `AsyncQueues__PasswordResetEnabled=true` ou `AsyncQueues__FileExportEnabled=true` e a Function nao estiver ativa, a API continuara respondendo `200/202` apos enfileirar, mas os emails e arquivos ficarao parados na fila ate o worker processar.
 - auditoria assincrona
 
 ## Frontend

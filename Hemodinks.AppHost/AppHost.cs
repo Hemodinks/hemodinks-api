@@ -39,7 +39,15 @@ IResourceBuilder<ContainerResource> AddContainerizedApi(IDistributedApplicationB
         JwtAudience: GetOptionalConfiguration(builder.Configuration, "JWT_AUDIENCE", "HemodinksAPI"),
         JwtExpirationMinutes: GetOptionalConfiguration(builder.Configuration, "JWT_EXPIRATION_MINUTES", "60"),
         PasswordResetUseEmail: GetOptionalConfiguration(builder.Configuration, "PasswordReset__UseEmail", "true"),
-        AsyncQueuesEnabled: GetOptionalConfiguration(builder.Configuration, "AsyncQueues__Enabled", "true"),
+        AsyncQueuesEnabled: GetOptionalConfiguration(builder.Configuration, "AsyncQueues__Enabled", "false"),
+        AsyncQueuesPasswordResetEnabled: GetOptionalConfiguration(
+            builder.Configuration,
+            "AsyncQueues__PasswordResetEnabled",
+            "false"),
+        AsyncQueuesFileExportEnabled: GetOptionalConfiguration(
+            builder.Configuration,
+            "AsyncQueues__FileExportEnabled",
+            "false"),
         AsyncQueuesPasswordResetEmailQueueName: GetOptionalConfiguration(
             builder.Configuration,
             "AsyncQueues__PasswordResetEmailQueueName",
@@ -137,6 +145,8 @@ IResourceBuilder<ContainerResource> AddContainerizedApi(IDistributedApplicationB
         .WithEnvironment("JwtSettings__ExpirationMinutes", appSettings.JwtExpirationMinutes)
         .WithEnvironment("PasswordReset__UseEmail", appSettings.PasswordResetUseEmail)
         .WithEnvironment("AsyncQueues__Enabled", appSettings.AsyncQueuesEnabled)
+        .WithEnvironment("AsyncQueues__PasswordResetEnabled", appSettings.AsyncQueuesPasswordResetEnabled)
+        .WithEnvironment("AsyncQueues__FileExportEnabled", appSettings.AsyncQueuesFileExportEnabled)
         .WithEnvironment("AsyncQueues__ConnectionString", azuriteConnectionString)
         .WithEnvironment(
             "AsyncQueues__PasswordResetEmailQueueName",
@@ -233,6 +243,8 @@ sealed record ContainerizedApiSettings(
     string JwtExpirationMinutes,
     string PasswordResetUseEmail,
     string AsyncQueuesEnabled,
+    string AsyncQueuesPasswordResetEnabled,
+    string AsyncQueuesFileExportEnabled,
     string AsyncQueuesPasswordResetEmailQueueName,
     string AsyncQueuesFileExportQueueName,
     string AzureStorageContainerName,

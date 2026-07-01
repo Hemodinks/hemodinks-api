@@ -131,6 +131,30 @@ public class StorageRegistrationTests
         Assert.IsType<AzureFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
     }
 
+    [Fact]
+    public void AddApplicationServices_WhenOnlyFileExportQueueIsEnabled_UsesSmtpForResetAndAzureQueueForExports()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AsyncQueues:Enabled"] = "false",
+                ["AsyncQueues:PasswordResetEnabled"] = "false",
+                ["AsyncQueues:FileExportEnabled"] = "true",
+                ["AzureStorage:ConnectionString"] = "UseDevelopmentStorage=true"
+            })
+            .Build();
+
+        services.AddApplicationServices(configuration, new TestWebHostEnvironment(Environments.Development));
+
+        using var serviceProvider = services.BuildServiceProvider();
+
+        Assert.IsType<SmtpPasswordResetNotificationSender>(serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
+        Assert.IsType<AzureFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
+    }
+
     private sealed class TestWebHostEnvironment(string environmentName) : IWebHostEnvironment
     {
         public string EnvironmentName { get; set; } = environmentName;

@@ -41,6 +41,10 @@ services:
       - key: Frontend__ResetPasswordUrl
         value: https://hemodinks-saude.vercel.app/reset-password
       - key: AsyncQueues__Enabled
+        value: "false"
+      - key: AsyncQueues__PasswordResetEnabled
+        value: "true"
+      - key: AsyncQueues__FileExportEnabled
         value: "true"
       - key: AsyncQueues__ConnectionString
         sync: false
@@ -48,10 +52,20 @@ services:
         value: password-reset-emails
       - key: AsyncQueues__FileExportQueueName
         value: file-export-jobs
-      - key: StorageFunctions__BaseUrl
+      - key: Email__Provider
+        value: GmailSmtp
+      - key: Email__Smtp__Host
+        value: smtp.gmail.com
+      - key: Email__Smtp__Port
+        value: 587
+      - key: Email__Smtp__Username
         sync: false
-      - key: StorageFunctions__FunctionKey
+      - key: Email__Smtp__Password
         sync: false
+      - key: Email__FromEmail
+        sync: false
+      - key: Email__FromName
+        value: Hemodinks
       - key: AzureStorage__ConnectionString
         sync: false
       - key: AzureStorage__ContainerName

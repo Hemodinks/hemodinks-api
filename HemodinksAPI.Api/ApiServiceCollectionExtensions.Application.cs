@@ -49,6 +49,15 @@ public static partial class ApiServiceCollectionExtensions
         services.Configure<AsyncQueueOptions>(options =>
         {
             configuration.GetSection("AsyncQueues").Bind(options);
+            options.Enabled = configuration.GetValue<bool>("AsyncQueues:Enabled");
+            options.PasswordResetEnabled = ResolveAsyncQueueFeatureEnabled(
+                configuration,
+                "AsyncQueues:PasswordResetEnabled",
+                options.Enabled);
+            options.FileExportEnabled = ResolveAsyncQueueFeatureEnabled(
+                configuration,
+                "AsyncQueues:FileExportEnabled",
+                options.Enabled);
             options.ConnectionString = configuration["AsyncQueues:ConnectionString"]
                 ?? configuration["AzureStorage:ConnectionString"];
         });
@@ -57,16 +66,35 @@ public static partial class ApiServiceCollectionExtensions
     private static void AddAsyncQueueServices(this IServiceCollection services, IConfiguration configuration)
     {
         var asyncQueuesEnabled = configuration.GetValue<bool>("AsyncQueues:Enabled");
+        var passwordResetQueueEnabled = ResolveAsyncQueueFeatureEnabled(
+            configuration,
+            "AsyncQueues:PasswordResetEnabled",
+            asyncQueuesEnabled);
+        var fileExportQueueEnabled = ResolveAsyncQueueFeatureEnabled(
+            configuration,
+            "AsyncQueues:FileExportEnabled",
+            asyncQueuesEnabled);
 
-        if (asyncQueuesEnabled)
+        if (passwordResetQueueEnabled || fileExportQueueEnabled)
         {
             services.AddSingleton<IAsyncQueuePublisher, AzureStorageQueuePublisher>();
+        }
+
+        if (fileExportQueueEnabled)
+        {
             services.AddScoped<IFileExportQueue, AzureFileExportQueue>();
+        }
+        else
+        {
+            services.AddScoped<IFileExportQueue, DisabledFileExportQueue>();
+        }
+
+        if (passwordResetQueueEnabled)
+        {
             services.AddScoped<IPasswordResetNotificationSender, AzureQueuePasswordResetNotificationSender>();
             return;
         }
 
-        services.AddScoped<IFileExportQueue, DisabledFileExportQueue>();
         services.AddScoped<IPasswordResetNotificationSender, SmtpPasswordResetNotificationSender>();
     }
 
@@ -101,5 +129,13 @@ public static partial class ApiServiceCollectionExtensions
             ?? configuration.GetValue<bool?>("PasswordReset:com-email")
             ?? configuration.GetValue<bool?>("PasswordReset:ComEmail")
             ?? configuration.GetValue<bool?>("PasswordReset:UseEmail");
+    }
+
+    private static bool ResolveAsyncQueueFeatureEnabled(
+        IConfiguration configuration,
+        string featureKey,
+        bool fallbackValue)
+    {
+        return configuration.GetValue<bool?>(featureKey) ?? fallbackValue;
     }
 }
