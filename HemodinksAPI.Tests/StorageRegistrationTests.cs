@@ -53,6 +53,29 @@ public class StorageRegistrationTests
     }
 
     [Fact]
+    public void AddStorage_WhenStorageFunctionsAreConfigured_RegistersFunctionBackedUploads()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AzureStorage:ConnectionString"] = "UseDevelopmentStorage=true",
+                ["StorageFunctions:BaseUrl"] = "https://hemodinks-workers-confirmation.azurewebsites.net",
+                ["StorageFunctions:FunctionKey"] = "secret"
+            })
+            .Build();
+
+        services.AddStorage(configuration, new TestWebHostEnvironment(Environments.Development));
+
+        using var serviceProvider = services.BuildServiceProvider();
+
+        Assert.IsType<FunctionBackedProfilePhotoStorage>(serviceProvider.GetRequiredService<IProfilePhotoStorage>());
+        Assert.IsType<FunctionBackedPatientFileStorage>(serviceProvider.GetRequiredService<IPatientFileStorage>());
+    }
+
+    [Fact]
     public void AddStorage_WhenAzureConnectionStringIsMissingInProduction_Throws()
     {
         var services = new ServiceCollection();

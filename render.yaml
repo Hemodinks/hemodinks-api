@@ -36,14 +36,22 @@ services:
         sync: false
       - key: NEW_RELIC_APP_NAME
         value: Hemodinks API
+      - key: PasswordReset__UseEmail
+        value: "true"
+      - key: Frontend__ResetPasswordUrl
+        value: https://hemodinks-saude.vercel.app/reset-password
       - key: AsyncQueues__Enabled
-        value: "false"
+        value: "true"
       - key: AsyncQueues__ConnectionString
         sync: false
       - key: AsyncQueues__PasswordResetEmailQueueName
         value: password-reset-emails
       - key: AsyncQueues__FileExportQueueName
         value: file-export-jobs
+      - key: StorageFunctions__BaseUrl
+        sync: false
+      - key: StorageFunctions__FunctionKey
+        sync: false
       - key: AzureStorage__ConnectionString
         sync: false
       - key: AzureStorage__ContainerName
