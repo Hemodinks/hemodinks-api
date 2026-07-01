@@ -31,7 +31,7 @@ public class FileExportFunction
 
     [Function(nameof(GenerateFileExport))]
     public async Task GenerateFileExport(
-        [QueueTrigger(AsyncQueueNames.FileExportJobs, Connection = "AzureWebJobsStorage")] string queueMessage,
+        [QueueTrigger("%FileExportQueueName%", Connection = "AzureWebJobsStorage")] string queueMessage,
         CancellationToken cancellationToken)
     {
         var job = JsonSerializer.Deserialize<FileExportQueueMessage>(queueMessage, JsonOptions)

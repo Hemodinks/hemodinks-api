@@ -34,11 +34,27 @@ public static partial class ApiServiceCollectionExtensions
         });
 
         var azureConnectionString = configuration["AzureStorage:ConnectionString"];
+        var storageFunctionsBaseUrl = configuration["StorageFunctions:BaseUrl"];
 
         if (!string.IsNullOrWhiteSpace(azureConnectionString))
         {
-            services.AddSingleton<IProfilePhotoStorage, AzureBlobProfilePhotoStorage>();
-            services.AddSingleton<IPatientFileStorage, AzureBlobPatientFileStorage>();
+            services.AddSingleton<AzureBlobProfilePhotoStorage>();
+            services.AddSingleton<AzureBlobPatientFileStorage>();
+
+            if (!string.IsNullOrWhiteSpace(storageFunctionsBaseUrl))
+            {
+                services.Configure<StorageFunctionOptions>(configuration.GetSection("StorageFunctions"));
+                services.AddHttpClient(nameof(StorageFunctionClient));
+                services.AddSingleton<StorageFunctionClient>();
+                services.AddSingleton<IProfilePhotoStorage, FunctionBackedProfilePhotoStorage>();
+                services.AddSingleton<IPatientFileStorage, FunctionBackedPatientFileStorage>();
+                return services;
+            }
+
+            services.AddSingleton<IProfilePhotoStorage>(serviceProvider =>
+                serviceProvider.GetRequiredService<AzureBlobProfilePhotoStorage>());
+            services.AddSingleton<IPatientFileStorage>(serviceProvider =>
+                serviceProvider.GetRequiredService<AzureBlobPatientFileStorage>());
             return services;
         }
 
