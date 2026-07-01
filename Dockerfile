@@ -2,10 +2,12 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
+COPY ["nuget.config", "."]
 COPY ["HemodinksAPI.Api/HemodinksAPI.Api.csproj", "HemodinksAPI.Api/"]
 COPY ["HemodinksAPI.Application/HemodinksAPI.Application.csproj", "HemodinksAPI.Application/"]
 COPY ["HemodinksAPI.Domain/HemodinksAPI.Domain.csproj", "HemodinksAPI.Domain/"]
 COPY ["HemodinksAPI.Infrastructure/HemodinksAPI.Infrastructure.csproj", "HemodinksAPI.Infrastructure/"]
+COPY ["Hemodinks.ServiceDefaults/Hemodinks.ServiceDefaults.csproj", "Hemodinks.ServiceDefaults/"]
 RUN dotnet restore "HemodinksAPI.Api/HemodinksAPI.Api.csproj"
 
 COPY . .

@@ -7,6 +7,7 @@ using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Configuration.AddNonProductionUserSecretsFallback(builder.Environment);
+builder.AddServiceDefaults();
 
 builder.Host.UseSerilog(
     (_, _, loggerConfiguration) => Program.ConfigureSerilog(loggerConfiguration, builder.Environment.ContentRootPath),
@@ -95,6 +96,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapDefaultEndpoints();
 app.MapApiEndpoints();
 
 app.Run();

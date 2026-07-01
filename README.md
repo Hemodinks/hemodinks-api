@@ -76,6 +76,36 @@ docker-compose up -d
 
 A API aplica migrations no startup, cria perfis, seeda usuarios quando necessario e carrega CBHPM a partir de `HemodinksAPI.Infrastructure/Data/SeedData/cbhpm-geral.json`.
 
+### Docker Compose com observabilidade
+
+Se quiser a API rodando em container com collector OTLP e dashboard local do Aspire, use o compose dedicado:
+
+```powershell
+Copy-Item .env.example .env
+# Edite MSSQL_SA_PASSWORD e JWT_SECRET_KEY no .env
+docker compose -f docker-compose.observability.yml up -d
+```
+
+Endpoints locais do compose observavel:
+
+| Recurso | URL |
+| --- | --- |
+| API | `http://localhost:5000` |
+| Dashboard Aspire | `http://localhost:18888` |
+| Collector OTLP gRPC | `http://localhost:4317` |
+| Collector OTLP HTTP | `http://localhost:4318` |
+
+Esse compose envia logs, traces e metrics da API para `otel-collector`, e o collector encaminha tudo para o dashboard do Aspire. O dashboard foi deixado sem login e com bind em `127.0.0.1`, entao ele e para uso local apenas.
+
+Para o front React/Vite mandar traces para o mesmo collector enquanto voce desenvolve localmente:
+
+```powershell
+$env:VITE_OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
+npm run dev --prefix ..\hemodinks-front
+```
+
+Com isso, as traces do navegador passam a aparecer no mesmo dashboard junto das traces da API em container.
+
 ### Desenvolvimento local
 
 ```powershell
@@ -95,6 +125,40 @@ dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Audience" "Hemod
 dotnet run --project HemodinksAPI.Api
 ```
 
+### Desenvolvimento local com Aspire
+
+Use o `AppHost` quando quiser subir a API com dashboard de observabilidade e o front React/Vite no mesmo ambiente local.
+
+```powershell
+dotnet restore HemodinksAPI.slnx
+npm install --prefix ..\hemodinks-front
+dotnet run --project Hemodinks.AppHost
+```
+
+O dashboard do Aspire abre com a API como recurso instrumentado por OpenTelemetry e o front como app Vite gerenciado pelo `AppHost`. O `VITE_API_URL` do front passa a apontar automaticamente para a API exposta pelo Aspire. O console imprime a `Dashboard URL` e a `Login URL`; use a `Login URL` para entrar direto no painel local.
+
+Se preferir que o `AppHost` suba a API como container, mantendo o front local em Vite:
+
+```powershell
+dotnet user-secrets set --project Hemodinks.AppHost "MSSQL_SA_PASSWORD" "troque_por_uma_senha_forte"
+dotnet user-secrets set --project Hemodinks.AppHost "JWT_SECRET_KEY" "troque_por_uma_chave_com_32_caracteres_ou_mais"
+dotnet run --launch-profile https-container --project Hemodinks.AppHost
+```
+
+Nesse modo o `AppHost`:
+
+- constroi a API a partir do `Dockerfile`
+- sobe `sqlserver` e `azurite` como containers auxiliares
+- mantem o front como app local em `..\hemodinks-front`
+- continua alimentando o dashboard do Aspire com a telemetria da API e do front
+
+Tambem funciona via variavel de ambiente:
+
+```powershell
+$env:HEMODINKS_API_MODE="container"
+dotnet run --project Hemodinks.AppHost
+```
+
 ## Configuracao
 
 Use variaveis de ambiente, `.env` no Docker ou User Secrets localmente.
@@ -106,10 +170,15 @@ Variaveis opcionais de observabilidade:
 | `CORECLR_ENABLE_PROFILING` | ativa o profiler do New Relic quando `1` |
 | `NEW_RELIC_LICENSE_KEY` | license key da conta New Relic |
 | `NEW_RELIC_APP_NAME` | nome exibido no APM da New Relic |
+| `OTEL_EXPORTER_OTLP_EXTERNAL_ENDPOINT` | endpoint OTLP externo adicional para logs, traces e metrics |
+| `OTEL_EXPORTER_OTLP_EXTERNAL_PROTOCOL` | protocolo do exporter externo: `grpc` ou `http/protobuf` |
+| `OTEL_EXPORTER_OTLP_EXTERNAL_HEADERS` | headers extras do exporter externo, no formato `chave=valor,chave2=valor2` |
 
 No Docker/Render, o `Dockerfile` ja define `CORECLR_PROFILER`, `CORECLR_NEWRELIC_HOME` e `CORECLR_PROFILER_PATH` apontando para `/app/newrelic`, pasta que o pacote `NewRelic.Agent` publica junto com a API. Em execucao local com `dotnet run`, esses caminhos precisam ser configurados no shell antes de subir a aplicacao.
 
 O agente New Relic observa requests ASP.NET Core, chamadas HTTP de saida, SQL Server e excecoes sem bootstrap adicional no codigo. Os logs estruturados continuam saindo por Serilog em console e arquivo.
+
+Se a API estiver rodando via Aspire, ela continua exportando para o dashboard local e pode duplicar a telemetria para um backend OTLP externo usando as variaveis `OTEL_EXPORTER_OTLP_EXTERNAL_*`.
 
 ## Idempotencia
 
