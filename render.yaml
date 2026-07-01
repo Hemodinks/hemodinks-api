@@ -14,6 +14,8 @@ services:
         value: Production
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:10000
+      - key: CORECLR_ENABLE_PROFILING
+        value: "1"
       - key: Database__RunMigrationsOnStartup
         value: "true"
       - key: Seed__CbhpmOnStartup
@@ -30,6 +32,18 @@ services:
         value: HemodinksAPI
       - key: JwtSettings__ExpirationMinutes
         value: 60
+      - key: NEW_RELIC_LICENSE_KEY
+        sync: false
+      - key: NEW_RELIC_APP_NAME
+        value: Hemodinks API
+      - key: AsyncQueues__Enabled
+        value: "false"
+      - key: AsyncQueues__ConnectionString
+        sync: false
+      - key: AsyncQueues__PasswordResetEmailQueueName
+        value: password-reset-emails
+      - key: AsyncQueues__FileExportQueueName
+        value: file-export-jobs
       - key: AzureStorage__ConnectionString
         sync: false
       - key: AzureStorage__ContainerName

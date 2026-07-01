@@ -1,6 +1,3 @@
-using Microsoft.Extensions.Logging;
-using System.Threading.Tasks;
-
 namespace HemodinksAPI.Infrastructure.Services;
 
 public class NotificationService : INotificationService

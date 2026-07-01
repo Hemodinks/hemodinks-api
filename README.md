@@ -10,7 +10,9 @@ API ASP.NET Core/.NET 10 para gestao de usuarios, pacientes, agenda, licencas, d
 - Entity Framework Core 10 com SQL Server/Azure SQL
 - JWT Bearer para autenticacao e autorizacao por perfil/licenca
 - Serilog para logs em console e arquivo
+- New Relic APM via agente oficial .NET
 - Azure Blob Storage para fotos de perfil e anexos de pacientes
+- Azure Queue Storage + Azure Functions opcionais para email de reset e exportacoes PDF/XLSX
 - `BackgroundService` interno para lembretes da agenda
 - `IMemoryCache` para consulta CBHPM em memoria
 - Swagger/OpenAPI e Scalar para documentacao interativa
@@ -74,20 +76,119 @@ docker-compose up -d
 
 A API aplica migrations no startup, cria perfis, seeda usuarios quando necessario e carrega CBHPM a partir de `HemodinksAPI.Infrastructure/Data/SeedData/cbhpm-geral.json`.
 
+### Docker Compose com observabilidade
+
+Se quiser a API rodando em container com collector OTLP e dashboard local do Aspire, use o compose dedicado:
+
+```powershell
+Copy-Item .env.example .env
+# Edite MSSQL_SA_PASSWORD e JWT_SECRET_KEY no .env
+docker compose -f docker-compose.observability.yml up -d
+```
+
+Endpoints locais do compose observavel:
+
+| Recurso | URL |
+| --- | --- |
+| API | `http://localhost:5000` |
+| Dashboard Aspire | `http://localhost:18888` |
+| Collector OTLP gRPC | `http://localhost:4317` |
+| Collector OTLP HTTP | `http://localhost:4318` |
+
+Esse compose envia logs, traces e metrics da API para `otel-collector`, e o collector encaminha tudo para o dashboard do Aspire. O dashboard foi deixado sem login e com bind em `127.0.0.1`, entao ele e para uso local apenas.
+
+Para o front React/Vite mandar traces para o mesmo collector enquanto voce desenvolve localmente:
+
+```powershell
+$env:VITE_OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
+npm run dev --prefix ..\hemodinks-front
+```
+
+Com isso, as traces do navegador passam a aparecer no mesmo dashboard junto das traces da API em container.
+
 ### Desenvolvimento local
 
 ```powershell
 dotnet restore
+dotnet tool restore
 dotnet user-secrets set --project HemodinksAPI.Api "ConnectionStrings:DefaultConnection" "Server=.;Database=HemodinksDB;Integrated Security=true;TrustServerCertificate=true;Encrypt=false"
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:SecretKey" "troque_por_uma_chave_com_32_caracteres_ou_mais"
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Issuer" "HemodinksAPI"
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Audience" "HemodinksAPI"
+# Opcional para observabilidade local com New Relic ao usar `dotnet run`
+# $env:CORECLR_ENABLE_PROFILING="1"
+# $env:CORECLR_PROFILER="{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"
+# $env:CORECLR_NEWRELIC_HOME="$PWD\\HemodinksAPI.Api\\bin\\Debug\\net10.0\\newrelic"
+# $env:CORECLR_PROFILER_PATH="$PWD\\HemodinksAPI.Api\\bin\\Debug\\net10.0\\newrelic\\NewRelic.Profiler.dll"
+# $env:NEW_RELIC_LICENSE_KEY="<sua-license-key>"
+# $env:NEW_RELIC_APP_NAME="Hemodinks API Local"
 dotnet run --project HemodinksAPI.Api
+```
+
+### Desenvolvimento local com Aspire
+
+Use o `AppHost` quando quiser subir a API com dashboard de observabilidade e o front React/Vite no mesmo ambiente local.
+
+```powershell
+dotnet restore HemodinksAPI.slnx
+npm install --prefix ..\hemodinks-front
+dotnet run --project Hemodinks.AppHost
+```
+
+O dashboard do Aspire abre com a API como recurso instrumentado por OpenTelemetry e o front como app Vite gerenciado pelo `AppHost`. O `VITE_API_URL` do front passa a apontar automaticamente para a API exposta pelo Aspire. O console imprime a `Dashboard URL` e a `Login URL`; use a `Login URL` para entrar direto no painel local.
+
+Se preferir que o `AppHost` suba a API como container, mantendo o front local em Vite:
+
+```powershell
+dotnet user-secrets set --project Hemodinks.AppHost "MSSQL_SA_PASSWORD" "<defina-no-user-secrets>"
+dotnet user-secrets set --project Hemodinks.AppHost "JWT_SECRET_KEY" "troque_por_uma_chave_com_32_caracteres_ou_mais"
+dotnet run --launch-profile https-container --project Hemodinks.AppHost
+```
+
+Nesse modo o `AppHost`:
+
+- constroi a API a partir do `Dockerfile`
+- sobe `sqlserver` e `azurite` como containers auxiliares
+- mantem o front como app local em `..\hemodinks-front`
+- continua alimentando o dashboard do Aspire com a telemetria da API e do front
+
+Tambem funciona via variavel de ambiente:
+
+```powershell
+$env:HEMODINKS_API_MODE="container"
+dotnet run --project Hemodinks.AppHost
 ```
 
 ## Configuracao
 
 Use variaveis de ambiente, `.env` no Docker ou User Secrets localmente.
+
+Variaveis opcionais de observabilidade:
+
+| Chave | Descricao |
+| --- | --- |
+| `CORECLR_ENABLE_PROFILING` | ativa o profiler do New Relic quando `1` |
+| `NEW_RELIC_LICENSE_KEY` | license key da conta New Relic |
+| `NEW_RELIC_APP_NAME` | nome exibido no APM da New Relic |
+| `OTEL_EXPORTER_OTLP_EXTERNAL_ENDPOINT` | endpoint OTLP externo adicional para logs, traces e metrics |
+| `OTEL_EXPORTER_OTLP_EXTERNAL_PROTOCOL` | protocolo do exporter externo: `grpc` ou `http/protobuf` |
+| `OTEL_EXPORTER_OTLP_EXTERNAL_HEADERS` | headers extras do exporter externo, no formato `chave=valor,chave2=valor2` |
+
+No Docker/Render, o `Dockerfile` ja define `CORECLR_PROFILER`, `CORECLR_NEWRELIC_HOME` e `CORECLR_PROFILER_PATH` apontando para `/app/newrelic`, pasta que o pacote `NewRelic.Agent` publica junto com a API. Em execucao local com `dotnet run`, esses caminhos precisam ser configurados no shell antes de subir a aplicacao.
+
+O agente New Relic observa requests ASP.NET Core, chamadas HTTP de saida, SQL Server e excecoes sem bootstrap adicional no codigo. Os logs estruturados continuam saindo por Serilog em console e arquivo.
+
+Se a API estiver rodando via Aspire, ela continua exportando para o dashboard local e pode duplicar a telemetria para um backend OTLP externo usando as variaveis `OTEL_EXPORTER_OTLP_EXTERNAL_*`.
+
+## Idempotencia
+
+Os endpoints abaixo aceitam o header opcional `Idempotency-Key`:
+
+- `POST /api/events/`
+- `POST /api/users/password/reset`
+- `POST /api/users/password/reset/confirm`
+
+Quando a mesma requisicao bem-sucedida chega novamente com a mesma chave, a API reaproveita a resposta anterior e devolve `Idempotency-Status: replayed`. Na primeira execucao persistida, a resposta inclui `Idempotency-Status: stored`. Se a mesma chave for reutilizada com payload diferente, a API responde `409 Conflict`.
 
 | Chave | Uso |
 | --- | --- |
@@ -104,6 +205,10 @@ Use variaveis de ambiente, `.env` no Docker ou User Secrets localmente.
 | `AzureStorage__PatientFilesContainerName` | container de anexos, padrao `patient-files` |
 | `AzureStorage__PatientFilesPublicBaseUrl` | URL publica do container de anexos |
 | `AzureStorage__PatientFileMaxBytes` | limite de upload de anexos |
+| `AsyncQueues__Enabled` | liga filas para reset por email e exportacoes quando `true` |
+| `AsyncQueues__ConnectionString` | connection string da Storage Account usada pelas filas; se vazio, usa `AzureStorage__ConnectionString` |
+| `AsyncQueues__PasswordResetEmailQueueName` | fila de emails de reset, padrao `password-reset-emails` |
+| `AsyncQueues__FileExportQueueName` | fila de exportacoes, padrao `file-export-jobs` |
 | `Licensing__TrialDays` | dias de trial para licencas medicas |
 
 Segredos nao devem ser gravados em `appsettings.json`.
@@ -138,6 +243,7 @@ Regras principais:
 | `GET` | `/healthz` | nao | health check |
 | `POST` | `/api/users/authenticate` | nao | login JWT |
 | `POST` | `/api/users/password/reset` | nao | reset por email |
+| `POST` | `/api/exports` | sim | enfileira exportacao PDF/XLSX |
 | `GET` | `/api/users` | admin | lista paginada de usuarios |
 | `POST` | `/api/users` | admin | cria usuario |
 | `GET` | `/api/users/{id}` | sim | busca usuario |
@@ -216,11 +322,19 @@ Entidades principais:
 - `Convenios`
 - `Events`
 
-Migrations rodam no startup via `Database.MigrateAsync()` quando `Database__RunMigrationsOnStartup=true`. O blueprint de producao do Render habilita essa variavel para que deploy automatico atualize o schema antes dos workers da agenda. Para usar EF CLI depois da separacao em projetos:
+Migrations rodam no startup via `Database.MigrateAsync()` quando `Database__RunMigrationsOnStartup=true`. O blueprint de producao do Render habilita essa variavel para que deploy automatico atualize o schema antes da API atender trafego normal. A organizacao da pasta e a politica de rollback estao em [Migrations README](./HemodinksAPI.Infrastructure/Data/Migrations/README.md). Para validar e gerar artefatos locais:
 
 ```powershell
-dotnet ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure --no-connect
-dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
+pwsh ./scripts/Test-Migrations.ps1
+pwsh ./scripts/Export-MigrationScripts.ps1
+```
+
+Para usar EF CLI manualmente:
+
+```powershell
+dotnet tool restore
+dotnet tool run dotnet-ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api --no-connect
+dotnet tool run dotnet-ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api
 ```
 
 ## Documentacao interativa
@@ -238,6 +352,7 @@ O documento OpenAPI inclui o esquema `Bearer`. Em producao, evite expor tokens r
 
 ```powershell
 dotnet build HemodinksAPI.slnx
+pwsh ./scripts/Test-Migrations.ps1 -NoBuild
 dotnet test HemodinksAPI.slnx --no-build
 ```
 
@@ -248,5 +363,6 @@ dotnet test HemodinksAPI.slnx --no-build
 - [Troubleshooting](./TROUBLESHOOTING.md)
 - [Deploy](./docs/deployment.md)
 - [Documentacao tecnica](./docs/TECHNICAL_DOCUMENTATION.md)
+- [Migrations README](./HemodinksAPI.Infrastructure/Data/Migrations/README.md)
 - [Exemplos HTTP](./API.http)
 - [Documentacao tecnica PDF](./docs/Hemodinks-Documentacao-Tecnica.pdf)

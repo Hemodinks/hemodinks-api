@@ -2,10 +2,12 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
+COPY ["nuget.config", "."]
 COPY ["HemodinksAPI.Api/HemodinksAPI.Api.csproj", "HemodinksAPI.Api/"]
 COPY ["HemodinksAPI.Application/HemodinksAPI.Application.csproj", "HemodinksAPI.Application/"]
 COPY ["HemodinksAPI.Domain/HemodinksAPI.Domain.csproj", "HemodinksAPI.Domain/"]
 COPY ["HemodinksAPI.Infrastructure/HemodinksAPI.Infrastructure.csproj", "HemodinksAPI.Infrastructure/"]
+COPY ["Hemodinks.ServiceDefaults/Hemodinks.ServiceDefaults.csproj", "Hemodinks.ServiceDefaults/"]
 RUN dotnet restore "HemodinksAPI.Api/HemodinksAPI.Api.csproj"
 
 COPY . .
@@ -25,5 +27,9 @@ COPY --from=publish /app/publish .
 
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
+ENV CORECLR_PROFILER={36032161-FFC0-4B61-B559-F6C5D41BAE5A}
+ENV CORECLR_NEWRELIC_HOME=/app/newrelic
+ENV CORECLR_PROFILER_PATH=/app/newrelic/libNewRelicProfiler.so
+ENV NEWRELIC_LOG_DIRECTORY=/app/logs
 
 ENTRYPOINT ["dotnet", "HemodinksAPI.Api.dll"]

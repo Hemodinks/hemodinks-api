@@ -12,6 +12,8 @@ public class AzureBlobProfilePhotoStorageTests
     [InlineData("https://stgmtechsolution.blob.core.windows.net/profile-photos/george.png", "profile-photos", "george.png")]
     [InlineData("users/2026/06/avatar.png", "profile-photos-confirmation", "users/2026/06/avatar.png")]
     [InlineData("https://stgmtechsolution.blob.core.windows.net/profile-photos-confirmation/users/2026/06/avatar.png", "profile-photos-confirmation", "users/2026/06/avatar.png")]
+    [InlineData("http://azurite:10000/devstoreaccount1/profile-photos/users/2026/06/avatar.png", "profile-photos", "users/2026/06/avatar.png")]
+    [InlineData("http://localhost:10000/devstoreaccount1/profile-photos/users/2026/06/avatar.png", "profile-photos", "users/2026/06/avatar.png")]
     public void GetBlobLocationFromUrl_ResolvesCurrentAndLegacyProfilePhotoPaths(
         string fotoPerfil,
         string expectedContainerName,

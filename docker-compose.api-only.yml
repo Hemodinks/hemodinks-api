@@ -1,0 +1,83 @@
+services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: hemodinks-azurite
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --location /data --skipApiVersionCheck
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    volumes:
+      - azurite_data:/data
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: hemodinks-api
+    environment:
+      ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
+      ASPNETCORE_URLS: http://+:5000
+      ConnectionStrings__DefaultConnection: "${EXTERNAL_SQLSERVER_CONNECTION_STRING:?Set EXTERNAL_SQLSERVER_CONNECTION_STRING in .env to point to your existing SQL Server container}"
+      JwtSettings__SecretKey: "${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}"
+      JwtSettings__Issuer: "${JWT_ISSUER:-HemodinksAPI}"
+      JwtSettings__Audience: "${JWT_AUDIENCE:-HemodinksAPI}"
+      JwtSettings__ExpirationMinutes: "${JWT_EXPIRATION_MINUTES:-60}"
+      PasswordReset__UseEmail: "${PasswordReset__UseEmail:-true}"
+      AsyncQueues__Enabled: "${AsyncQueues__Enabled:-true}"
+      AsyncQueues__ConnectionString: "${ASYNC_QUEUES_CONNECTION_STRING:-UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://azurite}"
+      AsyncQueues__PasswordResetEmailQueueName: "${ASYNC_QUEUES_PASSWORD_RESET_EMAIL_QUEUE_NAME:-password-reset-emails}"
+      AsyncQueues__FileExportQueueName: "${ASYNC_QUEUES_FILE_EXPORT_QUEUE_NAME:-file-export-jobs}"
+      AzureStorage__ConnectionString: "${AZURE_STORAGE_CONNECTION_STRING:-UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://azurite}"
+      AzureStorage__ContainerName: "${AZURE_STORAGE_CONTAINER_NAME:-profile-photos}"
+      AzureStorage__PublicBaseUrl: "${AZURE_STORAGE_PUBLIC_BASE_URL:-}"
+      AzureStorage__MaxBytes: "${AZURE_STORAGE_MAX_BYTES:-1048576}"
+      AzureStorage__PatientFilesContainerName: "${AZURE_STORAGE_PATIENT_FILES_CONTAINER_NAME:-patient-files}"
+      AzureStorage__PatientFilesPublicBaseUrl: "${AZURE_STORAGE_PATIENT_FILES_PUBLIC_BASE_URL:-}"
+      AzureStorage__PatientFileMaxBytes: "${AZURE_STORAGE_PATIENT_FILE_MAX_BYTES:-10485760}"
+      Email__Provider: "${Email__Provider:-GmailSmtp}"
+      Email__Smtp__Host: "${Email__Smtp__Host:-smtp.gmail.com}"
+      Email__Smtp__Port: "${Email__Smtp__Port:-587}"
+      Email__Smtp__Username: "${Email__Smtp__Username:-hemodinks.gestao.saude@gmail.com}"
+      Email__Smtp__Password: "${Email__Smtp__Password:-}"
+      Email__FromEmail: "${Email__FromEmail:-hemodinks.gestao.saude@gmail.com}"
+      Email__FromName: "${Email__FromName:-Hemodinks}"
+      Frontend__ResetPasswordUrl: "${Frontend__ResetPasswordUrl:-http://localhost:5173/reset-password}"
+      CORECLR_ENABLE_PROFILING: "${CORECLR_ENABLE_PROFILING:-0}"
+      NEW_RELIC_LICENSE_KEY: "${NEW_RELIC_LICENSE_KEY:-}"
+      NEW_RELIC_APP_NAME: "${NEW_RELIC_APP_NAME:-Hemodinks API Local}"
+    ports:
+      - "5000:5000"
+    depends_on:
+      azurite:
+        condition: service_started
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./logs:/app/logs
+
+  workers:
+    build:
+      context: .
+      dockerfile: HemodinksAPI.Workers/Dockerfile
+    container_name: hemodinks-workers
+    environment:
+      AzureWebJobsStorage: "${AZURE_WEBJOBS_STORAGE:-UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://azurite}"
+      FUNCTIONS_WORKER_RUNTIME: dotnet-isolated
+      PasswordResetEmailQueueName: "${ASYNC_QUEUES_PASSWORD_RESET_EMAIL_QUEUE_NAME:-password-reset-emails}"
+      FileExportQueueName: "${ASYNC_QUEUES_FILE_EXPORT_QUEUE_NAME:-file-export-jobs}"
+      ExportsContainerName: "${EXPORTS_CONTAINER_NAME:-exports}"
+      Email__Provider: "${Email__Provider:-GmailSmtp}"
+      Email__Smtp__Host: "${Email__Smtp__Host:-smtp.gmail.com}"
+      Email__Smtp__Port: "${Email__Smtp__Port:-587}"
+      Email__Smtp__Username: "${Email__Smtp__Username:-hemodinks.gestao.saude@gmail.com}"
+      Email__Smtp__Password: "${Email__Smtp__Password:-}"
+      Email__FromEmail: "${Email__FromEmail:-hemodinks.gestao.saude@gmail.com}"
+      Email__FromName: "${Email__FromName:-Hemodinks}"
+      Frontend__ResetPasswordUrl: "${Frontend__ResetPasswordUrl:-http://localhost:5173/reset-password}"
+    depends_on:
+      azurite:
+        condition: service_started
+
+volumes:
+  azurite_data:

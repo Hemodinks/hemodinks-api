@@ -1,4 +1,17 @@
 services:
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite:latest
+    container_name: hemodinks-azurite
+    command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --location /data --skipApiVersionCheck
+    ports:
+      - "10000:10000"
+      - "10001:10001"
+      - "10002:10002"
+    volumes:
+      - azurite_data:/data
+    networks:
+      - hemodinks-network
+
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: hemodinks-mssql
@@ -13,7 +26,7 @@ services:
     networks:
       - hemodinks-network
     healthcheck:
-      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-S", "localhost", "-U", "sa", "-P", "${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}", "-Q", "SELECT 1"]
+      test: ["CMD", "/opt/mssql-tools18/bin/sqlcmd", "-C", "-S", "localhost", "-U", "sa", "-P", "${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env}", "-Q", "SELECT 1"]
       interval: 10s
       timeout: 10s
       retries: 5
@@ -31,8 +44,12 @@ services:
       JwtSettings__Issuer: "${JWT_ISSUER:-HemodinksAPI}"
       JwtSettings__Audience: "${JWT_AUDIENCE:-HemodinksAPI}"
       JwtSettings__ExpirationMinutes: "${JWT_EXPIRATION_MINUTES:-60}"
-      PasswordReset__UseEmail: "${PasswordReset__UseEmail:-false}"
-      AzureStorage__ConnectionString: "${AZURE_STORAGE_CONNECTION_STRING:-}"
+      PasswordReset__UseEmail: "${PasswordReset__UseEmail:-true}"
+      AsyncQueues__Enabled: "${AsyncQueues__Enabled:-true}"
+      AsyncQueues__ConnectionString: "${ASYNC_QUEUES_CONNECTION_STRING:-UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://azurite}"
+      AsyncQueues__PasswordResetEmailQueueName: "${ASYNC_QUEUES_PASSWORD_RESET_EMAIL_QUEUE_NAME:-password-reset-emails}"
+      AsyncQueues__FileExportQueueName: "${ASYNC_QUEUES_FILE_EXPORT_QUEUE_NAME:-file-export-jobs}"
+      AzureStorage__ConnectionString: "${AZURE_STORAGE_CONNECTION_STRING:-UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://azurite}"
       AzureStorage__ContainerName: "${AZURE_STORAGE_CONTAINER_NAME:-profile-photos}"
       AzureStorage__PublicBaseUrl: "${AZURE_STORAGE_PUBLIC_BASE_URL:-}"
       AzureStorage__MaxBytes: "${AZURE_STORAGE_MAX_BYTES:-1048576}"
@@ -47,9 +64,14 @@ services:
       Email__FromEmail: "${Email__FromEmail:-hemodinks.gestao.saude@gmail.com}"
       Email__FromName: "${Email__FromName:-Hemodinks}"
       Frontend__ResetPasswordUrl: "${Frontend__ResetPasswordUrl:-http://localhost:5173/reset-password}"
+      CORECLR_ENABLE_PROFILING: "${CORECLR_ENABLE_PROFILING:-0}"
+      NEW_RELIC_LICENSE_KEY: "${NEW_RELIC_LICENSE_KEY:-}"
+      NEW_RELIC_APP_NAME: "${NEW_RELIC_APP_NAME:-Hemodinks API Local}"
     ports:
       - "5000:5000"
     depends_on:
+      azurite:
+        condition: service_started
       sqlserver:
         condition: service_healthy
     networks:
@@ -57,7 +79,33 @@ services:
     volumes:
       - ./logs:/app/logs
 
+  workers:
+    build:
+      context: .
+      dockerfile: HemodinksAPI.Workers/Dockerfile
+    container_name: hemodinks-workers
+    environment:
+      AzureWebJobsStorage: "${AZURE_WEBJOBS_STORAGE:-UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://azurite}"
+      FUNCTIONS_WORKER_RUNTIME: dotnet-isolated
+      PasswordResetEmailQueueName: "${ASYNC_QUEUES_PASSWORD_RESET_EMAIL_QUEUE_NAME:-password-reset-emails}"
+      FileExportQueueName: "${ASYNC_QUEUES_FILE_EXPORT_QUEUE_NAME:-file-export-jobs}"
+      ExportsContainerName: "${EXPORTS_CONTAINER_NAME:-exports}"
+      Email__Provider: "${Email__Provider:-GmailSmtp}"
+      Email__Smtp__Host: "${Email__Smtp__Host:-smtp.gmail.com}"
+      Email__Smtp__Port: "${Email__Smtp__Port:-587}"
+      Email__Smtp__Username: "${Email__Smtp__Username:-hemodinks.gestao.saude@gmail.com}"
+      Email__Smtp__Password: "${Email__Smtp__Password:-}"
+      Email__FromEmail: "${Email__FromEmail:-hemodinks.gestao.saude@gmail.com}"
+      Email__FromName: "${Email__FromName:-Hemodinks}"
+      Frontend__ResetPasswordUrl: "${Frontend__ResetPasswordUrl:-http://localhost:5173/reset-password}"
+    depends_on:
+      azurite:
+        condition: service_started
+    networks:
+      - hemodinks-network
+
 volumes:
+  azurite_data:
   sqlserver_data:
 
 networks:
