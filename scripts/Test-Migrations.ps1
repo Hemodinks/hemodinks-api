@@ -2,7 +2,8 @@
 param(
     [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
     [switch]$SkipEfCli,
-    [switch]$NoBuild
+    [switch]$NoBuild,
+    [string]$Configuration = "Debug"
 )
 
 Set-StrictMode -Version Latest
@@ -131,6 +132,7 @@ if (-not $SkipEfCli) {
     }
 
     $commonArguments = @(
+        "--configuration", $Configuration,
         "--project", $infraProject,
         "--startup-project", $apiProject
     )

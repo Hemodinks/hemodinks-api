@@ -3,6 +3,8 @@ services:
     image: mcr.microsoft.com/azure-storage/azurite:latest
     container_name: hemodinks-azurite
     command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --location /data --skipApiVersionCheck
+    environment:
+      AZURITE_ACCOUNTS: "${AZURITE_ACCOUNTS:-devstoreaccount1:aGVtb2RpbmtzLWF6dXJpdGUtZGV2LWtleQ==}"
     ports:
       - "10000:10000"
       - "10001:10001"
@@ -46,10 +48,10 @@ services:
       JwtSettings__ExpirationMinutes: "${JWT_EXPIRATION_MINUTES:-60}"
       PasswordReset__UseEmail: "${PasswordReset__UseEmail:-true}"
       AsyncQueues__Enabled: "${AsyncQueues__Enabled:-true}"
-      AsyncQueues__ConnectionString: "${ASYNC_QUEUES_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;}"
+      AsyncQueues__ConnectionString: "${ASYNC_QUEUES_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=aGVtb2RpbmtzLWF6dXJpdGUtZGV2LWtleQ==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;}"
       AsyncQueues__PasswordResetEmailQueueName: "${ASYNC_QUEUES_PASSWORD_RESET_EMAIL_QUEUE_NAME:-password-reset-emails}"
       AsyncQueues__FileExportQueueName: "${ASYNC_QUEUES_FILE_EXPORT_QUEUE_NAME:-file-export-jobs}"
-      AzureStorage__ConnectionString: "${AZURE_STORAGE_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;}"
+      AzureStorage__ConnectionString: "${AZURE_STORAGE_CONNECTION_STRING:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=aGVtb2RpbmtzLWF6dXJpdGUtZGV2LWtleQ==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;}"
       AzureStorage__ContainerName: "${AZURE_STORAGE_CONTAINER_NAME:-profile-photos}"
       AzureStorage__PublicBaseUrl: "${AZURE_STORAGE_PUBLIC_BASE_URL:-}"
       AzureStorage__MaxBytes: "${AZURE_STORAGE_MAX_BYTES:-1048576}"
@@ -85,7 +87,7 @@ services:
       dockerfile: HemodinksAPI.Workers/Dockerfile
     container_name: hemodinks-workers
     environment:
-      AzureWebJobsStorage: "${AZURE_WEBJOBS_STORAGE:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;}"
+      AzureWebJobsStorage: "${AZURE_WEBJOBS_STORAGE:-DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=aGVtb2RpbmtzLWF6dXJpdGUtZGV2LWtleQ==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;}"
       FUNCTIONS_WORKER_RUNTIME: dotnet-isolated
       PasswordResetEmailQueueName: "${ASYNC_QUEUES_PASSWORD_RESET_EMAIL_QUEUE_NAME:-password-reset-emails}"
       FileExportQueueName: "${ASYNC_QUEUES_FILE_EXPORT_QUEUE_NAME:-file-export-jobs}"

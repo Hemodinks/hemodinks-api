@@ -85,8 +85,9 @@ IResourceBuilder<ContainerResource> AddContainerizedApi(IDistributedApplicationB
     var logsPath = Path.GetFullPath(Path.Combine(repositoryRoot, "logs"));
     Directory.CreateDirectory(logsPath);
 
-    const string azuriteConnectionString =
-        "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1;";
+    const string azuriteAccountName = "devstoreaccount1";
+    const string azuriteAccountKeyBase64 = "aGVtb2RpbmtzLWF6dXJpdGUtZGV2LWtleQ==";
+    var azuriteConnectionString = BuildAzuriteConnectionString("azurite", azuriteAccountName, azuriteAccountKeyBase64);
 
     var sqlServer = builder.AddContainer("sqlserver", "mcr.microsoft.com/mssql/server", "2022-latest")
         .WithContainerName("sqlserver")
@@ -109,6 +110,7 @@ IResourceBuilder<ContainerResource> AddContainerizedApi(IDistributedApplicationB
 
     var azurite = builder.AddContainer("azurite", "mcr.microsoft.com/azure-storage/azurite", "latest")
         .WithContainerName("azurite")
+        .WithEnvironment("AZURITE_ACCOUNTS", $"{azuriteAccountName}:{azuriteAccountKeyBase64}")
         .WithArgs(
             "azurite",
             "--blobHost",
@@ -222,6 +224,11 @@ string GetRequiredConfiguration(IConfiguration configuration, string errorMessag
     }
 
     throw new InvalidOperationException(errorMessage);
+}
+
+string BuildAzuriteConnectionString(string host, string accountName, string accountKeyBase64)
+{
+    return $"DefaultEndpointsProtocol=http;AccountName={accountName};AccountKey={accountKeyBase64};BlobEndpoint=http://{host}:10000/{accountName};QueueEndpoint=http://{host}:10001/{accountName};TableEndpoint=http://{host}:10002/{accountName};";
 }
 
 sealed record ContainerizedApiSettings(
