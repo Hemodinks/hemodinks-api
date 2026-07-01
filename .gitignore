@@ -15,6 +15,8 @@ obj/
 # Logs
 logs/
 *.log
+local-storage/
+.azurite/
 
 # Dependências
 packages/
@@ -24,6 +26,9 @@ packages/
 out/
 dist/
 
+# Database dumps
+*.bacpac
+
 # OS
 .DS_Store
 Thumbs.db
@@ -32,6 +37,7 @@ Thumbs.db
 .env
 .env.local
 .env.*.local
+local.settings.json
 
 # Docker
 docker-compose.override.yml

@@ -9,6 +9,7 @@ Este checklist registra o que ja esta coberto no repositorio e o que ainda depen
 - [x] `/healthz` e `/` validam conectividade com o banco e migrations pendentes.
 - [x] Logs HTTP com Serilog, `TraceIdentifier` e header `X-Request-ID`.
 - [x] Reset de senha alternavel por ambiente: `PasswordReset__UseEmail=true|false`.
+- [x] Filas opcionais para email de reset e exportacao PDF/XLSX: `AsyncQueues__Enabled=true|false`.
 - [x] Trial/licenca com politicas por feature.
 - [x] Endpoints administrativos de licenca protegidos por perfil administrador.
 - [x] Testes de reset, autenticacao, endpoints principais e licenca.
@@ -48,6 +49,22 @@ Recomendacao:
 - Azure SQL e uma boa opcao por ter backup automatico, point-in-time restore e long-term retention.
 - Banco em container ou plano sem backup nao deve ser usado para producao comercial.
 
+## Migrations e rollback
+
+Checklist minimo antes de publicar schema novo:
+
+- [ ] Rodar `pwsh ./scripts/Test-Migrations.ps1`.
+- [ ] Gerar e guardar o SQL idempotente com `pwsh ./scripts/Export-MigrationScripts.ps1`.
+- [ ] Classificar a migration como `Schema`, `Data` ou `Repair`.
+- [ ] Revisar manualmente migrations com `migrationBuilder.Sql(...)`.
+- [ ] Definir o rollback: `Down()`, script direcionado ou restore/PITR.
+
+Politica recomendada:
+
+- `Down()` sozinho nao e estrategia suficiente para producao.
+- `Data` e `Repair` devem preferir restore/PITR ou forward fix.
+- Se `Database__RunMigrationsOnStartup=true`, o restore do banco precisa estar pronto antes do deploy.
+
 ## CI, branch protection e deploy
 
 O workflow `CI / Build and test` ja esta no repositorio. Para ele bloquear deploy/merge de verdade, configure no GitHub:
@@ -60,6 +77,7 @@ O workflow `CI / Build and test` ja esta no repositorio. Para ele bloquear deplo
 - [ ] Render apontando para a branch correta.
 - [ ] Render usando deploy apenas apos checks passarem.
 - [ ] Render com `Database__RunMigrationsOnStartup=true` no servico de producao.
+- [ ] Workflow rodando `pwsh ./scripts/Test-Migrations.ps1`.
 
 Fluxo recomendado:
 
@@ -77,13 +95,18 @@ No codigo:
 - `/` tambem responde ao health check para plataformas que testam a raiz por padrao.
 - O check `database` valida conectividade com o banco e migrations pendentes.
 - Cada resposta inclui `X-Request-ID`.
-- Serilog registra metodo, path, status code, tempo e trace id.
+- Serilog registra metodo, path, status code, tempo, request id e trace id.
+- O agente New Relic APM coleta transacoes HTTP, chamadas externas, SQL Server e excecoes quando o profiler esta habilitado.
+- Fluxos criticos de agenda/reset aceitam `Idempotency-Key` para retries seguros.
 
 Configuracoes externas recomendadas:
 
 - [ ] Monitor externo chamando `/healthz` a cada 1 a 5 minutos.
 - [ ] Alerta por email/WhatsApp/Slack quando `/healthz` falhar.
 - [ ] Log stream do Render para Better Stack, Datadog, Grafana Cloud ou similar.
+- [ ] `NEW_RELIC_LICENSE_KEY` configurado no ambiente publicado.
+- [ ] Alertas basicos criados no New Relic para erro e indisponibilidade.
+- [ ] Clientes que fazem retry em `POST /api/events/` e reset de senha enviando `Idempotency-Key`.
 - [ ] Alerta para aumento de respostas 5xx.
 - [ ] Alerta para falhas de login/reset acima do normal.
 
@@ -150,6 +173,17 @@ Quando usar email real:
 - Credenciais/API key do provedor escolhido
 - `Frontend__ResetPasswordUrl`
 
+Quando usar filas e Azure Functions:
+
+- `AsyncQueues__Enabled=true`
+- `AsyncQueues__ConnectionString` ou `AzureStorage__ConnectionString`
+- `AsyncQueues__PasswordResetEmailQueueName`
+- `AsyncQueues__FileExportQueueName`
+- Function App `HemodinksAPI.Workers` publicado com `AzureWebJobsStorage`
+- `PasswordResetEmailQueueName` e `FileExportQueueName` no Function App iguais aos valores da API
+- `ExportsContainerName`
+- variaveis `Email__*` e `Frontend__ResetPasswordUrl` tambem configuradas no Function App
+
 ## Go-live minimo
 
 Antes do primeiro cliente pagante:
@@ -163,4 +197,5 @@ Antes do primeiro cliente pagante:
 - [ ] Usuarios de seed/teste removidos ou com senha trocada.
 - [ ] Politica de trial/licenca validada.
 - [ ] Reset de senha definido: temporario por senha padrao ou definitivo por email.
+- [ ] Se `AsyncQueues__Enabled=true`, Function App ativo e filas/containers separados por ambiente.
 - [ ] Variaveis de producao revisadas sem secrets no Git.

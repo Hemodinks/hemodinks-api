@@ -73,22 +73,43 @@ Variaveis obrigatorias no Render:
 | `AzureStorage__PatientFilesPublicBaseUrl` | URL publica do container `patient-files` |
 | `Cors__AllowedOrigins__0` | `https://hemodinks-saude.vercel.app` |
 
+Variaveis opcionais para observabilidade via New Relic:
+
+| Chave | Descricao |
+| --- | --- |
+| `CORECLR_ENABLE_PROFILING` | ativa o profiler oficial quando `1` |
+| `NEW_RELIC_LICENSE_KEY` | license key da conta New Relic |
+| `NEW_RELIC_APP_NAME` | nome exibido no APM da New Relic |
+
 Variaveis ja declaradas no blueprint:
 
 | Chave | Valor |
 | --- | --- |
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
 | `ASPNETCORE_URLS` | `http://0.0.0.0:10000` |
+| `CORECLR_ENABLE_PROFILING` | `1` |
 | `Database__RunMigrationsOnStartup` | `true` |
 | `Seed__CbhpmOnStartup` | `false` |
 | `Seed__UsersOnStartup` | `false` |
 | `JwtSettings__Issuer` | `HemodinksAPI` |
 | `JwtSettings__Audience` | `HemodinksAPI` |
 | `JwtSettings__ExpirationMinutes` | `60` |
+| `NEW_RELIC_APP_NAME` | `Hemodinks API` |
 | `AzureStorage__ContainerName` | `profile-photos` |
 | `AzureStorage__MaxBytes` | `1048576` |
 | `AzureStorage__PatientFilesContainerName` | `patient-files` |
 | `AzureStorage__PatientFileMaxBytes` | `10485760` |
+
+O `Dockerfile` ja deixa `CORECLR_PROFILER`, `CORECLR_NEWRELIC_HOME` e `CORECLR_PROFILER_PATH` apontando para `/app/newrelic`, que e publicado junto com a aplicacao pelo pacote `NewRelic.Agent`. Para a telemetria sair de fato, configure `NEW_RELIC_LICENSE_KEY` no servico publicado.
+
+## Idempotencia em producao
+
+Os fluxos de criacao de evento e reset de senha agora suportam `Idempotency-Key`. Para aproveitar isso em retries do front, gateway ou automacoes:
+
+- gere uma chave unica por tentativa logica
+- reuse a mesma chave apenas quando quiser repetir exatamente o mesmo payload
+- trate `Idempotency-Status: replayed` como sucesso reaproveitado
+- trate `409 Conflict` como erro de reutilizacao incorreta da chave
 
 Render nao fornece SQL Server gerenciado. Use Azure SQL Database, SQL Server em VM ou outro provider SQL Server compativel.
 
@@ -117,6 +138,7 @@ Variaveis que devem ser diferentes de producao:
 | `JwtSettings__SecretKey` | usar outra chave JWT |
 | `JwtSettings__Issuer` | `HemodinksAPI.Confirmation` |
 | `JwtSettings__Audience` | `HemodinksAPI.Confirmation` |
+| `NEW_RELIC_APP_NAME` | `Hemodinks API Confirmation` |
 | `AzureStorage__ContainerName` | `profile-photos-confirmation` |
 | `AzureStorage__PatientFilesContainerName` | `patient-files-confirmation` |
 | `AzureStorage__PublicBaseUrl` | URL do container `profile-photos-confirmation` |
@@ -146,8 +168,18 @@ Checklist:
 Migrations ficam no projeto `HemodinksAPI.Infrastructure`. Para validar localmente:
 
 ```powershell
-dotnet ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure --no-connect
+dotnet tool restore
+pwsh ./scripts/Test-Migrations.ps1
+dotnet tool run dotnet-ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api --no-connect
 ```
+
+Para gerar o SQL do rollout antes do deploy:
+
+```powershell
+pwsh ./scripts/Export-MigrationScripts.ps1
+```
+
+Se a release trouxer migration de `Data` ou `Repair`, prefira rollback por restore/PITR ou forward fix, nao apenas por `Down()`.
 
 Se a agenda retornar `Invalid object name 'Events'` ou `Invalid column name 'NextReminderAt'`, publique a versao com a migration `EnsureEventReminderColumns`, confirme `Database__RunMigrationsOnStartup=true` no Render e reinicie o servico para o startup aplicar o reparo no banco.
 
@@ -171,15 +203,47 @@ Se as URLs publicas nao forem informadas, a API usa a URL retornada pelo SDK do 
 
 ## Azure Queue / Service Bus
 
-Nao ha recurso de fila em uso atualmente. Nao crie Azure Queue Storage ou Service Bus para esta versao, a menos que uma nova funcionalidade assincrona seja implementada.
+Azure Queue Storage agora e usado de forma opcional para dois fluxos assincronos:
+
+- envio de email de reset de senha
+- exportacoes PDF/XLSX solicitadas por `/api/exports`
+
+A funcao de exportacao ja grava arquivos no container de exports com os metadados do job. O conteudo de negocio de cada relatorio deve evoluir dentro do `HemodinksAPI.Workers`, sem mover autorizacao, idempotencia ou regras sensiveis para fora da API.
+
+Ative apenas depois de publicar o Function App `HemodinksAPI.Workers`.
+
+Variaveis da API:
+
+| Chave | Descricao |
+| --- | --- |
+| `AsyncQueues__Enabled` | `true` para usar filas; `false` mantem SMTP direto e bloqueia exportacoes |
+| `AsyncQueues__ConnectionString` | connection string da Storage Account das filas; se vazio, usa `AzureStorage__ConnectionString` |
+| `AsyncQueues__PasswordResetEmailQueueName` | padrao `password-reset-emails` |
+| `AsyncQueues__FileExportQueueName` | padrao `file-export-jobs` |
+
+Variaveis do Azure Functions:
+
+| Chave | Descricao |
+| --- | --- |
+| `AzureWebJobsStorage` | Storage Account usada pelos triggers, filas e container de exports |
+| `FUNCTIONS_WORKER_RUNTIME` | `dotnet-isolated` |
+| `PasswordResetEmailQueueName` | mesmo valor de `AsyncQueues__PasswordResetEmailQueueName` |
+| `FileExportQueueName` | mesmo valor de `AsyncQueues__FileExportQueueName` |
+| `ExportsContainerName` | container dos arquivos gerados, padrao `exports` |
+| `Email__Provider` | `GmailSmtp` ou `Smtp` |
+| `Email__FromEmail` | remetente |
+| `Email__FromName` | nome do remetente |
+| `Email__Smtp__Host` | host SMTP |
+| `Email__Smtp__Port` | porta SMTP |
+| `Email__Smtp__Username` | usuario SMTP |
+| `Email__Smtp__Password` | senha/app password SMTP |
+| `Frontend__ResetPasswordUrl` | URL da tela de reset no frontend |
+
+Para homologacao, use filas e container separados, por exemplo `password-reset-emails-confirmation`, `file-export-jobs-confirmation` e `exports-confirmation`.
 
 A agenda usa um `BackgroundService` interno no proprio processo da API. Esse desenho evita custo adicional no Render Free e e adequado para a fase atual.
 
-Possiveis usos futuros:
-
-- processamento de upload
-- notificacoes
-- relatorios
+Se `AsyncQueues__Enabled=true` e a Function nao estiver ativa, a API continuara respondendo `202/200` apos enfileirar, mas emails e arquivos ficarao parados na fila ate o worker processar.
 - auditoria assincrona
 
 ## Frontend

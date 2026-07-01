@@ -1,5 +1,3 @@
-using System.Threading.Tasks;
-
 namespace HemodinksAPI.Application.Services;
 
 public interface INotificationService

@@ -22,8 +22,9 @@ URLs principais:
 | --- | --- |
 | `HemodinksAPI.Domain` | entidades, constantes de dominio e utilitarios puros |
 | `HemodinksAPI.Application` | commands, queries, handlers, DTOs, validadores, contratos e regras de aplicacao |
-| `HemodinksAPI.Infrastructure` | EF Core, migrations, seeders, JWT, storage, notificacoes, worker de agenda e implementacoes concretas |
+| `HemodinksAPI.Infrastructure` | EF Core, migrations, seeders, JWT, storage, filas, notificacoes, worker de agenda e implementacoes concretas |
 | `HemodinksAPI.Api` | Minimal APIs, CORS, autenticacao/autorizacao, Swagger/Scalar, DI e composition root |
+| `HemodinksAPI.Workers` | Azure Functions isoladas para consumo de filas de email e exportacoes |
 | `HemodinksAPI.Tests` | testes unitarios e de integracao |
 
 Direcao permitida:
@@ -51,6 +52,9 @@ flowchart LR
     Contracts --> Infra[Infrastructure Services]
     Infra --> Sql[(Azure SQL / SQL Server)]
     Infra --> Blob[(Azure Blob Storage)]
+    Infra --> Queue[(Azure Queue Storage)]
+    Queue --> Functions[HemodinksAPI.Workers]
+    Functions --> Blob
     Infra --> Worker[EventNotificationHostedService]
     Handlers --> Cache[IMemoryCache CBHPM]
 ```
@@ -237,7 +241,10 @@ flowchart LR
     API -->|SDK Azure.Storage.Blobs| Photos[(Blob profile-photos)]
     API -->|SDK Azure.Storage.Blobs| Files[(Blob patient-files)]
     API -->|Memoria local| CbhpmCache[IMemoryCache]
-    API -. futuro .-> Queue[(Azure Queue / Service Bus)]
+    API -->|opcional: AsyncQueues__Enabled=true| Queue[(Azure Queue Storage)]
+    Queue --> Functions[Azure Functions HemodinksAPI.Workers]
+    Functions -->|PDF/XLSX| ExportBlob[(Blob exports)]
+    Functions -->|SMTP| Email[Email reset senha]
 ```
 
 ## Recursos externos
@@ -245,8 +252,9 @@ flowchart LR
 | Recurso | Status | Uso |
 | --- | --- | --- |
 | Azure SQL Database | usado | banco relacional da aplicacao |
-| Azure Blob Storage | usado | fotos e anexos |
-| Azure Queue Storage / Service Bus | nao usado | reservado para notificacoes/filas futuras |
+| Azure Blob Storage | usado | fotos, anexos e arquivos exportados |
+| Azure Queue Storage | opcional | emails de reset e jobs de exportacao PDF/XLSX quando `AsyncQueues__Enabled=true` |
+| Azure Functions | opcional | projeto `HemodinksAPI.Workers` consome `password-reset-emails` e `file-export-jobs` |
 | Render Worker separado | nao usado | worker atual roda dentro da API |
 
 ## Migrations e banco
@@ -285,6 +293,6 @@ Os endpoints estao agrupados por tags:
 ## Observacoes operacionais
 
 - `IMemoryCache` reduz leituras repetidas da tabela CBHPM, mas e cache local por instancia.
-- Azure SQL e Blob Storage sao recursos externos cobrados conforme plano/uso.
-- O processamento de lembretes atual nao exige Hangfire, RabbitMQ, Azure Queue ou Service Bus.
-- Para escala horizontal ou notificacoes reais em alto volume, o proximo passo natural e trocar o worker interno por fila/worker externo mantendo os contratos da Application.
+- Azure SQL, Blob Storage, Queue Storage e Functions sao recursos externos cobrados conforme plano/uso.
+- O processamento de lembretes atual continua no `BackgroundService` interno.
+- Reset por email e exportacoes podem sair do processo da API com `AsyncQueues__Enabled=true`; a API preserva token, rate limit, autorizacao e idempotencia, e o Worker executa apenas entrega/geracao. O Worker de exportacao grava arquivos iniciais com metadados do job e concentra a evolucao dos relatorios por recurso.

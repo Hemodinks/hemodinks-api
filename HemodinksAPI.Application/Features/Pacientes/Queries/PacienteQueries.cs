@@ -37,7 +37,7 @@ public class PacienteDto
     public string Email { get; set; } = null!;
     public string Telefone { get; set; } = null!;
     public string? FotoPerfil { get; set; }
-    public DateTime DataNascimento { get; set; }
+    public DateTime? DataNascimento { get; set; }
     public bool Ativo { get; set; }
     public int ArquivosCount { get; set; }
     public int ObservacoesNaoLidasCount { get; set; }

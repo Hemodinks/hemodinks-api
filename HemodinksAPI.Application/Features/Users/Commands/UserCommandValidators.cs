@@ -67,10 +67,5 @@ internal static class UserCommandValidator
         {
             throw new InvalidOperationException("Email obrigatorio");
         }
-
-        if (string.IsNullOrWhiteSpace(cpf))
-        {
-            throw new InvalidOperationException("CPF obrigatorio");
-        }
     }
 }
