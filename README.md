@@ -205,7 +205,9 @@ Quando a mesma requisicao bem-sucedida chega novamente com a mesma chave, a API 
 | `AzureStorage__PatientFilesContainerName` | container de anexos, padrao `patient-files` |
 | `AzureStorage__PatientFilesPublicBaseUrl` | URL publica do container de anexos |
 | `AzureStorage__PatientFileMaxBytes` | limite de upload de anexos |
-| `AsyncQueues__Enabled` | liga filas para reset por email e exportacoes quando `true` |
+| `AsyncQueues__Enabled` | chave global de fallback para filas quando nao houver override por recurso |
+| `AsyncQueues__PasswordResetEnabled` | usa fila/Function para reset por email quando `true` |
+| `AsyncQueues__FileExportEnabled` | usa fila/Function para exportacoes quando `true` |
 | `AsyncQueues__ConnectionString` | connection string da Storage Account usada pelas filas; se vazio, usa `AzureStorage__ConnectionString` |
 | `AsyncQueues__PasswordResetEmailQueueName` | fila de emails de reset, padrao `password-reset-emails` |
 | `AsyncQueues__FileExportQueueName` | fila de exportacoes, padrao `file-export-jobs` |

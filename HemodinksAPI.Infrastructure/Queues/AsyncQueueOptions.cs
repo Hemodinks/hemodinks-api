@@ -6,6 +6,10 @@ public class AsyncQueueOptions
 {
     public bool Enabled { get; set; }
 
+    public bool PasswordResetEnabled { get; set; }
+
+    public bool FileExportEnabled { get; set; }
+
     public string? ConnectionString { get; set; }
 
     public string PasswordResetEmailQueueName { get; set; } = AsyncQueueNames.PasswordResetEmails;

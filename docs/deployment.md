@@ -122,7 +122,8 @@ O arquivo `render.confirmation.yaml` define um servico separado:
 - branch: `developer`
 - environment: `Confirmation`
 - health check: `/healthz`
-- origem CORS esperada: `https://hemodinks-front-confirmation.onrender.com`
+- origem CORS principal: `https://hemodinks-homologacao.vercel.app`
+- origem CORS adicional opcional: `https://hemodinks-front-confirmation.onrender.com`
 
 Use esse arquivo como blueprint/configuracao do ambiente de homologacao `confirmation`. Se o Render gerar uma URL diferente para o front, ajuste:
 
@@ -216,7 +217,9 @@ Variaveis da API:
 
 | Chave | Descricao |
 | --- | --- |
-| `AsyncQueues__Enabled` | `true` para usar filas; `false` mantem SMTP direto e bloqueia exportacoes |
+| `AsyncQueues__Enabled` | fallback global das filas quando nao houver override por recurso |
+| `AsyncQueues__PasswordResetEnabled` | `true` para mandar reset por email para a Function; `false` usa SMTP direto na API |
+| `AsyncQueues__FileExportEnabled` | `true` para exportacoes assincronas pela Function |
 | `AsyncQueues__ConnectionString` | connection string da Storage Account das filas; se vazio, usa `AzureStorage__ConnectionString` |
 | `AsyncQueues__PasswordResetEmailQueueName` | padrao `password-reset-emails` |
 | `AsyncQueues__FileExportQueueName` | padrao `file-export-jobs` |
@@ -243,7 +246,15 @@ Para homologacao, use filas e container separados, por exemplo `password-reset-e
 
 A agenda usa um `BackgroundService` interno no proprio processo da API. Esse desenho evita custo adicional no Render Free e e adequado para a fase atual.
 
-Se `AsyncQueues__Enabled=true` e a Function nao estiver ativa, a API continuara respondendo `202/200` apos enfileirar, mas emails e arquivos ficarao parados na fila ate o worker processar.
+No formato hibrido recomendado para a Hemodinks:
+
+- `PasswordReset__UseEmail=true`
+- `AsyncQueues__PasswordResetEnabled=false`
+- `AsyncQueues__FileExportEnabled=true`
+
+Assim, o reset de senha usa SMTP direto na API e nao depende de worker no Render, enquanto as exportacoes continuam assincronas pela Azure Function.
+
+Se `AsyncQueues__FileExportEnabled=true` e a Function nao estiver ativa, a API continuara respondendo `202/200` apos enfileirar, mas os arquivos ficarao parados na fila ate o worker processar.
 - auditoria assincrona
 
 ## Frontend

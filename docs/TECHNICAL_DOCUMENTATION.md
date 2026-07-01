@@ -241,7 +241,7 @@ flowchart LR
     API -->|SDK Azure.Storage.Blobs| Photos[(Blob profile-photos)]
     API -->|SDK Azure.Storage.Blobs| Files[(Blob patient-files)]
     API -->|Memoria local| CbhpmCache[IMemoryCache]
-    API -->|opcional: AsyncQueues__Enabled=true| Queue[(Azure Queue Storage)]
+    API -->|opcional: AsyncQueues__FileExportEnabled=true| Queue[(Azure Queue Storage)]
     Queue --> Functions[Azure Functions HemodinksAPI.Workers]
     Functions -->|PDF/XLSX| ExportBlob[(Blob exports)]
     Functions -->|SMTP| Email[Email reset senha]
@@ -253,7 +253,7 @@ flowchart LR
 | --- | --- | --- |
 | Azure SQL Database | usado | banco relacional da aplicacao |
 | Azure Blob Storage | usado | fotos, anexos e arquivos exportados |
-| Azure Queue Storage | opcional | emails de reset e jobs de exportacao PDF/XLSX quando `AsyncQueues__Enabled=true` |
+| Azure Queue Storage | opcional | jobs de exportacao PDF/XLSX quando `AsyncQueues__FileExportEnabled=true`, e reset por email apenas se `AsyncQueues__PasswordResetEnabled=true` |
 | Azure Functions | opcional | projeto `HemodinksAPI.Workers` consome `password-reset-emails` e `file-export-jobs` |
 | Render Worker separado | nao usado | worker atual roda dentro da API |
 
@@ -295,4 +295,4 @@ Os endpoints estao agrupados por tags:
 - `IMemoryCache` reduz leituras repetidas da tabela CBHPM, mas e cache local por instancia.
 - Azure SQL, Blob Storage, Queue Storage e Functions sao recursos externos cobrados conforme plano/uso.
 - O processamento de lembretes atual continua no `BackgroundService` interno.
-- Reset por email e exportacoes podem sair do processo da API com `AsyncQueues__Enabled=true`; a API preserva token, rate limit, autorizacao e idempotencia, e o Worker executa apenas entrega/geracao. O Worker de exportacao grava arquivos iniciais com metadados do job e concentra a evolucao dos relatorios por recurso.
+- No formato hibrido recomendado, o reset por email sai direto da API via SMTP e apenas as exportacoes usam `AsyncQueues__FileExportEnabled=true`. A API preserva token, rate limit, autorizacao e idempotencia, e o Worker executa a geracao dos arquivos exportados.

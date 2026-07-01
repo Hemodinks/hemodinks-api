@@ -9,7 +9,7 @@ Este checklist registra o que ja esta coberto no repositorio e o que ainda depen
 - [x] `/healthz` e `/` validam conectividade com o banco e migrations pendentes.
 - [x] Logs HTTP com Serilog, `TraceIdentifier` e header `X-Request-ID`.
 - [x] Reset de senha alternavel por ambiente: `PasswordReset__UseEmail=true|false`.
-- [x] Filas opcionais para email de reset e exportacao PDF/XLSX: `AsyncQueues__Enabled=true|false`.
+- [x] Filas opcionais por recurso para reset de senha e exportacao PDF/XLSX.
 - [x] Trial/licenca com politicas por feature.
 - [x] Endpoints administrativos de licenca protegidos por perfil administrador.
 - [x] Testes de reset, autenticacao, endpoints principais e licenca.
@@ -175,7 +175,7 @@ Quando usar email real:
 
 Quando usar filas e Azure Functions:
 
-- `AsyncQueues__Enabled=true`
+- `AsyncQueues__FileExportEnabled=true`
 - `AsyncQueues__ConnectionString` ou `AzureStorage__ConnectionString`
 - `AsyncQueues__PasswordResetEmailQueueName`
 - `AsyncQueues__FileExportQueueName`
@@ -197,5 +197,5 @@ Antes do primeiro cliente pagante:
 - [ ] Usuarios de seed/teste removidos ou com senha trocada.
 - [ ] Politica de trial/licenca validada.
 - [ ] Reset de senha definido: temporario por senha padrao ou definitivo por email.
-- [ ] Se `AsyncQueues__Enabled=true`, Function App ativo e filas/containers separados por ambiente.
+- [ ] Se `AsyncQueues__FileExportEnabled=true`, Function App ativo e filas/containers separados por ambiente.
 - [ ] Variaveis de producao revisadas sem secrets no Git.
