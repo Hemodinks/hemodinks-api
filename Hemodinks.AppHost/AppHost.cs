@@ -251,5 +251,12 @@ sealed record ContainerizedApiSettings(
     string FrontendResetPasswordUrl)
 {
     public string SqlServerConnectionString =>
-        $"Server=sqlserver;Database={DatabaseName};User Id=sa;Password={SqlServerPassword};TrustServerCertificate=true;Encrypt=false";
+        string.Join(
+            ';',
+            $"Server=sqlserver",
+            $"Database={DatabaseName}",
+            "User Id=sa",
+            $"Pwd={SqlServerPassword}",
+            "TrustServerCertificate=true",
+            "Encrypt=false");
 }
