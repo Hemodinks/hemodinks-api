@@ -5,7 +5,7 @@ services:
     restart: always
     environment:
       ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "${SQLSERVER_SA_SECRET:?Set SQLSERVER_SA_SECRET in .env}"
+      MSSQL_SA_PASSWORD: "SenhaForte@12345"
       MSSQL_PID: "Developer"
       MSSQL_MEMORY_LIMIT_MB: "2048"
     ports:

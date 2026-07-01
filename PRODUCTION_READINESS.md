@@ -175,6 +175,7 @@ Quando usar email real:
 
 Quando usar filas e Azure Functions:
 
+- `PasswordReset__UseEmail=true`
 - `AsyncQueues__Enabled=true`
 - `AsyncQueues__ConnectionString` ou `AzureStorage__ConnectionString`
 - `AsyncQueues__PasswordResetEmailQueueName`
@@ -183,6 +184,7 @@ Quando usar filas e Azure Functions:
 - `PasswordResetEmailQueueName` e `FileExportQueueName` no Function App iguais aos valores da API
 - `ExportsContainerName`
 - variaveis `Email__*` e `Frontend__ResetPasswordUrl` tambem configuradas no Function App
+- `StorageFunctions__BaseUrl` e `StorageFunctions__FunctionKey` se a API deve mandar uploads de foto/anexos para o Function App
 
 ## Go-live minimo
 
@@ -198,4 +200,5 @@ Antes do primeiro cliente pagante:
 - [ ] Politica de trial/licenca validada.
 - [ ] Reset de senha definido: temporario por senha padrao ou definitivo por email.
 - [ ] Se `AsyncQueues__Enabled=true`, Function App ativo e filas/containers separados por ambiente.
+- [ ] Se `StorageFunctions__BaseUrl` estiver ativo, Function App acessivel pela API com function key valida.
 - [ ] Variaveis de producao revisadas sem secrets no Git.

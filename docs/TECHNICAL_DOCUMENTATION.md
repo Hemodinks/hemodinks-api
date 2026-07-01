@@ -240,9 +240,12 @@ flowchart LR
     API -->|EF Core SQL| AzureSql[(Azure SQL Database)]
     API -->|SDK Azure.Storage.Blobs| Photos[(Blob profile-photos)]
     API -->|SDK Azure.Storage.Blobs| Files[(Blob patient-files)]
+    API -->|opcional: StorageFunctions__BaseUrl| UploadFunctions[Azure Functions upload HTTP]
     API -->|Memoria local| CbhpmCache[IMemoryCache]
     API -->|opcional: AsyncQueues__Enabled=true| Queue[(Azure Queue Storage)]
     Queue --> Functions[Azure Functions HemodinksAPI.Workers]
+    UploadFunctions -->|Blob upload| Photos
+    UploadFunctions -->|Blob upload| Files
     Functions -->|PDF/XLSX| ExportBlob[(Blob exports)]
     Functions -->|SMTP| Email[Email reset senha]
 ```
@@ -254,7 +257,7 @@ flowchart LR
 | Azure SQL Database | usado | banco relacional da aplicacao |
 | Azure Blob Storage | usado | fotos, anexos e arquivos exportados |
 | Azure Queue Storage | opcional | emails de reset e jobs de exportacao PDF/XLSX quando `AsyncQueues__Enabled=true` |
-| Azure Functions | opcional | projeto `HemodinksAPI.Workers` consome `password-reset-emails` e `file-export-jobs` |
+| Azure Functions | opcional | projeto `HemodinksAPI.Workers` consome filas de reset/exportacao e pode receber uploads HTTP quando `StorageFunctions__BaseUrl` estiver ativo |
 | Render Worker separado | nao usado | worker atual roda dentro da API |
 
 ## Migrations e banco
