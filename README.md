@@ -140,7 +140,7 @@ O dashboard do Aspire abre com a API como recurso instrumentado por OpenTelemetr
 Se preferir que o `AppHost` suba a API como container, mantendo o front local em Vite:
 
 ```powershell
-dotnet user-secrets set --project Hemodinks.AppHost "MSSQL_SA_PASSWORD" "<defina-no-user-secrets>"
+dotnet user-secrets set --project Hemodinks.AppHost "MSSQL_SA_PASSWORD" "troque_por_uma_senha_forte"
 dotnet user-secrets set --project Hemodinks.AppHost "JWT_SECRET_KEY" "troque_por_uma_chave_com_32_caracteres_ou_mais"
 dotnet run --launch-profile https-container --project Hemodinks.AppHost
 ```
@@ -198,6 +198,8 @@ Quando a mesma requisicao bem-sucedida chega novamente com a mesma chave, a API 
 | `JwtSettings__Audience` | audiencia JWT |
 | `JwtSettings__ExpirationMinutes` | expiracao do token |
 | `Database__RunMigrationsOnStartup` | aplica migrations no startup quando `true` |
+| `PasswordReset__UseEmail` | envia reset por email quando `true`; usa senha padrao quando `false` |
+| `Frontend__ResetPasswordUrl` | URL publica da tela de redefinicao de senha |
 | `Cors__AllowedOrigins__0` | origem adicional do frontend |
 | `AzureStorage__ConnectionString` | Storage Account Azure |
 | `AzureStorage__ContainerName` | container de fotos, padrao `profile-photos` |
@@ -211,6 +213,8 @@ Quando a mesma requisicao bem-sucedida chega novamente com a mesma chave, a API 
 | `AsyncQueues__ConnectionString` | connection string da Storage Account usada pelas filas; se vazio, usa `AzureStorage__ConnectionString` |
 | `AsyncQueues__PasswordResetEmailQueueName` | fila de emails de reset, padrao `password-reset-emails` |
 | `AsyncQueues__FileExportQueueName` | fila de exportacoes, padrao `file-export-jobs` |
+| `StorageFunctions__BaseUrl` | URL base do Function App usada pela API para uploads HTTP de foto/anexos |
+| `StorageFunctions__FunctionKey` | function key usada pela API ao chamar os uploads HTTP |
 | `Licensing__TrialDays` | dias de trial para licencas medicas |
 
 Segredos nao devem ser gravados em `appsettings.json`.
