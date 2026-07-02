@@ -14,6 +14,8 @@ services:
         value: Confirmation
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:10000
+      - key: CORECLR_ENABLE_PROFILING
+        value: "1"
       - key: ConnectionStrings__DefaultConnection
         sync: false
       - key: JwtSettings__SecretKey
@@ -24,7 +26,43 @@ services:
         value: HemodinksAPI.Confirmation
       - key: JwtSettings__ExpirationMinutes
         value: 60
+      - key: NEW_RELIC_LICENSE_KEY
+        sync: false
+      - key: NEW_RELIC_APP_NAME
+        value: Hemodinks API Confirmation
+      - key: PasswordReset__UseEmail
+        value: "true"
+      - key: Frontend__ResetPasswordUrl
+        value: https://hemodinks-homologacao.vercel.app/reset-password
+      - key: AsyncQueues__Enabled
+        value: "false"
+      - key: AsyncQueues__PasswordResetEnabled
+        value: "true"
+      - key: AsyncQueues__FileExportEnabled
+        value: "true"
+      - key: AsyncQueues__ConnectionString
+        sync: false
+      - key: AsyncQueues__PasswordResetEmailQueueName
+        value: password-reset-emails-confirmation
+      - key: AsyncQueues__FileExportQueueName
+        value: file-export-jobs-confirmation
+      - key: Email__Provider
+        value: GmailSmtp
+      - key: Email__Smtp__Host
+        value: smtp.gmail.com
+      - key: Email__Smtp__Port
+        value: 587
+      - key: Email__Smtp__Username
+        sync: false
+      - key: Email__Smtp__Password
+        sync: false
+      - key: Email__FromEmail
+        sync: false
+      - key: Email__FromName
+        value: Hemodinks
       - key: Cors__AllowedOrigins__0
+        value: https://hemodinks-homologacao.vercel.app
+      - key: Cors__AllowedOrigins__1
         value: https://hemodinks-front-confirmation.onrender.com
       - key: AzureStorage__ConnectionString
         sync: false

@@ -114,6 +114,43 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.ToTable("CBHPMGeral", (string)null);
                 });
 
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.ConfiguracaoSistema", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("DataAtualizacao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DataCadastro")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("FotoEmpresa")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NomeEmpresa")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ConfiguracoesSistema", (string)null);
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            DataCadastro = new DateTime(2026, 6, 22, 0, 0, 0, 0, DateTimeKind.Utc),
+                            NomeEmpresa = "Hemodinks"
+                        });
+                });
+
             modelBuilder.Entity("HemodinksAPI.Domain.Models.Convenio", b =>
                 {
                     b.Property<int>("IdConvenio")
@@ -259,6 +296,112 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.ToTable("Events", (string)null);
                 });
 
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.FaturamentoMedico", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Anestesista")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<bool>("AnestesistaFaturadoSeparado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("CodigoTussCbhpmAmb")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<bool>("ConferenciaPagamentoRealizada")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("DataAtualizacao")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("DataCadastro")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("GlosaStatus")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("GuiaAutorizacaoConvenio")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("GuiaInternacaoOuSadt")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<decimal?>("HonorariosAnestesista")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("HonorariosAuxiliares")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<decimal?>("HonorariosCirurgiao")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("Observacoes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("OpmeMateriaisEspeciais")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<int>("PacienteId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PorteCirurgicoAnestesico")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("ReciboNotaContrato")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<string>("RecursoGlosa")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<decimal?>("RepasseMedico")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<string>("RepasseMedicoObservacao")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<string>("TipoFaturamentoParticular")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("TissXmlStatus")
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<decimal?>("ValorGlosa")
+                        .HasColumnType("decimal(18,2)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ConferenciaPagamentoRealizada");
+
+                    b.HasIndex("PacienteId")
+                        .IsUnique();
+
+                    b.ToTable("FaturamentosMedicos", (string)null);
+                });
+
             modelBuilder.Entity("HemodinksAPI.Domain.Models.GrupoMedico", b =>
                 {
                     b.Property<int>("Id")
@@ -349,6 +492,67 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                             Id = 3,
                             Nome = "UMC - Complexo Hospitalar"
                         });
+                });
+
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.IdempotencyRequest", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Operation")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<string>("RequestHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("ResourceLocation")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("ResponseJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.Property<int?>("StatusCode")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedAt");
+
+                    b.HasIndex("Operation", "Scope", "IdempotencyKey")
+                        .IsUnique();
+
+                    b.ToTable("IdempotencyRequests", (string)null);
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.Licenca", b =>
@@ -834,7 +1038,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
 
-                    b.Property<DateTime>("DataNascimento")
+                    b.Property<DateTime?>("DataNascimento")
                         .HasColumnType("datetime2");
 
                     b.Property<string>("Email")
@@ -970,6 +1174,17 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Navigation("MedicalUser");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.FaturamentoMedico", b =>
+                {
+                    b.HasOne("HemodinksAPI.Domain.Models.Paciente", "Paciente")
+                        .WithOne("FaturamentoMedico")
+                        .HasForeignKey("HemodinksAPI.Domain.Models.FaturamentoMedico", "PacienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Paciente");
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.GrupoMedicoUsuario", b =>
@@ -1167,6 +1382,8 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
             modelBuilder.Entity("HemodinksAPI.Domain.Models.Paciente", b =>
                 {
                     b.Navigation("Arquivos");
+
+                    b.Navigation("FaturamentoMedico");
 
                     b.Navigation("Observacoes");
 

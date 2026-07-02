@@ -20,7 +20,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-
+            // Intentionally empty: password hashes replaced in Up() cannot be reconstructed safely.
         }
     }
 }

@@ -14,6 +14,8 @@ services:
         value: Production
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:10000
+      - key: CORECLR_ENABLE_PROFILING
+        value: "1"
       - key: Database__RunMigrationsOnStartup
         value: "true"
       - key: Seed__CbhpmOnStartup
@@ -30,6 +32,40 @@ services:
         value: HemodinksAPI
       - key: JwtSettings__ExpirationMinutes
         value: 60
+      - key: NEW_RELIC_LICENSE_KEY
+        sync: false
+      - key: NEW_RELIC_APP_NAME
+        value: Hemodinks API
+      - key: PasswordReset__UseEmail
+        value: "true"
+      - key: Frontend__ResetPasswordUrl
+        value: https://hemodinks-saude.vercel.app/reset-password
+      - key: AsyncQueues__Enabled
+        value: "false"
+      - key: AsyncQueues__PasswordResetEnabled
+        value: "true"
+      - key: AsyncQueues__FileExportEnabled
+        value: "true"
+      - key: AsyncQueues__ConnectionString
+        sync: false
+      - key: AsyncQueues__PasswordResetEmailQueueName
+        value: password-reset-emails
+      - key: AsyncQueues__FileExportQueueName
+        value: file-export-jobs
+      - key: Email__Provider
+        value: GmailSmtp
+      - key: Email__Smtp__Host
+        value: smtp.gmail.com
+      - key: Email__Smtp__Port
+        value: 587
+      - key: Email__Smtp__Username
+        sync: false
+      - key: Email__Smtp__Password
+        sync: false
+      - key: Email__FromEmail
+        sync: false
+      - key: Email__FromName
+        value: Hemodinks
       - key: AzureStorage__ConnectionString
         sync: false
       - key: AzureStorage__ContainerName

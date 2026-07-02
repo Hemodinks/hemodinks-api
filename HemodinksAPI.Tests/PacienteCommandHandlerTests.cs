@@ -107,6 +107,7 @@ public class PacienteCommandHandlerTests
 
         var storedUser = await context.Users.SingleAsync(user => user.PerfilId == Perfil.PacientesId);
         var storedPaciente = await context.Pacientes.SingleAsync();
+        var storedFaturamento = await context.FaturamentosMedicos.SingleAsync();
 
         Assert.Equal(storedUser.Id, storedPaciente.UserId);
         Assert.Equal(Perfil.PacientesId, storedUser.PerfilId);
@@ -130,6 +131,10 @@ public class PacienteCommandHandlerTests
         Assert.Equal("Em consultorio", storedPaciente.Procedimento);
         Assert.Equal("2B", storedPaciente.CbhpmPorte);
         Assert.True(storedPaciente.StatusPago);
+        Assert.Equal(storedPaciente.Id, storedFaturamento.PacienteId);
+        Assert.Equal("AUT-123", storedFaturamento.GuiaAutorizacaoConvenio);
+        Assert.Equal("Fornecedor Manual OPME", storedFaturamento.OpmeMateriaisEspeciais);
+        Assert.True(storedFaturamento.ConferenciaPagamentoRealizada);
         Assert.Equal(storedPaciente.Id, response.Id);
         Assert.Equal("Diagnostico clinico de teste", response.Diagnostico);
         Assert.Equal("Tratamento clinico de teste", response.TratamentoMedico);
@@ -153,6 +158,102 @@ public class PacienteCommandHandlerTests
         Assert.Equal(120m, storedProcedimentos[0].ValorReferencia);
         Assert.Equal("10102019", storedProcedimentos[1].CbhpmCodigo);
         Assert.Equal(180m, storedProcedimentos[1].ValorReferencia);
+        Assert.Equal("10101012, 10102019", storedFaturamento.CodigoTussCbhpmAmb);
+        Assert.Equal("2B, 2A", storedFaturamento.PorteCirurgicoAnestesico);
+    }
+
+    [Fact]
+    public async Task CreatePaciente_WhenHospitalAndConvenioAreManual_PersistsLookupsAndProcedimentos()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var doctor = new User
+        {
+            Nome = "Dra. Ana Manual",
+            Email = "dra.ana.manual.lookup@hemodinks.com",
+            Telefone = "+5581999887711",
+            Cpf = "39053344705",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            DataNascimento = new DateTime(1985, 1, 1),
+            PerfilId = Perfil.MedicosId
+        };
+        context.Users.Add(doctor);
+        context.CbhpmGeral.Add(new CbhpmGeral
+        {
+            Codigo = "1.01.01.01-2",
+            Procedimento = "Em consultorio",
+            Porte = "2B",
+            ValorReferencia = 120m
+        });
+        await context.SaveChangesAsync();
+
+        var handler = new CreatePacienteCommandHandler(
+            context,
+            CreateCbhpmCache(context),
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            NullLogger<CreatePacienteCommandHandler>.Instance);
+
+        var response = await handler.Handle(new CreatePacienteCommand
+        {
+            NomePaciente = "Paciente Manual Completo",
+            Email = "paciente.manual.completo@hemodinks.com",
+            Telefone = "+5581999999911",
+            Cpf = "52998224725",
+            DataNascimento = new DateTime(1990, 1, 1),
+            Data = new DateTime(2026, 6, 23),
+            Hospital = "Hospital Manual Santa Joana",
+            MedicoUserId = doctor.Id,
+            Medico = doctor.Nome,
+            Convenio = "Convenio Manual Porto Seguro",
+            OpmeFornecedor = "Fornecedor Manual Gtech",
+            Procedimentos =
+            [
+                new PacienteProcedimentoCommandDto { CbhpmCodigo = "10101012" },
+                new PacienteProcedimentoCommandDto
+                {
+                    CbhpmCodigo = "25252525",
+                    CbhpmPorte = "25B",
+                    Procedimento = "George Procedimento",
+                    ValorReferencia = 2500m
+                }
+            ],
+            Autorizacao = "Foi ok",
+            Pagamento = "R$ 2.500,00",
+            RepasseGlosa = "R$ 100,00",
+            StatusPago = true,
+            CurrentPerfilId = Perfil.AdministradorId
+        }, CancellationToken.None);
+
+        var storedPaciente = await context.Pacientes
+            .Include(paciente => paciente.HospitalReferencia)
+            .Include(paciente => paciente.ConvenioReferencia)
+            .Include(paciente => paciente.OpmeFornecedorReferencia)
+            .Include(paciente => paciente.Procedimentos)
+            .SingleAsync();
+        var storedProcedimentos = storedPaciente.Procedimentos.OrderBy(item => item.Ordem).ToList();
+        var storedHospital = await context.Hospitais.SingleAsync(item => item.Nome == "Hospital Manual Santa Joana");
+        var storedConvenio = await context.Convenios.SingleAsync(item => item.DescricaoConvenio == "Convenio Manual Porto Seguro");
+
+        Assert.Equal(storedHospital.Id, storedPaciente.HospitalId);
+        Assert.Equal("Hospital Manual Santa Joana", storedPaciente.Hospital);
+        Assert.Equal(storedConvenio.IdConvenio, storedPaciente.ConvenioId);
+        Assert.Equal("Convenio Manual Porto Seguro", storedPaciente.Convenio);
+        Assert.Equal("Fornecedor Manual Gtech", storedPaciente.OpmeFornecedor);
+        Assert.Equal("10101012", storedPaciente.CbhpmCodigo);
+        Assert.Equal("Em consultorio", storedPaciente.Procedimento);
+        Assert.Equal(2, storedProcedimentos.Count);
+        Assert.Equal("10101012", storedProcedimentos[0].CbhpmCodigo);
+        Assert.Equal("Em consultorio", storedProcedimentos[0].Procedimento);
+        Assert.Equal("25252525", storedProcedimentos[1].CbhpmCodigo);
+        Assert.Equal("George Procedimento", storedProcedimentos[1].Procedimento);
+        Assert.Equal("25B", storedProcedimentos[1].CbhpmPorte);
+        Assert.Equal(2500m, storedProcedimentos[1].ValorReferencia);
+        Assert.Equal(storedHospital.Id, response.HospitalId);
+        Assert.Equal("Hospital Manual Santa Joana", response.Hospital);
+        Assert.Equal(storedConvenio.IdConvenio, response.ConvenioId);
+        Assert.Equal("Convenio Manual Porto Seguro", response.Convenio);
+        Assert.Equal(["Em consultorio", "George Procedimento"], response.Procedimentos.Select(item => item.Procedimento));
+        Assert.Contains(await context.OPME.ToListAsync(), item => item.Fornecedor == "Fornecedor Manual Gtech");
     }
 
     [Fact]
@@ -681,7 +782,7 @@ public class PacienteCommandHandlerTests
             Email = user.Email,
             Telefone = user.Telefone,
             Cpf = user.Cpf!,
-            DataNascimento = user.DataNascimento,
+            DataNascimento = user.DataNascimento!.Value,
             Ativo = true,
             CurrentUserId = user.Id,
             CurrentPerfilId = Perfil.PacientesId,
@@ -739,13 +840,16 @@ public class PacienteCommandHandlerTests
             Email = user.Email,
             Telefone = user.Telefone,
             Cpf = user.Cpf!,
-            DataNascimento = user.DataNascimento,
+            DataNascimento = user.DataNascimento!.Value,
             Ativo = true,
             HospitalId = 2,
             MedicoUserId = doctor.Id,
             Medico = doctorName,
             OpmeFornecedorId = 3,
             OpmeFornecedor = "GE",
+            Pagamento = "R$ 2.500,00",
+            RepasseGlosa = "R$ 125,50",
+            StatusPago = true,
             CurrentUserId = 99,
             CurrentPerfilId = Perfil.AdministradorId,
             CurrentUserName = "Admin"
@@ -759,6 +863,12 @@ public class PacienteCommandHandlerTests
         Assert.Equal(doctorName, response.Medico);
         Assert.Equal(3, response.OpmeFornecedorId);
         Assert.Equal("GE", response.OpmeFornecedor);
+        var storedFaturamento = await context.FaturamentosMedicos.SingleAsync();
+        Assert.Equal(2500m, storedFaturamento.HonorariosCirurgiao);
+        Assert.Equal(125.50m, storedFaturamento.ValorGlosa);
+        Assert.Equal(2374.50m, storedFaturamento.RepasseMedico);
+        Assert.Equal("GE", storedFaturamento.OpmeMateriaisEspeciais);
+        Assert.True(storedFaturamento.ConferenciaPagamentoRealizada);
         var storedUser = await context.Users.SingleAsync(storedUser => storedUser.Id == user.Id);
         Assert.NotNull(storedUser.DataAtualizacao);
         Assert.Equal(storedUser.DataAtualizacao, response.DataAtualizacao);
@@ -811,7 +921,7 @@ public class PacienteCommandHandlerTests
             Email = user.Email,
             Telefone = user.Telefone,
             Cpf = user.Cpf!,
-            DataNascimento = user.DataNascimento,
+            DataNascimento = user.DataNascimento!.Value,
             Ativo = true,
             HospitalId = 2,
             CurrentUserId = 999,
@@ -872,7 +982,7 @@ public class PacienteCommandHandlerTests
             Email = user.Email,
             Telefone = user.Telefone,
             Cpf = user.Cpf!,
-            DataNascimento = user.DataNascimento,
+            DataNascimento = user.DataNascimento!.Value,
             Ativo = true,
             HospitalId = 2,
             CurrentUserId = doctor.Id,

@@ -5,10 +5,12 @@ on:
     branches:
       - main
       - developer
+      - dev-local
   pull_request:
     branches:
       - main
       - developer
+      - dev-local
   workflow_dispatch:
 
 permissions:
@@ -37,11 +39,24 @@ jobs:
         with:
           dotnet-version: 10.0.x
 
+      - name: Restore local tools
+        run: dotnet tool restore
+
       - name: Restore
         run: dotnet restore ./HemodinksAPI.slnx
 
       - name: Build
         run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
+
+      - name: Validate migrations (dev-local)
+        if: github.ref_name == 'dev-local' || github.base_ref == 'dev-local'
+        shell: pwsh
+        run: ./scripts/Test-Migrations.ps1 -Configuration Release
+
+      - name: Validate migrations
+        if: github.ref_name != 'dev-local' && github.base_ref != 'dev-local'
+        shell: pwsh
+        run: ./scripts/Test-Migrations.ps1 -NoBuild -Configuration Release
 
       - name: Test
         run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
