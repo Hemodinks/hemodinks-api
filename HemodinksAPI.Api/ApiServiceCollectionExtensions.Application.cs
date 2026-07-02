@@ -7,6 +7,7 @@ using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Infrastructure.Data.Repositories;
 using HemodinksAPI.Infrastructure.HostedServices;
+using HemodinksAPI.Infrastructure.PasswordReset;
 using HemodinksAPI.Infrastructure.Queues;
 using HemodinksAPI.Infrastructure.Seeders;
 using HemodinksAPI.Infrastructure.Services;
@@ -87,6 +88,16 @@ public static partial class ApiServiceCollectionExtensions
         else
         {
             services.AddScoped<IFileExportQueue, DisabledFileExportQueue>();
+        }
+
+        var passwordResetFunctionsBaseUrl = configuration["PasswordResetFunctions:BaseUrl"];
+        if (!string.IsNullOrWhiteSpace(passwordResetFunctionsBaseUrl))
+        {
+            services.Configure<PasswordResetFunctionOptions>(configuration.GetSection("PasswordResetFunctions"));
+            services.AddHttpClient(nameof(PasswordResetFunctionClient));
+            services.AddSingleton<PasswordResetFunctionClient>();
+            services.AddScoped<IPasswordResetNotificationSender, FunctionBackedPasswordResetNotificationSender>();
+            return;
         }
 
         if (passwordResetQueueEnabled)

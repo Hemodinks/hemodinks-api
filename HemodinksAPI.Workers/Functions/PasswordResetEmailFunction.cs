@@ -1,8 +1,10 @@
+using System.Net;
 using System.Text.Json;
 using HemodinksAPI.Application.Async;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Infrastructure.Services;
 using Microsoft.Azure.Functions.Worker;
+using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
 
 namespace HemodinksAPI.Workers.Functions;
@@ -38,4 +40,37 @@ public class PasswordResetEmailFunction
 
         _logger.LogInformation("Email de reset de senha processado para {Email}", message.Email);
     }
+
+    [Function(nameof(SendPasswordResetEmailSync))]
+    public async Task<HttpResponseData> SendPasswordResetEmailSync(
+        [HttpTrigger(AuthorizationLevel.Function, "post", Route = "password-reset/send")] HttpRequestData request,
+        CancellationToken cancellationToken)
+    {
+        var payload = await JsonSerializer.DeserializeAsync<PasswordResetEmailRequest>(
+            request.Body,
+            JsonOptions,
+            cancellationToken)
+            ?? throw new InvalidOperationException("Payload de reset de senha invalido.");
+
+        await _sender.SendAsync(new PasswordResetNotification(
+            payload.Email,
+            payload.Nome,
+            payload.Token,
+            payload.ExpiresAt), cancellationToken);
+
+        _logger.LogInformation("Email de reset de senha enviado pela function HTTP para {Email}", payload.Email);
+
+        var response = request.CreateResponse(HttpStatusCode.OK);
+        response.Headers.Add("Content-Type", "application/json; charset=utf-8");
+        await response.WriteStringAsync(
+            JsonSerializer.Serialize(new { sent = true }, JsonOptions),
+            cancellationToken);
+        return response;
+    }
+
+    private sealed record PasswordResetEmailRequest(
+        string Email,
+        string Nome,
+        string Token,
+        DateTime ExpiresAt);
 }

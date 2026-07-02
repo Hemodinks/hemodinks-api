@@ -91,20 +91,42 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
 
         try
         {
-            await _passwordResetNotificationSender.SendAsync(new PasswordResetNotification(
+            var dispatchStatus = await _passwordResetNotificationSender.SendAsync(new PasswordResetNotification(
                 user.Email,
                 user.Nome,
                 token,
                 tokenEntity.ExpiresAt), cancellationToken);
+
+            response.Id = user.Id;
+            response.Mode = PasswordResetModes.EmailToken;
+            response.DebugToken = _options.ExposeTokenInResponse ? token : null;
+            response.Message = dispatchStatus == PasswordResetNotificationDispatchStatus.Sent
+                ? "Enviamos um email com o link para redefinir sua senha. Use o link recebido para cadastrar uma nova senha."
+                : "Recebemos sua solicitacao. Se o email estiver cadastrado, enviaremos as instrucoes para redefinir a senha.";
+            return response;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro ao enviar email de reset de senha para usuario {UserId}", user.Id);
+            return await HandleFallbackDefaultPasswordResetAsync(user, now, cancellationToken);
         }
+    }
 
-        response.Id = user.Id;
-        response.Mode = PasswordResetModes.EmailToken;
-        response.DebugToken = _options.ExposeTokenInResponse ? token : null;
-        return response;
+    private async Task<RequestPasswordResetResponse> HandleFallbackDefaultPasswordResetAsync(
+        Domain.Models.User user,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        await PasswordCommandMutations.InvalidateActiveTokensAsync(_context, user.Id, now, cancellationToken);
+        PasswordCommandMutations.ApplyDefaultPassword(user, _passwordHasher, now);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return new RequestPasswordResetResponse
+        {
+            Id = user.Id,
+            PrecisaTrocarSenha = user.PrecisaTrocarSenha,
+            Message = "Nao foi possivel enviar o email de redefinicao agora. A senha padrao foi aplicada para voce entrar e trocar a seguir.",
+            Mode = PasswordResetModes.DefaultPassword
+        };
     }
 }

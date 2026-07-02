@@ -16,7 +16,9 @@ public class AzureQueuePasswordResetNotificationSender : IPasswordResetNotificat
         _options = options.Value;
     }
 
-    public Task SendAsync(PasswordResetNotification notification, CancellationToken cancellationToken)
+    public async Task<PasswordResetNotificationDispatchStatus> SendAsync(
+        PasswordResetNotification notification,
+        CancellationToken cancellationToken)
     {
         var message = new PasswordResetEmailQueueMessage(
             notification.Email,
@@ -24,6 +26,7 @@ public class AzureQueuePasswordResetNotificationSender : IPasswordResetNotificat
             notification.Token,
             notification.ExpiresAt);
 
-        return _queuePublisher.EnqueueAsync(_options.PasswordResetEmailQueueName, message, cancellationToken);
+        await _queuePublisher.EnqueueAsync(_options.PasswordResetEmailQueueName, message, cancellationToken);
+        return PasswordResetNotificationDispatchStatus.Queued;
     }
 }
