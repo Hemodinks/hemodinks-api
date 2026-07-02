@@ -1,5 +1,6 @@
 using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.HostedServices;
+using HemodinksAPI.Application.Services;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -75,10 +76,29 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
                 services.Remove(eventWorker);
             }
 
+            var passwordResetSender = services.FirstOrDefault(descriptor =>
+                descriptor.ServiceType == typeof(IPasswordResetNotificationSender));
+
+            if (passwordResetSender != null)
+            {
+                services.Remove(passwordResetSender);
+            }
+
             services.AddDbContext<AppDbContext>(options =>
                 options.UseInMemoryDatabase(databaseName));
+            services.AddScoped<IPasswordResetNotificationSender, TestingPasswordResetNotificationSender>();
 
             _configureServices?.Invoke(services);
         });
+    }
+
+    private sealed class TestingPasswordResetNotificationSender : IPasswordResetNotificationSender
+    {
+        public Task<PasswordResetNotificationDispatchStatus> SendAsync(
+            PasswordResetNotification notification,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(PasswordResetNotificationDispatchStatus.Sent);
+        }
     }
 }

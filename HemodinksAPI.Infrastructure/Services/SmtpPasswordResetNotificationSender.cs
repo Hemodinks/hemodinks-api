@@ -21,12 +21,14 @@ public class SmtpPasswordResetNotificationSender : IPasswordResetNotificationSen
         _logger = logger;
     }
 
-    public async Task SendAsync(PasswordResetNotification notification, CancellationToken cancellationToken)
+    public async Task<PasswordResetNotificationDispatchStatus> SendAsync(
+        PasswordResetNotification notification,
+        CancellationToken cancellationToken)
     {
         if (!IsSmtpEnabled())
         {
-            _logger.LogWarning("Envio de email de reset ignorado porque Email:Provider nao esta configurado como Smtp/GmailSmtp");
-            return;
+            throw new InvalidOperationException(
+                "Email:Provider deve ser configurado como Smtp ou GmailSmtp para envio de reset de senha.");
         }
 
         ValidateOptions();
@@ -37,6 +39,7 @@ public class SmtpPasswordResetNotificationSender : IPasswordResetNotificationSen
 
         await client.SendMailAsync(message, cancellationToken);
         _logger.LogInformation("Email de reset de senha enviado para {Email}", notification.Email);
+        return PasswordResetNotificationDispatchStatus.Sent;
     }
 
     private bool IsSmtpEnabled()

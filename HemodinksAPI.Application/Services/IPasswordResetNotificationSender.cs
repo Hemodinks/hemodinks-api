@@ -2,7 +2,15 @@ namespace HemodinksAPI.Application.Services;
 
 public interface IPasswordResetNotificationSender
 {
-    Task SendAsync(PasswordResetNotification notification, CancellationToken cancellationToken);
+    Task<PasswordResetNotificationDispatchStatus> SendAsync(
+        PasswordResetNotification notification,
+        CancellationToken cancellationToken);
+}
+
+public enum PasswordResetNotificationDispatchStatus
+{
+    Sent = 1,
+    Queued = 2
 }
 
 public sealed record PasswordResetNotification(

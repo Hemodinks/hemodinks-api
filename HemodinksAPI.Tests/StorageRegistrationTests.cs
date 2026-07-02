@@ -5,6 +5,7 @@ using HemodinksAPI.Infrastructure.Queues;
 using HemodinksAPI.Infrastructure.Services;
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Infrastructure.Storage;
+using HemodinksAPI.Infrastructure.PasswordReset;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -107,6 +108,33 @@ public class StorageRegistrationTests
 
         Assert.IsType<SmtpPasswordResetNotificationSender>(serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
         Assert.IsType<DisabledFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
+    }
+
+    [Fact]
+    public void AddApplicationServices_WhenPasswordResetFunctionsAreConfigured_UsesFunctionBackedSender()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AsyncQueues:Enabled"] = "true",
+                ["AsyncQueues:FileExportEnabled"] = "true",
+                ["AsyncQueues:PasswordResetEnabled"] = "true",
+                ["AzureStorage:ConnectionString"] = "UseDevelopmentStorage=true",
+                ["PasswordResetFunctions:BaseUrl"] = "https://hemodinks-workers-confirmation.azurewebsites.net",
+                ["PasswordResetFunctions:FunctionKey"] = "secret"
+            })
+            .Build();
+
+        services.AddApplicationServices(configuration, new TestWebHostEnvironment(Environments.Development));
+
+        using var serviceProvider = services.BuildServiceProvider();
+
+        Assert.IsType<FunctionBackedPasswordResetNotificationSender>(
+            serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
+        Assert.IsType<AzureFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
     }
 
     [Fact]
