@@ -85,7 +85,7 @@ public static partial class ApiServiceCollectionExtensions
             {
                 Title = "Hemodinks API",
                 Version = "v1",
-                Description = "API ASP.NET Core/.NET 10 da Hemodinks, organizada em Domain, Application, Infrastructure e Api. Expoe autenticacao JWT, usuarios, pacientes, dashboard, CBHPM, licencas, agenda de eventos e lembretes. Use o esquema Bearer para chamadas protegidas.",
+                Description = "API ASP.NET Core/.NET 10 da Hemodinks, organizada em Domain, Application, Infrastructure e Api. Expoe autenticacao JWT, usuarios, pacientes, dashboard, CBHPM, licencas, agenda de eventos e lembretes. O reset por email pode sair por Function HTTP, fila Azure ou SMTP, conforme configuracao. Use o esquema Bearer para chamadas protegidas.",
                 Contact = new OpenApiContact
                 {
                     Name = "GM Tech Solutions - Hemodinks",

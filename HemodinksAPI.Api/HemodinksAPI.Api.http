@@ -10,6 +10,25 @@ GET {{baseUrl}}/swagger/v1/swagger.json
 ### Scalar/OpenAPI
 GET {{baseUrl}}/openapi/v1.json
 
+### Solicitar reset por email
+POST {{baseUrl}}/api/users/password/reset
+Content-Type: application/json
+Idempotency-Key: local-reset-001
+
+{
+  "email": "gmarcone@gmail.com"
+}
+
+### Confirmar reset por token
+POST {{baseUrl}}/api/users/password/reset/confirm
+Content-Type: application/json
+Idempotency-Key: local-reset-confirm-001
+
+{
+  "token": "cole_o_token_aqui",
+  "novaSenha": "NovaSenha@123"
+}
+
 ### Login
 POST {{baseUrl}}/api/users/authenticate
 Content-Type: application/json

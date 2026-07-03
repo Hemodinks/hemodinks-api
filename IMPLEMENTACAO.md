@@ -31,11 +31,23 @@ Classes principais:
 
 - `CreateUserCommandHandler`
 - `AuthenticateUserCommandHandler`
+- `ResetUserPasswordByEmailCommandHandler`
 - `GetAllUsersQueryHandler`
 - `JwtTokenService`
 - `PasswordHasher`
 - `UserPatientSyncService`
+- `FunctionBackedPasswordResetNotificationSender`
+- `AzureQueuePasswordResetNotificationSender`
+- `SmtpPasswordResetNotificationSender`
 - `AzureBlobProfilePhotoStorage`
+
+Fluxo atual de reset por email:
+
+1. `POST /api/users/password/reset` passa por rate limit e idempotencia.
+2. `ResetUserPasswordByEmailCommandHandler` cria o token temporario.
+3. Com `PasswordReset__UseEmail=true`, a API prioriza `PasswordResetFunctions__BaseUrl` + `PasswordResetFunctions__FunctionKey` para chamar o `HemodinksAPI.Workers` por HTTP.
+4. Sem configuracao HTTP valida, a API usa fila Azure se `AsyncQueues__PasswordResetEnabled=true`; caso contrario, tenta SMTP direto.
+5. Se o sender escolhido falhar em runtime, o handler aplica a senha padrao e obriga troca no proximo login.
 
 ### Pacientes
 
@@ -112,11 +124,13 @@ A API expoe:
 - OpenAPI JSON: `/openapi/v1.json`
 - Swagger JSON: `/swagger/v1/swagger.json`
 
+Em `Development` e `Testing`, essas rotas sobem automaticamente. Em ambientes publicados, exigem `ApiDocumentation__Enabled=true`.
+
 O documento OpenAPI inclui:
 
 - titulo `Hemodinks API`
 - versao `v1`
-- descricao dos modulos
+- descricao dos modulos e do fluxo de reset por email
 - esquema de seguranca `Bearer`
 
 ## Persistencia

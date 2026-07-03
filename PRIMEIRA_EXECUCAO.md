@@ -41,6 +41,8 @@ A API ficara em:
 - Scalar: `http://localhost:5000/scalar`
 - OpenAPI: `http://localhost:5000/openapi/v1.json`
 
+Em ambiente publicado, Swagger/Scalar/OpenAPI exigem `ApiDocumentation__Enabled=true`.
+
 ## Rodar localmente
 
 ```powershell
@@ -131,4 +133,4 @@ http://localhost:5173
 - [Implementacao](./IMPLEMENTACAO.md)
 - [Troubleshooting](./TROUBLESHOOTING.md)
 - [Deploy](./docs/deployment.md)
-- [Exemplos HTTP](./API.http)
+- [Exemplos HTTP](./HemodinksAPI.Api/HemodinksAPI.Api.http)

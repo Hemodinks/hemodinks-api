@@ -90,8 +90,7 @@ public static partial class ApiServiceCollectionExtensions
             services.AddScoped<IFileExportQueue, DisabledFileExportQueue>();
         }
 
-        var passwordResetFunctionsBaseUrl = configuration["PasswordResetFunctions:BaseUrl"];
-        if (!string.IsNullOrWhiteSpace(passwordResetFunctionsBaseUrl))
+        if (HasValidPasswordResetFunctionConfiguration(configuration))
         {
             services.Configure<PasswordResetFunctionOptions>(configuration.GetSection("PasswordResetFunctions"));
             services.AddHttpClient(nameof(PasswordResetFunctionClient));
@@ -148,5 +147,30 @@ public static partial class ApiServiceCollectionExtensions
         bool fallbackValue)
     {
         return configuration.GetValue<bool?>(featureKey) ?? fallbackValue;
+    }
+
+    private static bool HasValidPasswordResetFunctionConfiguration(IConfiguration configuration)
+    {
+        var baseUrl = configuration["PasswordResetFunctions:BaseUrl"];
+        var functionKey = configuration["PasswordResetFunctions:FunctionKey"];
+
+        return HasValidAbsoluteHttpUrl(baseUrl)
+            && !string.IsNullOrWhiteSpace(functionKey);
+    }
+
+    private static bool HasValidAbsoluteHttpUrl(string? baseUrl)
+    {
+        if (string.IsNullOrWhiteSpace(baseUrl))
+        {
+            return false;
+        }
+
+        var normalizedBaseUrl = baseUrl.Trim().TrimEnd('/');
+        normalizedBaseUrl = normalizedBaseUrl.EndsWith("/api", StringComparison.OrdinalIgnoreCase)
+            ? $"{normalizedBaseUrl}/"
+            : $"{normalizedBaseUrl}/api/";
+
+        return Uri.TryCreate(normalizedBaseUrl, UriKind.Absolute, out var uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps);
     }
 }

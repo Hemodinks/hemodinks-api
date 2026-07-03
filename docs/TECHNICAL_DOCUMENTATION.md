@@ -12,9 +12,9 @@ URLs principais:
 | Frontend producao | `https://hemodinks-saude.vercel.app` |
 | Frontend homologacao | `https://hemodinks-homologacao.vercel.app` |
 | API local | `http://localhost:5000` |
-| Swagger | `/swagger` |
-| Scalar | `/scalar` |
-| OpenAPI JSON | `/openapi/v1.json` |
+| Swagger | `/swagger` quando a documentacao interativa estiver habilitada |
+| Scalar | `/scalar` quando a documentacao interativa estiver habilitada |
+| OpenAPI JSON | `/openapi/v1.json` quando a documentacao interativa estiver habilitada |
 
 ## Projetos e responsabilidades
 
@@ -24,7 +24,7 @@ URLs principais:
 | `HemodinksAPI.Application` | commands, queries, handlers, DTOs, validadores, contratos e regras de aplicacao |
 | `HemodinksAPI.Infrastructure` | EF Core, migrations, seeders, JWT, storage, filas, notificacoes, worker de agenda e implementacoes concretas |
 | `HemodinksAPI.Api` | Minimal APIs, CORS, autenticacao/autorizacao, Swagger/Scalar, DI e composition root |
-| `HemodinksAPI.Workers` | Azure Functions isoladas para consumo de filas de email e exportacoes |
+| `HemodinksAPI.Workers` | Azure Functions isoladas para reset de senha por HTTP ou fila e para exportacoes |
 | `HemodinksAPI.Tests` | testes unitarios e de integracao |
 
 Direcao permitida:
@@ -52,7 +52,9 @@ flowchart LR
     Contracts --> Infra[Infrastructure Services]
     Infra --> Sql[(Azure SQL / SQL Server)]
     Infra --> Blob[(Azure Blob Storage)]
+    Infra --> ResetHttp[PasswordResetFunctionClient]
     Infra --> Queue[(Azure Queue Storage)]
+    ResetHttp --> Functions[HemodinksAPI.Workers]
     Queue --> Functions[HemodinksAPI.Workers]
     Functions --> Blob
     Infra --> Worker[EventNotificationHostedService]
@@ -194,6 +196,34 @@ Notas:
 - O dashboard tenta processar pendencias sem bloquear a tela caso notificacoes falhem.
 - A migration `EnsureEventReminderColumns` repara bancos que ja tinham `Events` sem colunas de lembrete.
 
+## Fluxo de reset de senha
+
+```mermaid
+flowchart TD
+    Request[POST /api/users/password/reset] --> RateLimit[Rate limit + Idempotency-Key]
+    RateLimit --> Handler[ResetUserPasswordByEmailCommandHandler]
+    Handler --> UseEmail{PasswordReset__UseEmail?}
+    UseEmail -- nao --> DefaultPassword[Aplica senha padrao]
+    UseEmail -- sim --> Token[Cria token temporario]
+    Token --> SenderChoice{PasswordResetFunctions valida?}
+    SenderChoice -- sim --> FunctionHttp[POST /api/password-reset/send no Function App]
+    SenderChoice -- nao --> QueueChoice{AsyncQueues__PasswordResetEnabled?}
+    QueueChoice -- sim --> Queue[Azure Queue password-reset-emails]
+    QueueChoice -- nao --> Smtp[SMTP direto na API]
+    FunctionHttp --> Success[Resposta de sucesso]
+    Queue --> Success
+    Smtp --> Success
+    FunctionHttp -. falha .-> Fallback[Fallback para senha padrao]
+    Queue -. falha .-> Fallback
+    Smtp -. falha .-> Fallback
+```
+
+Notas:
+
+- `PasswordResetFunctions__BaseUrl` precisa ser absoluta e incluir `http://` ou `https://`.
+- A API normaliza automaticamente o sufixo `/api` antes da chamada HTTP.
+- Se o sender falhar em runtime, a API invalida os tokens ativos, aplica a senha padrao e obriga troca no proximo login.
+
 ## Fluxo de licencas
 
 ```mermaid
@@ -241,10 +271,12 @@ flowchart LR
     API -->|SDK Azure.Storage.Blobs| Photos[(Blob profile-photos)]
     API -->|SDK Azure.Storage.Blobs| Files[(Blob patient-files)]
     API -->|Memoria local| CbhpmCache[IMemoryCache]
-    API -->|opcional: AsyncQueues__FileExportEnabled=true| Queue[(Azure Queue Storage)]
+    API -->|opcional: PasswordResetFunctions__* validas| FunctionHttp[Azure Functions HTTP]
+    API -->|opcional: filas para export e reset fallback| Queue[(Azure Queue Storage)]
     Queue --> Functions[Azure Functions HemodinksAPI.Workers]
+    FunctionHttp -->|reset por email| Email[Email reset senha]
     Functions -->|PDF/XLSX| ExportBlob[(Blob exports)]
-    Functions -->|SMTP| Email[Email reset senha]
+    Functions -->|SMTP| Email
 ```
 
 ## Recursos externos
@@ -253,8 +285,8 @@ flowchart LR
 | --- | --- | --- |
 | Azure SQL Database | usado | banco relacional da aplicacao |
 | Azure Blob Storage | usado | fotos, anexos e arquivos exportados |
-| Azure Queue Storage | opcional | jobs de exportacao PDF/XLSX quando `AsyncQueues__FileExportEnabled=true`, e reset por email apenas se `AsyncQueues__PasswordResetEnabled=true` |
-| Azure Functions | opcional | projeto `HemodinksAPI.Workers` consome `password-reset-emails` e `file-export-jobs` |
+| Azure Queue Storage | opcional | jobs de exportacao PDF/XLSX quando `AsyncQueues__FileExportEnabled=true`, e reset por email apenas como fallback quando `AsyncQueues__PasswordResetEnabled=true` |
+| Azure Functions | opcional | projeto `HemodinksAPI.Workers` atende reset por HTTP em `/api/password-reset/send` e consome `password-reset-emails` e `file-export-jobs` |
 | Render Worker separado | nao usado | worker atual roda dentro da API |
 
 ## Migrations e banco
@@ -272,7 +304,7 @@ O startup da API executa `Database.MigrateAsync()` automaticamente em bancos rel
 
 ## Documentacao interativa
 
-Swagger e Scalar sao servidos pela propria API:
+Swagger e Scalar sao servidos pela propria API. Em `Development` e `Testing`, eles sobem automaticamente. Em ambientes publicados, exigem `ApiDocumentation__Enabled=true`:
 
 - Swagger UI: `/swagger`
 - Scalar UI: `/scalar`
@@ -289,10 +321,12 @@ Os endpoints estao agrupados por tags:
 - `CBHPM`
 - `Hospitais`
 - `Convenios`
+- `Exports`
 
 ## Observacoes operacionais
 
 - `IMemoryCache` reduz leituras repetidas da tabela CBHPM, mas e cache local por instancia.
 - Azure SQL, Blob Storage, Queue Storage e Functions sao recursos externos cobrados conforme plano/uso.
 - O processamento de lembretes atual continua no `BackgroundService` interno.
-- No formato hibrido recomendado, o reset por email sai direto da API via SMTP e apenas as exportacoes usam `AsyncQueues__FileExportEnabled=true`. A API preserva token, rate limit, autorizacao e idempotencia, e o Worker executa a geracao dos arquivos exportados.
+- O reset por email segue a ordem Function HTTP valida -> fila Azure -> SMTP direto. Em falha de envio, o handler cai para senha padrao.
+- As exportacoes continuam no caminho assincrono por fila e `HemodinksAPI.Workers`.

@@ -12,7 +12,7 @@ API ASP.NET Core/.NET 10 para gestao de usuarios, pacientes, agenda, licencas, d
 - Serilog para logs em console e arquivo
 - New Relic APM via agente oficial .NET
 - Azure Blob Storage para fotos de perfil e anexos de pacientes
-- Azure Queue Storage + Azure Functions opcionais para email de reset e exportacoes PDF/XLSX
+- Azure Functions e Azure Queue Storage opcionais para reset de senha por HTTP/fila e para exportacoes PDF/XLSX
 - `BackgroundService` interno para lembretes da agenda
 - `IMemoryCache` para consulta CBHPM em memoria
 - Swagger/OpenAPI e Scalar para documentacao interativa
@@ -198,8 +198,10 @@ Quando a mesma requisicao bem-sucedida chega novamente com a mesma chave, a API 
 | `JwtSettings__Audience` | audiencia JWT |
 | `JwtSettings__ExpirationMinutes` | expiracao do token |
 | `Database__RunMigrationsOnStartup` | aplica migrations no startup quando `true` |
-| `PasswordReset__UseEmail` | envia reset por email quando `true`; usa senha padrao quando `false` |
+| `PasswordReset__UseEmail` | solicita redefinicao por email quando `true`; usa senha padrao quando `false` |
 | `Frontend__ResetPasswordUrl` | URL publica da tela de redefinicao de senha |
+| `PasswordResetFunctions__BaseUrl` | URL base absoluta do Function App para reset por HTTP; deve incluir `http://` ou `https://` |
+| `PasswordResetFunctions__FunctionKey` | function key usada ao chamar o endpoint HTTP de reset |
 | `Cors__AllowedOrigins__0` | origem adicional do frontend |
 | `AzureStorage__ConnectionString` | Storage Account Azure |
 | `AzureStorage__ContainerName` | container de fotos, padrao `profile-photos` |
@@ -208,16 +210,31 @@ Quando a mesma requisicao bem-sucedida chega novamente com a mesma chave, a API 
 | `AzureStorage__PatientFilesPublicBaseUrl` | URL publica do container de anexos |
 | `AzureStorage__PatientFileMaxBytes` | limite de upload de anexos |
 | `AsyncQueues__Enabled` | chave global de fallback para filas quando nao houver override por recurso |
-| `AsyncQueues__PasswordResetEnabled` | usa fila/Function para reset por email quando `true` |
+| `AsyncQueues__PasswordResetEnabled` | usa fila Azure para reset quando a Function HTTP nao estiver configurada de forma valida; se `false`, a API tenta SMTP direto |
 | `AsyncQueues__FileExportEnabled` | usa fila/Function para exportacoes quando `true` |
 | `AsyncQueues__ConnectionString` | connection string da Storage Account usada pelas filas; se vazio, usa `AzureStorage__ConnectionString` |
 | `AsyncQueues__PasswordResetEmailQueueName` | fila de emails de reset, padrao `password-reset-emails` |
 | `AsyncQueues__FileExportQueueName` | fila de exportacoes, padrao `file-export-jobs` |
+| `ApiDocumentation__Enabled` | expõe `/swagger`, `/scalar`, `/openapi/v1.json` e `/swagger/v1/swagger.json` fora de `Development` e `Testing` |
 | `StorageFunctions__BaseUrl` | URL base do Function App usada pela API para uploads HTTP de foto/anexos |
 | `StorageFunctions__FunctionKey` | function key usada pela API ao chamar os uploads HTTP |
 | `Licensing__TrialDays` | dias de trial para licencas medicas |
 
 Segredos nao devem ser gravados em `appsettings.json`.
+
+## Reset de senha por email
+
+Com `PasswordReset__UseEmail=true`, a API segue esta ordem para envio do reset:
+
+1. Se `PasswordResetFunctions__BaseUrl` for uma URL absoluta valida e `PasswordResetFunctions__FunctionKey` estiver preenchida, a API chama o Function App por HTTP.
+2. Caso contrario, se `AsyncQueues__PasswordResetEnabled=true`, a API enfileira a mensagem em `password-reset-emails`.
+3. Se a fila nao estiver ativa, a API tenta SMTP direto com `Email__*` e `Frontend__ResetPasswordUrl`.
+
+Observacoes:
+
+- `PasswordResetFunctions__BaseUrl` precisa incluir `http://` ou `https://`. A API normaliza automaticamente o sufixo `/api`.
+- Se o sender escolhido falhar em runtime, o handler aplica a senha padrao como fallback e obriga troca no proximo login.
+- `POST /api/users/password/reset` e `POST /api/users/password/reset/confirm` aceitam `Idempotency-Key` para retries seguros.
 
 ## Autenticacao, perfis e licencas
 
@@ -248,7 +265,7 @@ Regras principais:
 | --- | --- | --- | --- |
 | `GET` | `/healthz` | nao | health check |
 | `POST` | `/api/users/authenticate` | nao | login JWT |
-| `POST` | `/api/users/password/reset` | nao | reset por email |
+| `POST` | `/api/users/password/reset` | nao | solicita token de reset por email usando Function HTTP, fila Azure ou SMTP conforme configuracao |
 | `POST` | `/api/exports` | sim | enfileira exportacao PDF/XLSX |
 | `GET` | `/api/users` | admin | lista paginada de usuarios |
 | `POST` | `/api/users` | admin | cria usuario |
@@ -345,7 +362,7 @@ dotnet tool run dotnet-ef database update --project HemodinksAPI.Infrastructure 
 
 ## Documentacao interativa
 
-Swagger e Scalar ficam ativos em qualquer ambiente publicado:
+Swagger e Scalar ficam ativos automaticamente em `Development` e `Testing`. Em ambientes publicados, habilite `ApiDocumentation__Enabled=true` se quiser expor as rotas abaixo:
 
 - Swagger: `/swagger`
 - Scalar: `/scalar`
@@ -370,5 +387,5 @@ dotnet test HemodinksAPI.slnx --no-build
 - [Deploy](./docs/deployment.md)
 - [Documentacao tecnica](./docs/TECHNICAL_DOCUMENTATION.md)
 - [Migrations README](./HemodinksAPI.Infrastructure/Data/Migrations/README.md)
-- [Exemplos HTTP](./API.http)
+- [Exemplos HTTP](./HemodinksAPI.Api/HemodinksAPI.Api.http)
 - [Documentacao tecnica PDF](./docs/Hemodinks-Documentacao-Tecnica.pdf)
