@@ -21,9 +21,9 @@ Producao:
 | Frontend | `https://hemodinks-saude.vercel.app` |
 | Frontend homologacao | `https://hemodinks-homologacao.vercel.app` |
 | API | `https://<api-publica>` configurada em `VITE_API_URL` |
-| Swagger | `https://<api-publica>/swagger` |
-| Scalar | `https://<api-publica>/scalar` |
-| OpenAPI | `https://<api-publica>/openapi/v1.json` |
+| Swagger | `https://<api-publica>/swagger` quando `ApiDocumentation__Enabled=true` |
+| Scalar | `https://<api-publica>/scalar` quando `ApiDocumentation__Enabled=true` |
+| OpenAPI | `https://<api-publica>/openapi/v1.json` quando `ApiDocumentation__Enabled=true` |
 
 Se o servico Render usar o nome `hemodinks-api`, a URL publica normalmente fica no formato `https://hemodinks-api.onrender.com`, mas confirme no dashboard do Render.
 
@@ -80,6 +80,12 @@ Variaveis opcionais para observabilidade via New Relic:
 | `CORECLR_ENABLE_PROFILING` | ativa o profiler oficial quando `1` |
 | `NEW_RELIC_LICENSE_KEY` | license key da conta New Relic |
 | `NEW_RELIC_APP_NAME` | nome exibido no APM da New Relic |
+
+Variaveis opcionais uteis:
+
+| Chave | Descricao |
+| --- | --- |
+| `ApiDocumentation__Enabled` | expõe Swagger, Scalar e OpenAPI em ambiente publicado |
 
 Variaveis ja declaradas no blueprint:
 
@@ -204,21 +210,31 @@ Se as URLs publicas nao forem informadas, a API usa a URL retornada pelo SDK do 
 
 ## Azure Queue / Service Bus
 
-Azure Queue Storage agora e usado de forma opcional para dois fluxos assincronos:
+Azure Queue Storage e usado de forma opcional para dois fluxos assincronos:
 
-- envio de email de reset de senha
+- fallback do envio de email de reset de senha
 - exportacoes PDF/XLSX solicitadas por `/api/exports`
 
 A funcao de exportacao ja grava arquivos no container de exports com os metadados do job. O conteudo de negocio de cada relatorio deve evoluir dentro do `HemodinksAPI.Workers`, sem mover autorizacao, idempotencia ou regras sensiveis para fora da API.
 
-Ative apenas depois de publicar o Function App `HemodinksAPI.Workers`.
+Para reset de senha por email com `PasswordReset__UseEmail=true`, a API escolhe o sender nesta ordem:
+
+1. `PasswordResetFunctions__BaseUrl` absoluta valida + `PasswordResetFunctions__FunctionKey` preenchida: chamada HTTP direta ao Function App.
+2. `AsyncQueues__PasswordResetEnabled=true`: enfileira `password-reset-emails`.
+3. Sem Function HTTP valida e sem fila ativa: usa SMTP direto na API.
+
+Se o sender escolhido falhar em runtime, o handler aplica a senha padrao como fallback e exige troca no proximo login.
+
+Ative filas e/ou chamada HTTP do `HemodinksAPI.Workers` apenas depois de publicar o Function App.
 
 Variaveis da API:
 
 | Chave | Descricao |
 | --- | --- |
 | `AsyncQueues__Enabled` | fallback global das filas quando nao houver override por recurso |
-| `AsyncQueues__PasswordResetEnabled` | `true` para mandar reset por email para a Function; `false` usa SMTP direto na API |
+| `PasswordResetFunctions__BaseUrl` | URL base absoluta do Function App de reset; deve incluir `http://` ou `https://` |
+| `PasswordResetFunctions__FunctionKey` | function key usada na chamada HTTP de reset |
+| `AsyncQueues__PasswordResetEnabled` | `true` para usar fila Azure no reset quando a Function HTTP nao estiver configurada de forma valida |
 | `AsyncQueues__FileExportEnabled` | `true` para exportacoes assincronas pela Function |
 | `AsyncQueues__ConnectionString` | connection string da Storage Account das filas; se vazio, usa `AzureStorage__ConnectionString` |
 | `AsyncQueues__PasswordResetEmailQueueName` | padrao `password-reset-emails` |
@@ -249,13 +265,18 @@ A agenda usa um `BackgroundService` interno no proprio processo da API. Esse des
 No formato recomendado atual para a Hemodinks no Render Free:
 
 - `PasswordReset__UseEmail=true`
+- `PasswordResetFunctions__BaseUrl=https://<function-app>.azurewebsites.net`
+- `PasswordResetFunctions__FunctionKey=<function-key>`
 - `AsyncQueues__PasswordResetEnabled=true`
 - `AsyncQueues__FileExportEnabled=true`
 
-Assim, tanto o reset de senha quanto as exportacoes passam pela Azure Function. Isso evita o bloqueio de SMTP de saida do Render Free nas portas `25`, `465` e `587`.
+Assim, o reset de senha prioriza a chamada HTTP direta para a Azure Function, mantem a fila como fallback e deixa as exportacoes na trilha assincrona esperada. Isso evita depender de SMTP de saida do Render Free nas portas `25`, `465` e `587`.
 
-Se `AsyncQueues__PasswordResetEnabled=true` ou `AsyncQueues__FileExportEnabled=true` e a Function nao estiver ativa, a API continuara respondendo `200/202` apos enfileirar, mas os emails e arquivos ficarao parados na fila ate o worker processar.
-- auditoria assincrona
+Observacoes importantes:
+
+- `PasswordResetFunctions__BaseUrl` sem `https://` ou `http://` e tratada como invalida. Nesse caso, a API cai para fila ou SMTP.
+- A API normaliza automaticamente o sufixo `/api`, entao `https://<function-app>.azurewebsites.net` e `https://<function-app>.azurewebsites.net/api` funcionam.
+- Se `AsyncQueues__PasswordResetEnabled=true` ou `AsyncQueues__FileExportEnabled=true` e o worker nao estiver ativo, a API respondera `200` no reset e `202` nas exportacoes apos enfileirar, mas os emails e arquivos ficarao parados na fila ate o `HemodinksAPI.Workers` processar.
 
 ## Frontend
 
@@ -277,14 +298,22 @@ Para outras origens, configure `Cors__AllowedOrigins__0`, `Cors__AllowedOrigins_
 
 ```powershell
 curl https://<api-publica>/healthz
+```
+
+Se `ApiDocumentation__Enabled=true`, valide tambem:
+
+```powershell
 curl https://<api-publica>/openapi/v1.json
 ```
 
 No navegador:
 
+- `https://hemodinks-saude.vercel.app`
+
+Se `ApiDocumentation__Enabled=true`:
+
 - `https://<api-publica>/swagger`
 - `https://<api-publica>/scalar`
-- `https://hemodinks-saude.vercel.app`
 
 Endpoints autenticados para validar depois do login:
 

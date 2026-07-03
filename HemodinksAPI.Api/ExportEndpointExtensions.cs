@@ -16,7 +16,7 @@ public static class ExportEndpointExtensions
         group.MapPost("/", RequestExport)
             .WithName("RequestFileExport")
             .WithSummary("Solicitar exportacao PDF/XLSX")
-            .WithDescription("Enfileira uma exportacao de pacientes, faturamentos medicos ou CBHPM para processamento em Azure Functions.");
+            .WithDescription("Enfileira uma exportacao de pacientes, faturamentos medicos ou CBHPM para processamento no HemodinksAPI.Workers. O endpoint responde 202 Accepted.");
     }
 
     private static Task<IResult> RequestExport(
