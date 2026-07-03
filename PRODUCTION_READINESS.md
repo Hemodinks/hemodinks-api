@@ -9,6 +9,7 @@ Este checklist registra o que ja esta coberto no repositorio e o que ainda depen
 - [x] `/healthz` e `/` validam conectividade com o banco e migrations pendentes.
 - [x] Logs HTTP com Serilog, `TraceIdentifier` e header `X-Request-ID`.
 - [x] Reset de senha alternavel por ambiente: `PasswordReset__UseEmail=true|false`.
+- [x] Reset por email com cadeia Function HTTP -> fila Azure -> SMTP e fallback final para senha padrao se o sender falhar.
 - [x] Filas opcionais por recurso para reset de senha e exportacao PDF/XLSX.
 - [x] Trial/licenca com politicas por feature.
 - [x] Endpoints administrativos de licenca protegidos por perfil administrador.
@@ -109,14 +110,16 @@ Configuracoes externas recomendadas:
 - [ ] Clientes que fazem retry em `POST /api/events/` e reset de senha enviando `Idempotency-Key`.
 - [ ] Alerta para aumento de respostas 5xx.
 - [ ] Alerta para falhas de login/reset acima do normal.
+- [ ] Se quiser expor docs publicas, `ApiDocumentation__Enabled=true` e revise o risco de deixar Swagger/Scalar acessiveis externamente.
 
 ## Permissoes, roles e licenca
 
 Perfis atuais:
 
 - `1` - Administrador.
-- `2` - Medico.
+- `2` - Medicos.
 - `3` - Paciente.
+- `4` - Controller.
 
 Features atuais:
 
@@ -133,7 +136,7 @@ Trial atual:
 
 Completa:
 
-- Dashboard, pacientes para visualizacao e CBHPM. Criacao de pacientes e liberada para medico/controller; edicao e liberada para medico vinculado e controller; anexos do paciente tambem sao permitidos para medico vinculado. Exclusao permanece administrativa.
+- Dashboard, pacientes para visualizacao e CBHPM. Criacao de pacientes e liberada para medico/controller; edicao e liberada para medico vinculado e controller; anexos do paciente tambem sao permitidos para medico vinculado e controller. Exclusao permanece administrativa.
 
 Checklist antes de vender:
 
@@ -173,8 +176,16 @@ Quando usar email real:
 - Credenciais/API key do provedor escolhido
 - `Frontend__ResetPasswordUrl`
 
+Quando usar reset direto por Azure Function HTTP:
+
+- `PasswordReset__UseEmail=true`
+- `PasswordResetFunctions__BaseUrl` com `http://` ou `https://`
+- `PasswordResetFunctions__FunctionKey`
+- Function App `HemodinksAPI.Workers` publicado com o endpoint HTTP de reset
+
 Quando usar filas e Azure Functions:
 
+- `AsyncQueues__PasswordResetEnabled=true`
 - `AsyncQueues__FileExportEnabled=true`
 - `AsyncQueues__ConnectionString` ou `AzureStorage__ConnectionString`
 - `AsyncQueues__PasswordResetEmailQueueName`
@@ -183,6 +194,10 @@ Quando usar filas e Azure Functions:
 - `PasswordResetEmailQueueName` e `FileExportQueueName` no Function App iguais aos valores da API
 - `ExportsContainerName`
 - variaveis `Email__*` e `Frontend__ResetPasswordUrl` tambem configuradas no Function App
+
+Quando quiser documentacao interativa publica:
+
+- `ApiDocumentation__Enabled=true`
 
 ## Go-live minimo
 
@@ -197,5 +212,7 @@ Antes do primeiro cliente pagante:
 - [ ] Usuarios de seed/teste removidos ou com senha trocada.
 - [ ] Politica de trial/licenca validada.
 - [ ] Reset de senha definido: temporario por senha padrao ou definitivo por email.
+- [ ] Se usar `PasswordResetFunctions__BaseUrl`, confirmar URL absoluta com `https://` e `FunctionKey` valida.
 - [ ] Se `AsyncQueues__FileExportEnabled=true`, Function App ativo e filas/containers separados por ambiente.
+- [ ] Se `AsyncQueues__PasswordResetEnabled=true`, confirmar que a fila de reset e o `HemodinksAPI.Workers` estao operacionais.
 - [ ] Variaveis de producao revisadas sem secrets no Git.

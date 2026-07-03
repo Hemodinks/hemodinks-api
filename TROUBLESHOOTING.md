@@ -32,10 +32,71 @@ URLs esperadas:
 - `http://localhost:5000/scalar`
 - `http://localhost:5000/openapi/v1.json`
 
+Em `Development` e `Testing`, essas rotas sobem automaticamente. Em ambiente publicado, elas so existem se `ApiDocumentation__Enabled=true`.
+
 Se `/openapi/v1.json` falhar, rode:
 
 ```powershell
 dotnet build .\HemodinksAPI.Api\HemodinksAPI.Api.csproj
+```
+
+No Render ou outro ambiente publicado, confirme:
+
+```text
+ApiDocumentation__Enabled=true
+```
+
+## Reset de senha por email nao chega
+
+Confira primeiro se o fluxo por email esta ativo:
+
+```text
+PasswordReset__UseEmail=true
+```
+
+Depois valide a ordem de escolha da API:
+
+1. `PasswordResetFunctions__BaseUrl` valida + `PasswordResetFunctions__FunctionKey` preenchida -> chamada HTTP direta para o Function App.
+2. Sem configuracao HTTP valida, `AsyncQueues__PasswordResetEnabled=true` -> fila Azure `password-reset-emails`.
+3. Sem Function HTTP valida e sem fila ativa -> SMTP direto na API.
+
+Se estiver usando Function HTTP, confirme:
+
+```text
+PasswordResetFunctions__BaseUrl=https://<function-app>.azurewebsites.net
+PasswordResetFunctions__FunctionKey=<secret>
+```
+
+Notas:
+
+- `PasswordResetFunctions__BaseUrl` sem `https://` ou `http://` e tratada como invalida e faz a API cair para fila ou SMTP.
+- A API normaliza automaticamente o sufixo `/api`, entao a URL pode ser informada com ou sem esse trecho.
+
+Se estiver usando fila, confira:
+
+```text
+AsyncQueues__PasswordResetEnabled=true
+AsyncQueues__ConnectionString=<ou AzureStorage__ConnectionString>
+AsyncQueues__PasswordResetEmailQueueName=password-reset-emails
+```
+
+Tambem confirme que o `HemodinksAPI.Workers` esta ativo e escutando a mesma fila.
+
+Se estiver usando SMTP direto, confira:
+
+```text
+Email__Provider=GmailSmtp
+Email__Smtp__Host=smtp.gmail.com
+Email__Smtp__Username=<usuario>
+Email__Smtp__Password=<app-password>
+Email__FromEmail=<remetente>
+Frontend__ResetPasswordUrl=https://<frontend>/reset-password
+```
+
+Se o sender escolhido falhar em runtime, a API registra erro e cai para senha padrao. Nesse caso, procure nos logs por:
+
+```text
+Erro ao enviar email de reset de senha
 ```
 
 ## Banco nao conecta

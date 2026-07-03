@@ -69,13 +69,13 @@ public static partial class UserEndpointExtensions
         group.MapPost("/password/reset", ResetPasswordByEmail)
             .WithName("ResetPasswordByEmail")
             .WithSummary("Resetar senha por email")
-            .WithDescription("Solicita um token temporario para redefinicao de senha. Envie Idempotency-Key para tornar retries seguros.")
+            .WithDescription("Solicita um token temporario para redefinicao de senha. Com PasswordReset__UseEmail=true, a API prioriza Function HTTP valida, depois fila Azure e por fim SMTP. Envie Idempotency-Key para tornar retries seguros.")
             .RequireRateLimiting("PasswordReset");
 
         group.MapPost("/password/reset/confirm", ConfirmPasswordReset)
             .WithName("ConfirmPasswordReset")
             .WithSummary("Confirmar reset de senha")
-            .WithDescription("Redefine a senha usando token temporario. Envie Idempotency-Key para tornar retries seguros.")
+            .WithDescription("Redefine a senha usando o token temporario gerado anteriormente. Envie Idempotency-Key para tornar retries seguros.")
             .RequireRateLimiting("PasswordReset");
 
         group.MapPut("/{id}/password/reset", ResetPassword)

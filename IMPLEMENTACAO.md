@@ -6,47 +6,124 @@ Este documento resume a implementacao atual do backend.
 
 | Projeto | Conteudo |
 | --- | --- |
-| `HemodinksAPI.Domain` | entidades (`User`, `Paciente`, `Event`, `Licenca`, etc.) e utilitarios puros (`CpfUtils`, `DefaultUserPassword`) |
+| `HemodinksAPI.Domain` | entidades (`User`, `Paciente`, `Event`, `Licenca`, `ConfiguracaoSistema`, `GrupoMedico`, etc.) e utilitarios puros |
 | `HemodinksAPI.Application` | features por modulo, CQRS, DTOs, validadores, contratos e regras de aplicacao |
-| `HemodinksAPI.Infrastructure` | `AppDbContext`, migrations, seeders, JWT, storage Azure, notificacoes e hosted services |
+| `HemodinksAPI.Infrastructure` | `AppDbContext`, migrations, seeders, JWT, storage, filas, notificacoes e hosted services |
 | `HemodinksAPI.Api` | endpoints Minimal API, autenticacao, autorizacao, CORS, Swagger/Scalar e DI |
+| `HemodinksAPI.Workers` | Azure Functions para reset por email e exportacoes assincronas |
 | `HemodinksAPI.Tests` | testes unitarios e de integracao |
 
 ## Padrao de fluxo
 
 1. Endpoint recebe a requisicao HTTP.
-2. Autenticacao JWT e policies verificam acesso.
+2. JWT e policies verificam acesso.
 3. Endpoint monta command/query e envia via MediatR.
 4. `ValidationBehavior` executa validadores registrados.
 5. Handler aplica regras, usa contratos da Application e persiste via `IAppDbContext`.
-6. Infrastructure fornece implementacoes concretas de banco, storage, notificacao e hash.
+6. Infrastructure fornece banco, storage, notificacao, filas e hash.
 
 ## Modulos
 
-### Usuarios
+### Usuarios e autenticacao
 
-Responsavel por autenticacao, cadastro de usuarios, senha, foto de perfil e documentos de cadastro medico.
+Responsavel por login, reset de senha, foto de perfil, documentos do cadastro medico e atualizacao cadastral.
 
 Classes principais:
 
-- `CreateUserCommandHandler`
 - `AuthenticateUserCommandHandler`
+- `ResetUserPasswordByEmailCommandHandler`
+- `ConfirmPasswordResetCommandHandler`
 - `GetAllUsersQueryHandler`
+- `GetUserProfilePhotoQueryHandler`
 - `JwtTokenService`
 - `PasswordHasher`
 - `UserPatientSyncService`
-- `AzureBlobProfilePhotoStorage`
 
-### Pacientes
+### Pacientes e observacoes
 
-Responsavel pelo cadastro clinico/administrativo do paciente, vinculo com usuario do perfil Pacientes, anexos e selecao de procedimento CBHPM.
+Responsavel pelo cadastro clinico/administrativo do paciente, vinculo com usuario do perfil Paciente, anexos, observacoes e procedimentos CBHPM.
 
 Regras relevantes:
 
-- CPF e email obrigatorios.
-- CPF e email nao podem duplicar.
-- Medico so visualiza pacientes vinculados a ele; criacao e liberada para medico/controller, edicao e liberada para medico vinculado e controller, e anexos do proprio paciente tambem podem ser enviados/excluidos pelo medico vinculado. Exclusao continua restrita ao administrador.
-- Procedimentos CBHPM sao normalizados quando `CbhpmCodigo` e informado.
+- CPF e email sao unicos quando informados
+- medico e controller podem criar paciente
+- medico vinculado e controller podem editar dentro do escopo permitido
+- observacoes suportam resposta, destinatario e marcacao de leitura
+- procedimentos sao normalizados quando `CbhpmCodigo` e informado
+
+### Dashboard
+
+Responsavel por resumo e notificacoes. O modulo agrega agenda, observacoes nao lidas e indicadores operacionais respeitando perfil/licenca do usuario autenticado.
+
+### Agenda e notificacoes
+
+Responsavel por eventos, destinatarios permitidos, grupos medicos e lembretes internos.
+
+Endpoints principais:
+
+- `GET /api/events`
+- `GET /api/events/notification-recipients`
+- `POST /api/events/notifications/mark-read`
+- `POST /api/events`
+- `PUT /api/events/{id}`
+- `POST /api/events/{id}/complete`
+
+Implementacao principal:
+
+- `EventCommandHandlers`
+- `EventQueryHandlers`
+- `AgendaNotificationQueryHandlers`
+- `EventReminderProcessor`
+- `EventNotificationHostedService`
+
+### Faturamento medico
+
+Responsavel por listar dados de faturamento medico a partir do cadastro de pacientes, pagamentos, glosas, procedimentos e anexos.
+
+Classes principais:
+
+- `GetAllFaturamentosMedicosQueryHandler`
+- `FaturamentoMedicoScope`
+- `FaturamentoMedicoFilters`
+
+### Grupos medicos
+
+Responsavel por criar grupos de medicos e disponibilizar destinatarios reutilizaveis para a agenda.
+
+Classes principais:
+
+- `CreateGrupoMedicoCommandHandler`
+- `UpdateGrupoMedicoCommandHandler`
+- `DeleteGrupoMedicoCommandHandler`
+- `GrupoMedicoQueryHandlers`
+- `MedicalGroupScope`
+
+### Configuracao do sistema
+
+Responsavel pelo nome e pela foto da empresa que o front usa em login, pontos de marca e configuracoes.
+
+Classes principais:
+
+- `GetConfiguracaoSistemaQuery`
+- `GetConfiguracaoSistemaPhotoQuery`
+- `UpdateConfiguracaoSistemaCommand`
+- `ConfiguracaoSistemaRepository`
+
+### Licencas
+
+Responsavel por trial, plano completo e liberacao de features para medicos.
+
+Features atuais:
+
+- `Dashboard.Visualizar`
+- `Pacientes.Visualizar`
+- `Cbhpm.Consultar`
+
+Policies relacionadas:
+
+- `Licenca.Dashboard.Visualizar`
+- `Licenca.Pacientes.Visualizar`
+- `Licenca.Cbhpm.Consultar`
 
 ### CBHPM
 
@@ -56,86 +133,49 @@ Fluxo:
 
 1. `GET /api/cbhpm` recebe filtros.
 2. `GetCbhpmGeralQueryHandler` consulta `ICbhpmCache`.
-3. `CbhpmCache` carrega todos os itens da tabela `CBHPMGeral` na primeira chamada.
-4. Filtro e paginacao rodam em memoria.
+3. `CbhpmCache` carrega o snapshot na primeira chamada.
+4. Filtros e paginacao rodam em memoria.
 5. Importacao e seed invalidam o cache.
 
-### Dashboard
+### Exportacoes assincronas
 
-Responsavel por resumo e notificacoes. As consultas respeitam perfil e licenca do usuario autenticado.
-
-O dashboard tambem tenta processar lembretes vencidos da agenda, mas esse processamento e resiliente: falhas no worker de notificacao nao impedem a abertura do painel.
-
-### Agenda
-
-Responsavel por eventos, lembretes e notificacoes.
-
-Endpoints principais:
-
-- `GET /api/events`
-- `GET /api/events/medical-users`
-- `POST /api/events`
-- `PUT /api/events/{id}`
-- `POST /api/events/{id}/complete`
-- `DELETE /api/events/{id}`
-
-Regras:
-
-- Titulo obrigatorio.
-- `End` deve ser maior que `Start`.
-- Periodo de lembrete deve ficar entre 15 minutos e 7 dias.
-- `NextReminderAt` direciona a consulta de lembretes vencidos.
-- Evento concluido deixa de gerar novos lembretes.
-
-### Licencas
-
-Responsavel por trial, plano completo e features liberadas para medicos.
-
-Features atuais:
-
-- `Dashboard.Visualizar`
-- `Pacientes.Visualizar`
-- `Cbhpm.Consultar`
-
-Policies:
-
-- `Licenca.Dashboard.Visualizar`
-- `Licenca.Pacientes.Visualizar`
-- `Licenca.Cbhpm.Consultar`
+`POST /api/exports` enfileira jobs PDF/XLSX. A API continua dona de auth, rate limiting, idempotencia e payload. O `HemodinksAPI.Workers` executa o processamento pesado quando as filas estiverem habilitadas.
 
 ## Documentacao da API
 
-A API expoe:
+Em `Development` e `Testing`, a API expoe:
 
 - Swagger UI: `/swagger`
 - Scalar UI: `/scalar`
 - OpenAPI JSON: `/openapi/v1.json`
 - Swagger JSON: `/swagger/v1/swagger.json`
 
-O documento OpenAPI inclui:
-
-- titulo `Hemodinks API`
-- versao `v1`
-- descricao dos modulos
-- esquema de seguranca `Bearer`
+Em ambiente publicado, essas rotas exigem `ApiDocumentation__Enabled=true`.
 
 ## Persistencia
-
-Banco relacional: SQL Server local, SQL Server em container ou Azure SQL Database.
 
 Tabelas principais:
 
 - `Perfis`
 - `Users`
+- `UserArquivos`
 - `Licencas`
 - `Pacientes`
 - `PacienteArquivos`
 - `PacienteProcedimentos`
-- `UserArquivos`
-- `CBHPMGeral`
+- `Observacoes`
+- `AgendaNotifications`
+- `Events`
 - `Hospitais`
 - `Convenios`
-- `Events`
+- `Opmes`
+- `FaturamentosMedicos`
+- `GrupoMedicos`
+- `GrupoMedicoUsuarios`
+- `ConfiguracoesSistema`
+- `PasswordResetTokens`
+- `IdempotencyRequests`
+- `CBHPMGeral`
 
 Migrations ficam em:
 
@@ -143,39 +183,22 @@ Migrations ficam em:
 HemodinksAPI.Infrastructure/Data/Migrations
 ```
 
-Comandos EF Core:
-
-```powershell
-dotnet ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure --no-connect
-dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
-```
-
-## Arquivos e Azure Storage
+## Arquivos e recursos externos
 
 Fotos de perfil:
 
 - contrato: `IProfilePhotoStorage`
-- implementacao: `AzureBlobProfilePhotoStorage`
-- container padrao: `profile-photos`
+- implementacoes: `AzureBlobProfilePhotoStorage`, `LocalDiskProfilePhotoStorage`, `FunctionBackedProfilePhotoStorage`
 
 Anexos:
 
 - contrato: `IPatientFileStorage`
-- implementacao: `AzureBlobPatientFileStorage`
-- container padrao: `patient-files`
+- implementacoes: `AzureBlobPatientFileStorage`, `LocalDiskPatientFileStorage`, `FunctionBackedPatientFileStorage`
 
-Se a connection string do Azure Storage nao estiver configurada, operacoes sem upload continuam funcionando; uploads retornam erro de configuracao.
+Reset por email:
 
-## Processamento de lembretes
-
-Implementacao atual:
-
-- `EventNotificationHostedService`
-- `EventReminderProcessor`
-- `INotificationService`
-- `NotificationService` fake/log
-
-Esse desenho nao exige custo adicional de fila/worker externo. Para producao em escala, a interface permite trocar a implementacao por push, email, FCM, APNs, fila ou worker dedicado.
+- SMTP direto via `SmtpPasswordResetNotificationSender`
+- envio mediado por fila/Function quando habilitado
 
 ## Testes
 
@@ -186,11 +209,11 @@ dotnet test HemodinksAPI.slnx --no-build
 
 Cobertura existente valida:
 
-- comandos e queries de usuarios
-- regras de pacientes
-- consulta CBHPM com cache
-- importacao/seed CBHPM
-- licencas
-- endpoints de agenda
-- dashboard resiliente a falha de lembretes
-- permissoes e filtros principais
+- autenticacao, senha e licencas
+- queries e comandos de usuarios
+- regras de pacientes e observacoes
+- faturamento medico
+- CBHPM com cache
+- grupos medicos
+- storage local/Azure
+- endpoints principais e integracoes de API

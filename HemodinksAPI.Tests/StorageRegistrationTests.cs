@@ -138,6 +138,59 @@ public class StorageRegistrationTests
     }
 
     [Fact]
+    public void AddApplicationServices_WhenPasswordResetFunctionBaseUrlIsInvalid_UsesAzureQueueSender()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AsyncQueues:Enabled"] = "true",
+                ["AsyncQueues:FileExportEnabled"] = "true",
+                ["AsyncQueues:PasswordResetEnabled"] = "true",
+                ["AzureStorage:ConnectionString"] = "UseDevelopmentStorage=true",
+                ["PasswordResetFunctions:BaseUrl"] = "hemodinks-workers-confirmation.azurewebsites.net",
+                ["PasswordResetFunctions:FunctionKey"] = "secret"
+            })
+            .Build();
+
+        services.AddApplicationServices(configuration, new TestWebHostEnvironment(Environments.Development));
+
+        using var serviceProvider = services.BuildServiceProvider();
+
+        Assert.IsType<AzureQueuePasswordResetNotificationSender>(
+            serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
+        Assert.IsType<AzureFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
+    }
+
+    [Fact]
+    public void AddApplicationServices_WhenPasswordResetFunctionKeyIsMissing_UsesAzureQueueSender()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AsyncQueues:Enabled"] = "true",
+                ["AsyncQueues:FileExportEnabled"] = "true",
+                ["AsyncQueues:PasswordResetEnabled"] = "true",
+                ["AzureStorage:ConnectionString"] = "UseDevelopmentStorage=true",
+                ["PasswordResetFunctions:BaseUrl"] = "https://hemodinks-workers-confirmation.azurewebsites.net"
+            })
+            .Build();
+
+        services.AddApplicationServices(configuration, new TestWebHostEnvironment(Environments.Development));
+
+        using var serviceProvider = services.BuildServiceProvider();
+
+        Assert.IsType<AzureQueuePasswordResetNotificationSender>(
+            serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
+        Assert.IsType<AzureFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
+    }
+
+    [Fact]
     public void AddApplicationServices_WhenAsyncQueuesAreEnabled_UsesAzureQueues()
     {
         var services = new ServiceCollection();

@@ -165,7 +165,7 @@ def page_overview(c: canvas.Canvas, page: int) -> int:
     y = HEIGHT - 100
     y = draw_wrapped(
         c,
-        "O Hemodinks e uma aplicacao web composta por frontend React/Vite, API ASP.NET Core/.NET 10, banco SQL Server/Azure SQL e Azure Blob Storage para arquivos. A API usa Clean Architecture pragmatica, CQRS com MediatR, validacao em pipeline, JWT Bearer, EF Core, Serilog, Swagger, Scalar, agenda com lembretes e IMemoryCache para consultas CBHPM.",
+        "O Hemodinks e uma aplicacao web composta por frontend React/Vite, API ASP.NET Core/.NET 10, banco SQL Server/Azure SQL e Azure Blob Storage para arquivos. A API usa Clean Architecture pragmatica, CQRS com MediatR, validacao em pipeline, JWT Bearer, EF Core, Serilog, Swagger, Scalar, agenda com lembretes, grupos medicos, configuracao do sistema, faturamento medico, IMemoryCache para CBHPM e fluxos assincronos opcionais para reset de senha e exportacoes.",
         MARGIN,
         y,
         720,
@@ -180,6 +180,7 @@ def page_overview(c: canvas.Canvas, page: int) -> int:
     rows = [
         ("Frontend local", "http://localhost:5173"),
         ("Frontend producao", "https://hemodinks-saude.vercel.app"),
+        ("Frontend homologacao", "https://hemodinks-homologacao.vercel.app"),
         ("API local", "http://localhost:5000"),
         ("Swagger", "/swagger"),
         ("Scalar", "/scalar"),
@@ -204,7 +205,8 @@ def page_overview(c: canvas.Canvas, page: int) -> int:
             "Azure Blob Storage: containers profile-photos e patient-files.",
             "Agenda: lembretes processados por BackgroundService interno, sem fila paga nesta fase.",
             "Licencas: controle de trial, plano completo e features liberadas para medicos.",
-            "Azure Queue Storage / Service Bus: nao utilizado na versao atual; reservado para escala futura.",
+            "Azure Queue Storage: opcional para reset por email e exportacoes.",
+            "Azure Functions: usadas pelo HemodinksAPI.Workers para filas e processamento assincrono.",
             "IMemoryCache: cache local da API, sem recurso Azure separado.",
         ],
         MARGIN,
@@ -228,7 +230,7 @@ def page_architecture(c: canvas.Canvas, page: int) -> int:
     box(c, 640, 390, 130, 42, "Azure SQL\nDatabase", LIGHT_PURPLE, PURPLE)
     box(c, 640, 325, 130, 42, "Azure Blob\nStorage", LIGHT_PURPLE, PURPLE)
     box(c, 640, 260, 130, 42, "Worker Agenda\ninterno", LIGHT_ORANGE, ORANGE)
-    box(c, 640, 195, 130, 42, "Queue/Service Bus\nfuturo", LIGHT_RED, RED)
+    box(c, 640, 195, 130, 42, "Azure Queue /\nFunctions", LIGHT_RED, RED)
     arrow(c, 140, 412, 175, 412, "HTTPS")
     arrow(c, 295, 412, 330, 412, "REST + JWT")
     arrow(c, 435, 413, 470, 476)
@@ -238,15 +240,17 @@ def page_architecture(c: canvas.Canvas, page: int) -> int:
     arrow(c, 595, 346, 640, 411, "EF")
     arrow(c, 595, 346, 640, 346, "Blob SDK")
     arrow(c, 595, 346, 640, 281, "lembretes")
-    arrow(c, 595, 330, 640, 216, "escala futura", RED, dashed=True)
+    arrow(c, 595, 330, 640, 216, "reset/export", RED, dashed=True)
     y = 130
     bullet_list(
         c,
         [
             "Swagger e Scalar sao servidos pela propria API e consomem o documento OpenAPI gerado por Swashbuckle.",
+            "Em ambientes publicados, a documentacao interativa exige ApiDocumentation__Enabled=true.",
             "A consulta CBHPM aquece o cache na primeira chamada; filtros e paginacao seguintes rodam em memoria.",
             "Agenda usa BackgroundService interno e NextReminderAt para consultar apenas lembretes vencidos.",
             "Uploads usam Azure Blob Storage; o banco guarda a URL e os metadados.",
+            "Reset de senha por email segue a ordem Function HTTP valida, fila Azure e SMTP direto.",
         ],
         MARGIN,
         y,
@@ -492,18 +496,24 @@ def page_endpoints(c: canvas.Canvas, page: int) -> int:
     rows = [
         ("GET", "/healthz", "Health check publico"),
         ("POST", "/api/users/authenticate", "Login JWT"),
+        ("POST", "/api/users/password/reset", "Solicitacao de token de reset"),
+        ("POST", "/api/users/password/reset/confirm", "Confirmacao de reset por token"),
         ("GET", "/api/users", "Usuarios paginados"),
         ("GET", "/api/pacientes", "Pacientes paginados"),
-        ("POST", "/api/pacientes", "Cadastro de paciente"),
+        ("POST", "/api/pacientes/{id}/observacoes", "Observacoes do paciente"),
+        ("GET", "/api/faturamentos-medicos", "Faturamento medico paginado"),
+        ("GET", "/api/grupos-medicos", "Grupos medicos"),
+        ("GET", "/api/configuracoes-sistema/current", "Configuracao publica do sistema"),
         ("GET", "/api/cbhpm", "Consulta CBHPM paginada com cache"),
         ("GET", "/api/dashboard/summary", "Resumo do dashboard"),
         ("GET", "/api/events", "Eventos da agenda por periodo"),
         ("POST", "/api/events", "Criacao de evento com lembretes"),
+        ("GET", "/api/events/notification-recipients", "Destinatarios permitidos"),
         ("POST", "/api/events/{id}/complete", "Conclusao de evento"),
         ("GET", "/api/licencas/current", "Licenca do usuario autenticado"),
         ("PUT", "/api/licencas/users/{userId}", "Atualizacao de licenca admin"),
-        ("GET", "/api/hospitais", "Catalogo de hospitais"),
-        ("GET", "/api/convenios", "Catalogo de convenios"),
+        ("GET", "/api/opme", "Catalogo OPME"),
+        ("POST", "/api/exports", "Exportacao assincrona PDF/XLSX"),
     ]
     x = 55
     y = 455
@@ -536,6 +546,7 @@ def page_endpoints(c: canvas.Canvas, page: int) -> int:
             "Scalar UI: /scalar",
             "OpenAPI JSON usado pelo Scalar: /openapi/v1.json",
             "Swagger JSON: /swagger/v1/swagger.json",
+            "Em ambiente publicado, habilite ApiDocumentation__Enabled=true.",
         ],
         x,
         y,

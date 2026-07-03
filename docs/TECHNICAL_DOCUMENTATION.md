@@ -2,7 +2,7 @@
 
 ## Visao geral
 
-O Hemodinks e composto por frontend React/Vite, API ASP.NET Core/.NET 10, persistencia em SQL Server/Azure SQL e armazenamento de arquivos em Azure Blob Storage. A API foi organizada em Clean Architecture pragmatica com CQRS, MediatR, validacao em pipeline, EF Core e Minimal APIs.
+O Hemodinks combina frontend React/Vite, API ASP.NET Core/.NET 10, SQL Server/Azure SQL, Azure Blob Storage e componentes opcionais de fila/Functions para reset de senha e exportacoes. A API segue Clean Architecture pragmatica com CQRS, MediatR, validacao em pipeline, EF Core, Minimal APIs, JWT e politicas por perfil/licenca.
 
 URLs principais:
 
@@ -10,34 +10,25 @@ URLs principais:
 | --- | --- |
 | Frontend local | `http://localhost:5173` |
 | Frontend producao | `https://hemodinks-saude.vercel.app` |
-| Frontend homologacao | `https://hemodinks-homologacao.vercel.app` |
+| Frontend homologacao principal | `https://hemodinks-homologacao.vercel.app` |
+| Frontend confirmation Render opcional | `https://hemodinks-front-confirmation.onrender.com` |
 | API local | `http://localhost:5000` |
-| Swagger | `/swagger` |
-| Scalar | `/scalar` |
-| OpenAPI JSON | `/openapi/v1.json` |
+| Swagger local | `/swagger` |
+| Scalar local | `/scalar` |
+| OpenAPI JSON local | `/openapi/v1.json` |
+
+Em ambiente publicado, as rotas de documentacao interativa exigem `ApiDocumentation__Enabled=true`.
 
 ## Projetos e responsabilidades
 
 | Projeto | Responsabilidade |
 | --- | --- |
-| `HemodinksAPI.Domain` | entidades, constantes de dominio e utilitarios puros |
-| `HemodinksAPI.Application` | commands, queries, handlers, DTOs, validadores, contratos e regras de aplicacao |
-| `HemodinksAPI.Infrastructure` | EF Core, migrations, seeders, JWT, storage, filas, notificacoes, worker de agenda e implementacoes concretas |
-| `HemodinksAPI.Api` | Minimal APIs, CORS, autenticacao/autorizacao, Swagger/Scalar, DI e composition root |
-| `HemodinksAPI.Workers` | Azure Functions isoladas para consumo de filas de email e exportacoes |
+| `HemodinksAPI.Domain` | entidades, constantes e utilitarios puros |
+| `HemodinksAPI.Application` | commands, queries, handlers, DTOs, validadores, contratos e regras |
+| `HemodinksAPI.Infrastructure` | EF Core, migrations, seeders, JWT, storage, notificacoes, filas e implementacoes concretas |
+| `HemodinksAPI.Api` | Minimal APIs, auth, CORS, Swagger/Scalar e composition root |
+| `HemodinksAPI.Workers` | Azure Functions para jobs assincronos |
 | `HemodinksAPI.Tests` | testes unitarios e de integracao |
-
-Direcao permitida:
-
-```mermaid
-flowchart LR
-    Api[HemodinksAPI.Api] --> Application[HemodinksAPI.Application]
-    Api --> Infrastructure[HemodinksAPI.Infrastructure]
-    Api --> Domain[HemodinksAPI.Domain]
-    Infrastructure --> Application
-    Infrastructure --> Domain
-    Application --> Domain
-```
 
 ## Componentes
 
@@ -54,104 +45,96 @@ flowchart LR
     Infra --> Blob[(Azure Blob Storage)]
     Infra --> Queue[(Azure Queue Storage)]
     Queue --> Functions[HemodinksAPI.Workers]
-    Functions --> Blob
     Infra --> Worker[EventNotificationHostedService]
-    Handlers --> Cache[IMemoryCache CBHPM]
+    Handlers --> Cache[IMemoryCache]
 ```
 
-## MER principal
+## Modulos funcionais
 
-```mermaid
-erDiagram
-    PERFIS ||--o{ USERS : possui
-    USERS ||--o| PACIENTES : sincroniza
-    USERS ||--o{ USER_ARQUIVOS : possui
-    USERS ||--o| LICENCAS : possui
-    USERS ||--o{ EVENTS : cria
-    USERS ||--o{ EVENTS : recebe_como_medico
-    PACIENTES ||--o{ PACIENTE_ARQUIVOS : possui
-    PACIENTES ||--o{ PACIENTE_PROCEDIMENTOS : possui
-    HOSPITAIS ||--o{ PACIENTES : referencia
-    CONVENIOS ||--o{ PACIENTES : referencia
-    CBHPM_GERAL ||--o{ PACIENTES : codigo_logico
+### Usuarios e autenticacao
 
-    PERFIS {
-        int Id PK
-        string Nome
-    }
+- login JWT
+- reset de senha por email/token
+- reset administrativo para senha padrao
+- foto de perfil
+- anexos do cadastro medico
 
-    USERS {
-        int Id PK
-        int PerfilId FK
-        string Nome
-        string Email
-        string Telefone
-        string Cpf
-        string Crm
-        string CrmUf
-        string FotoPerfil
-        string Senha
-        datetime DataCadastro
-        datetime DataAtualizacao
-        datetime DataNascimento
-        bool Ativo
-        bool PrecisaTrocarSenha
-    }
+### Pacientes e observacoes
 
-    LICENCAS {
-        int Id PK
-        int UserId FK
-        string Plano
-        string Status
-        datetime DataInicioTrial
-        datetime DataFimTrial
-        datetime DataFimLicenca
-        string FeaturesLiberadas
-        string Observacoes
-    }
+- cadastro clinico/administrativo
+- procedimentos CBHPM
+- anexos
+- observacoes com resposta e leitura
+- vinculo com usuario do perfil Paciente
 
-    PACIENTES {
-        int Id PK
-        int UserId FK
-        int HospitalId FK
-        int MedicoUserId FK
-        int ConvenioId FK
-        datetime Data
-        string NomePaciente
-        string CbhpmCodigo
-        string CbhpmPorte
-        string Procedimento
-        bool StatusPago
-    }
+### Dashboard
 
-    EVENTS {
-        int Id PK
-        int UserId FK
-        int MedicalUserId FK
-        string Title
-        datetime Start
-        datetime End
-        bool NotifyMedicalProfile
-        bool NotifyUser
-        int ReminderPeriodMinutes
-        datetime NextReminderAt
-        datetime LastReminderSentAt
-        bool IsCompleted
-    }
+- resumo operacional
+- notificacoes da agenda
+- observacoes nao lidas
+- indicadores condicionados por licenca
 
-    CBHPM_GERAL {
-        int Id PK
-        string Codigo UK
-        string Procedimento
-        string Porte
-        decimal CustoOperacional
-        decimal ValorReferencia
-        string Capitulo
-        string Grupo
-    }
-```
+### Agenda e notificacoes
 
-## Fluxo HTTP e CQRS
+- CRUD de eventos
+- destinatarios permitidos por usuario/grupo
+- notificacao para usuario, perfil medico e grupos medicos
+- lembretes com `NextReminderAt`
+
+### Faturamento medico
+
+- leitura agregada do faturamento
+- escopo por perfil
+- totais, glosas, convenios e checklist
+
+### Grupos medicos
+
+- CRUD de grupos
+- membros medicos por escopo
+- apoio a notificacoes da agenda
+
+### Configuracao do sistema
+
+- nome da empresa
+- foto da empresa
+- endpoint publico para login e branding do front
+
+### Licencas
+
+- trial
+- plano completo
+- liberacao de features por medico
+
+### CBHPM
+
+- consulta paginada
+- importacao administrativa
+- cache em memoria
+
+### Exportacoes assincronas
+
+- endpoint `POST /api/exports`
+- filas opcionais
+- processamento no `HemodinksAPI.Workers`
+
+## Perfis e escopo
+
+| Id | Perfil | Escopo principal |
+| --- | --- | --- |
+| 1 | Administrador | gestao completa |
+| 2 | Medicos | agenda, pacientes vinculados, faturamento proprio, meu cadastro |
+| 3 | Paciente | proprio cadastro quando vinculado |
+| 4 | Controller | pacientes, faturamento e operacoes liberadas por policy |
+
+Features de licenca atuais:
+
+- `Dashboard.Visualizar`
+- `Pacientes.Visualizar`
+- `Cbhpm.Consultar`
+
+## Fluxos principais
+
+### Fluxo HTTP e CQRS
 
 ```mermaid
 flowchart TB
@@ -160,20 +143,20 @@ flowchart TB
     Auth --> Mediator[MediatR]
     Mediator --> Validation[ValidationBehavior]
     Validation --> Handler[Command/Query Handler]
-    Handler --> Rules[Regras de Aplicacao]
+    Handler --> Rules[Regras de aplicacao]
     Handler --> Db[IAppDbContext]
-    Handler --> Storage[IProfilePhotoStorage/IPatientFileStorage]
-    Handler --> Notifications[INotificationService]
+    Handler --> Storage[IProfilePhotoStorage / IPatientFileStorage]
+    Handler --> Services[Servicos de dominio e infraestrutura]
     Db --> Sql[(SQL Server)]
     Storage --> Blob[(Azure Blob)]
-    Handler --> Response[DTO/Result]
+    Handler --> Response[DTO / Result]
 ```
 
-## Fluxo de agenda
+### Fluxo de agenda e notificacoes
 
 ```mermaid
 flowchart TD
-    User[Usuario autenticado] --> Calendar[Calendario no frontend]
+    User[Usuario autenticado] --> Calendar[Front agenda]
     Calendar --> Payload[EventRequest]
     Payload --> Create[POST /api/events]
     Create --> Validate[ValidationBehavior + EventFeatureRules]
@@ -187,14 +170,18 @@ flowchart TD
     Complete -- sim --> Stop[Para lembretes]
 ```
 
-Notas:
+### Fluxo de observacoes do paciente
 
-- A agenda usa `NextReminderAt` para consultar apenas pendencias vencidas.
-- O worker roda no proprio processo da API, adequado para Render Free e baixo custo inicial.
-- O dashboard tenta processar pendencias sem bloquear a tela caso notificacoes falhem.
-- A migration `EnsureEventReminderColumns` repara bancos que ja tinham `Events` sem colunas de lembrete.
+```mermaid
+flowchart TD
+    Screen[Modal de observacoes] --> List[GET /api/pacientes/{id}/observacoes]
+    Screen --> Create[POST /api/pacientes/{id}/observacoes]
+    List --> Read[POST /api/pacientes/{id}/observacoes/marcar-lidas]
+    Create --> Rules[PacienteObservacaoRecipients]
+    Rules --> Db[(Observacoes)]
+```
 
-## Fluxo de licencas
+### Fluxo de licencas
 
 ```mermaid
 flowchart TD
@@ -208,17 +195,11 @@ flowchart TD
     Allow -- nao --> Forbidden[403]
 ```
 
-Features atuais:
-
-- `Dashboard.Visualizar`
-- `Pacientes.Visualizar`
-- `Cbhpm.Consultar`
-
-## Fluxo de CBHPM
+### Fluxo de CBHPM
 
 ```mermaid
 flowchart TD
-    Startup[Startup da API] --> Migration[Migrations]
+    Startup[Startup API] --> Migration[Migrations]
     Migration --> Seed[CbhpmSeeder]
     Seed --> Table[(CBHPMGeral)]
     Request[GET /api/cbhpm] --> Cache[ICbhpmCache]
@@ -227,24 +208,42 @@ flowchart TD
     Table --> Snapshot[Carrega snapshot ordenado]
     Snapshot --> Filter[Filtra por codigo, procedimento, porte ou search]
     Memory -- preenchido --> Filter
-    Filter --> Pagination[Pagina resultado]
+    Filter --> Pagination[Paginacao]
     Import[POST /api/cbhpm/import] --> Table
     Import --> Invalidate[Invalidate cache]
 ```
 
-## Comunicacao com Azure e Render
+## Persistencia
 
-```mermaid
-flowchart LR
-    Front[Vercel Frontend] -->|HTTPS REST + JWT| API[Render Docker API]
-    API -->|EF Core SQL| AzureSql[(Azure SQL Database)]
-    API -->|SDK Azure.Storage.Blobs| Photos[(Blob profile-photos)]
-    API -->|SDK Azure.Storage.Blobs| Files[(Blob patient-files)]
-    API -->|Memoria local| CbhpmCache[IMemoryCache]
-    API -->|opcional: AsyncQueues__FileExportEnabled=true| Queue[(Azure Queue Storage)]
-    Queue --> Functions[Azure Functions HemodinksAPI.Workers]
-    Functions -->|PDF/XLSX| ExportBlob[(Blob exports)]
-    Functions -->|SMTP| Email[Email reset senha]
+Entidades principais:
+
+- `Perfis`
+- `Users`
+- `UserArquivos`
+- `Licencas`
+- `Pacientes`
+- `PacienteArquivos`
+- `PacienteProcedimentos`
+- `Observacoes`
+- `AgendaNotifications`
+- `Events`
+- `Hospitais`
+- `Convenios`
+- `Opmes`
+- `FaturamentosMedicos`
+- `GrupoMedicos`
+- `GrupoMedicoUsuarios`
+- `ConfiguracoesSistema`
+- `PasswordResetTokens`
+- `IdempotencyRequests`
+- `CBHPMGeral`
+
+Migrations ficam em `HemodinksAPI.Infrastructure/Data/Migrations` e podem ser validadas com:
+
+```powershell
+dotnet tool restore
+pwsh ./scripts/Test-Migrations.ps1
+dotnet tool run dotnet-ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api --no-connect
 ```
 
 ## Recursos externos
@@ -253,22 +252,10 @@ flowchart LR
 | --- | --- | --- |
 | Azure SQL Database | usado | banco relacional da aplicacao |
 | Azure Blob Storage | usado | fotos, anexos e arquivos exportados |
-| Azure Queue Storage | opcional | jobs de exportacao PDF/XLSX quando `AsyncQueues__FileExportEnabled=true`, e reset por email apenas se `AsyncQueues__PasswordResetEnabled=true` |
-| Azure Functions | opcional | projeto `HemodinksAPI.Workers` consome `password-reset-emails` e `file-export-jobs` |
-| Render Worker separado | nao usado | worker atual roda dentro da API |
-
-## Migrations e banco
-
-Migrations ficam em `HemodinksAPI.Infrastructure/Data/Migrations`.
-
-Comandos uteis:
-
-```powershell
-dotnet ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure --no-connect
-dotnet ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Infrastructure
-```
-
-O startup da API executa `Database.MigrateAsync()` automaticamente em bancos relacionais.
+| Azure Queue Storage | opcional | reset por email e jobs de exportacao |
+| Azure Functions | opcional | projeto `HemodinksAPI.Workers` |
+| New Relic APM | opcional | telemetria APM da API |
+| Worker Render separado | nao usado | lembretes atuais rodam no `BackgroundService` interno |
 
 ## Documentacao interativa
 
@@ -276,23 +263,28 @@ Swagger e Scalar sao servidos pela propria API:
 
 - Swagger UI: `/swagger`
 - Scalar UI: `/scalar`
-- OpenAPI JSON usado pelo Scalar: `/openapi/v1.json`
+- OpenAPI JSON: `/openapi/v1.json`
 - Swagger JSON: `/swagger/v1/swagger.json`
 
-Os endpoints estao agrupados por tags:
+Tags atuais do documento OpenAPI:
 
-- `Dashboard`
-- `Usuarios`
+- `Users`
 - `Pacientes`
+- `Dashboard`
 - `Agenda e notificacoes`
+- `Faturamento medico`
+- `GruposMedicos`
+- `ConfiguracoesSistema`
 - `Licencas`
 - `CBHPM`
 - `Hospitais`
 - `Convenios`
+- `OPME`
+- `Exports`
 
 ## Observacoes operacionais
 
-- `IMemoryCache` reduz leituras repetidas da tabela CBHPM, mas e cache local por instancia.
-- Azure SQL, Blob Storage, Queue Storage e Functions sao recursos externos cobrados conforme plano/uso.
-- O processamento de lembretes atual continua no `BackgroundService` interno.
-- No formato hibrido recomendado, o reset por email sai direto da API via SMTP e apenas as exportacoes usam `AsyncQueues__FileExportEnabled=true`. A API preserva token, rate limit, autorizacao e idempotencia, e o Worker executa a geracao dos arquivos exportados.
+- `IMemoryCache` de CBHPM e local por instancia
+- `EventNotificationHostedService` e o worker atual de lembretes
+- configuracao do sistema e anonima para permitir branding no login do front
+- exportacoes e reset por email podem sair da API para filas/Functions sem mover auth e regras de negocio
