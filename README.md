@@ -1,6 +1,6 @@
 # Hemodinks API
 
-API ASP.NET Core/.NET 10 para gestao de usuarios, pacientes, agenda, licencas, dashboard, arquivos e consulta CBHPM.
+API ASP.NET Core/.NET 10 para usuarios, pacientes, observacoes, agenda/notificacoes, faturamento medico, grupos medicos, licencas, configuracao do sistema, arquivos, exportacoes e consulta CBHPM.
 
 ## Stack
 
@@ -8,30 +8,33 @@ API ASP.NET Core/.NET 10 para gestao de usuarios, pacientes, agenda, licencas, d
 - Clean Architecture pragmatica em `Domain`, `Application`, `Infrastructure` e `Api`
 - CQRS com MediatR e pipeline de validacao
 - Entity Framework Core 10 com SQL Server/Azure SQL
-- JWT Bearer para autenticacao e autorizacao por perfil/licenca
-- Serilog para logs em console e arquivo
-- New Relic APM via agente oficial .NET
-- Azure Blob Storage para fotos de perfil e anexos de pacientes
-- Azure Functions e Azure Queue Storage opcionais para reset de senha por HTTP/fila e para exportacoes PDF/XLSX
+- JWT Bearer com autorizacao por perfil e por licenca
+- Serilog para logs estruturados
+- New Relic APM opcional
+- Azure Blob Storage para fotos e anexos
+- Azure Queue Storage + Azure Functions opcionais para reset por email e exportacoes
 - `BackgroundService` interno para lembretes da agenda
-- `IMemoryCache` para consulta CBHPM em memoria
-- Swagger/OpenAPI e Scalar para documentacao interativa
-- Docker, Docker Compose, Render e GitHub Actions
+- `IMemoryCache` para CBHPM
+- Swagger/OpenAPI e Scalar
+- Docker, Render e GitHub Actions
 
 ## Arquitetura
 
 ```text
 HemodinksAPI.Domain
-  Entidades, constantes de dominio e utilitarios puros.
+  Entidades, constantes e utilitarios puros.
 
 HemodinksAPI.Application
-  Commands, queries, handlers, DTOs, validadores, contratos e regras de aplicacao.
+  Commands, queries, handlers, DTOs, validadores, contratos e regras.
 
 HemodinksAPI.Infrastructure
-  EF Core, migrations, seeders, JWT, storage, notificacoes, workers e servicos concretos.
+  EF Core, migrations, seeders, JWT, storage, notificacoes, filas e servicos concretos.
 
 HemodinksAPI.Api
-  Minimal APIs, CORS, auth, Swagger/Scalar, DI e composition root.
+  Minimal APIs, auth, CORS, Swagger/Scalar e composition root.
+
+HemodinksAPI.Workers
+  Azure Functions isoladas para jobs assincronos.
 ```
 
 Direcao das dependencias:
@@ -60,9 +63,12 @@ Ambientes publicados:
 
 | Recurso | URL |
 | --- | --- |
-| Frontend producao | `https://hemodinks-saude.vercel.app` |
-| Frontend homologacao | `https://hemodinks-homologacao.vercel.app` |
+| Front producao | `https://hemodinks-saude.vercel.app` |
+| Front homologacao principal | `https://hemodinks-homologacao.vercel.app` |
+| Front confirmation Render opcional | `https://hemodinks-front-confirmation.onrender.com` |
 | API | configure em `VITE_API_URL`, por exemplo `https://hemodinks-api.onrender.com` |
+
+Em ambiente publicado, Swagger/Scalar/OpenAPI so aparecem quando `ApiDocumentation__Enabled=true`.
 
 ## Como executar
 
@@ -74,15 +80,12 @@ Copy-Item .env.example .env
 docker-compose up -d
 ```
 
-A API aplica migrations no startup, cria perfis, seeda usuarios quando necessario e carrega CBHPM a partir de `HemodinksAPI.Infrastructure/Data/SeedData/cbhpm-geral.json`.
+A API aplica migrations no startup, cria perfis, seeda usuarios quando necessario e carrega CBHPM de `HemodinksAPI.Infrastructure/Data/SeedData/cbhpm-geral.json` quando o seed estiver habilitado.
 
 ### Docker Compose com observabilidade
 
-Se quiser a API rodando em container com collector OTLP e dashboard local do Aspire, use o compose dedicado:
-
 ```powershell
 Copy-Item .env.example .env
-# Edite MSSQL_SA_PASSWORD e JWT_SECRET_KEY no .env
 docker compose -f docker-compose.observability.yml up -d
 ```
 
@@ -95,17 +98,6 @@ Endpoints locais do compose observavel:
 | Collector OTLP gRPC | `http://localhost:4317` |
 | Collector OTLP HTTP | `http://localhost:4318` |
 
-Esse compose envia logs, traces e metrics da API para `otel-collector`, e o collector encaminha tudo para o dashboard do Aspire. O dashboard foi deixado sem login e com bind em `127.0.0.1`, entao ele e para uso local apenas.
-
-Para o front React/Vite mandar traces para o mesmo collector enquanto voce desenvolve localmente:
-
-```powershell
-$env:VITE_OTEL_EXPORTER_OTLP_ENDPOINT="http://localhost:4318"
-npm run dev --prefix ..\hemodinks-front
-```
-
-Com isso, as traces do navegador passam a aparecer no mesmo dashboard junto das traces da API em container.
-
 ### Desenvolvimento local
 
 ```powershell
@@ -115,19 +107,10 @@ dotnet user-secrets set --project HemodinksAPI.Api "ConnectionStrings:DefaultCon
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:SecretKey" "troque_por_uma_chave_com_32_caracteres_ou_mais"
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Issuer" "HemodinksAPI"
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Audience" "HemodinksAPI"
-# Opcional para observabilidade local com New Relic ao usar `dotnet run`
-# $env:CORECLR_ENABLE_PROFILING="1"
-# $env:CORECLR_PROFILER="{36032161-FFC0-4B61-B559-F6C5D41BAE5A}"
-# $env:CORECLR_NEWRELIC_HOME="$PWD\\HemodinksAPI.Api\\bin\\Debug\\net10.0\\newrelic"
-# $env:CORECLR_PROFILER_PATH="$PWD\\HemodinksAPI.Api\\bin\\Debug\\net10.0\\newrelic\\NewRelic.Profiler.dll"
-# $env:NEW_RELIC_LICENSE_KEY="<sua-license-key>"
-# $env:NEW_RELIC_APP_NAME="Hemodinks API Local"
 dotnet run --project HemodinksAPI.Api
 ```
 
 ### Desenvolvimento local com Aspire
-
-Use o `AppHost` quando quiser subir a API com dashboard de observabilidade e o front React/Vite no mesmo ambiente local.
 
 ```powershell
 dotnet restore HemodinksAPI.slnx
@@ -135,106 +118,21 @@ npm install --prefix ..\hemodinks-front
 dotnet run --project Hemodinks.AppHost
 ```
 
-O dashboard do Aspire abre com a API como recurso instrumentado por OpenTelemetry e o front como app Vite gerenciado pelo `AppHost`. O `VITE_API_URL` do front passa a apontar automaticamente para a API exposta pelo Aspire. O console imprime a `Dashboard URL` e a `Login URL`; use a `Login URL` para entrar direto no painel local.
-
-Se preferir que o `AppHost` suba a API como container, mantendo o front local em Vite:
-
-```powershell
-dotnet user-secrets set --project Hemodinks.AppHost "MSSQL_SA_PASSWORD" "troque_por_uma_senha_forte"
-dotnet user-secrets set --project Hemodinks.AppHost "JWT_SECRET_KEY" "troque_por_uma_chave_com_32_caracteres_ou_mais"
-dotnet run --launch-profile https-container --project Hemodinks.AppHost
-```
-
-Nesse modo o `AppHost`:
-
-- constroi a API a partir do `Dockerfile`
-- sobe `sqlserver` e `azurite` como containers auxiliares
-- mantem o front como app local em `..\hemodinks-front`
-- continua alimentando o dashboard do Aspire com a telemetria da API e do front
-
-Tambem funciona via variavel de ambiente:
-
-```powershell
-$env:HEMODINKS_API_MODE="container"
-dotnet run --project Hemodinks.AppHost
-```
-
-## Configuracao
-
-Use variaveis de ambiente, `.env` no Docker ou User Secrets localmente.
-
-Variaveis opcionais de observabilidade:
-
-| Chave | Descricao |
-| --- | --- |
-| `CORECLR_ENABLE_PROFILING` | ativa o profiler do New Relic quando `1` |
-| `NEW_RELIC_LICENSE_KEY` | license key da conta New Relic |
-| `NEW_RELIC_APP_NAME` | nome exibido no APM da New Relic |
-| `OTEL_EXPORTER_OTLP_EXTERNAL_ENDPOINT` | endpoint OTLP externo adicional para logs, traces e metrics |
-| `OTEL_EXPORTER_OTLP_EXTERNAL_PROTOCOL` | protocolo do exporter externo: `grpc` ou `http/protobuf` |
-| `OTEL_EXPORTER_OTLP_EXTERNAL_HEADERS` | headers extras do exporter externo, no formato `chave=valor,chave2=valor2` |
-
-No Docker/Render, o `Dockerfile` ja define `CORECLR_PROFILER`, `CORECLR_NEWRELIC_HOME` e `CORECLR_PROFILER_PATH` apontando para `/app/newrelic`, pasta que o pacote `NewRelic.Agent` publica junto com a API. Em execucao local com `dotnet run`, esses caminhos precisam ser configurados no shell antes de subir a aplicacao.
-
-O agente New Relic observa requests ASP.NET Core, chamadas HTTP de saida, SQL Server e excecoes sem bootstrap adicional no codigo. Os logs estruturados continuam saindo por Serilog em console e arquivo.
-
-Se a API estiver rodando via Aspire, ela continua exportando para o dashboard local e pode duplicar a telemetria para um backend OTLP externo usando as variaveis `OTEL_EXPORTER_OTLP_EXTERNAL_*`.
+O `AppHost` consegue subir API, front React/Vite e dashboard de observabilidade local no mesmo ambiente.
 
 ## Idempotencia
 
-Os endpoints abaixo aceitam o header opcional `Idempotency-Key`:
+Os endpoints abaixo aceitam `Idempotency-Key`:
 
 - `POST /api/events/`
 - `POST /api/users/password/reset`
 - `POST /api/users/password/reset/confirm`
 
-Quando a mesma requisicao bem-sucedida chega novamente com a mesma chave, a API reaproveita a resposta anterior e devolve `Idempotency-Status: replayed`. Na primeira execucao persistida, a resposta inclui `Idempotency-Status: stored`. Se a mesma chave for reutilizada com payload diferente, a API responde `409 Conflict`.
+Com a mesma chave e o mesmo payload:
 
-| Chave | Uso |
-| --- | --- |
-| `ConnectionStrings__DefaultConnection` | SQL Server/Azure SQL |
-| `JwtSettings__SecretKey` | chave HS256 com 32 bytes ou mais |
-| `JwtSettings__Issuer` | emissor JWT |
-| `JwtSettings__Audience` | audiencia JWT |
-| `JwtSettings__ExpirationMinutes` | expiracao do token |
-| `Database__RunMigrationsOnStartup` | aplica migrations no startup quando `true` |
-| `PasswordReset__UseEmail` | solicita redefinicao por email quando `true`; usa senha padrao quando `false` |
-| `Frontend__ResetPasswordUrl` | URL publica da tela de redefinicao de senha |
-| `PasswordResetFunctions__BaseUrl` | URL base absoluta do Function App para reset por HTTP; deve incluir `http://` ou `https://` |
-| `PasswordResetFunctions__FunctionKey` | function key usada ao chamar o endpoint HTTP de reset |
-| `Cors__AllowedOrigins__0` | origem adicional do frontend |
-| `AzureStorage__ConnectionString` | Storage Account Azure |
-| `AzureStorage__ContainerName` | container de fotos, padrao `profile-photos` |
-| `AzureStorage__PublicBaseUrl` | URL publica do container de fotos |
-| `AzureStorage__PatientFilesContainerName` | container de anexos, padrao `patient-files` |
-| `AzureStorage__PatientFilesPublicBaseUrl` | URL publica do container de anexos |
-| `AzureStorage__PatientFileMaxBytes` | limite de upload de anexos |
-| `AsyncQueues__Enabled` | chave global de fallback para filas quando nao houver override por recurso |
-| `AsyncQueues__PasswordResetEnabled` | usa fila Azure para reset quando a Function HTTP nao estiver configurada de forma valida; se `false`, a API tenta SMTP direto |
-| `AsyncQueues__FileExportEnabled` | usa fila/Function para exportacoes quando `true` |
-| `AsyncQueues__ConnectionString` | connection string da Storage Account usada pelas filas; se vazio, usa `AzureStorage__ConnectionString` |
-| `AsyncQueues__PasswordResetEmailQueueName` | fila de emails de reset, padrao `password-reset-emails` |
-| `AsyncQueues__FileExportQueueName` | fila de exportacoes, padrao `file-export-jobs` |
-| `ApiDocumentation__Enabled` | expõe `/swagger`, `/scalar`, `/openapi/v1.json` e `/swagger/v1/swagger.json` fora de `Development` e `Testing` |
-| `StorageFunctions__BaseUrl` | URL base do Function App usada pela API para uploads HTTP de foto/anexos |
-| `StorageFunctions__FunctionKey` | function key usada pela API ao chamar os uploads HTTP |
-| `Licensing__TrialDays` | dias de trial para licencas medicas |
-
-Segredos nao devem ser gravados em `appsettings.json`.
-
-## Reset de senha por email
-
-Com `PasswordReset__UseEmail=true`, a API segue esta ordem para envio do reset:
-
-1. Se `PasswordResetFunctions__BaseUrl` for uma URL absoluta valida e `PasswordResetFunctions__FunctionKey` estiver preenchida, a API chama o Function App por HTTP.
-2. Caso contrario, se `AsyncQueues__PasswordResetEnabled=true`, a API enfileira a mensagem em `password-reset-emails`.
-3. Se a fila nao estiver ativa, a API tenta SMTP direto com `Email__*` e `Frontend__ResetPasswordUrl`.
-
-Observacoes:
-
-- `PasswordResetFunctions__BaseUrl` precisa incluir `http://` ou `https://`. A API normaliza automaticamente o sufixo `/api`.
-- Se o sender escolhido falhar em runtime, o handler aplica a senha padrao como fallback e obriga troca no proximo login.
-- `POST /api/users/password/reset` e `POST /api/users/password/reset/confirm` aceitam `Idempotency-Key` para retries seguros.
+- primeira execucao bem-sucedida retorna `Idempotency-Status: stored`
+- retries reaproveitam a resposta e retornam `Idempotency-Status: replayed`
+- mesma chave com payload diferente retorna `409 Conflict`
 
 ## Autenticacao, perfis e licencas
 
@@ -250,84 +148,125 @@ Perfis seedados:
 | --- | --- |
 | 1 | Administrador |
 | 2 | Medicos |
-| 3 | Pacientes |
+| 3 | Paciente |
+| 4 | Controller |
 
 Regras principais:
 
-- Administrador gerencia usuarios, pacientes, CBHPM, agenda, licencas e exclusoes.
-- Medico visualiza/edita seus dados, visualiza pacientes vinculados e eventos da sua agenda.
-- Paciente acessa somente o proprio cadastro quando houver vinculo.
-- Licencas controlam acesso a dashboard, pacientes e CBHPM para medicos.
+- Administrador gerencia usuarios, pacientes, agenda, licencas, grupos medicos, configuracao do sistema e exclusoes.
+- Medico acessa seu proprio cadastro, pacientes vinculados, faturamento filtrado pelo seu escopo e agenda.
+- Paciente acessa o proprio cadastro quando houver vinculo.
+- Controller acessa pacientes, faturamento e operacoes liberadas por policy, sem dashboard nem agenda no front atual.
+- Licencas controlam dashboard, pacientes e CBHPM para medicos.
+
+Features atuais de licenca:
+
+- `Dashboard.Visualizar`
+- `Pacientes.Visualizar`
+- `Cbhpm.Consultar`
 
 ## Endpoints principais
 
+### Auth e usuarios
+
 | Metodo | Rota | Auth | Descricao |
 | --- | --- | --- | --- |
-| `GET` | `/healthz` | nao | health check |
 | `POST` | `/api/users/authenticate` | nao | login JWT |
-| `POST` | `/api/users/password/reset` | nao | solicita token de reset por email usando Function HTTP, fila Azure ou SMTP conforme configuracao |
-| `POST` | `/api/exports` | sim | enfileira exportacao PDF/XLSX |
+| `POST` | `/api/users/password/reset` | nao | solicitar reset de senha |
+| `POST` | `/api/users/password/reset/confirm` | nao | confirmar reset com token temporario |
 | `GET` | `/api/users` | admin | lista paginada de usuarios |
 | `POST` | `/api/users` | admin | cria usuario |
-| `GET` | `/api/users/{id}` | sim | busca usuario |
+| `GET` | `/api/users/{id}` | sim | detalhe de usuario |
+| `GET` | `/api/users/{id}/foto-perfil` | sim | foto de perfil |
 | `PUT` | `/api/users/{id}` | sim | atualiza usuario |
 | `DELETE` | `/api/users/{id}` | admin | exclui usuario |
 | `PUT` | `/api/users/{id}/password` | sim | altera senha |
-| `PUT` | `/api/users/{id}/password/reset` | admin | reset administrativo |
+| `PUT` | `/api/users/{id}/password/reset` | admin | reset administrativo para senha padrao |
 | `POST` | `/api/users/{id}/arquivos` | sim | upload de documento medico |
 | `DELETE` | `/api/users/{id}/arquivos/{arquivoId}` | sim | exclui documento medico |
+
+### Pacientes, observacoes e catalogos
+
+| Metodo | Rota | Auth | Descricao |
+| --- | --- | --- | --- |
 | `GET` | `/api/pacientes` | licenca | lista paginada de pacientes |
 | `GET` | `/api/pacientes/{id}` | licenca | detalhe do paciente |
 | `POST` | `/api/pacientes` | admin/medico/controller | cria paciente |
 | `PUT` | `/api/pacientes/{id}` | admin/medico/controller | atualiza paciente |
 | `DELETE` | `/api/pacientes/{id}` | admin | exclui paciente |
-| `POST` | `/api/pacientes/{id}/arquivos` | admin/medico | upload de anexo do paciente |
-| `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | admin/medico | exclui anexo |
+| `POST` | `/api/pacientes/{id}/arquivos` | admin/medico vinculado/controller | upload de anexo |
+| `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | admin/medico vinculado/controller | exclui anexo |
+| `GET` | `/api/pacientes/{id}/observacoes` | sim | lista observacoes do paciente |
+| `POST` | `/api/pacientes/{id}/observacoes` | sim | cria observacao |
+| `POST` | `/api/pacientes/{id}/observacoes/marcar-lidas` | sim | marca observacoes como lidas |
+| `GET` | `/api/hospitais` | sim | lista hospitais |
+| `GET` | `/api/convenios` | sim | lista convenios |
+| `GET` | `/api/opme` | sim | lista fornecedores OPME |
 | `GET` | `/api/cbhpm` | licenca | consulta CBHPM paginada |
 | `POST` | `/api/cbhpm/import` | admin | importa/substitui itens CBHPM |
+
+### Dashboard, agenda, faturamento e grupos
+
+| Metodo | Rota | Auth | Descricao |
+| --- | --- | --- | --- |
 | `GET` | `/api/dashboard/summary` | licenca | resumo do dashboard |
 | `GET` | `/api/dashboard/notifications` | licenca | notificacoes do dashboard |
-| `GET` | `/api/events` | sim | lista eventos da agenda por periodo |
-| `GET` | `/api/events/medical-users` | sim | medicos ativos para notificacao |
+| `GET` | `/api/events` | sim | lista eventos por periodo |
 | `GET` | `/api/events/{id}` | sim | detalhe do evento |
+| `GET` | `/api/events/medical-users` | sim | medicos ativos da agenda |
+| `GET` | `/api/events/notification-recipients` | sim | usuarios e grupos elegiveis para notificacao |
+| `POST` | `/api/events/notifications/mark-read` | sim | marca notificacoes da agenda como lidas |
 | `POST` | `/api/events` | sim | cria evento |
 | `PUT` | `/api/events/{id}` | sim | atualiza evento |
 | `POST` | `/api/events/{id}/complete` | sim | conclui evento |
 | `DELETE` | `/api/events/{id}` | sim | exclui evento |
+| `GET` | `/api/faturamentos-medicos` | sim | lista paginada de faturamentos medicos |
+| `GET` | `/api/grupos-medicos` | admin | lista grupos medicos |
+| `GET` | `/api/grupos-medicos/{id}` | admin | detalhe do grupo |
+| `GET` | `/api/grupos-medicos/medicos` | sim | medicos disponiveis conforme escopo |
+| `POST` | `/api/grupos-medicos` | policy | cria grupo medico |
+| `PUT` | `/api/grupos-medicos/{id}` | admin | atualiza grupo medico |
+| `DELETE` | `/api/grupos-medicos/{id}` | admin | exclui grupo medico |
+
+### Configuracao do sistema, licencas e exportacoes
+
+| Metodo | Rota | Auth | Descricao |
+| --- | --- | --- | --- |
+| `GET` | `/api/configuracoes-sistema/current` | nao | configuracao publica do sistema |
+| `GET` | `/api/configuracoes-sistema/current/foto-empresa` | nao | foto da empresa |
+| `PUT` | `/api/configuracoes-sistema/current` | admin | atualiza nome e foto da empresa |
 | `GET` | `/api/licencas/current` | sim | licenca do usuario autenticado |
 | `GET` | `/api/licencas/users/{userId}` | admin | consulta licenca de medico |
 | `PUT` | `/api/licencas/users/{userId}` | admin | atualiza licenca |
 | `POST` | `/api/licencas/users/{userId}/liberar-completa` | admin | libera plano completo |
-| `GET` | `/api/hospitais` | sim | lista hospitais |
-| `GET` | `/api/convenios` | sim | lista convenios |
+| `POST` | `/api/exports` | sim | enfileira exportacao PDF/XLSX |
+| `GET` | `/healthz` | nao | health check |
 
-## Agenda e lembretes
+## Agenda, notificacoes e observacoes
 
-A agenda permite criar eventos para qualquer data/hora, associar responsavel, notificar usuario e/ou perfil medico e configurar periodo de lembrete.
+A agenda permite:
 
-Campos principais:
+- eventos com `title`, `description`, `start`, `end`
+- notificacao para usuario, perfil medico, usuarios especificos e grupos medicos
+- lembretes com `reminderPeriodMinutes`
+- controle de leitura das notificacoes internas
 
-- `title`, `description`, `start`, `end`
-- `userId`, `medicalUserId`
-- `notifyMedicalProfile`, `notifyUser`
-- `reminderPeriodMinutes`
-- `nextReminderAt`, `lastReminderSentAt`
-- `isCompleted`, `completedAt`
+O dashboard agrega:
 
-O processamento atual usa um `BackgroundService` interno gratuito no proprio processo da API. Ele consulta eventos vencidos por `NextReminderAt` e reagenda o proximo lembrete ate a conclusao do evento. O dashboard tambem tenta processar pendencias de forma resiliente quando o usuario abre a aplicacao.
+- eventos proximos
+- notificacoes da agenda
+- observacoes de pacientes nao lidas
 
 ## CBHPM
 
-A tabela `CBHPMGeral` e criada por migration e recebe seed automatico de procedimentos a partir do JSON gerado do PDF `docs/CBHPM-2022_versao-agosto-2023.pdf`. O seed inclui porte, custo operacional, grupo e `ValorReferencia` calculado.
+A tabela `CBHPMGeral` e criada por migration e pode receber seed automatico a partir do JSON gerado do PDF da tabela. O backend usa `IMemoryCache` para acelerar filtros e paginacao em memoria apos o primeiro carregamento.
 
-Consulta:
+Consulta tipica:
 
 ```http
 GET /api/cbhpm?page=1&pageSize=10&codigo=1.01&procedimento=consulta&porte=2B
 Authorization: Bearer <token>
 ```
-
-O backend usa `IMemoryCache` para manter a lista CBHPM em memoria. A primeira consulta carrega os dados do SQL Server; filtros, paginacao e busca passam a ser resolvidos em memoria ate expirar o cache ou ate uma importacao/seed invalidar a chave.
 
 ## Banco de dados
 
@@ -335,41 +274,37 @@ Entidades principais:
 
 - `Perfis`
 - `Users`
+- `UserArquivos`
 - `Licencas`
 - `Pacientes`
 - `PacienteArquivos`
 - `PacienteProcedimentos`
-- `UserArquivos`
-- `CBHPMGeral`
+- `Observacoes`
+- `AgendaNotifications`
+- `Events`
 - `Hospitais`
 - `Convenios`
-- `Events`
+- `Opmes`
+- `FaturamentosMedicos`
+- `GrupoMedicos`
+- `GrupoMedicoUsuarios`
+- `ConfiguracoesSistema`
+- `PasswordResetTokens`
+- `IdempotencyRequests`
+- `CBHPMGeral`
 
-Migrations rodam no startup via `Database.MigrateAsync()` quando `Database__RunMigrationsOnStartup=true`. O blueprint de producao do Render habilita essa variavel para que deploy automatico atualize o schema antes da API atender trafego normal. A organizacao da pasta e a politica de rollback estao em [Migrations README](./HemodinksAPI.Infrastructure/Data/Migrations/README.md). Para validar e gerar artefatos locais:
-
-```powershell
-pwsh ./scripts/Test-Migrations.ps1
-pwsh ./scripts/Export-MigrationScripts.ps1
-```
-
-Para usar EF CLI manualmente:
-
-```powershell
-dotnet tool restore
-dotnet tool run dotnet-ef migrations list --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api --no-connect
-dotnet tool run dotnet-ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api
-```
+Migrations rodam no startup quando `Database__RunMigrationsOnStartup=true`.
 
 ## Documentacao interativa
 
-Swagger e Scalar ficam ativos automaticamente em `Development` e `Testing`. Em ambientes publicados, habilite `ApiDocumentation__Enabled=true` se quiser expor as rotas abaixo:
+Swagger e Scalar ficam ativos automaticamente em `Development` e `Testing`. Em ambiente publicado, habilite `ApiDocumentation__Enabled=true` para expor:
 
-- Swagger: `/swagger`
-- Scalar: `/scalar`
-- OpenAPI usado pelo Scalar: `/openapi/v1.json`
-- Swagger JSON: `/swagger/v1/swagger.json`
+- `/swagger`
+- `/scalar`
+- `/openapi/v1.json`
+- `/swagger/v1/swagger.json`
 
-O documento OpenAPI inclui o esquema `Bearer`. Em producao, evite expor tokens reais em maquinas compartilhadas.
+O documento OpenAPI inclui esquema `Bearer`.
 
 ## Testes
 
@@ -381,11 +316,11 @@ dotnet test HemodinksAPI.slnx --no-build
 
 ## Documentos relacionados
 
-- [Primeira execucao](./PRIMEIRA_EXECUCAO.md)
 - [Implementacao](./IMPLEMENTACAO.md)
-- [Troubleshooting](./TROUBLESHOOTING.md)
 - [Deploy](./docs/deployment.md)
 - [Documentacao tecnica](./docs/TECHNICAL_DOCUMENTATION.md)
-- [Migrations README](./HemodinksAPI.Infrastructure/Data/Migrations/README.md)
-- [Exemplos HTTP](./HemodinksAPI.Api/HemodinksAPI.Api.http)
+- [Production readiness](./PRODUCTION_READINESS.md)
+- [Primeira execucao](./PRIMEIRA_EXECUCAO.md)
+- [Troubleshooting](./TROUBLESHOOTING.md)
+- [Exemplos HTTP](./API.http)
 - [Documentacao tecnica PDF](./docs/Hemodinks-Documentacao-Tecnica.pdf)
