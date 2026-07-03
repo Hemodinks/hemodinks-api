@@ -1,4 +1,5 @@
 using HemodinksAPI.Infrastructure.Data;
+using HemodinksAPI.Application.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Tests;
@@ -11,7 +12,7 @@ internal static class TestDbContextFactory
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        var context = new AppDbContext(options);
+        var context = new AppDbContext(options, ClinicaContextFactory.CreateDefaultResolved());
         context.Database.EnsureCreated();
 
         return context;

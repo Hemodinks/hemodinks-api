@@ -23,6 +23,7 @@ internal static class PacienteObservacaoAccess
             .Where(item => item.Id == pacienteId)
             .Select(item => new PacienteObservacaoContext(
                 item.Id,
+                item.ClinicaId,
                 item.NomePaciente,
                 item.MedicoUserId,
                 item.MedicoUser != null ? item.MedicoUser.Nome : item.Medico,
@@ -43,6 +44,7 @@ internal static class PacienteObservacaoAccess
 
 internal sealed record PacienteObservacaoContext(
     int Id,
+    int ClinicaId,
     string NomePaciente,
     int? MedicoUserId,
     string? Medico,

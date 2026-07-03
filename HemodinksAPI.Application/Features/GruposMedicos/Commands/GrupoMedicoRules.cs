@@ -61,6 +61,7 @@ internal static class GrupoMedicoRules
 
             group.Membros.Add(new GrupoMedicoUsuario
             {
+                ClinicaId = group.ClinicaId,
                 GrupoMedicoId = group.Id,
                 UserId = userId,
                 DataCadastro = now
