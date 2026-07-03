@@ -117,8 +117,9 @@ Configuracoes externas recomendadas:
 Perfis atuais:
 
 - `1` - Administrador.
-- `2` - Medico.
+- `2` - Medicos.
 - `3` - Paciente.
+- `4` - Controller.
 
 Features atuais:
 
@@ -135,7 +136,7 @@ Trial atual:
 
 Completa:
 
-- Dashboard, pacientes para visualizacao e CBHPM. Criacao de pacientes e liberada para medico/controller; edicao e liberada para medico vinculado e controller; anexos do paciente tambem sao permitidos para medico vinculado. Exclusao permanece administrativa.
+- Dashboard, pacientes para visualizacao e CBHPM. Criacao de pacientes e liberada para medico/controller; edicao e liberada para medico vinculado e controller; anexos do paciente tambem sao permitidos para medico vinculado e controller. Exclusao permanece administrativa.
 
 Checklist antes de vender:
 
