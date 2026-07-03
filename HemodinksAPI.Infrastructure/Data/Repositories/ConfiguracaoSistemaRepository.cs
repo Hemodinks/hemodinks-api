@@ -28,6 +28,7 @@ public sealed class ConfiguracaoSistemaRepository : IConfiguracaoSistemaReposito
         configuracao = new ConfiguracaoSistema
         {
             Id = ConfiguracaoSistema.DefaultId,
+            ClinicaId = Clinica.DefaultId,
             NomeEmpresa = ConfiguracaoSistema.DefaultNomeEmpresa,
             DataCadastro = _timeProvider.GetUtcNow().UtcDateTime
         };

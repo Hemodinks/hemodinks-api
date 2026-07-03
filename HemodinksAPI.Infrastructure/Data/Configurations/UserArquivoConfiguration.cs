@@ -12,6 +12,9 @@ internal sealed class UserArquivoConfiguration : IEntityTypeConfiguration<UserAr
 
         entity.HasKey(e => e.Id);
 
+        entity.Property(e => e.ClinicaId)
+            .IsRequired();
+
         entity.Property(e => e.NomeOriginal)
             .IsRequired()
             .HasMaxLength(255);
@@ -28,7 +31,12 @@ internal sealed class UserArquivoConfiguration : IEntityTypeConfiguration<UserAr
             .IsRequired()
             .HasDefaultValueSql("GETUTCDATE()");
 
-        entity.HasIndex(e => e.UserId);
+        entity.HasIndex(e => new { e.ClinicaId, e.UserId });
+
+        entity.HasOne(e => e.Clinica)
+            .WithMany()
+            .HasForeignKey(e => e.ClinicaId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         entity.HasOne(e => e.User)
             .WithMany(e => e.Arquivos)

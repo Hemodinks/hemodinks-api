@@ -108,6 +108,7 @@ public static partial class ApiApplicationExtensions
 
         dbContext.Pacientes.AddRange(patientUsersWithoutRecord.Select(user => new Paciente
         {
+            ClinicaId = user.ClinicaId,
             UserId = user.Id,
             NomePaciente = user.Nome
         }));

@@ -8,6 +8,8 @@ namespace HemodinksAPI.Infrastructure.Data;
 /// </summary>
 public class AppDbContext : DbContext, IAppDbContext
 {
+    public DbSet<Clinica> Clinicas { get; set; } = null!;
+
     /// <summary>
     /// DbSet de usuários
     /// </summary>
@@ -62,5 +64,26 @@ public class AppDbContext : DbContext, IAppDbContext
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ApplyDefaultClinicaIds();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        ApplyDefaultClinicaIds();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void ApplyDefaultClinicaIds()
+    {
+        foreach (var entry in ChangeTracker.Entries<IClinicaOwnedEntity>()
+                     .Where(entry => entry.State == EntityState.Added && entry.Entity.ClinicaId <= 0))
+        {
+            entry.Entity.ClinicaId = Clinica.DefaultId;
+        }
     }
 }

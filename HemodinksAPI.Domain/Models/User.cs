@@ -3,12 +3,16 @@ namespace HemodinksAPI.Domain.Models;
 /// <summary>
 /// Modelo de usuário do sistema
 /// </summary>
-public class User
+public class User : IClinicaOwnedEntity
 {
     /// <summary>
     /// Identificador único do usuário
     /// </summary>
     public int Id { get; set; }
+
+    public int ClinicaId { get; set; } = Clinica.DefaultId;
+
+    public Clinica Clinica { get; set; } = null!;
 
     /// <summary>
     /// Nome completo do usuário

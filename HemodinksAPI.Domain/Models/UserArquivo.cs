@@ -1,8 +1,10 @@
 namespace HemodinksAPI.Domain.Models;
 
-public class UserArquivo
+public class UserArquivo : IClinicaOwnedEntity
 {
     public int Id { get; set; }
+    public int ClinicaId { get; set; } = Clinica.DefaultId;
+    public Clinica Clinica { get; set; } = null!;
     public int UserId { get; set; }
     public User User { get; set; } = null!;
     public string NomeOriginal { get; set; } = null!;

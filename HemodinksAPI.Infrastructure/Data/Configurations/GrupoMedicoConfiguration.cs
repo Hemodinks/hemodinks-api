@@ -12,6 +12,9 @@ internal sealed class GrupoMedicoConfiguration : IEntityTypeConfiguration<GrupoM
 
         entity.HasKey(e => e.Id);
 
+        entity.Property(e => e.ClinicaId)
+            .IsRequired();
+
         entity.Property(e => e.Nome)
             .IsRequired()
             .HasMaxLength(255);
@@ -26,7 +29,14 @@ internal sealed class GrupoMedicoConfiguration : IEntityTypeConfiguration<GrupoM
 
         entity.Property(e => e.DataAtualizacao);
 
-        entity.HasIndex(e => e.Nome)
+        entity.HasIndex(e => new { e.ClinicaId, e.Nome })
             .IsUnique();
+
+        entity.HasIndex(e => e.ClinicaId);
+
+        entity.HasOne(e => e.Clinica)
+            .WithMany()
+            .HasForeignKey(e => e.ClinicaId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

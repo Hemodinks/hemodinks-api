@@ -12,11 +12,20 @@ internal sealed class GrupoMedicoUsuarioConfiguration : IEntityTypeConfiguration
 
         entity.HasKey(e => new { e.GrupoMedicoId, e.UserId });
 
+        entity.Property(e => e.ClinicaId)
+            .IsRequired();
+
         entity.Property(e => e.DataCadastro)
             .IsRequired()
             .HasDefaultValueSql("GETUTCDATE()");
 
-        entity.HasIndex(e => e.UserId);
+        entity.HasIndex(e => new { e.ClinicaId, e.UserId });
+        entity.HasIndex(e => new { e.ClinicaId, e.GrupoMedicoId });
+
+        entity.HasOne(e => e.Clinica)
+            .WithMany()
+            .HasForeignKey(e => e.ClinicaId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         entity.HasOne(e => e.GrupoMedico)
             .WithMany(e => e.Membros)
