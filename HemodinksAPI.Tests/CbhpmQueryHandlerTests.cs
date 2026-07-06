@@ -119,7 +119,7 @@ public class CbhpmQueryHandlerTests
     [Fact]
     public async Task GetCbhpmGeral_FiltersAndPaginates()
     {
-        await using var lease = TestDbContextFactory.CreateSqlServer();
+        await using var lease = TestDbContextFactory.CreateRelationalCbhpm();
         var context = lease.Context;
         context.CbhpmGeral.AddRange(
             new CbhpmGeral
@@ -147,7 +147,7 @@ public class CbhpmQueryHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new GetCbhpmGeralQueryHandler(
-            context,
+            lease.AppContext,
             NullLogger<GetCbhpmGeralQueryHandler>.Instance);
 
         var result = await handler.Handle(new GetCbhpmGeralQuery
@@ -169,7 +169,7 @@ public class CbhpmQueryHandlerTests
     [Fact]
     public async Task GetCbhpmGeral_FiltersProcedimentoByGrupo()
     {
-        await using var lease = TestDbContextFactory.CreateSqlServer();
+        await using var lease = TestDbContextFactory.CreateRelationalCbhpm();
         var context = lease.Context;
         context.CbhpmGeral.Add(new CbhpmGeral
         {
@@ -181,7 +181,7 @@ public class CbhpmQueryHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new GetCbhpmGeralQueryHandler(
-            context,
+            lease.AppContext,
             NullLogger<GetCbhpmGeralQueryHandler>.Instance);
 
         var result = await handler.Handle(new GetCbhpmGeralQuery
