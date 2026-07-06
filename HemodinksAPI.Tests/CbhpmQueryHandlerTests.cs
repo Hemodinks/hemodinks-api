@@ -119,7 +119,8 @@ public class CbhpmQueryHandlerTests
     [Fact]
     public async Task GetCbhpmGeral_FiltersAndPaginates()
     {
-        await using var context = TestDbContextFactory.Create();
+        await using var lease = TestDbContextFactory.CreateSqlServer();
+        var context = lease.Context;
         context.CbhpmGeral.AddRange(
             new CbhpmGeral
             {
@@ -146,14 +147,14 @@ public class CbhpmQueryHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new GetCbhpmGeralQueryHandler(
-            CreateCbhpmCache(context),
+            context,
             NullLogger<GetCbhpmGeralQueryHandler>.Instance);
 
         var result = await handler.Handle(new GetCbhpmGeralQuery
         {
             Page = 1,
             PageSize = 1,
-            Procedimento = "Avaliacao",
+            Procedimento = "avaliaCAO",
             Porte = "2B"
         }, CancellationToken.None);
 
@@ -168,7 +169,8 @@ public class CbhpmQueryHandlerTests
     [Fact]
     public async Task GetCbhpmGeral_FiltersProcedimentoByGrupo()
     {
-        await using var context = TestDbContextFactory.Create();
+        await using var lease = TestDbContextFactory.CreateSqlServer();
+        var context = lease.Context;
         context.CbhpmGeral.Add(new CbhpmGeral
         {
             Codigo = "1.01.01.01-2",
@@ -179,13 +181,13 @@ public class CbhpmQueryHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new GetCbhpmGeralQueryHandler(
-            CreateCbhpmCache(context),
+            context,
             NullLogger<GetCbhpmGeralQueryHandler>.Instance);
 
         var result = await handler.Handle(new GetCbhpmGeralQuery
         {
             Codigo = "10101012",
-            Procedimento = "Consulta",
+            Procedimento = "consulta",
             Porte = "2B"
         }, CancellationToken.None);
 
