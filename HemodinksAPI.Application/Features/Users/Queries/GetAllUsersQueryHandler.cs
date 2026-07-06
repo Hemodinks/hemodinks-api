@@ -30,7 +30,9 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedRe
 
             _logger.LogInformation("Buscando usuarios. Pagina: {Page}, Tamanho: {PageSize}", page, pageSize);
 
-            var query = _context.Users.AsNoTracking();
+            var query = _context.Users
+                .AsNoTracking()
+                .Where(user => user.PerfilId != Perfil.PacientesId);
             query = ApplyFilters(query, request.ProfileId, search, digits);
 
             var totalItems = await query.CountAsync(cancellationToken);
