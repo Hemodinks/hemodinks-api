@@ -202,15 +202,13 @@ flowchart TD
     Startup[Startup API] --> Migration[Migrations]
     Migration --> Seed[CbhpmSeeder]
     Seed --> Table[(CBHPMGeral)]
-    Request[GET /api/cbhpm] --> Cache[ICbhpmCache]
-    Cache --> Memory{Snapshot em memoria}
-    Memory -- vazio --> Table
-    Table --> Snapshot[Carrega snapshot ordenado]
-    Snapshot --> Filter[Filtra por codigo, procedimento, porte ou search]
-    Memory -- preenchido --> Filter
-    Filter --> Pagination[Paginacao]
+    Request[GET /api/cbhpm] --> Handler[GetCbhpmGeralQueryHandler]
+    Handler --> Filter[LIKE por codigo, procedimento, grupo e search]
+    Filter --> Table
+    Table --> Sort[Ordenacao e count no SQL]
+    Sort --> Pagination[Paginacao no SQL]
     Import[POST /api/cbhpm/import] --> Table
-    Import --> Invalidate[Invalidate cache]
+    Import --> Invalidate[Invalidate cache por codigo]
 ```
 
 ## Persistencia
