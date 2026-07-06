@@ -132,10 +132,10 @@ Responsavel pela consulta paginada e importacao administrativa da tabela CBHPM g
 Fluxo:
 
 1. `GET /api/cbhpm` recebe filtros.
-2. `GetCbhpmGeralQueryHandler` consulta `ICbhpmCache`.
-3. `CbhpmCache` carrega o snapshot na primeira chamada.
-4. Filtros e paginacao rodam em memoria.
-5. Importacao e seed invalidam o cache.
+2. `GetCbhpmGeralQueryHandler` consulta `IAppDbContext`.
+3. Filtros de codigo, procedimento e search usam `LIKE` no banco.
+4. Ordenacao, contagem e paginacao rodam no SQL.
+5. Importacao e seed invalidam o cache usado pela resolucao por codigo.
 
 ### Exportacoes assincronas
 

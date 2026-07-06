@@ -17,7 +17,8 @@ public class ListOrderingTests
         context.Users.AddRange(
             CreateUser("Carlos Antigo", "carlos@hemodinks.com", "52998224725", new DateTime(2026, 5, 20, 9, 0, 0, DateTimeKind.Utc), new DateTime(2026, 5, 21, 9, 0, 0, DateTimeKind.Utc)),
             CreateUser("Bruno Recente", "bruno@hemodinks.com", "11144477735", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), new DateTime(2026, 6, 3, 9, 0, 0, DateTimeKind.Utc)),
-            CreateUser("Ana Recente", "ana@hemodinks.com", "93541134780", new DateTime(2026, 6, 1, 8, 0, 0, DateTimeKind.Utc), new DateTime(2026, 6, 3, 9, 0, 0, DateTimeKind.Utc)));
+            CreateUser("Ana Recente", "ana@hemodinks.com", "93541134780", new DateTime(2026, 6, 1, 8, 0, 0, DateTimeKind.Utc), new DateTime(2026, 6, 3, 9, 0, 0, DateTimeKind.Utc)),
+            CreateUser("Paciente Oculto", "paciente.oculto@hemodinks.com", "39053344705", new DateTime(2026, 6, 4, 9, 0, 0, DateTimeKind.Utc), new DateTime(2026, 6, 5, 9, 0, 0, DateTimeKind.Utc), Perfil.PacientesId));
         await context.SaveChangesAsync();
 
         var handler = new GetAllUsersQueryHandler(context, NullLogger<GetAllUsersQueryHandler>.Instance);
@@ -25,6 +26,11 @@ public class ListOrderingTests
         var result = await handler.Handle(new GetAllUsersQuery { Page = 1, PageSize = 10 }, CancellationToken.None);
 
         Assert.Equal(["Ana Recente", "Bruno Recente", "Carlos Antigo"], result.Items.Select(user => user.Nome));
+
+        var patientProfileResult = await handler.Handle(new GetAllUsersQuery { Page = 1, PageSize = 10, ProfileId = Perfil.PacientesId }, CancellationToken.None);
+
+        Assert.Empty(patientProfileResult.Items);
+        Assert.Equal(0, patientProfileResult.TotalItems);
     }
 
     [Fact]
@@ -157,6 +163,77 @@ public class ListOrderingTests
 
         Assert.Equal(["Paciente Vinculado"], result.Items.Select(paciente => paciente.NomePaciente));
         Assert.Equal(1, result.TotalItems);
+    }
+
+    [Fact]
+    public async Task GetAllPacientes_WhenLoggedDoctor_ReturnsAuxiliaryAndGroupPatients()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var doctor = CreateUser("Dr. George", "dr.george.grupo@hemodinks.com", "39053344705", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null);
+        var groupDoctor = CreateUser("Dra. Grupo", "dra.grupo@hemodinks.com", "11144477735", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null);
+        var outsideDoctor = CreateUser("Dr. Fora", "dr.fora@hemodinks.com", "93541134780", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null);
+        var titular = CreateUser("Paciente Titular", "paciente.titular@hemodinks.com", "52998224725", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
+        var auxiliar = CreateUser("Paciente Auxiliar", "paciente.auxiliar@hemodinks.com", "98765432100", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
+        var grupo = CreateUser("Paciente Grupo", "paciente.grupo@hemodinks.com", "12345678909", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
+        var fora = CreateUser("Paciente Fora", "paciente.fora@hemodinks.com", "01234567890", new DateTime(2026, 6, 1, 9, 0, 0, DateTimeKind.Utc), null, Perfil.PacientesId);
+
+        context.GruposMedicos.Add(new GrupoMedico
+        {
+            Nome = "Grupo compartilhado",
+            Membros =
+            [
+                new GrupoMedicoUsuario { User = doctor },
+                new GrupoMedicoUsuario { User = groupDoctor }
+            ]
+        });
+
+        context.Pacientes.AddRange(
+            new Paciente
+            {
+                User = titular,
+                NomePaciente = titular.Nome,
+                MedicoUser = doctor,
+                Medico = doctor.Nome,
+            },
+            new Paciente
+            {
+                User = auxiliar,
+                NomePaciente = auxiliar.Nome,
+                MedicoUser = outsideDoctor,
+                Medico = outsideDoctor.Nome,
+                MedicoAuxiliar1User = doctor,
+                MedicoAuxiliar1 = doctor.Nome,
+            },
+            new Paciente
+            {
+                User = grupo,
+                NomePaciente = grupo.Nome,
+                MedicoUser = groupDoctor,
+                Medico = groupDoctor.Nome,
+            },
+            new Paciente
+            {
+                User = fora,
+                NomePaciente = fora.Nome,
+                MedicoUser = outsideDoctor,
+                Medico = outsideDoctor.Nome,
+            });
+        await context.SaveChangesAsync();
+
+        var handler = new GetAllPacientesQueryHandler(context, NullLogger<GetAllPacientesQueryHandler>.Instance);
+
+        var result = await handler.Handle(new GetAllPacientesQuery
+        {
+            Page = 1,
+            PageSize = 10,
+            SortBy = "nome",
+            SortDirection = "asc",
+            CurrentPerfilId = Perfil.MedicosId,
+            CurrentUserId = doctor.Id
+        }, CancellationToken.None);
+
+        Assert.Equal(["Paciente Auxiliar", "Paciente Grupo", "Paciente Titular"], result.Items.Select(paciente => paciente.NomePaciente));
+        Assert.Equal(3, result.TotalItems);
     }
 
     private static User CreateUser(
