@@ -195,6 +195,42 @@ public class CbhpmQueryHandlerTests
         Assert.Equal("10101012", result.Items[0].Codigo);
     }
 
+    [Fact]
+    public async Task GetCbhpmGeral_FiltersProcedimentoByDescriptionWord()
+    {
+        await using var lease = TestDbContextFactory.CreateRelationalCbhpm();
+        var context = lease.Context;
+        context.CbhpmGeral.AddRange(
+            new CbhpmGeral
+            {
+                Codigo = "3.01.01.10-0",
+                Procedimento = "Tratamento cirurgico de tumor osseo",
+                Porte = "2B"
+            },
+            new CbhpmGeral
+            {
+                Codigo = "4.15.01.01-0",
+                Procedimento = "Investigacao ultrassonica com teste de stress",
+                Porte = "2A"
+            });
+        await context.SaveChangesAsync();
+
+        var handler = new GetCbhpmGeralQueryHandler(
+            lease.AppContext,
+            NullLogger<GetCbhpmGeralQueryHandler>.Instance);
+
+        var result = await handler.Handle(new GetCbhpmGeralQuery
+        {
+            Procedimento = "tumor",
+            Page = 1,
+            PageSize = 10
+        }, CancellationToken.None);
+
+        Assert.Single(result.Items);
+        Assert.Equal("30101100", result.Items[0].Codigo);
+        Assert.Contains("tumor", result.Items[0].Procedimento, StringComparison.OrdinalIgnoreCase);
+    }
+
     private static ICbhpmCache CreateCbhpmCache(AppDbContext context)
     {
         return new CbhpmCache(
