@@ -24,6 +24,7 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
         var usersSummary = request.CurrentPerfilId == Perfil.AdministradorId
             ? await _context.Users
                 .AsNoTracking()
+                .Where(user => user.PerfilId != Perfil.PacientesId)
                 .GroupBy(_ => 1)
                 .Select(group => new
                 {
