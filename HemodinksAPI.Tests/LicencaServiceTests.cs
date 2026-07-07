@@ -28,7 +28,7 @@ public class LicencaServiceTests
     }
 
     [Fact]
-    public async Task HasFeatureAsync_WhenTrialIsActive_DeniesPatientManagement()
+    public async Task HasFeatureAsync_WhenUserIsDoctor_AllowsOperationalMedicalFeatures()
     {
         await using var context = TestDbContextFactory.Create();
         var user = CreateMedico();
@@ -47,12 +47,18 @@ public class LicencaServiceTests
             LicencaFeatures.PacientesGerenciar,
             CancellationToken.None);
 
+        var canConsultCbhpm = await service.HasFeatureAsync(
+            new CurrentUserContext(user.Id, Perfil.MedicosId, user.Nome),
+            LicencaFeatures.CbhpmConsultar,
+            CancellationToken.None);
+
         Assert.True(canView);
-        Assert.False(canManage);
+        Assert.True(canManage);
+        Assert.True(canConsultCbhpm);
     }
 
     [Fact]
-    public async Task LiberarCompletaAsync_WhenCalled_KeepsPatientManagementUnavailableToDoctors()
+    public async Task LiberarCompletaAsync_WhenCalled_KeepsPatientManagementAvailableToDoctors()
     {
         await using var context = TestDbContextFactory.Create();
         var user = CreateMedico();
@@ -73,11 +79,11 @@ public class LicencaServiceTests
 
         Assert.Equal(LicencaPlanos.Completa, licenca.Plano);
         Assert.True(licenca.AcessoCompleto);
-        Assert.False(canManage);
+        Assert.True(canManage);
     }
 
     [Fact]
-    public async Task HasFeatureAsync_WhenTrialExpired_DeniesTrialFeatures()
+    public async Task HasFeatureAsync_WhenTrialExpired_KeepsOperationalMedicalFeatures()
     {
         await using var context = TestDbContextFactory.Create();
         var user = CreateMedico();
@@ -101,7 +107,7 @@ public class LicencaServiceTests
             LicencaFeatures.PacientesVisualizar,
             CancellationToken.None);
 
-        Assert.False(canView);
+        Assert.True(canView);
     }
 
     private static LicencaService CreateService(HemodinksAPI.Infrastructure.Data.AppDbContext context)

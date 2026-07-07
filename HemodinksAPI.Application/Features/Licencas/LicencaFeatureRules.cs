@@ -36,8 +36,11 @@ internal static class LicencaFeatureRules
             return true;
         }
 
-        allowed = false;
-        return false;
+        allowed = feature is LicencaFeatures.DashboardVisualizar
+            or LicencaFeatures.PacientesVisualizar
+            or LicencaFeatures.PacientesGerenciar
+            or LicencaFeatures.CbhpmConsultar;
+        return true;
     }
 
     public static bool IsFeatureAllowed(Licenca licenca, string feature, DateTime now)
