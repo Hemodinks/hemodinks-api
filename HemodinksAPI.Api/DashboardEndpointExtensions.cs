@@ -26,74 +26,46 @@ public static class DashboardEndpointExtensions
             .RequireAuthorization(LicencaPolicies.DashboardVisualizar);
     }
 
-    private static async Task<IResult> GetSummary(
+    private static Task<IResult> GetSummary(
         ClaimsPrincipal claimsPrincipal,
         IEventReminderProcessor reminderProcessor,
         IMediator mediator,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null)
-            {
-                return Results.Forbid();
-            }
+            var currentUser = GetRequiredCurrentUser(claimsPrincipal);
 
-            await ProcessDueRemindersWithoutBlockingDashboardAsync(
-                reminderProcessor,
-                logger,
-                cancellationToken);
+            await ProcessDueRemindersWithoutBlockingDashboardAsync(reminderProcessor, logger, cancellationToken);
 
             return Results.Ok(await mediator.Send(new GetDashboardSummaryQuery
             {
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId
             }, cancellationToken));
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao buscar resumo do dashboard");
-            return Results.Problem(
-                title: "Erro ao buscar resumo do dashboard",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
+        }, logger, "Erro ao buscar resumo do dashboard", "Erro ao buscar resumo do dashboard");
     }
 
-    private static async Task<IResult> GetNotifications(
+    private static Task<IResult> GetNotifications(
         ClaimsPrincipal claimsPrincipal,
         IEventReminderProcessor reminderProcessor,
         IMediator mediator,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
-            var currentUser = claimsPrincipal.ToCurrentUserContext();
-            if (currentUser == null)
-            {
-                return Results.Forbid();
-            }
+            var currentUser = GetRequiredCurrentUser(claimsPrincipal);
 
-            await ProcessDueRemindersWithoutBlockingDashboardAsync(
-                reminderProcessor,
-                logger,
-                cancellationToken);
+            await ProcessDueRemindersWithoutBlockingDashboardAsync(reminderProcessor, logger, cancellationToken);
 
             return Results.Ok(await mediator.Send(new GetDashboardNotificationsQuery
             {
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId
             }, cancellationToken));
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao buscar notificacoes do dashboard");
-            return Results.Problem(
-                title: "Erro ao buscar notificacoes do dashboard",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
+        }, logger, "Erro ao buscar notificacoes do dashboard", "Erro ao buscar notificacoes do dashboard");
     }
 
     private static async Task ProcessDueRemindersWithoutBlockingDashboardAsync(
@@ -109,5 +81,11 @@ public static class DashboardEndpointExtensions
         {
             logger.LogError(ex, "Erro ao processar lembretes durante abertura do dashboard");
         }
+    }
+
+    private static CurrentUserContext GetRequiredCurrentUser(ClaimsPrincipal claimsPrincipal)
+    {
+        return claimsPrincipal.ToCurrentUserContext()
+            ?? throw new UnauthorizedAccessException("Usuario autenticado invalido");
     }
 }
