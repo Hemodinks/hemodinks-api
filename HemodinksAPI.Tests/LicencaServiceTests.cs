@@ -73,8 +73,13 @@ public class LicencaServiceTests
         Assert.NotNull(licenca);
         Assert.False(licenca.ControleAplicavel);
         Assert.True(licenca.AcessoCompleto);
+        Assert.Contains(LicencaFeatures.DashboardVisualizar, licenca.FeaturesEfetivas);
         Assert.Contains(LicencaFeatures.PacientesVisualizar, licenca.FeaturesEfetivas);
         Assert.Contains(LicencaFeatures.PacientesGerenciar, licenca.FeaturesEfetivas);
+        Assert.True(await service.HasFeatureAsync(
+            currentUser,
+            LicencaFeatures.DashboardVisualizar,
+            CancellationToken.None));
         Assert.True(canManage);
         Assert.Equal(0, await context.Licencas.CountAsync());
     }
