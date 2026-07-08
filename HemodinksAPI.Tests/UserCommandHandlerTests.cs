@@ -256,6 +256,40 @@ public class UserCommandHandlerTests
     }
 
     [Fact]
+    public async Task AuthenticateUser_WhenUserIsController_ReturnsPatientManagementLicense()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var hasher = new PasswordHasher();
+        context.Users.Add(CreateUser(
+            email: "controller.login@email.com",
+            passwordHash: hasher.HashPassword("Senha@123"),
+            perfilId: Perfil.ControllerId));
+        await context.SaveChangesAsync();
+        context.ChangeTracker.Clear();
+
+        var handler = new AuthenticateUserCommandHandler(
+            context,
+            hasher,
+            new StubJwtTokenService("fake-token"),
+            CreateLicencaService(context),
+            NullLogger<AuthenticateUserCommandHandler>.Instance);
+
+        var response = await handler.Handle(new AuthenticateUserCommand
+        {
+            Email = "controller.login@email.com",
+            Senha = "Senha@123"
+        }, CancellationToken.None);
+
+        Assert.Equal(Perfil.ControllerId, response.PerfilId);
+        Assert.NotNull(response.Licenca);
+        Assert.False(response.Licenca.ControleAplicavel);
+        Assert.True(response.Licenca.AcessoCompleto);
+        Assert.Contains(LicencaFeatures.PacientesVisualizar, response.Licenca.FeaturesEfetivas);
+        Assert.Contains(LicencaFeatures.PacientesGerenciar, response.Licenca.FeaturesEfetivas);
+        Assert.Equal(0, await context.Licencas.CountAsync());
+    }
+
+    [Fact]
     public async Task UpdateUser_WhenPerfilIsValid_UpdatesPerfil()
     {
         await using var context = TestDbContextFactory.Create();
@@ -758,7 +792,8 @@ public class UserCommandHandlerTests
         string passwordHash,
         int id = 0,
         bool precisaTrocarSenha = true,
-        string? fotoPerfil = null)
+        string? fotoPerfil = null,
+        int perfilId = Perfil.MedicosId)
     {
         return new User
         {
@@ -775,7 +810,7 @@ public class UserCommandHandlerTests
             Ativo = true,
             PrecisaTrocarSenha = precisaTrocarSenha,
             FotoPerfil = fotoPerfil,
-            PerfilId = Perfil.MedicosId
+            PerfilId = perfilId
         };
     }
 

@@ -58,6 +58,28 @@ public class LicencaServiceTests
     }
 
     [Fact]
+    public async Task GetCurrentAsync_WhenUserIsController_ReturnsUnrestrictedPatientManagement()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var service = CreateService(context);
+        var currentUser = new CurrentUserContext(42, Perfil.ControllerId, "Controller Licenca");
+
+        var licenca = await service.GetCurrentAsync(currentUser, CancellationToken.None);
+        var canManage = await service.HasFeatureAsync(
+            currentUser,
+            LicencaFeatures.PacientesGerenciar,
+            CancellationToken.None);
+
+        Assert.NotNull(licenca);
+        Assert.False(licenca.ControleAplicavel);
+        Assert.True(licenca.AcessoCompleto);
+        Assert.Contains(LicencaFeatures.PacientesVisualizar, licenca.FeaturesEfetivas);
+        Assert.Contains(LicencaFeatures.PacientesGerenciar, licenca.FeaturesEfetivas);
+        Assert.True(canManage);
+        Assert.Equal(0, await context.Licencas.CountAsync());
+    }
+
+    [Fact]
     public async Task LiberarCompletaAsync_WhenCalled_KeepsPatientManagementAvailableToDoctors()
     {
         await using var context = TestDbContextFactory.Create();
