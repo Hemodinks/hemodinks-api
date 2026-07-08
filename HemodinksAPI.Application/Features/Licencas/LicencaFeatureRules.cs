@@ -26,6 +26,7 @@ internal static class LicencaFeatureRules
         if (currentUser.IsController)
         {
             allowed = feature is LicencaFeatures.PacientesVisualizar
+                or LicencaFeatures.PacientesGerenciar
                 or LicencaFeatures.CbhpmConsultar;
             return true;
         }

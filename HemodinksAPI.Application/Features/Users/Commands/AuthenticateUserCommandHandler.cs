@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Authentication;
+using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Utils;
@@ -50,9 +51,9 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
             }
 
             var token = _jwtTokenService.GenerateToken(user);
-            var licenca = user.PerfilId == Perfil.MedicosId
-                ? await _licencaService.GetOrCreateForMedicoAsync(user.Id, cancellationToken)
-                : null;
+            var licenca = await _licencaService.GetCurrentAsync(
+                new CurrentUserContext(user.Id, user.PerfilId, user.Nome),
+                cancellationToken);
 
             _logger.LogInformation("Usuario autenticado com sucesso: {Email}", request.Email);
 
