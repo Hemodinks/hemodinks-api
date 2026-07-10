@@ -6,6 +6,7 @@ public static partial class ApiApplicationExtensions
 {
     private static async Task<IResult> HealthCheckAsync(
         HealthCheckService healthChecks,
+        IConfiguration configuration,
         CancellationToken cancellationToken)
     {
         var report = await healthChecks.CheckHealthAsync(cancellationToken);
@@ -13,6 +14,12 @@ public static partial class ApiApplicationExtensions
         {
             status = report.Status.ToString(),
             checkedAt = DateTimeOffset.UtcNow,
+            deployment = new
+            {
+                commitSha = configuration["Deployment:CommitSha"],
+                containerAppName = Environment.GetEnvironmentVariable("CONTAINER_APP_NAME"),
+                containerAppRevision = Environment.GetEnvironmentVariable("CONTAINER_APP_REVISION")
+            },
             totalDurationMs = report.TotalDuration.TotalMilliseconds,
             checks = report.Entries.ToDictionary(
                 entry => entry.Key,

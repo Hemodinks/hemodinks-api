@@ -35,13 +35,15 @@ public static partial class ApiServiceCollectionExtensions
 
         var azureConnectionString = configuration["AzureStorage:ConnectionString"];
         var storageFunctionsBaseUrl = configuration["StorageFunctions:BaseUrl"];
+        var storageFunctionsKey = configuration["StorageFunctions:FunctionKey"];
 
         if (!string.IsNullOrWhiteSpace(azureConnectionString))
         {
             services.AddSingleton<AzureBlobProfilePhotoStorage>();
             services.AddSingleton<AzureBlobPatientFileStorage>();
 
-            if (!string.IsNullOrWhiteSpace(storageFunctionsBaseUrl))
+            if (HasValidAbsoluteHttpUrl(storageFunctionsBaseUrl)
+                && !string.IsNullOrWhiteSpace(storageFunctionsKey))
             {
                 services.Configure<StorageFunctionOptions>(configuration.GetSection("StorageFunctions"));
                 services.AddHttpClient(nameof(StorageFunctionClient));
@@ -67,4 +69,5 @@ public static partial class ApiServiceCollectionExtensions
         services.AddSingleton<IPatientFileStorage, LocalDiskPatientFileStorage>();
         return services;
     }
+
 }
