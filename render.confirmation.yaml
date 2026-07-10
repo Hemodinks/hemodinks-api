@@ -60,6 +60,8 @@ services:
         sync: false
       - key: Email__FromName
         value: Hemodinks
+      - key: Email__BrandLogoUrl
+        sync: false
       - key: Cors__AllowedOrigins__0
         value: https://hemodinks-homologacao.vercel.app
       - key: Cors__AllowedOrigins__1

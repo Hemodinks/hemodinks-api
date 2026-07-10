@@ -102,6 +102,7 @@ Email__Smtp__Username=<usuario SMTP>
 Email__Smtp__Password=<senha SMTP>
 Email__FromEmail=<email remetente>
 Email__FromName=Hemodinks
+Email__BrandLogoUrl=<url publica da logomarca>
 Frontend__ResetPasswordUrl=https://hemodinks-saude.vercel.app/reset-password
 ```
 
@@ -199,6 +200,7 @@ Variaveis opcionais importantes:
 | `OTEL_EXPORTER_OTLP_EXTERNAL_ENDPOINT` | duplica telemetria para backend OTLP externo |
 | `AsyncQueues__ConnectionString` | storage usada pelas filas |
 | `Email__*` | SMTP quando reset por email direto estiver habilitado |
+| `Email__BrandLogoUrl` | URL publica opcional da logomarca no email de reset |
 
 Variaveis ja declaradas no blueprint:
 
@@ -321,6 +323,7 @@ Variaveis do Function App:
 | `FileExportQueueName` | mesmo valor da API |
 | `ExportsContainerName` | container dos arquivos gerados |
 | `Email__*` | configuracao SMTP do worker |
+| `Email__BrandLogoUrl` | URL publica opcional da logomarca no email de reset |
 | `Frontend__ResetPasswordUrl` | URL publica da tela de reset |
 
 ## Documentacao interativa em producao

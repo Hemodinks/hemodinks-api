@@ -173,6 +173,7 @@ Quando usar email real:
 - `Email__Provider`
 - `Email__FromEmail`
 - `Email__FromName`
+- `Email__BrandLogoUrl` se quiser exibir a logomarca no email
 - Credenciais/API key do provedor escolhido
 - `Frontend__ResetPasswordUrl`
 

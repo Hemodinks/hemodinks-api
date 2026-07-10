@@ -84,6 +84,7 @@ IResourceBuilder<ContainerResource> AddContainerizedApi(IDistributedApplicationB
             "Email__FromEmail",
             "hemodinks.gestao.saude@gmail.com"),
         EmailFromName: GetOptionalConfiguration(builder.Configuration, "Email__FromName", "Hemodinks"),
+        EmailBrandLogoUrl: GetOptionalConfiguration(builder.Configuration, "Email__BrandLogoUrl", string.Empty),
         FrontendResetPasswordUrl: GetOptionalConfiguration(
             builder.Configuration,
             "Frontend__ResetPasswordUrl",
@@ -170,6 +171,7 @@ IResourceBuilder<ContainerResource> AddContainerizedApi(IDistributedApplicationB
         .WithEnvironment("Email__Smtp__Password", appSettings.EmailSmtpPassword)
         .WithEnvironment("Email__FromEmail", appSettings.EmailFromEmail)
         .WithEnvironment("Email__FromName", appSettings.EmailFromName)
+        .WithEnvironment("Email__BrandLogoUrl", appSettings.EmailBrandLogoUrl)
         .WithEnvironment("Frontend__ResetPasswordUrl", appSettings.FrontendResetPasswordUrl)
         .WaitFor(sqlServer)
         .WaitForStart(azurite);
@@ -260,6 +262,7 @@ sealed record ContainerizedApiSettings(
     string EmailSmtpPassword,
     string EmailFromEmail,
     string EmailFromName,
+    string EmailBrandLogoUrl,
     string FrontendResetPasswordUrl)
 {
     public string SqlServerConnectionString =>
