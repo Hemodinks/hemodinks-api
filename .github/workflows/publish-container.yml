@@ -60,7 +60,7 @@ jobs:
           tags: |
             type=ref,event=branch
             type=ref,event=tag
-            type=sha,prefix=sha-
+            type=sha,prefix=sha-,format=long
 
       - name: Build and push
         uses: docker/build-push-action@v6
@@ -120,3 +120,34 @@ jobs:
             --name "${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME }}" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
             --image "ghcr.io/hemodinks/hemodinks-api-workers:sha-${{ github.sha }}"
+
+  deploy-function-app:
+    name: Deploy Workers to Azure Function App
+    runs-on: ubuntu-latest
+    environment: production
+    if: ${{ vars.AZURE_FUNCTION_APP_WORKERS_NAME != '' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure)) }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Publish workers
+        run: dotnet publish HemodinksAPI.Workers/HemodinksAPI.Workers.csproj --configuration Release --output ./publish/workers
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy workers
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ vars.AZURE_FUNCTION_APP_WORKERS_NAME }}
+          package: ./publish/workers
