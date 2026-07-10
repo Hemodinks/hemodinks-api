@@ -66,6 +66,8 @@ services:
         sync: false
       - key: Email__FromName
         value: Hemodinks
+      - key: Email__BrandLogoUrl
+        sync: false
       - key: AzureStorage__ConnectionString
         sync: false
       - key: AzureStorage__ContainerName
