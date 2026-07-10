@@ -84,7 +84,7 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
 
         try
         {
-            var containerClient = await GetContainerClientAsync(cancellationToken);
+            var containerClient = await GetContainerClientAsync(cancellationToken, createIfMissing: false);
             await containerClient.GetBlobClient(blobName).DeleteIfExistsAsync(cancellationToken: cancellationToken);
         }
         catch (Exception ex)
@@ -93,7 +93,9 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
         }
     }
 
-    private async Task<BlobContainerClient> GetContainerClientAsync(CancellationToken cancellationToken)
+    private async Task<BlobContainerClient> GetContainerClientAsync(
+        CancellationToken cancellationToken,
+        bool createIfMissing = true)
     {
         if (string.IsNullOrWhiteSpace(_options.ConnectionString))
         {
@@ -106,7 +108,11 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
         }
 
         var containerClient = new BlobContainerClient(_options.ConnectionString, _options.ContainerName);
-        await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob, cancellationToken: cancellationToken);
+        if (createIfMissing)
+        {
+            await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+        }
+
         return containerClient;
     }
 

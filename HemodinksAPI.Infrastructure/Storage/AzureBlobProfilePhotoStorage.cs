@@ -1,3 +1,4 @@
+using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Options;
@@ -58,7 +59,10 @@ public class AzureBlobProfilePhotoStorage : IProfilePhotoStorage
 
         try
         {
-            var containerClient = await GetContainerClientAsync(cancellationToken, location.ContainerName);
+            var containerClient = await GetContainerClientAsync(
+                cancellationToken,
+                location.ContainerName,
+                createIfMissing: false);
             await containerClient.GetBlobClient(location.BlobName).DeleteIfExistsAsync(cancellationToken: cancellationToken);
         }
         catch (Exception ex)
@@ -86,20 +90,35 @@ public class AzureBlobProfilePhotoStorage : IProfilePhotoStorage
             return null;
         }
 
-        var containerClient = await GetContainerClientAsync(cancellationToken, location.ContainerName);
-        var blobClient = containerClient.GetBlobClient(location.BlobName);
-
-        if (!(await blobClient.ExistsAsync(cancellationToken)).Value)
+        try
         {
+            var containerClient = await GetContainerClientAsync(
+                cancellationToken,
+                location.ContainerName,
+                createIfMissing: false);
+            var blobClient = containerClient.GetBlobClient(location.BlobName);
+
+            if (!(await blobClient.ExistsAsync(cancellationToken)).Value)
+            {
+                return null;
+            }
+
+            var response = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
+            var contentType = string.IsNullOrWhiteSpace(response.Value.Details.ContentType)
+                ? "application/octet-stream"
+                : response.Value.Details.ContentType;
+
+            return new ProfilePhotoFile(response.Value.Content, contentType);
+        }
+        catch (RequestFailedException ex)
+        {
+            _logger.LogWarning(
+                ex,
+                "Nao foi possivel buscar a foto de perfil no Azure Storage. Container: {ContainerName}. Blob: {BlobName}",
+                location.ContainerName,
+                location.BlobName);
             return null;
         }
-
-        var response = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
-        var contentType = string.IsNullOrWhiteSpace(response.Value.Details.ContentType)
-            ? "application/octet-stream"
-            : response.Value.Details.ContentType;
-
-        return new ProfilePhotoFile(response.Value.Content, contentType);
     }
 
     private async Task<string> UploadPhotoAsync(ParsedProfilePhoto photo, CancellationToken cancellationToken)
@@ -121,7 +140,10 @@ public class AzureBlobProfilePhotoStorage : IProfilePhotoStorage
         return BuildPublicUrl(blobClient, blobName);
     }
 
-    private async Task<BlobContainerClient> GetContainerClientAsync(CancellationToken cancellationToken, string? containerName = null)
+    private async Task<BlobContainerClient> GetContainerClientAsync(
+        CancellationToken cancellationToken,
+        string? containerName = null,
+        bool createIfMissing = true)
     {
         if (string.IsNullOrWhiteSpace(_options.ConnectionString))
         {
@@ -138,7 +160,11 @@ public class AzureBlobProfilePhotoStorage : IProfilePhotoStorage
         }
 
         var containerClient = new BlobContainerClient(_options.ConnectionString, resolvedContainerName);
-        await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+        if (createIfMissing)
+        {
+            await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
+        }
+
         return containerClient;
     }
 
