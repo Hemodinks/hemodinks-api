@@ -1,4 +1,4 @@
-name: Publish Container
+name: Publish Containers
 
 on:
   push:
@@ -7,10 +7,17 @@ on:
     tags:
       - v*.*.*
   workflow_dispatch:
+    inputs:
+      deploy_to_azure:
+        description: Deploy the published images to Azure Container Apps
+        required: false
+        type: boolean
+        default: false
 
 permissions:
   contents: read
   packages: write
+  id-token: write
 
 concurrency:
   group: publish-container-${{ github.ref }}
@@ -18,8 +25,18 @@ concurrency:
 
 jobs:
   publish:
-    name: Build and publish image
+    name: Build and publish ${{ matrix.service }} image
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api
+            dockerfile: ./Dockerfile
+            image: ghcr.io/hemodinks/hemodinks-api
+          - service: functions
+            dockerfile: ./HemodinksAPI.Workers/Dockerfile
+            image: ghcr.io/hemodinks/hemodinks-api-workers
 
     steps:
       - name: Checkout
@@ -39,7 +56,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ghcr.io/hemodinks/hemodinks-api
+          images: ${{ matrix.image }}
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -49,7 +66,57 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+
+  deploy-api:
+    name: Deploy API to Azure Container Apps
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: production
+    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_API_NAME != '' && vars.AZURE_RESOURCE_GROUP != '' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure)) }}
+
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install Container Apps extension
+        run: az extension add --name containerapp --upgrade
+
+      - name: Update API image
+        run: |
+          az containerapp update \
+            --name "${{ vars.AZURE_CONTAINER_APP_API_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --image "ghcr.io/hemodinks/hemodinks-api:sha-${{ github.sha }}"
+
+  deploy-functions:
+    name: Deploy Functions to Azure Container Apps
+    needs: publish
+    runs-on: ubuntu-latest
+    environment: production
+    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME != '' && vars.AZURE_RESOURCE_GROUP != '' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure)) }}
+
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install Container Apps extension
+        run: az extension add --name containerapp --upgrade
+
+      - name: Update Functions image
+        run: |
+          az containerapp update \
+            --name "${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME }}" \
+            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --image "ghcr.io/hemodinks/hemodinks-api-workers:sha-${{ github.sha }}"

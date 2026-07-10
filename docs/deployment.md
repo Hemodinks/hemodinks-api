@@ -31,14 +31,142 @@ Publicado:
 Workflows principais:
 
 - `.github/workflows/ci.yml`: restore, build, testes e validacao de migrations
-- `.github/workflows/publish-container.yml`: publica imagem Docker no GHCR
+- `.github/workflows/publish-container.yml`: publica imagens Docker no GHCR e, quando habilitado, atualiza Azure Container Apps
+- `.github/workflows/generate-migration-script.yml`: gera SQL idempotente de migrations para revisao/aplicacao controlada
+- `.github/workflows/azure-operational-tasks.yml`: executa tarefas operacionais manuais no Azure, como seed CBHPM temporario
 - `.github/workflows/vercel-deploy.yml`: gancho opcional para coordenacao com o front
 
-Imagem:
+Imagens:
 
 ```text
 ghcr.io/hemodinks/hemodinks-api
+ghcr.io/hemodinks/hemodinks-api-workers
 ```
+
+## Azure Container Apps
+
+Crie primeiro os recursos no Azure Portal ou Azure CLI; depois conecte os workflows do GitHub.
+
+Container Apps recomendados:
+
+| App | Origem | Ingress | Porta | Observacao |
+| --- | --- | --- | --- | --- |
+| `hemodinks-api` | `ghcr.io/hemodinks/hemodinks-api` | External | `8080` | API publica, health check em `/healthz` |
+| `hemodinks-functions` | `ghcr.io/hemodinks/hemodinks-api-workers` | External ou internal conforme uso HTTP | porta padrao da imagem Functions | Azure Functions em container para uploads, reset e exportacoes |
+
+Nao e necessario criar um terceiro Container App para workers neste momento. O processamento de lembretes roda dentro da API via `EventNotificationHostedService`; por isso mantenha a API com `max replicas = 1` ate esse processamento ser extraido para um job/worker dedicado com trava distribuida.
+
+Configuracao da API no Container Apps:
+
+| Campo | Valor |
+| --- | --- |
+| Target port | `8080` |
+| Min replicas | `1` |
+| Max replicas inicial | `1` |
+| Health/readiness | `/healthz` |
+| Revision mode | Single, salvo estrategia explicita de blue/green |
+
+Variaveis obrigatorias da API:
+
+```text
+ASPNETCORE_ENVIRONMENT=Production
+ConnectionStrings__DefaultConnection=<Azure SQL>
+JwtSettings__SecretKey=<segredo forte>
+JwtSettings__Issuer=HemodinksAPI
+JwtSettings__Audience=HemodinksAPI
+AzureStorage__ConnectionString=<Azure Storage>
+AzureStorage__ContainerName=profile-photos
+AzureStorage__PatientFilesContainerName=patient-files
+Cors__AllowedOrigins__0=https://hemodinks-saude.vercel.app
+Frontend__ResetPasswordUrl=https://hemodinks-saude.vercel.app/reset-password
+Database__RunMigrationsOnStartup=true
+Seed__CbhpmOnStartup=false
+Seed__UsersOnStartup=false
+```
+
+Para Functions em Container Apps, habilite a opcao de Azure Functions no portal e configure:
+
+```text
+FUNCTIONS_WORKER_RUNTIME=dotnet-isolated
+AzureWebJobsStorage=<Azure Storage>
+PasswordResetEmailQueueName=password-reset-emails
+FileExportQueueName=file-export-jobs
+ExportsContainerName=exports
+AzureStorage__ConnectionString=<Azure Storage>
+AzureStorage__ContainerName=profile-photos
+AzureStorage__PatientFilesContainerName=patient-files
+Email__Provider=GmailSmtp
+Email__Smtp__Host=smtp.gmail.com
+Email__Smtp__Port=587
+Email__Smtp__Username=<usuario SMTP>
+Email__Smtp__Password=<senha SMTP>
+Email__FromEmail=<email remetente>
+Email__FromName=Hemodinks
+Email__BrandLogoUrl=<url publica da logomarca>
+Frontend__ResetPasswordUrl=https://hemodinks-saude.vercel.app/reset-password
+```
+
+Se as imagens GHCR estiverem privadas, configure o pull do Container Apps com um PAT do GitHub com `read:packages` ou publique as imagens como publicas. Exemplo:
+
+```bash
+az containerapp registry set \
+  --name hemodinks-api \
+  --resource-group <resource-group> \
+  --server ghcr.io \
+  --username <github-user> \
+  --password <github-pat-read-packages>
+```
+
+Repita para `hemodinks-functions`.
+
+### Deploy pelo GitHub Actions
+
+O workflow `Publish Containers` sempre publica as duas imagens no GHCR em push para `main`. O deploy no Azure so acontece quando as variaveis/secrets abaixo estiverem configuradas.
+
+Repository variables:
+
+| Nome | Exemplo |
+| --- | --- |
+| `AZURE_CONTAINER_APPS_DEPLOY_ENABLED` | `true` |
+| `AZURE_RESOURCE_GROUP` | `rg-hemodinks-prod` |
+| `AZURE_CONTAINER_APP_API_NAME` | `hemodinks-api` |
+| `AZURE_CONTAINER_APP_FUNCTIONS_NAME` | `hemodinks-functions` |
+
+Repository secrets para login OIDC no Azure:
+
+| Nome |
+| --- |
+| `AZURE_CLIENT_ID` |
+| `AZURE_TENANT_ID` |
+| `AZURE_SUBSCRIPTION_ID` |
+
+Permissoes minimas esperadas para a identidade:
+
+- `Contributor` no resource group dos Container Apps, ou permissao equivalente para `Microsoft.App/containerApps`.
+- Permissao de federated credential configurada no app registration para este repositorio/ambiente GitHub.
+
+Com `AZURE_CONTAINER_APPS_DEPLOY_ENABLED=true`, merge em `main` publica as imagens e atualiza as revisoes dos Container Apps usando tags `sha-<commit>`.
+
+### Migrations no pipeline
+
+O CI ja valida se existem mudancas de modelo pendentes sem migration. Para producao, prefira gerar e revisar SQL antes de aplicar:
+
+1. Execute o workflow manual `Generate Migration Script`.
+2. Baixe o artefato `hemodinks-migrations-sql`.
+3. Revise comandos destrutivos como `DROP`, `DELETE`, `ALTER COLUMN` e SQL manual.
+4. Aplique no Azure SQL com backup/PITR confirmado.
+
+Enquanto a operacao ainda estiver simples, `Database__RunMigrationsOnStartup=true` pode ser usado com `max replicas = 1`. Quando o ambiente amadurecer, mude para `Database__RunMigrationsOnStartup=false` e aplique migrations por etapa controlada.
+
+### Seed CBHPM pontual
+
+Para atualizar CBHPM sem deixar `Seed__CbhpmOnStartup=true` fixo:
+
+1. Execute o workflow manual `Azure Operational Tasks`.
+2. Selecione `cbhpm-seed`.
+3. O workflow liga `Seed__CbhpmOnStartup=true`, cria uma nova revisao, espera `/healthz` ficar saudavel e depois volta para `false`.
+
+O seed atual insere/atualiza por codigo e nao remove procedimentos ausentes do JSON. Mesmo assim, revise o JSON antes de rodar em producao.
 
 ## Render producao
 
@@ -72,6 +200,7 @@ Variaveis opcionais importantes:
 | `OTEL_EXPORTER_OTLP_EXTERNAL_ENDPOINT` | duplica telemetria para backend OTLP externo |
 | `AsyncQueues__ConnectionString` | storage usada pelas filas |
 | `Email__*` | SMTP quando reset por email direto estiver habilitado |
+| `Email__BrandLogoUrl` | URL publica opcional da logomarca no email de reset |
 
 Variaveis ja declaradas no blueprint:
 
@@ -194,6 +323,7 @@ Variaveis do Function App:
 | `FileExportQueueName` | mesmo valor da API |
 | `ExportsContainerName` | container dos arquivos gerados |
 | `Email__*` | configuracao SMTP do worker |
+| `Email__BrandLogoUrl` | URL publica opcional da logomarca no email de reset |
 | `Frontend__ResetPasswordUrl` | URL publica da tela de reset |
 
 ## Documentacao interativa em producao

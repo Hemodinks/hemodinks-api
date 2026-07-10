@@ -138,7 +138,7 @@ public class AzureBlobProfilePhotoStorage : IProfilePhotoStorage
         }
 
         var containerClient = new BlobContainerClient(_options.ConnectionString, resolvedContainerName);
-        await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob, cancellationToken: cancellationToken);
+        await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
         return containerClient;
     }
 

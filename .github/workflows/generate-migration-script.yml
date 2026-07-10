@@ -1,0 +1,57 @@
+name: Generate Migration Script
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: generate-migration-script-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
+jobs:
+  generate:
+    name: Generate idempotent SQL
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - name: Restore
+        run: dotnet restore ./HemodinksAPI.slnx
+
+      - name: Build
+        run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
+
+      - name: Generate idempotent migration script
+        run: |
+          mkdir -p artifacts
+          dotnet tool run dotnet-ef migrations script \
+            --idempotent \
+            --configuration Release \
+            --no-build \
+            --project ./HemodinksAPI.Infrastructure/HemodinksAPI.Infrastructure.csproj \
+            --startup-project ./HemodinksAPI.Api/HemodinksAPI.Api.csproj \
+            --output ./artifacts/hemodinks-migrations.sql
+
+      - name: Upload SQL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hemodinks-migrations-sql
+          path: artifacts/hemodinks-migrations.sql
+          if-no-files-found: error
