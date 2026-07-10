@@ -131,6 +131,7 @@ Repository variables:
 | `AZURE_RESOURCE_GROUP` | `rg-hemodinks-prod` |
 | `AZURE_CONTAINER_APP_API_NAME` | `hemodinks-api` |
 | `AZURE_CONTAINER_APP_FUNCTIONS_NAME` | `hemodinks-functions` |
+| `AZURE_FUNCTION_APP_WORKERS_NAME` | `hemodinks-workers-production` |
 
 Repository secrets para login OIDC no Azure:
 
@@ -146,6 +147,8 @@ Permissoes minimas esperadas para a identidade:
 - Permissao de federated credential configurada no app registration para este repositorio/ambiente GitHub.
 
 Com `AZURE_CONTAINER_APPS_DEPLOY_ENABLED=true`, merge em `main` publica as imagens e atualiza as revisoes dos Container Apps usando tags `sha-<commit>`.
+
+Se os workers estiverem em um Azure Function App tradicional em vez de Azure Container Apps, configure `AZURE_FUNCTION_APP_WORKERS_NAME` com o nome do Function App. O workflow publica `HemodinksAPI.Workers` diretamente nesse Function App usando o login Azure OIDC ja configurado.
 
 ### Migrations no pipeline
 
