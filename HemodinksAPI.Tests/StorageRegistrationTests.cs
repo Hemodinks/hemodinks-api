@@ -77,6 +77,51 @@ public class StorageRegistrationTests
     }
 
     [Fact]
+    public void AddStorage_WhenStorageFunctionKeyIsMissing_UsesAzureStorageDirectly()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AzureStorage:ConnectionString"] = "UseDevelopmentStorage=true",
+                ["StorageFunctions:BaseUrl"] = "https://hemodinks-workers-production.azurewebsites.net"
+            })
+            .Build();
+
+        services.AddStorage(configuration, new TestWebHostEnvironment(Environments.Development));
+
+        using var serviceProvider = services.BuildServiceProvider();
+
+        Assert.IsType<AzureBlobProfilePhotoStorage>(serviceProvider.GetRequiredService<IProfilePhotoStorage>());
+        Assert.IsType<AzureBlobPatientFileStorage>(serviceProvider.GetRequiredService<IPatientFileStorage>());
+    }
+
+    [Fact]
+    public void AddStorage_WhenStorageFunctionBaseUrlIsInvalid_UsesAzureStorageDirectly()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["AzureStorage:ConnectionString"] = "UseDevelopmentStorage=true",
+                ["StorageFunctions:BaseUrl"] = "hemodinks-workers-production.azurewebsites.net",
+                ["StorageFunctions:FunctionKey"] = "secret"
+            })
+            .Build();
+
+        services.AddStorage(configuration, new TestWebHostEnvironment(Environments.Development));
+
+        using var serviceProvider = services.BuildServiceProvider();
+
+        Assert.IsType<AzureBlobProfilePhotoStorage>(serviceProvider.GetRequiredService<IProfilePhotoStorage>());
+        Assert.IsType<AzureBlobPatientFileStorage>(serviceProvider.GetRequiredService<IPatientFileStorage>());
+    }
+
+    [Fact]
     public void AddStorage_WhenAzureConnectionStringIsMissingInProduction_Throws()
     {
         var services = new ServiceCollection();

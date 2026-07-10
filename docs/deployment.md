@@ -84,6 +84,15 @@ Seed__CbhpmOnStartup=false
 Seed__UsersOnStartup=false
 ```
 
+Se uploads de fotos e arquivos forem processados por Azure Functions, configure tambem na API:
+
+```text
+StorageFunctions__BaseUrl=https://<function-app>.azurewebsites.net
+StorageFunctions__FunctionKey=<function-key>
+```
+
+Sem essas duas variaveis validas, a API salva direto no Azure Blob Storage usando `AzureStorage__ConnectionString`.
+
 Para Functions em Container Apps, habilite a opcao de Azure Functions no portal e configure:
 
 ```text
@@ -147,6 +156,7 @@ Permissoes minimas esperadas para a identidade:
 - Permissao de federated credential configurada no app registration para este repositorio/ambiente GitHub.
 
 Com `AZURE_CONTAINER_APPS_DEPLOY_ENABLED=true`, merge em `main` publica as imagens e atualiza as revisoes dos Container Apps usando tags `sha-<commit>`.
+O workflow tambem atualiza `Deployment__CommitSha` no Container App para forcar nova revisao; o valor aparece em `/healthz` para conferencia pos-deploy.
 
 Se os workers estiverem em um Azure Function App tradicional em vez de Azure Container Apps, configure `AZURE_FUNCTION_APP_WORKERS_NAME` com o nome do Function App. O workflow publica `HemodinksAPI.Workers` diretamente nesse Function App usando o login Azure OIDC ja configurado.
 
