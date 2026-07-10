@@ -94,7 +94,8 @@ jobs:
           az containerapp update \
             --name "${{ vars.AZURE_CONTAINER_APP_API_NAME }}" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --image "ghcr.io/hemodinks/hemodinks-api:sha-${{ github.sha }}"
+            --image "ghcr.io/hemodinks/hemodinks-api:sha-${{ github.sha }}" \
+            --set-env-vars Deployment__CommitSha="${{ github.sha }}"
 
   deploy-functions:
     name: Deploy Functions to Azure Container Apps
@@ -119,7 +120,8 @@ jobs:
           az containerapp update \
             --name "${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME }}" \
             --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
-            --image "ghcr.io/hemodinks/hemodinks-api-workers:sha-${{ github.sha }}"
+            --image "ghcr.io/hemodinks/hemodinks-api-workers:sha-${{ github.sha }}" \
+            --set-env-vars Deployment__CommitSha="${{ github.sha }}"
 
   deploy-function-app:
     name: Deploy Workers to Azure Function App
