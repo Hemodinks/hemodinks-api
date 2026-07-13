@@ -81,9 +81,7 @@ internal static class FaturamentoMedicoFilters
             query = query.Where(p =>
                 (p.FaturamentoMedico == null
                     ? p.Data
-                    : p.FaturamentoMedico.CompetenciaFinal
-                        ?? p.FaturamentoMedico.CompetenciaInicio
-                        ?? p.Data) >= competenciaInicioValue);
+                    : p.FaturamentoMedico.DataCadastro) >= competenciaInicioValue);
         }
 
         if (normalizedCompetenciaFinalExclusive.HasValue)
@@ -92,9 +90,7 @@ internal static class FaturamentoMedicoFilters
             query = query.Where(p =>
                 (p.FaturamentoMedico == null
                     ? p.Data
-                    : p.FaturamentoMedico.CompetenciaInicio
-                        ?? p.FaturamentoMedico.CompetenciaFinal
-                        ?? p.Data) < competenciaFinalExclusiveValue);
+                    : p.FaturamentoMedico.DataCadastro) < competenciaFinalExclusiveValue);
         }
 
         return query;

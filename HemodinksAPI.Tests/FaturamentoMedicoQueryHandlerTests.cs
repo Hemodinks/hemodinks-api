@@ -114,7 +114,7 @@ public class FaturamentoMedicoQueryHandlerTests
     }
 
     [Fact]
-    public async Task GetAllFaturamentosMedicos_WithCompetenciaRange_ReturnsSelectedMonthBillings()
+    public async Task GetAllFaturamentosMedicos_WithCompetenciaRange_ReturnsBillingsCreatedInSelectedMonth()
     {
         await using var context = TestDbContextFactory.Create();
         var doctor = CreateDoctor("Dra. Competencia", "competencia.faturamento@hemodinks.com", "10052597001");
@@ -130,34 +130,37 @@ public class FaturamentoMedicoQueryHandlerTests
                 FaturamentoMedico = new FaturamentoMedico
                 {
                     HonorariosCirurgiao = 100m,
-                    CompetenciaInicio = new DateTime(2026, 6, 1),
-                    CompetenciaFinal = new DateTime(2026, 6, 30)
-                }
-            },
-            new Paciente
-            {
-                User = CreatePatientUser("Paciente Julho", "julho.competencia@hemodinks.com", "95880630058"),
-                NomePaciente = "Paciente Julho",
-                Data = new DateTime(2026, 7, 15),
-                MedicoUser = doctor,
-                Medico = doctor.Nome,
-                FaturamentoMedico = new FaturamentoMedico
-                {
-                    HonorariosCirurgiao = 200m,
+                    DataCadastro = new DateTime(2026, 6, 21, 10, 0, 0, DateTimeKind.Utc),
                     CompetenciaInicio = new DateTime(2026, 7, 1),
                     CompetenciaFinal = new DateTime(2026, 7, 31)
                 }
             },
             new Paciente
             {
-                User = CreatePatientUser("Paciente Legado", "legado.competencia@hemodinks.com", "25235576091"),
-                NomePaciente = "Paciente Legado",
-                Data = new DateTime(2026, 7, 25),
+                User = CreatePatientUser("Paciente Julho", "julho.competencia@hemodinks.com", "95880630058"),
+                NomePaciente = "Paciente Julho",
+                Data = new DateTime(2026, 6, 15),
                 MedicoUser = doctor,
                 Medico = doctor.Nome,
                 FaturamentoMedico = new FaturamentoMedico
                 {
-                    HonorariosCirurgiao = 300m
+                    HonorariosCirurgiao = 200m,
+                    DataCadastro = new DateTime(2026, 7, 2, 10, 0, 0, DateTimeKind.Utc),
+                    CompetenciaInicio = new DateTime(2026, 6, 1),
+                    CompetenciaFinal = new DateTime(2026, 6, 30)
+                }
+            },
+            new Paciente
+            {
+                User = CreatePatientUser("Paciente Legado", "legado.competencia@hemodinks.com", "25235576091"),
+                NomePaciente = "Paciente Legado",
+                Data = new DateTime(2026, 9, 25),
+                MedicoUser = doctor,
+                Medico = doctor.Nome,
+                FaturamentoMedico = new FaturamentoMedico
+                {
+                    HonorariosCirurgiao = 300m,
+                    DataCadastro = new DateTime(2026, 7, 25, 10, 0, 0, DateTimeKind.Utc)
                 }
             },
             new Paciente
@@ -170,8 +173,9 @@ public class FaturamentoMedicoQueryHandlerTests
                 FaturamentoMedico = new FaturamentoMedico
                 {
                     HonorariosCirurgiao = 400m,
-                    CompetenciaInicio = new DateTime(2026, 8, 1),
-                    CompetenciaFinal = new DateTime(2026, 8, 31)
+                    DataCadastro = new DateTime(2026, 8, 1, 10, 0, 0, DateTimeKind.Utc),
+                    CompetenciaInicio = new DateTime(2026, 7, 1),
+                    CompetenciaFinal = new DateTime(2026, 7, 31)
                 }
             });
         await context.SaveChangesAsync();
