@@ -79,6 +79,7 @@ internal sealed class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
             .IsUnique();
 
         entity.HasIndex(e => e.ClinicaId);
+        entity.HasIndex(e => new { e.ClinicaId, e.Data });
         entity.HasIndex(e => e.CbhpmCodigo);
         entity.HasIndex(e => e.HospitalId);
 

@@ -2,6 +2,7 @@ services:
   azurite:
     image: mcr.microsoft.com/azure-storage/azurite:latest
     container_name: hemodinks-azurite
+    restart: unless-stopped
     command: azurite --blobHost 0.0.0.0 --queueHost 0.0.0.0 --tableHost 0.0.0.0 --location /data --skipApiVersionCheck
     ports:
       - "10000:10000"
@@ -15,6 +16,7 @@ services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
     container_name: hemodinks-mssql
+    restart: unless-stopped
     environment:
       ACCEPT_EULA: Y
       MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD}"
@@ -36,6 +38,7 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: hemodinks-api
+    restart: unless-stopped
     environment:
       ASPNETCORE_ENVIRONMENT: "${ASPNETCORE_ENVIRONMENT:-Development}"
       ASPNETCORE_URLS: http://+:5000
@@ -87,6 +90,7 @@ services:
       context: .
       dockerfile: HemodinksAPI.Workers/Dockerfile
     container_name: hemodinks-workers
+    restart: unless-stopped
     environment:
       AzureWebJobsStorage: "${AZURE_WEBJOBS_STORAGE:-UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://azurite}"
       FUNCTIONS_WORKER_RUNTIME: dotnet-isolated

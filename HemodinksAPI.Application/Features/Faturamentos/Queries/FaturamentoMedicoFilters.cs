@@ -75,25 +75,29 @@ internal static class FaturamentoMedicoFilters
                 || p.Procedimentos.Any(item => item.Procedimento.Contains(normalizedProcedimento)));
         }
 
-        if (normalizedCompetenciaInicio.HasValue)
+        if (normalizedCompetenciaInicio.HasValue || normalizedCompetenciaFinalExclusive.HasValue)
         {
-            var competenciaInicioValue = normalizedCompetenciaInicio.Value;
-            query = query.Where(p =>
-                (p.FaturamentoMedico == null
-                    ? p.Data
-                    : p.FaturamentoMedico.DataCadastro) >= competenciaInicioValue);
-        }
-
-        if (normalizedCompetenciaFinalExclusive.HasValue)
-        {
-            var competenciaFinalExclusiveValue = normalizedCompetenciaFinalExclusive.Value;
-            query = query.Where(p =>
-                (p.FaturamentoMedico == null
-                    ? p.Data
-                    : p.FaturamentoMedico.DataCadastro) < competenciaFinalExclusiveValue);
+            query = ApplyCompetenciaFilter(
+                query,
+                normalizedCompetenciaInicio,
+                normalizedCompetenciaFinalExclusive);
         }
 
         return query;
+    }
+
+    private static IQueryable<Paciente> ApplyCompetenciaFilter(
+        IQueryable<Paciente> query,
+        DateTime? competenciaInicio,
+        DateTime? competenciaFinalExclusive)
+    {
+        return query.Where(p =>
+            (p.FaturamentoMedico != null
+                && (!competenciaInicio.HasValue || p.FaturamentoMedico.DataCadastro >= competenciaInicio.Value)
+                && (!competenciaFinalExclusive.HasValue || p.FaturamentoMedico.DataCadastro < competenciaFinalExclusive.Value))
+            || (p.FaturamentoMedico == null
+                && (!competenciaInicio.HasValue || p.Data >= competenciaInicio.Value)
+                && (!competenciaFinalExclusive.HasValue || p.Data < competenciaFinalExclusive.Value)));
     }
 
     private static string? TrimOptional(string? value)

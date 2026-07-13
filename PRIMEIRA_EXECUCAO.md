@@ -30,8 +30,8 @@ JWT_SECRET_KEY=uma_chave_com_32_caracteres_ou_mais
 Suba os containers:
 
 ```powershell
-docker-compose up -d
-docker-compose ps
+docker compose up -d --build api workers
+docker compose ps
 ```
 
 A API ficara em:
@@ -40,6 +40,13 @@ A API ficara em:
 - Swagger: `http://localhost:5000/swagger`
 - Scalar: `http://localhost:5000/scalar`
 - OpenAPI: `http://localhost:5000/openapi/v1.json`
+
+Esse compose deixa `api`, `workers`, `sqlserver` e `azurite` com `restart: unless-stopped`. Assim, apos a primeira subida, o Docker Desktop inicia o stack inteiro quando o engine voltar. Se voce ja usava o compose avulso de `sqlserver/`, pare esse container antigo uma vez:
+
+```powershell
+docker compose -f sqlserver/docker-compose.yml stop
+docker update --restart=no hemodinks-sqlserver-dev
+```
 
 Em ambiente publicado, Swagger/Scalar/OpenAPI exigem `ApiDocumentation__Enabled=true`.
 

@@ -114,6 +114,39 @@ public class FaturamentoMedicoQueryHandlerTests
     }
 
     [Fact]
+    public async Task GetAllFaturamentosMedicos_WithoutCompetencia_ReturnsLegacyPatientsWithoutBillingDate()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var doctor = CreateDoctor("Dra. Sem Data", "sem.data.faturamento@hemodinks.com", "39672548001");
+
+        context.Pacientes.Add(new Paciente
+        {
+            User = CreatePatientUser("Paciente Sem Data", "paciente.sem.data@hemodinks.com", "84804257043"),
+            NomePaciente = "Paciente Sem Data",
+            Data = null,
+            MedicoUser = doctor,
+            Medico = doctor.Nome,
+            Pagamento = "R$ 1.500,00"
+        });
+        await context.SaveChangesAsync();
+
+        var handler = new GetAllFaturamentosMedicosQueryHandler(
+            context,
+            NullLogger<GetAllFaturamentosMedicosQueryHandler>.Instance);
+
+        var result = await handler.Handle(new GetAllFaturamentosMedicosQuery
+        {
+            CurrentPerfilId = Perfil.AdministradorId,
+            CurrentUserId = 999,
+            Page = 1,
+            PageSize = 10
+        }, CancellationToken.None);
+
+        Assert.Equal(["Paciente Sem Data"], result.Items.Select(item => item.NomePaciente));
+        Assert.Equal(1, result.TotalItems);
+    }
+
+    [Fact]
     public async Task GetAllFaturamentosMedicos_WithCompetenciaRange_ReturnsBillingsCreatedInSelectedMonth()
     {
         await using var context = TestDbContextFactory.Create();
