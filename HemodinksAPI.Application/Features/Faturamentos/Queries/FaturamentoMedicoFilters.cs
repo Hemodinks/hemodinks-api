@@ -96,8 +96,8 @@ internal static class FaturamentoMedicoFilters
                 && (!competenciaInicio.HasValue || p.FaturamentoMedico.DataCadastro >= competenciaInicio.Value)
                 && (!competenciaFinalExclusive.HasValue || p.FaturamentoMedico.DataCadastro < competenciaFinalExclusive.Value))
             || (p.FaturamentoMedico == null
-                && (!competenciaInicio.HasValue || p.Data >= competenciaInicio.Value)
-                && (!competenciaFinalExclusive.HasValue || p.Data < competenciaFinalExclusive.Value)));
+                && (!competenciaInicio.HasValue || p.User.DataCadastro >= competenciaInicio.Value)
+                && (!competenciaFinalExclusive.HasValue || p.User.DataCadastro < competenciaFinalExclusive.Value)));
     }
 
     private static string? TrimOptional(string? value)
