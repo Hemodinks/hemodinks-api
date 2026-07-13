@@ -21,4 +21,8 @@ public class GetAllFaturamentosMedicosQuery : IRequest<PagedResult<PacienteDto>>
     public int CurrentUserId { get; set; }
 
     public int CurrentPerfilId { get; set; }
+
+    public DateTime? CompetenciaInicio { get; set; }
+
+    public DateTime? CompetenciaFinal { get; set; }
 }

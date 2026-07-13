@@ -4,6 +4,7 @@ using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HemodinksAPI.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260713160359_AddFaturamentoMedicoCompetencia")]
+    partial class AddFaturamentoMedicoCompetencia
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -29,9 +32,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -64,15 +64,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasIndex("EventId");
 
-                    b.HasIndex("RecipientUserId");
-
                     b.HasIndex("SenderUserId");
 
-                    b.HasIndex("ClinicaId", "EventId");
-
-                    b.HasIndex("ClinicaId", "SenderUserId");
-
-                    b.HasIndex("ClinicaId", "RecipientUserId", "ReadAt", "CreatedAt");
+                    b.HasIndex("RecipientUserId", "ReadAt", "CreatedAt");
 
                     b.ToTable("AgendaNotifications", (string)null);
                 });
@@ -123,55 +117,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.ToTable("CBHPMGeral", (string)null);
                 });
 
-            modelBuilder.Entity("HemodinksAPI.Domain.Models.Clinica", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<bool>("Ativa")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<DateTime?>("DataAtualizacao")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("DataCadastro")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("datetime2")
-                        .HasDefaultValueSql("GETUTCDATE()");
-
-                    b.Property<string>("Nome")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasMaxLength(120)
-                        .HasColumnType("nvarchar(120)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Slug")
-                        .IsUnique();
-
-                    b.ToTable("Clinicas", (string)null);
-
-                    b.HasData(
-                        new
-                        {
-                            Id = 1,
-                            Ativa = true,
-                            DataCadastro = new DateTime(2026, 7, 3, 0, 0, 0, 0, DateTimeKind.Utc),
-                            Nome = "HemoDinks",
-                            Slug = "hemodinks"
-                        });
-                });
-
             modelBuilder.Entity("HemodinksAPI.Domain.Models.ConfiguracaoSistema", b =>
                 {
                     b.Property<int>("Id")
@@ -179,9 +124,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
 
                     b.Property<DateTime?>("DataAtualizacao")
                         .HasColumnType("datetime2");
@@ -201,16 +143,12 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClinicaId")
-                        .IsUnique();
-
                     b.ToTable("ConfiguracoesSistema", (string)null);
 
                     b.HasData(
                         new
                         {
                             Id = 1,
-                            ClinicaId = 1,
                             DataCadastro = new DateTime(2026, 6, 22, 0, 0, 0, 0, DateTimeKind.Utc),
                             NomeEmpresa = "Hemodinks"
                         });
@@ -224,9 +162,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("IdConvenio"));
 
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
-
                     b.Property<string>("DescricaoConvenio")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -234,7 +169,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasKey("IdConvenio");
 
-                    b.HasIndex("ClinicaId", "DescricaoConvenio")
+                    b.HasIndex("DescricaoConvenio")
                         .IsUnique();
 
                     b.ToTable("Convenios", (string)null);
@@ -243,55 +178,46 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         new
                         {
                             IdConvenio = 1,
-                            ClinicaId = 1,
                             DescricaoConvenio = "Amil"
                         },
                         new
                         {
                             IdConvenio = 2,
-                            ClinicaId = 1,
                             DescricaoConvenio = "Bradesco Saúde"
                         },
                         new
                         {
                             IdConvenio = 3,
-                            ClinicaId = 1,
                             DescricaoConvenio = "Cemig Saúde"
                         },
                         new
                         {
                             IdConvenio = 4,
-                            ClinicaId = 1,
                             DescricaoConvenio = "Fusex"
                         },
                         new
                         {
                             IdConvenio = 5,
-                            ClinicaId = 1,
                             DescricaoConvenio = "Geap"
                         },
                         new
                         {
                             IdConvenio = 6,
-                            ClinicaId = 1,
                             DescricaoConvenio = "Ipsemg"
                         },
                         new
                         {
                             IdConvenio = 7,
-                            ClinicaId = 1,
                             DescricaoConvenio = "Particular"
                         },
                         new
                         {
                             IdConvenio = 8,
-                            ClinicaId = 1,
                             DescricaoConvenio = "Sul América"
                         },
                         new
                         {
                             IdConvenio = 9,
-                            ClinicaId = 1,
                             DescricaoConvenio = "Unimed Uberlândia - Plano  Unimed Intercâmbio"
                         });
                 });
@@ -303,9 +229,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
 
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("datetime2");
@@ -369,13 +292,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.HasIndex("ClinicaId", "MedicalUserId");
+                    b.HasIndex("NextReminderAt", "IsCompleted");
 
-                    b.HasIndex("ClinicaId", "UserId");
-
-                    b.HasIndex("ClinicaId", "NextReminderAt", "IsCompleted");
-
-                    b.HasIndex("ClinicaId", "Start", "End", "IsCompleted");
+                    b.HasIndex("Start", "End", "IsCompleted");
 
                     b.ToTable("Events", (string)null);
                 });
@@ -396,9 +315,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
-
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
 
                     b.Property<string>("CodigoTussCbhpmAmb")
                         .HasMaxLength(1000)
@@ -487,13 +403,12 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ConferenciaPagamentoRealizada");
+
                     b.HasIndex("PacienteId")
                         .IsUnique();
 
-                    b.HasIndex("ClinicaId", "ConferenciaPagamentoRealizada");
-
-                    b.HasIndex("ClinicaId", "PacienteId")
-                        .IsUnique();
+                    b.HasIndex("CompetenciaInicio", "CompetenciaFinal");
 
                     b.ToTable("FaturamentosMedicos", (string)null);
                 });
@@ -511,9 +426,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
-
                     b.Property<DateTime?>("DataAtualizacao")
                         .HasColumnType("datetime2");
 
@@ -529,9 +441,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClinicaId");
-
-                    b.HasIndex("ClinicaId", "Nome")
+                    b.HasIndex("Nome")
                         .IsUnique();
 
                     b.ToTable("GruposMedicos", (string)null);
@@ -545,9 +455,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Property<int>("UserId")
                         .HasColumnType("int");
 
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
-
                     b.Property<DateTime>("DataCadastro")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -556,10 +463,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.HasKey("GrupoMedicoId", "UserId");
 
                     b.HasIndex("UserId");
-
-                    b.HasIndex("ClinicaId", "GrupoMedicoId");
-
-                    b.HasIndex("ClinicaId", "UserId");
 
                     b.ToTable("GrupoMedicoUsuarios", (string)null);
                 });
@@ -572,9 +475,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -582,7 +482,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClinicaId", "Nome")
+                    b.HasIndex("Nome")
                         .IsUnique();
 
                     b.ToTable("Hospitais", (string)null);
@@ -591,19 +491,16 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         new
                         {
                             Id = 1,
-                            ClinicaId = 1,
                             Nome = "Santa Clara - Mater Dei"
                         },
                         new
                         {
                             Id = 2,
-                            ClinicaId = 1,
                             Nome = "Santa Genoveva - Mater Dei"
                         },
                         new
                         {
                             Id = 3,
-                            ClinicaId = 1,
                             Nome = "UMC - Complexo Hospitalar"
                         });
                 });
@@ -677,9 +574,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
-
                     b.Property<DateTime?>("DataAtualizacao")
                         .HasColumnType("datetime2");
 
@@ -720,12 +614,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClinicaId");
-
                     b.HasIndex("UserId")
-                        .IsUnique();
-
-                    b.HasIndex("ClinicaId", "UserId")
                         .IsUnique();
 
                     b.ToTable("Licencas", (string)null);
@@ -740,9 +629,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<int>("AutorUserId")
-                        .HasColumnType("int");
-
-                    b.Property<int>("ClinicaId")
                         .HasColumnType("int");
 
                     b.Property<DateTime>("DataCadastro")
@@ -790,19 +676,13 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("AutorUserId");
-
-                    b.HasIndex("DestinatarioUserId");
-
                     b.HasIndex("ObservacaoPaiId");
 
-                    b.HasIndex("PacienteId");
+                    b.HasIndex("AutorUserId", "DataCadastro");
 
-                    b.HasIndex("ClinicaId", "AutorUserId", "DataCadastro");
+                    b.HasIndex("PacienteId", "DataCadastro");
 
-                    b.HasIndex("ClinicaId", "PacienteId", "DataCadastro");
-
-                    b.HasIndex("ClinicaId", "DestinatarioUserId", "DataLeitura", "DataCadastro");
+                    b.HasIndex("DestinatarioUserId", "DataLeitura", "DataCadastro");
 
                     b.ToTable("Observacoes", (string)null);
                 });
@@ -815,9 +695,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("IdFornecedor"));
 
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Fornecedor")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -825,7 +702,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasKey("IdFornecedor");
 
-                    b.HasIndex("ClinicaId", "Fornecedor")
+                    b.HasIndex("Fornecedor")
                         .IsUnique();
 
                     b.ToTable("OPME", (string)null);
@@ -834,25 +711,21 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         new
                         {
                             IdFornecedor = 1,
-                            ClinicaId = 1,
                             Fornecedor = "Promedom"
                         },
                         new
                         {
                             IdFornecedor = 2,
-                            ClinicaId = 1,
                             Fornecedor = "AVL"
                         },
                         new
                         {
                             IdFornecedor = 3,
-                            ClinicaId = 1,
                             Fornecedor = "GE"
                         },
                         new
                         {
                             IdFornecedor = 4,
-                            ClinicaId = 1,
                             Fornecedor = "Spyner"
                         });
                 });
@@ -876,9 +749,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Property<string>("CbhpmPorte")
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
-
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
 
                     b.Property<string>("Convenio")
                         .HasMaxLength(255)
@@ -962,8 +832,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasIndex("CbhpmCodigo");
 
-                    b.HasIndex("ClinicaId");
-
                     b.HasIndex("ConvenioId");
 
                     b.HasIndex("HospitalId");
@@ -989,9 +857,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
 
                     b.Property<string>("ContentType")
                         .IsRequired()
@@ -1023,8 +888,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasIndex("PacienteId");
 
-                    b.HasIndex("ClinicaId", "PacienteId");
-
                     b.ToTable("PacienteArquivos", (string)null);
                 });
 
@@ -1044,9 +907,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
 
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
-
                     b.Property<int>("Ordem")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
@@ -1065,11 +925,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CbhpmCodigo");
+
                     b.HasIndex("PacienteId");
-
-                    b.HasIndex("ClinicaId", "CbhpmCodigo");
-
-                    b.HasIndex("ClinicaId", "PacienteId");
 
                     b.ToTable("PacienteProcedimentos", (string)null);
                 });
@@ -1081,9 +939,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -1110,14 +965,10 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClinicaId");
-
                     b.HasIndex("TokenHash")
                         .IsUnique();
 
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("ClinicaId", "UserId", "UsedAt", "ExpiresAt");
+                    b.HasIndex("UserId", "UsedAt", "ExpiresAt");
 
                     b.ToTable("PasswordResetTokens", (string)null);
                 });
@@ -1178,9 +1029,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
-
                     b.Property<string>("Cpf")
                         .HasMaxLength(11)
                         .HasColumnType("nvarchar(11)");
@@ -1239,18 +1087,16 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("ClinicaId");
+                    b.HasIndex("Cpf")
+                        .IsUnique()
+                        .HasFilter("[Cpf] IS NOT NULL");
+
+                    b.HasIndex("Email")
+                        .IsUnique();
 
                     b.HasIndex("PerfilId");
 
                     b.HasIndex("Telefone");
-
-                    b.HasIndex("ClinicaId", "Cpf")
-                        .IsUnique()
-                        .HasFilter("[Cpf] IS NOT NULL");
-
-                    b.HasIndex("ClinicaId", "Email")
-                        .IsUnique();
 
                     b.ToTable("Users");
                 });
@@ -1262,9 +1108,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
 
                     b.Property<string>("ContentType")
                         .IsRequired()
@@ -1296,19 +1139,11 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.HasIndex("ClinicaId", "UserId");
-
                     b.ToTable("UserArquivos", (string)null);
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.AgendaNotification", b =>
                 {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("HemodinksAPI.Domain.Models.Event", "Event")
                         .WithMany()
                         .HasForeignKey("EventId")
@@ -1327,8 +1162,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Clinica");
-
                     b.Navigation("Event");
 
                     b.Navigation("RecipientUser");
@@ -1336,36 +1169,8 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Navigation("SenderUser");
                 });
 
-            modelBuilder.Entity("HemodinksAPI.Domain.Models.ConfiguracaoSistema", b =>
-                {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Clinica");
-                });
-
-            modelBuilder.Entity("HemodinksAPI.Domain.Models.Convenio", b =>
-                {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Clinica");
-                });
-
             modelBuilder.Entity("HemodinksAPI.Domain.Models.Event", b =>
                 {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("HemodinksAPI.Domain.Models.User", "MedicalUser")
                         .WithMany("MedicalEvents")
                         .HasForeignKey("MedicalUserId")
@@ -1377,8 +1182,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Clinica");
-
                     b.Navigation("MedicalUser");
 
                     b.Navigation("User");
@@ -1386,42 +1189,17 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.FaturamentoMedico", b =>
                 {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("HemodinksAPI.Domain.Models.Paciente", "Paciente")
                         .WithOne("FaturamentoMedico")
                         .HasForeignKey("HemodinksAPI.Domain.Models.FaturamentoMedico", "PacienteId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Clinica");
-
                     b.Navigation("Paciente");
-                });
-
-            modelBuilder.Entity("HemodinksAPI.Domain.Models.GrupoMedico", b =>
-                {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Clinica");
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.GrupoMedicoUsuario", b =>
                 {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("HemodinksAPI.Domain.Models.GrupoMedico", "GrupoMedico")
                         .WithMany("Membros")
                         .HasForeignKey("GrupoMedicoId")
@@ -1434,39 +1212,18 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Clinica");
-
                     b.Navigation("GrupoMedico");
 
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("HemodinksAPI.Domain.Models.Hospital", b =>
-                {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Clinica");
-                });
-
             modelBuilder.Entity("HemodinksAPI.Domain.Models.Licenca", b =>
                 {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("HemodinksAPI.Domain.Models.User", "User")
                         .WithOne("Licenca")
                         .HasForeignKey("HemodinksAPI.Domain.Models.Licenca", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Clinica");
 
                     b.Navigation("User");
                 });
@@ -1476,12 +1233,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.HasOne("HemodinksAPI.Domain.Models.User", "AutorUser")
                         .WithMany("ObservacoesEnviadas")
                         .HasForeignKey("AutorUserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
@@ -1504,8 +1255,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.Navigation("AutorUser");
 
-                    b.Navigation("Clinica");
-
                     b.Navigation("DestinatarioUser");
 
                     b.Navigation("ObservacaoPai");
@@ -1513,25 +1262,8 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Navigation("Paciente");
                 });
 
-            modelBuilder.Entity("HemodinksAPI.Domain.Models.Opme", b =>
-                {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Clinica");
-                });
-
             modelBuilder.Entity("HemodinksAPI.Domain.Models.Paciente", b =>
                 {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("HemodinksAPI.Domain.Models.Convenio", "ConvenioReferencia")
                         .WithMany("Pacientes")
                         .HasForeignKey("ConvenioId")
@@ -1568,8 +1300,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Clinica");
-
                     b.Navigation("ConvenioReferencia");
 
                     b.Navigation("HospitalReferencia");
@@ -1587,95 +1317,55 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.PacienteArquivo", b =>
                 {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("HemodinksAPI.Domain.Models.Paciente", "Paciente")
                         .WithMany("Arquivos")
                         .HasForeignKey("PacienteId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Clinica");
 
                     b.Navigation("Paciente");
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.PacienteProcedimento", b =>
                 {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("HemodinksAPI.Domain.Models.Paciente", "Paciente")
                         .WithMany("Procedimentos")
                         .HasForeignKey("PacienteId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Clinica");
-
                     b.Navigation("Paciente");
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.PasswordResetToken", b =>
                 {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("HemodinksAPI.Domain.Models.User", "User")
                         .WithMany("PasswordResetTokens")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("Clinica");
-
                     b.Navigation("User");
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.User", b =>
                 {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("HemodinksAPI.Domain.Models.Perfil", "Perfil")
                         .WithMany("Users")
                         .HasForeignKey("PerfilId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Clinica");
-
                     b.Navigation("Perfil");
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.UserArquivo", b =>
                 {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.HasOne("HemodinksAPI.Domain.Models.User", "User")
                         .WithMany("Arquivos")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
-
-                    b.Navigation("Clinica");
 
                     b.Navigation("User");
                 });

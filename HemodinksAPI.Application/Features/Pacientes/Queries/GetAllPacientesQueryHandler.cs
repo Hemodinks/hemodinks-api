@@ -115,7 +115,9 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                         ReciboNotaContrato = p.FaturamentoMedico.ReciboNotaContrato,
                         Observacoes = p.FaturamentoMedico.Observacoes,
                         DataCadastro = p.FaturamentoMedico.DataCadastro,
-                        DataAtualizacao = p.FaturamentoMedico.DataAtualizacao
+                        DataAtualizacao = p.FaturamentoMedico.DataAtualizacao,
+                        CompetenciaInicio = p.FaturamentoMedico.CompetenciaInicio,
+                        CompetenciaFinal = p.FaturamentoMedico.CompetenciaFinal
                     },
                     ObservacoesNaoLidasCount = p.Observacoes.Count(observacao =>
                         observacao.DestinatarioUserId == request.CurrentUserId

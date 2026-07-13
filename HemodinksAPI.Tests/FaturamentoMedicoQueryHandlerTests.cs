@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Features.Faturamentos.Queries;
+using HemodinksAPI.Application.Features.Faturamentos;
 using HemodinksAPI.Application.Features.Pacientes.Commands;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
@@ -110,6 +111,103 @@ public class FaturamentoMedicoQueryHandlerTests
 
         Assert.Equal(["Paciente A", "Paciente B"], result.Items.Select(item => item.NomePaciente).Order());
         Assert.Equal(2, result.TotalItems);
+    }
+
+    [Fact]
+    public async Task GetAllFaturamentosMedicos_WithCompetenciaRange_ReturnsSelectedMonthBillings()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var doctor = CreateDoctor("Dra. Competencia", "competencia.faturamento@hemodinks.com", "10052597001");
+
+        context.Pacientes.AddRange(
+            new Paciente
+            {
+                User = CreatePatientUser("Paciente Junho", "junho.competencia@hemodinks.com", "98606165059"),
+                NomePaciente = "Paciente Junho",
+                Data = new DateTime(2026, 6, 20),
+                MedicoUser = doctor,
+                Medico = doctor.Nome,
+                FaturamentoMedico = new FaturamentoMedico
+                {
+                    HonorariosCirurgiao = 100m,
+                    CompetenciaInicio = new DateTime(2026, 6, 1),
+                    CompetenciaFinal = new DateTime(2026, 6, 30)
+                }
+            },
+            new Paciente
+            {
+                User = CreatePatientUser("Paciente Julho", "julho.competencia@hemodinks.com", "95880630058"),
+                NomePaciente = "Paciente Julho",
+                Data = new DateTime(2026, 7, 15),
+                MedicoUser = doctor,
+                Medico = doctor.Nome,
+                FaturamentoMedico = new FaturamentoMedico
+                {
+                    HonorariosCirurgiao = 200m,
+                    CompetenciaInicio = new DateTime(2026, 7, 1),
+                    CompetenciaFinal = new DateTime(2026, 7, 31)
+                }
+            },
+            new Paciente
+            {
+                User = CreatePatientUser("Paciente Legado", "legado.competencia@hemodinks.com", "25235576091"),
+                NomePaciente = "Paciente Legado",
+                Data = new DateTime(2026, 7, 25),
+                MedicoUser = doctor,
+                Medico = doctor.Nome,
+                FaturamentoMedico = new FaturamentoMedico
+                {
+                    HonorariosCirurgiao = 300m
+                }
+            },
+            new Paciente
+            {
+                User = CreatePatientUser("Paciente Agosto", "agosto.competencia@hemodinks.com", "43181551005"),
+                NomePaciente = "Paciente Agosto",
+                Data = new DateTime(2026, 8, 1),
+                MedicoUser = doctor,
+                Medico = doctor.Nome,
+                FaturamentoMedico = new FaturamentoMedico
+                {
+                    HonorariosCirurgiao = 400m,
+                    CompetenciaInicio = new DateTime(2026, 8, 1),
+                    CompetenciaFinal = new DateTime(2026, 8, 31)
+                }
+            });
+        await context.SaveChangesAsync();
+
+        var handler = new GetAllFaturamentosMedicosQueryHandler(
+            context,
+            NullLogger<GetAllFaturamentosMedicosQueryHandler>.Instance);
+
+        var result = await handler.Handle(new GetAllFaturamentosMedicosQuery
+        {
+            CurrentPerfilId = Perfil.AdministradorId,
+            CurrentUserId = 999,
+            Page = 1,
+            PageSize = 10,
+            CompetenciaInicio = new DateTime(2026, 7, 1),
+            CompetenciaFinal = new DateTime(2026, 7, 1)
+        }, CancellationToken.None);
+
+        Assert.Equal(["Paciente Julho", "Paciente Legado"], result.Items.Select(item => item.NomePaciente).Order());
+        Assert.Equal(2, result.TotalItems);
+    }
+
+    [Fact]
+    public void EnsureSynced_WhenPacienteHasData_SetsMonthlyCompetencia()
+    {
+        var paciente = new Paciente
+        {
+            Data = new DateTime(2026, 7, 15),
+            NomePaciente = "Paciente Competencia",
+            Procedimentos = []
+        };
+
+        var faturamento = FaturamentoMedicoSync.EnsureSynced(paciente, new DateTime(2026, 7, 20, 10, 0, 0, DateTimeKind.Utc));
+
+        Assert.Equal(new DateTime(2026, 7, 1), faturamento.CompetenciaInicio);
+        Assert.Equal(new DateTime(2026, 7, 31), faturamento.CompetenciaFinal);
     }
 
     private static User CreateDoctor(string nome, string email, string cpf)

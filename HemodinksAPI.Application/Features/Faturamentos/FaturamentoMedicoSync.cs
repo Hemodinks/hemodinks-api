@@ -35,6 +35,7 @@ public static class FaturamentoMedicoSync
         faturamento.ConferenciaPagamentoRealizada = paciente.StatusPago;
         faturamento.GlosaStatus = ResolveGlosaStatus(glosa, paciente.RepasseGlosa, paciente.StatusPago);
         faturamento.TipoFaturamentoParticular = ResolveTipoFaturamento(paciente);
+        UpdateCompetencia(faturamento, paciente.Data);
         faturamento.DataAtualizacao = utcNow;
 
         return faturamento;
@@ -89,6 +90,18 @@ public static class FaturamentoMedicoSync
     private static string? TrimOrCurrent(string? value, string? current)
     {
         return string.IsNullOrWhiteSpace(value) ? current : value.Trim();
+    }
+
+    private static void UpdateCompetencia(FaturamentoMedico faturamento, DateTime? dataPaciente)
+    {
+        if (!dataPaciente.HasValue)
+        {
+            return;
+        }
+
+        var competenciaInicio = new DateTime(dataPaciente.Value.Year, dataPaciente.Value.Month, 1);
+        faturamento.CompetenciaInicio = competenciaInicio;
+        faturamento.CompetenciaFinal = competenciaInicio.AddMonths(1).AddDays(-1);
     }
 
     private static string? BuildProcedureCodes(Paciente paciente)
