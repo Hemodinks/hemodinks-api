@@ -1,4 +1,5 @@
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Infrastructure.Data;
@@ -8,6 +9,10 @@ namespace HemodinksAPI.Infrastructure.Data;
 /// </summary>
 public class AppDbContext : DbContext, IAppDbContext
 {
+    private readonly IClinicaContext _clinicaContext;
+
+    public DbSet<Clinica> Clinicas { get; set; } = null!;
+
     /// <summary>
     /// DbSet de usuários
     /// </summary>
@@ -51,8 +56,13 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<ConfiguracaoSistema> ConfiguracoesSistema { get; set; } = null!;
 
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+    private int? CurrentClinicaId => _clinicaContext.ClinicaId;
+
+    public AppDbContext(
+        DbContextOptions<AppDbContext> options,
+        IClinicaContext clinicaContext) : base(options)
     {
+        _clinicaContext = clinicaContext;
     }
 
     /// <summary>
@@ -62,5 +72,55 @@ public class AppDbContext : DbContext, IAppDbContext
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+        ApplyClinicaQueryFilters(modelBuilder);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ApplyDefaultClinicaIds();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        ApplyDefaultClinicaIds();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void ApplyDefaultClinicaIds()
+    {
+        foreach (var entry in ChangeTracker.Entries<IClinicaOwnedEntity>()
+                     .Where(entry => entry.State == EntityState.Added && entry.Entity.ClinicaId <= 0))
+        {
+            entry.Entity.ClinicaId = _clinicaContext.ClinicaId ?? Clinica.DefaultId;
+        }
+    }
+
+    private void ApplyClinicaQueryFilters(ModelBuilder modelBuilder)
+    {
+        ApplyClinicaQueryFilter<User>(modelBuilder);
+        ApplyClinicaQueryFilter<Paciente>(modelBuilder);
+        ApplyClinicaQueryFilter<FaturamentoMedico>(modelBuilder);
+        ApplyClinicaQueryFilter<Observacao>(modelBuilder);
+        ApplyClinicaQueryFilter<GrupoMedico>(modelBuilder);
+        ApplyClinicaQueryFilter<GrupoMedicoUsuario>(modelBuilder);
+        ApplyClinicaQueryFilter<Hospital>(modelBuilder);
+        ApplyClinicaQueryFilter<Convenio>(modelBuilder);
+        ApplyClinicaQueryFilter<Opme>(modelBuilder);
+        ApplyClinicaQueryFilter<PacienteArquivo>(modelBuilder);
+        ApplyClinicaQueryFilter<PacienteProcedimento>(modelBuilder);
+        ApplyClinicaQueryFilter<UserArquivo>(modelBuilder);
+        ApplyClinicaQueryFilter<Licenca>(modelBuilder);
+        ApplyClinicaQueryFilter<Event>(modelBuilder);
+        ApplyClinicaQueryFilter<AgendaNotification>(modelBuilder);
+        ApplyClinicaQueryFilter<PasswordResetToken>(modelBuilder);
+        ApplyClinicaQueryFilter<ConfiguracaoSistema>(modelBuilder);
+    }
+
+    private void ApplyClinicaQueryFilter<TEntity>(ModelBuilder modelBuilder)
+        where TEntity : class, IClinicaOwnedEntity
+    {
+        modelBuilder.Entity<TEntity>()
+            .HasQueryFilter(entity => CurrentClinicaId == null || entity.ClinicaId == CurrentClinicaId);
     }
 }

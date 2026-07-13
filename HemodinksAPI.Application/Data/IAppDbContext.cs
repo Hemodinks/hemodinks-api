@@ -5,6 +5,8 @@ namespace HemodinksAPI.Application.Data;
 
 public interface IAppDbContext
 {
+    DbSet<Clinica> Clinicas { get; }
+
     DbSet<User> Users { get; }
 
     DbSet<Perfil> Perfis { get; }
@@ -40,6 +42,8 @@ public interface IAppDbContext
     DbSet<AgendaNotification> AgendaNotifications { get; }
 
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
+
+    DbSet<ConfiguracaoSistema> ConfiguracoesSistema { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

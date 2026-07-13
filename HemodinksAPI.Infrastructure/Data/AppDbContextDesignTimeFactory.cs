@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Tenancy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 
@@ -13,6 +14,6 @@ public sealed class AppDbContextDesignTimeFactory : IDesignTimeDbContextFactory<
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         optionsBuilder.UseSqlServer(connectionString);
 
-        return new AppDbContext(optionsBuilder.Options);
+        return new AppDbContext(optionsBuilder.Options, new ClinicaContext());
     }
 }

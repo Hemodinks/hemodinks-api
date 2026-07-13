@@ -26,6 +26,7 @@ public class UserPatientSyncService : IUserPatientSyncService
         {
             _context.Pacientes.Add(new Paciente
             {
+                ClinicaId = user.ClinicaId,
                 UserId = user.Id,
                 NomePaciente = user.Nome
             });

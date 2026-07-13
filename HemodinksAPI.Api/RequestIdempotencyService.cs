@@ -1,4 +1,5 @@
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -10,13 +11,16 @@ public sealed class RequestIdempotencyService
     public const string IdempotencyStatusHeaderName = "Idempotency-Status";
 
     private readonly AppDbContext _context;
+    private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<RequestIdempotencyService> _logger;
 
     public RequestIdempotencyService(
         AppDbContext context,
+        IClinicaContext clinicaContext,
         ILogger<RequestIdempotencyService> logger)
     {
         _context = context;
+        _clinicaContext = clinicaContext;
         _logger = logger;
     }
 
@@ -44,7 +48,7 @@ public sealed class RequestIdempotencyService
             return RequestIdempotencyExecutionResult<TResponse>.Invalid(keyValidation);
         }
 
-        var normalizedScope = RequestIdempotencySupport.NormalizeScope(scope);
+        var normalizedScope = RequestIdempotencySupport.NormalizeScope(BuildScopedScope(scope));
         var requestHash = RequestIdempotencySupport.ComputeHash(requestPayload);
 
         var existingRequest = await FindExistingAsync(operation, normalizedScope, key, cancellationToken);
@@ -146,5 +150,13 @@ public sealed class RequestIdempotencyService
                     && item.Scope == scope
                     && item.IdempotencyKey == key,
                 cancellationToken);
+    }
+
+    private string BuildScopedScope(string scope)
+    {
+        var normalizedScope = RequestIdempotencySupport.NormalizeScope(scope);
+        return _clinicaContext.ClinicaId.HasValue
+            ? $"clinic:{_clinicaContext.ClinicaId.Value}:{normalizedScope}"
+            : normalizedScope;
     }
 }

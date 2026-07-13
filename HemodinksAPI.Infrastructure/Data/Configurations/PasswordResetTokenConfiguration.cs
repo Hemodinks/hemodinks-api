@@ -12,6 +12,9 @@ internal sealed class PasswordResetTokenConfiguration : IEntityTypeConfiguration
 
         entity.HasKey(e => e.Id);
 
+        entity.Property(e => e.ClinicaId)
+            .IsRequired();
+
         entity.Property(e => e.TokenHash)
             .IsRequired()
             .HasMaxLength(128);
@@ -29,7 +32,14 @@ internal sealed class PasswordResetTokenConfiguration : IEntityTypeConfiguration
         entity.HasIndex(e => e.TokenHash)
             .IsUnique();
 
-        entity.HasIndex(e => new { e.UserId, e.UsedAt, e.ExpiresAt });
+        entity.HasIndex(e => new { e.ClinicaId, e.UserId, e.UsedAt, e.ExpiresAt });
+
+        entity.HasIndex(e => e.ClinicaId);
+
+        entity.HasOne(e => e.Clinica)
+            .WithMany()
+            .HasForeignKey(e => e.ClinicaId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         entity.HasOne(e => e.User)
             .WithMany(e => e.PasswordResetTokens)

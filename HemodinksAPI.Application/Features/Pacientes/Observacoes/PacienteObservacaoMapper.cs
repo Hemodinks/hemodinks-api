@@ -12,6 +12,7 @@ internal static class PacienteObservacaoMapper
     {
         return new Observacao
         {
+            ClinicaId = paciente.ClinicaId,
             PacienteId = paciente.Id,
             AutorUserId = request.CurrentUserId,
             DestinatarioUserId = destinatarioId,

@@ -16,6 +16,7 @@ builder.Host.UseSerilog(
 
 builder.Services
     .AddDatabase(builder.Configuration)
+    .AddTenancy()
     .AddAuth(builder.Configuration, builder.Environment)
     .AddFrontendCors(builder.Configuration)
     .AddApiRateLimiting()
@@ -94,6 +95,7 @@ app.UseHttpsRedirection();
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<ClinicaResolutionMiddleware>();
 app.UseAuthorization();
 
 app.MapDefaultEndpoints();

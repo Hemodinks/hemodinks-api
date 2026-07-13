@@ -12,6 +12,9 @@ internal sealed class LicencaConfiguration : IEntityTypeConfiguration<Licenca>
 
         entity.HasKey(e => e.Id);
 
+        entity.Property(e => e.ClinicaId)
+            .IsRequired();
+
         entity.Property(e => e.Plano)
             .IsRequired()
             .HasMaxLength(30);
@@ -36,7 +39,14 @@ internal sealed class LicencaConfiguration : IEntityTypeConfiguration<Licenca>
             .IsRequired()
             .HasDefaultValueSql("GETUTCDATE()");
 
-        entity.HasIndex(e => e.UserId)
+        entity.HasIndex(e => new { e.ClinicaId, e.UserId })
             .IsUnique();
+
+        entity.HasIndex(e => e.ClinicaId);
+
+        entity.HasOne(e => e.Clinica)
+            .WithMany()
+            .HasForeignKey(e => e.ClinicaId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

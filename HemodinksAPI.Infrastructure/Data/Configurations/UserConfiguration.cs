@@ -10,6 +10,9 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
     {
         entity.HasKey(e => e.Id);
 
+        entity.Property(e => e.ClinicaId)
+            .IsRequired();
+
         entity.Property(e => e.Nome)
             .IsRequired()
             .HasMaxLength(255);
@@ -58,16 +61,22 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired()
             .HasDefaultValue(Perfil.MedicosId);
 
-        entity.HasIndex(e => e.Email)
+        entity.HasIndex(e => new { e.ClinicaId, e.Email })
             .IsUnique();
 
         entity.HasIndex(e => e.Telefone);
 
-        entity.HasIndex(e => e.Cpf)
+        entity.HasIndex(e => new { e.ClinicaId, e.Cpf })
             .IsUnique()
             .HasFilter("[Cpf] IS NOT NULL");
 
         entity.HasIndex(e => e.PerfilId);
+        entity.HasIndex(e => e.ClinicaId);
+
+        entity.HasOne(e => e.Clinica)
+            .WithMany()
+            .HasForeignKey(e => e.ClinicaId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         entity.HasOne(e => e.Perfil)
             .WithMany(e => e.Users)

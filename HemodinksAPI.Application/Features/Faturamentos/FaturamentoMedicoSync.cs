@@ -9,6 +9,7 @@ public static class FaturamentoMedicoSync
     {
         var faturamento = paciente.FaturamentoMedico ?? new FaturamentoMedico
         {
+            ClinicaId = paciente.ClinicaId,
             Paciente = paciente,
             PacienteId = paciente.Id,
             DataCadastro = utcNow

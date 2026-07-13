@@ -1,5 +1,6 @@
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -13,14 +14,17 @@ public sealed class EventCommandHandler :
     IRequestHandler<DeleteEventCommand>
 {
     private readonly IAppDbContext _context;
+    private readonly IClinicaContext _clinicaContext;
 
-    public EventCommandHandler(IAppDbContext context)
+    public EventCommandHandler(IAppDbContext context, IClinicaContext clinicaContext)
     {
         _context = context;
+        _clinicaContext = clinicaContext;
     }
 
     public async Task<EventDto> Handle(CreateEventCommand request, CancellationToken cancellationToken)
     {
+        var clinicaId = _clinicaContext.GetRequiredClinicaId();
         EventFeatureRules.ValidateNotificationRequest(request.Request);
 
         var ownerUserId = await ResolveOwnerUserIdAsync(
@@ -39,9 +43,10 @@ public sealed class EventCommandHandler :
             ownerUserId,
             medicalUserId,
             isCreate: true);
+        ev.ClinicaId = clinicaId;
 
         _context.Events.Add(ev);
-        AddAgendaNotifications(ev, request.CurrentUser, request.Request);
+        AddAgendaNotifications(ev, request.CurrentUser, request.Request, clinicaId);
         await _context.SaveChangesAsync(cancellationToken);
 
         return await FindEventDtoAsync(ev.Id, cancellationToken);
@@ -179,6 +184,11 @@ public sealed class EventCommandHandler :
 
     private void AddAgendaNotifications(Event ev, CurrentUserContext currentUser, EventRequest request)
     {
+        AddAgendaNotifications(ev, currentUser, request, _clinicaContext.GetRequiredClinicaId());
+    }
+
+    private void AddAgendaNotifications(Event ev, CurrentUserContext currentUser, EventRequest request, int clinicaId)
+    {
         var recipientUserIds = EventFeatureRules.ResolveNotificationRecipientUserIds(_context, currentUser, request);
         if (recipientUserIds.Count == 0)
         {
@@ -194,6 +204,7 @@ public sealed class EventCommandHandler :
         {
             _context.AgendaNotifications.Add(new AgendaNotification
             {
+                ClinicaId = clinicaId,
                 Event = ev,
                 SenderUserId = currentUser.Id,
                 RecipientUserId = recipientUserId,

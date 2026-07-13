@@ -5,9 +5,12 @@ using System.Text.Json;
 using HemodinksAPI.Api;
 using HemodinksAPI.Application.Async;
 using HemodinksAPI.Application.Services;
+using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Data;
+using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Tests;
 
@@ -302,6 +305,115 @@ public class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task AuthenticateUser_WhenMultipleClinicasAndNoHintIsProvided_ReturnsBadRequest()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await SeedClinicaBetaAsync(factory);
+
+        var response = await client.PostAsJsonAsync("/api/users/authenticate", new
+        {
+            Email = "gmarcone@gmail.com",
+            Senha = DefaultUserPassword.Value
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var json = await ReadJsonAsync(response);
+        Assert.Equal(
+            "Clinica nao resolvida. Envie X-Clinica-Slug ou use um subdominio configurado.",
+            json.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
+    public async Task AuthenticateUser_WhenClinicHeaderTargetsDuplicateEmail_ReturnsClinicScopedPayload()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+
+        var response = await PostAsJsonWithClinicHeaderAsync(client, beta.Slug, "/api/users/authenticate", new
+        {
+            Email = beta.AdminEmail,
+            Senha = beta.AdminPassword
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var json = await ReadJsonAsync(response);
+        Assert.Equal(beta.AdminEmail, json.RootElement.GetProperty("email").GetString());
+        Assert.Equal(beta.AdminName, json.RootElement.GetProperty("nome").GetString());
+        Assert.Equal(beta.Id, json.RootElement.GetProperty("clinicaId").GetInt32());
+        Assert.Equal(beta.Slug, json.RootElement.GetProperty("clinicaSlug").GetString());
+        Assert.False(string.IsNullOrWhiteSpace(json.RootElement.GetProperty("token").GetString()));
+    }
+
+    [Fact]
+    public async Task UsersEndpoint_WhenAuthenticatedInSecondClinic_ReturnsOnlyItsOwnUsers()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+
+        await AuthenticateAsync(client, beta.Slug, beta.AdminEmail, beta.AdminPassword);
+
+        var response = await client.GetAsync("/api/users/");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        using var json = await ReadJsonAsync(response);
+        var items = json.RootElement.GetProperty("items").EnumerateArray().ToList();
+        var names = items
+            .Select(item => item.GetProperty("nome").GetString())
+            .Where(value => value != null)
+            .Cast<string>()
+            .OrderBy(value => value)
+            .ToList();
+
+        Assert.Equal(2, items.Count);
+        Assert.Equal([beta.DoctorName, beta.AdminName], names);
+        Assert.DoesNotContain("George Marcone Morais dos Santos", names);
+    }
+
+    [Fact]
+    public async Task AgendaEndpoint_WhenSameIdempotencyKeyIsUsedAcrossClinicas_CreatesOneEventPerClinic()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var clientA = factory.CreateClient();
+        using var clientB = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+
+        await AuthenticateAsync(clientA, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        await AuthenticateAsync(clientB, beta.Slug, beta.AdminEmail, beta.AdminPassword);
+
+        var key = Guid.NewGuid().ToString("N");
+        var start = DateTime.UtcNow.AddDays(3);
+        var payload = new
+        {
+            title = "Evento multi-clinica",
+            description = "Mesmo idempotency key em clinicas diferentes",
+            start,
+            end = start.AddHours(1),
+            notifyMedicalProfile = false,
+            notifyUser = true,
+            reminderPeriodMinutes = 20
+        };
+
+        var responseA = await PostAsJsonWithIdempotencyKeyAsync(clientA, "/api/events/", key, payload);
+        var responseB = await PostAsJsonWithIdempotencyKeyAsync(clientB, "/api/events/", key, payload);
+
+        Assert.Equal(HttpStatusCode.Created, responseA.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, responseB.StatusCode);
+        Assert.Equal("stored", responseA.Headers.GetValues(RequestIdempotencyService.IdempotencyStatusHeaderName).Single());
+        Assert.Equal("stored", responseB.Headers.GetValues(RequestIdempotencyService.IdempotencyStatusHeaderName).Single());
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Equal(2, dbContext.Events.Count(item => item.Title == "Evento multi-clinica"));
+        Assert.Equal(2, dbContext.IdempotencyRequests.Count(item => item.Operation == "events.create"));
+    }
+
+    [Fact]
     public async Task PasswordResetRequest_WhenRetriedWithSameIdempotencyKey_ReplaysSameToken()
     {
         using var factory = new HemodinksApiFactory();
@@ -440,12 +552,16 @@ public class ApiEndpointIntegrationTests
         Assert.Equal("Dr. Teste", fileExportQueue.Messages[0].Filters["medico"]);
     }
 
-    private static async Task AuthenticateAsync(HttpClient client)
+    private static async Task AuthenticateAsync(
+        HttpClient client,
+        string? clinicaSlug = null,
+        string email = "gmarcone@gmail.com",
+        string senha = DefaultUserPassword.Value)
     {
-        var response = await client.PostAsJsonAsync("/api/users/authenticate", new
+        var response = await PostAsJsonWithClinicHeaderAsync(client, clinicaSlug, "/api/users/authenticate", new
         {
-            Email = "gmarcone@gmail.com",
-            Senha = DefaultUserPassword.Value
+            Email = email,
+            Senha = senha
         });
 
         response.EnsureSuccessStatusCode();
@@ -455,6 +571,25 @@ public class ApiEndpointIntegrationTests
         Assert.False(string.IsNullOrWhiteSpace(token));
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+    }
+
+    private static Task<HttpResponseMessage> PostAsJsonWithClinicHeaderAsync(
+        HttpClient client,
+        string? clinicaSlug,
+        string uri,
+        object payload)
+    {
+        var request = new HttpRequestMessage(HttpMethod.Post, uri)
+        {
+            Content = JsonContent.Create(payload)
+        };
+
+        if (!string.IsNullOrWhiteSpace(clinicaSlug))
+        {
+            request.Headers.Add(ClinicaResolutionService.ClinicaSlugHeaderName, clinicaSlug);
+        }
+
+        return client.SendAsync(request);
     }
 
     private static Task<HttpResponseMessage> PostAsJsonWithIdempotencyKeyAsync(
@@ -470,6 +605,70 @@ public class ApiEndpointIntegrationTests
 
         request.Headers.Add(RequestIdempotencyService.IdempotencyKeyHeaderName, idempotencyKey);
         return client.SendAsync(request);
+    }
+
+    private static async Task<ClinicaBetaSeed> SeedClinicaBetaAsync(HemodinksApiFactory factory)
+    {
+        const int clinicaId = 2;
+        const string clinicaSlug = "clinica-beta";
+        const string adminEmail = "gmarcone@gmail.com";
+        const string adminPassword = "ClinicaBeta@123";
+        const string adminName = "George Beta";
+        const string doctorName = "Dra. Beta";
+
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        if (await dbContext.Clinicas.AnyAsync(item => item.Id == clinicaId))
+        {
+            return new ClinicaBetaSeed(clinicaId, clinicaSlug, adminEmail, adminPassword, adminName, doctorName);
+        }
+
+        var passwordHasher = new PasswordHasher();
+        dbContext.Clinicas.Add(new Clinica
+        {
+            Id = clinicaId,
+            Nome = "Clinica Beta",
+            Slug = clinicaSlug,
+            Ativa = true,
+            DataCadastro = DateTime.UtcNow
+        });
+
+        dbContext.Users.AddRange(
+            new User
+            {
+                ClinicaId = clinicaId,
+                Nome = adminName,
+                Email = adminEmail,
+                Telefone = "+5511990000001",
+                Cpf = "12345678901",
+                Senha = passwordHasher.HashPassword(adminPassword),
+                DataNascimento = new DateTime(1982, 2, 25),
+                DataCadastro = DateTime.UtcNow,
+                Ativo = true,
+                PrecisaTrocarSenha = false,
+                PerfilId = Perfil.AdministradorId
+            },
+            new User
+            {
+                ClinicaId = clinicaId,
+                Nome = doctorName,
+                Email = "dra.beta@hemodinks.com",
+                Telefone = "+5511990000002",
+                Cpf = "12345678902",
+                Crm = "99887",
+                CrmUf = "SP",
+                Senha = passwordHasher.HashPassword(DefaultUserPassword.Value),
+                DataNascimento = new DateTime(1988, 5, 10),
+                DataCadastro = DateTime.UtcNow,
+                Ativo = true,
+                PrecisaTrocarSenha = false,
+                PerfilId = Perfil.MedicosId
+            });
+
+        await dbContext.SaveChangesAsync();
+
+        return new ClinicaBetaSeed(clinicaId, clinicaSlug, adminEmail, adminPassword, adminName, doctorName);
     }
 
     private static async Task<JsonDocument> ReadJsonAsync(HttpResponseMessage response)
@@ -496,4 +695,12 @@ public class ApiEndpointIntegrationTests
             return Task.CompletedTask;
         }
     }
+
+    private sealed record ClinicaBetaSeed(
+        int Id,
+        string Slug,
+        string AdminEmail,
+        string AdminPassword,
+        string AdminName,
+        string DoctorName);
 }

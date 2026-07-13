@@ -12,6 +12,9 @@ internal sealed class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
 
         entity.HasKey(e => e.Id);
 
+        entity.Property(e => e.ClinicaId)
+            .IsRequired();
+
         entity.Property(e => e.NomePaciente)
             .IsRequired()
             .HasMaxLength(255);
@@ -75,8 +78,14 @@ internal sealed class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
         entity.HasIndex(e => e.UserId)
             .IsUnique();
 
+        entity.HasIndex(e => e.ClinicaId);
         entity.HasIndex(e => e.CbhpmCodigo);
         entity.HasIndex(e => e.HospitalId);
+
+        entity.HasOne(e => e.Clinica)
+            .WithMany()
+            .HasForeignKey(e => e.ClinicaId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         entity.HasOne(e => e.User)
             .WithOne(e => e.Paciente)

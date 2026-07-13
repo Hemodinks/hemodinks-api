@@ -1,6 +1,7 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using Microsoft.IdentityModel.Tokens;
 
@@ -36,6 +37,8 @@ public class JwtTokenService : IJwtTokenService
                 new Claim(ClaimTypes.Role, user.Perfil?.Nome ?? string.Empty),
                 new Claim("perfilId", user.PerfilId.ToString()),
                 new Claim("perfilNome", user.Perfil?.Nome ?? string.Empty),
+                new Claim(ClinicaClaimTypes.ClinicaId, user.ClinicaId.ToString()),
+                new Claim(ClinicaClaimTypes.ClinicaSlug, user.Clinica?.Slug ?? Clinica.DefaultSlug),
                 new Claim("precisaTrocarSenha", user.PrecisaTrocarSenha.ToString().ToLowerInvariant()),
             };
 

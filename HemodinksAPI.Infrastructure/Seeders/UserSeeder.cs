@@ -24,6 +24,7 @@ public class UserSeeder
         // Adicionar o usuário específico (George Marcone)
         users.Add(new User
         {
+            ClinicaId = Clinica.DefaultId,
             Nome = "George Marcone Morais dos Santos",
             Email = "gmarcone@gmail.com",
             Telefone = "+5581997236704",
@@ -94,6 +95,7 @@ public class UserSeeder
 
             users.Add(new User
             {
+                ClinicaId = Clinica.DefaultId,
                 Nome = nomes[i],
                 Email = emails[i],
                 Telefone = telefones[i],
@@ -117,6 +119,7 @@ public class UserSeeder
         {
             users.Add(new User
             {
+                ClinicaId = Clinica.DefaultId,
                 Nome = pacientes[i],
                 Email = $"paciente{i + 1}@hemodinks.com",
                 Telefone = $"+55819988{i + 1:00000}",
