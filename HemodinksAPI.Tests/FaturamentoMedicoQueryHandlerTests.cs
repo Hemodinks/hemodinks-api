@@ -195,6 +195,51 @@ public class FaturamentoMedicoQueryHandlerTests
     }
 
     [Fact]
+    public async Task GetAllFaturamentosMedicos_WithCompetenciaRange_IncludesLegacyPatientsWithoutBillingRow()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var doctor = CreateDoctor("Dra. Legado", "legado.sem.faturamento@hemodinks.com", "82620466016");
+
+        context.Pacientes.AddRange(
+            new Paciente
+            {
+                User = CreatePatientUser("Paciente Dentro", "dentro.sem.faturamento@hemodinks.com", "72863128006"),
+                NomePaciente = "Paciente Dentro",
+                Data = new DateTime(2026, 7, 10),
+                MedicoUser = doctor,
+                Medico = doctor.Nome,
+                Pagamento = "R$ 1.500,00"
+            },
+            new Paciente
+            {
+                User = CreatePatientUser("Paciente Fora", "fora.sem.faturamento@hemodinks.com", "96980480017"),
+                NomePaciente = "Paciente Fora",
+                Data = new DateTime(2026, 9, 10),
+                MedicoUser = doctor,
+                Medico = doctor.Nome,
+                Pagamento = "R$ 1.500,00"
+            });
+        await context.SaveChangesAsync();
+
+        var handler = new GetAllFaturamentosMedicosQueryHandler(
+            context,
+            NullLogger<GetAllFaturamentosMedicosQueryHandler>.Instance);
+
+        var result = await handler.Handle(new GetAllFaturamentosMedicosQuery
+        {
+            CurrentPerfilId = Perfil.AdministradorId,
+            CurrentUserId = 999,
+            Page = 1,
+            PageSize = 10,
+            CompetenciaInicio = new DateTime(2026, 7, 1),
+            CompetenciaFinal = new DateTime(2026, 7, 1)
+        }, CancellationToken.None);
+
+        Assert.Equal(["Paciente Dentro"], result.Items.Select(item => item.NomePaciente));
+        Assert.Equal(1, result.TotalItems);
+    }
+
+    [Fact]
     public void EnsureSynced_WhenPacienteHasData_SetsMonthlyCompetencia()
     {
         var paciente = new Paciente
