@@ -88,6 +88,8 @@ internal sealed class FaturamentoMedicoConfiguration : IEntityTypeConfiguration<
 
         entity.HasIndex(e => new { e.ClinicaId, e.ConferenciaPagamentoRealizada });
 
+        entity.HasIndex(e => new { e.ClinicaId, e.DataCadastro });
+
         entity.HasOne(e => e.Clinica)
             .WithMany()
             .HasForeignKey(e => e.ClinicaId)
