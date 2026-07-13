@@ -80,9 +80,15 @@ internal sealed class FaturamentoMedicoConfiguration : IEntityTypeConfiguration<
 
         entity.Property(e => e.DataAtualizacao);
 
+        entity.Property(e => e.CompetenciaInicio);
+
+        entity.Property(e => e.CompetenciaFinal);
+
         entity.HasIndex(e => e.PacienteId)
             .IsUnique();
 
         entity.HasIndex(e => e.ConferenciaPagamentoRealizada);
+
+        entity.HasIndex(e => new { e.CompetenciaInicio, e.CompetenciaFinal });
     }
 }

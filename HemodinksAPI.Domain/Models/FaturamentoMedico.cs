@@ -51,4 +51,8 @@ public class FaturamentoMedico
     public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
 
     public DateTime? DataAtualizacao { get; set; }
+
+    public DateTime? CompetenciaInicio { get; set; }
+
+    public DateTime? CompetenciaFinal { get; set; }
 }

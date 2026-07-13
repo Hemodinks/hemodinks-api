@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Security.Claims;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Faturamentos.Queries;
@@ -29,11 +30,15 @@ public static class FaturamentoMedicoEndpointExtensions
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
+        string? competenciaInicio,
+        string? competenciaFinal,
         CancellationToken cancellationToken)
     {
         return EndpointExecution.RunAsync(async () =>
         {
             var currentUser = GetRequiredCurrentUser(claimsPrincipal);
+            var parsedCompetenciaInicio = ParseCompetencia(competenciaInicio, nameof(competenciaInicio));
+            var parsedCompetenciaFinal = ParseCompetencia(competenciaFinal, nameof(competenciaFinal));
             var result = await mediator.Send(new GetAllFaturamentosMedicosQuery
             {
                 Page = page.GetValueOrDefault(1),
@@ -43,7 +48,9 @@ public static class FaturamentoMedicoEndpointExtensions
                 Convenio = convenio,
                 Procedimento = procedimento,
                 CurrentUserId = currentUser.Id,
-                CurrentPerfilId = currentUser.PerfilId
+                CurrentPerfilId = currentUser.PerfilId,
+                CompetenciaInicio = parsedCompetenciaInicio,
+                CompetenciaFinal = parsedCompetenciaFinal
             }, cancellationToken);
 
             return Results.Ok(result);
@@ -54,5 +61,57 @@ public static class FaturamentoMedicoEndpointExtensions
     {
         return claimsPrincipal.ToCurrentUserContext()
             ?? throw new UnauthorizedAccessException("Usuario autenticado invalido");
+    }
+
+    private static DateTime? ParseCompetencia(string? value, string parameterName)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var trimmed = value.Trim();
+        string[] acceptedFormats =
+        [
+            "MM/yyyy",
+            "M/yyyy",
+            "MM-yyyy",
+            "M-yyyy",
+            "yyyy-MM",
+            "yyyy-M",
+            "yyyy-MM-dd",
+            "yyyy-M-d"
+        ];
+
+        if (DateTime.TryParseExact(
+                trimmed,
+                acceptedFormats,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var exactDate))
+        {
+            return exactDate;
+        }
+
+        if (DateTime.TryParse(
+                trimmed,
+                CultureInfo.GetCultureInfo("pt-BR"),
+                DateTimeStyles.None,
+                out var ptBrDate))
+        {
+            return ptBrDate;
+        }
+
+        if (DateTime.TryParse(
+                trimmed,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var invariantDate))
+        {
+            return invariantDate;
+        }
+
+        throw new InvalidOperationException(
+            $"Parametro {parameterName} invalido. Use MM/yyyy, yyyy-MM ou yyyy-MM-dd.");
     }
 }

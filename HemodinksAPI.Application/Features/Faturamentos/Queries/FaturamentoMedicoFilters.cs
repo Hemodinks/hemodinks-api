@@ -11,12 +11,16 @@ internal static class FaturamentoMedicoFilters
         string digits,
         string? medico,
         string? convenio,
-        string? procedimento)
+        string? procedimento,
+        DateTime? competenciaInicio,
+        DateTime? competenciaFinal)
     {
         var canUseGlobalFilters = currentPerfilId is Perfil.AdministradorId or Perfil.ControllerId;
         var normalizedMedico = canUseGlobalFilters ? TrimOptional(medico) : null;
         var normalizedConvenio = TrimOptional(convenio);
         var normalizedProcedimento = TrimOptional(procedimento);
+        var normalizedCompetenciaInicio = GetMonthStart(competenciaInicio);
+        var normalizedCompetenciaFinalExclusive = GetNextMonthStart(competenciaFinal);
 
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -71,11 +75,45 @@ internal static class FaturamentoMedicoFilters
                 || p.Procedimentos.Any(item => item.Procedimento.Contains(normalizedProcedimento)));
         }
 
+        if (normalizedCompetenciaInicio.HasValue)
+        {
+            var competenciaInicioValue = normalizedCompetenciaInicio.Value;
+            query = query.Where(p =>
+                p.FaturamentoMedico != null
+                && (p.FaturamentoMedico.CompetenciaFinal
+                    ?? p.FaturamentoMedico.CompetenciaInicio
+                    ?? p.Data) >= competenciaInicioValue);
+        }
+
+        if (normalizedCompetenciaFinalExclusive.HasValue)
+        {
+            var competenciaFinalExclusiveValue = normalizedCompetenciaFinalExclusive.Value;
+            query = query.Where(p =>
+                p.FaturamentoMedico != null
+                && (p.FaturamentoMedico.CompetenciaInicio
+                    ?? p.FaturamentoMedico.CompetenciaFinal
+                    ?? p.Data) < competenciaFinalExclusiveValue);
+        }
+
         return query;
     }
 
     private static string? TrimOptional(string? value)
     {
         return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    }
+
+    private static DateTime? GetMonthStart(DateTime? value)
+    {
+        return value.HasValue
+            ? new DateTime(value.Value.Year, value.Value.Month, 1)
+            : null;
+    }
+
+    private static DateTime? GetNextMonthStart(DateTime? value)
+    {
+        return value.HasValue
+            ? new DateTime(value.Value.Year, value.Value.Month, 1).AddMonths(1)
+            : null;
     }
 }
