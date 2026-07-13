@@ -232,26 +232,31 @@ public class FaturamentoMedicoQueryHandlerTests
     }
 
     [Fact]
-    public async Task GetAllFaturamentosMedicos_WithCompetenciaRange_IncludesLegacyPatientsWithoutBillingRow()
+    public async Task GetAllFaturamentosMedicos_WithCompetenciaRange_IncludesLegacyPatientsByDisplayedCadastroDate()
     {
         await using var context = TestDbContextFactory.Create();
         var doctor = CreateDoctor("Dra. Legado", "legado.sem.faturamento@hemodinks.com", "82620466016");
+        var insideUser = CreatePatientUser("Paciente Dentro", "dentro.sem.faturamento@hemodinks.com", "72863128006");
+        var outsideUser = CreatePatientUser("Paciente Fora", "fora.sem.faturamento@hemodinks.com", "96980480017");
+
+        insideUser.DataCadastro = new DateTime(2026, 7, 10, 10, 0, 0, DateTimeKind.Utc);
+        outsideUser.DataCadastro = new DateTime(2026, 9, 10, 10, 0, 0, DateTimeKind.Utc);
 
         context.Pacientes.AddRange(
             new Paciente
             {
-                User = CreatePatientUser("Paciente Dentro", "dentro.sem.faturamento@hemodinks.com", "72863128006"),
+                User = insideUser,
                 NomePaciente = "Paciente Dentro",
-                Data = new DateTime(2026, 7, 10),
+                Data = null,
                 MedicoUser = doctor,
                 Medico = doctor.Nome,
                 Pagamento = "R$ 1.500,00"
             },
             new Paciente
             {
-                User = CreatePatientUser("Paciente Fora", "fora.sem.faturamento@hemodinks.com", "96980480017"),
+                User = outsideUser,
                 NomePaciente = "Paciente Fora",
-                Data = new DateTime(2026, 9, 10),
+                Data = null,
                 MedicoUser = doctor,
                 Medico = doctor.Nome,
                 Pagamento = "R$ 1.500,00"
