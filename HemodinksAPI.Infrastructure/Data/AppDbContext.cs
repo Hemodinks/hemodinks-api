@@ -1,3 +1,4 @@
+using System.Reflection;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Tenancy;
 using Microsoft.EntityFrameworkCore;
@@ -9,6 +10,9 @@ namespace HemodinksAPI.Infrastructure.Data;
 /// </summary>
 public class AppDbContext : DbContext, IAppDbContext
 {
+    private static readonly MethodInfo ApplyClinicaQueryFilterMethod = typeof(AppDbContext)
+        .GetMethod(nameof(ApplyClinicaQueryFilter), BindingFlags.Instance | BindingFlags.NonPublic)!;
+
     private readonly IClinicaContext _clinicaContext;
 
     public DbSet<Clinica> Clinicas { get; set; } = null!;
@@ -98,23 +102,18 @@ public class AppDbContext : DbContext, IAppDbContext
 
     private void ApplyClinicaQueryFilters(ModelBuilder modelBuilder)
     {
-        ApplyClinicaQueryFilter<User>(modelBuilder);
-        ApplyClinicaQueryFilter<Paciente>(modelBuilder);
-        ApplyClinicaQueryFilter<FaturamentoMedico>(modelBuilder);
-        ApplyClinicaQueryFilter<Observacao>(modelBuilder);
-        ApplyClinicaQueryFilter<GrupoMedico>(modelBuilder);
-        ApplyClinicaQueryFilter<GrupoMedicoUsuario>(modelBuilder);
-        ApplyClinicaQueryFilter<Hospital>(modelBuilder);
-        ApplyClinicaQueryFilter<Convenio>(modelBuilder);
-        ApplyClinicaQueryFilter<Opme>(modelBuilder);
-        ApplyClinicaQueryFilter<PacienteArquivo>(modelBuilder);
-        ApplyClinicaQueryFilter<PacienteProcedimento>(modelBuilder);
-        ApplyClinicaQueryFilter<UserArquivo>(modelBuilder);
-        ApplyClinicaQueryFilter<Licenca>(modelBuilder);
-        ApplyClinicaQueryFilter<Event>(modelBuilder);
-        ApplyClinicaQueryFilter<AgendaNotification>(modelBuilder);
-        ApplyClinicaQueryFilter<PasswordResetToken>(modelBuilder);
-        ApplyClinicaQueryFilter<ConfiguracaoSistema>(modelBuilder);
+        var clinicaOwnedEntityTypes = modelBuilder.Model
+            .GetEntityTypes()
+            .Select(entityType => entityType.ClrType)
+            .Where(entityClrType => typeof(IClinicaOwnedEntity).IsAssignableFrom(entityClrType))
+            .Distinct();
+
+        foreach (var entityClrType in clinicaOwnedEntityTypes)
+        {
+            ApplyClinicaQueryFilterMethod
+                .MakeGenericMethod(entityClrType)
+                .Invoke(this, [modelBuilder]);
+        }
     }
 
     private void ApplyClinicaQueryFilter<TEntity>(ModelBuilder modelBuilder)

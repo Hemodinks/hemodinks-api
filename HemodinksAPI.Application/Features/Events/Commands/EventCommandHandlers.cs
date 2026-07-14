@@ -1,4 +1,3 @@
-using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
@@ -27,12 +26,14 @@ public sealed class EventCommandHandler :
         var clinicaId = _clinicaContext.GetRequiredClinicaId();
         EventFeatureRules.ValidateNotificationRequest(request.Request);
 
-        var ownerUserId = await ResolveOwnerUserIdAsync(
+        var ownerUserId = await EventCommandQueries.ResolveOwnerUserIdAsync(
+            _context,
             request.Request.UserId,
             request.CurrentUser,
             cancellationToken);
 
-        var medicalUserId = await ResolveMedicalUserIdAsync(
+        var medicalUserId = await EventCommandQueries.ResolveMedicalUserIdAsync(
+            _context,
             request.Request,
             request.CurrentUser,
             cancellationToken);
@@ -46,10 +47,10 @@ public sealed class EventCommandHandler :
         ev.ClinicaId = clinicaId;
 
         _context.Events.Add(ev);
-        AddAgendaNotifications(ev, request.CurrentUser, request.Request, clinicaId);
+        EventNotificationMutations.AddAgendaNotifications(_context, ev, request.CurrentUser, request.Request, clinicaId);
         await _context.SaveChangesAsync(cancellationToken);
 
-        return await FindEventDtoAsync(ev.Id, cancellationToken);
+        return await EventCommandQueries.FindEventDtoAsync(_context, ev.Id, cancellationToken);
     }
 
     public async Task<EventDto> Handle(UpdateEventCommand request, CancellationToken cancellationToken)
@@ -62,12 +63,14 @@ public sealed class EventCommandHandler :
 
         EventFeatureRules.EnsureCanManageEvent(ev, request.CurrentUser);
 
-        var ownerUserId = await ResolveOwnerUserIdAsync(
+        var ownerUserId = await EventCommandQueries.ResolveOwnerUserIdAsync(
+            _context,
             request.Request.UserId ?? ev.UserId,
             request.CurrentUser,
             cancellationToken);
 
-        var medicalUserId = await ResolveMedicalUserIdAsync(
+        var medicalUserId = await EventCommandQueries.ResolveMedicalUserIdAsync(
+            _context,
             request.Request,
             request.CurrentUser,
             cancellationToken);
@@ -81,7 +84,7 @@ public sealed class EventCommandHandler :
 
         await _context.SaveChangesAsync(cancellationToken);
 
-        return await FindEventDtoAsync(request.Id, cancellationToken);
+        return await EventCommandQueries.FindEventDtoAsync(_context, request.Id, cancellationToken);
     }
 
     public async Task Handle(CompleteEventCommand request, CancellationToken cancellationToken)
@@ -115,103 +118,4 @@ public sealed class EventCommandHandler :
         await _context.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task<EventDto> FindEventDtoAsync(int eventId, CancellationToken cancellationToken)
-    {
-        var ev = await _context.Events
-            .AsNoTracking()
-            .Include(item => item.User)
-            .Include(item => item.MedicalUser)
-            .Where(item => item.Id == eventId)
-            .FirstAsync(cancellationToken);
-
-        return EventFeatureRules.ToDto(ev);
-    }
-
-    private async Task<int> ResolveOwnerUserIdAsync(
-        int? requestedUserId,
-        CurrentUserContext currentUser,
-        CancellationToken cancellationToken)
-    {
-        var ownerUserId = requestedUserId ?? currentUser.Id;
-
-        if (!currentUser.IsAdministrador && ownerUserId != currentUser.Id)
-        {
-            throw new UnauthorizedAccessException();
-        }
-
-        var ownerExists = await _context.Users
-            .AsNoTracking()
-            .AnyAsync(user => user.Id == ownerUserId && user.Ativo, cancellationToken);
-
-        if (!ownerExists)
-        {
-            throw new InvalidOperationException("Usuario responsavel pelo evento nao encontrado ou inativo.");
-        }
-
-        return ownerUserId;
-    }
-
-    private async Task<int?> ResolveMedicalUserIdAsync(
-        EventRequest request,
-        CurrentUserContext currentUser,
-        CancellationToken cancellationToken)
-    {
-        var medicalUserId = request.MedicalUserId;
-
-        if (request.NotifyMedicalProfile && !medicalUserId.HasValue && currentUser.IsMedico)
-        {
-            medicalUserId = currentUser.Id;
-        }
-
-        if (!medicalUserId.HasValue)
-        {
-            return null;
-        }
-
-        var isValidMedicalUser = await _context.Users
-            .AsNoTracking()
-            .AnyAsync(user => user.Id == medicalUserId.Value
-                && user.Ativo
-                && user.PerfilId == Perfil.MedicosId, cancellationToken);
-
-        if (!isValidMedicalUser)
-        {
-            throw new InvalidOperationException("Medico selecionado para notificacao nao encontrado ou inativo.");
-        }
-
-        return medicalUserId.Value;
-    }
-
-    private void AddAgendaNotifications(Event ev, CurrentUserContext currentUser, EventRequest request)
-    {
-        AddAgendaNotifications(ev, currentUser, request, _clinicaContext.GetRequiredClinicaId());
-    }
-
-    private void AddAgendaNotifications(Event ev, CurrentUserContext currentUser, EventRequest request, int clinicaId)
-    {
-        var recipientUserIds = EventFeatureRules.ResolveNotificationRecipientUserIds(_context, currentUser, request);
-        if (recipientUserIds.Count == 0)
-        {
-            return;
-        }
-
-        var title = ev.Title.Trim();
-        var message = string.IsNullOrWhiteSpace(request.NotificationMessage)
-            ? (ev.Description?.Trim() ?? title)
-            : request.NotificationMessage.Trim();
-
-        foreach (var recipientUserId in recipientUserIds)
-        {
-            _context.AgendaNotifications.Add(new AgendaNotification
-            {
-                ClinicaId = clinicaId,
-                Event = ev,
-                SenderUserId = currentUser.Id,
-                RecipientUserId = recipientUserId,
-                Title = title,
-                Message = message,
-                CreatedAt = DateTime.UtcNow
-            });
-        }
-    }
 }

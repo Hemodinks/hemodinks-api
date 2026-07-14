@@ -192,81 +192,11 @@ public class AzureBlobProfilePhotoStorage : IProfilePhotoStorage
         return $"{publicBaseUrl}/{_options.ContainerName.Trim('/')}/{encodedBlobName}";
     }
 
-    private BlobLocation? GetBlobLocationFromUrl(string fotoPerfil)
+    private AzureBlobProfilePhotoLocation? GetBlobLocationFromUrl(string fotoPerfil)
     {
-        var defaultContainerName = _options.ContainerName.Trim('/');
-
-        if (!Uri.TryCreate(fotoPerfil, UriKind.Absolute, out var uri))
-        {
-            return GetBlobLocationFromPath(fotoPerfil, defaultContainerName);
-        }
-
-        if (!string.IsNullOrWhiteSpace(_options.PublicBaseUrl))
-        {
-            var publicBaseUrl = _options.PublicBaseUrl.TrimEnd('/');
-
-            if (fotoPerfil.StartsWith($"{publicBaseUrl}/", StringComparison.OrdinalIgnoreCase))
-            {
-                return GetBlobLocationFromPath(fotoPerfil[(publicBaseUrl.Length + 1)..], defaultContainerName);
-            }
-        }
-
-        return GetBlobLocationFromPath(uri.AbsolutePath.Trim('/'), defaultContainerName);
+        return AzureBlobProfilePhotoLocationResolver.Resolve(
+            fotoPerfil,
+            _options.ContainerName,
+            _options.PublicBaseUrl);
     }
-
-    private static BlobLocation? GetBlobLocationFromPath(string path, string defaultContainerName)
-    {
-        var normalizedPath = Uri.UnescapeDataString(path).Trim('/');
-
-        if (string.IsNullOrWhiteSpace(normalizedPath) || string.IsNullOrWhiteSpace(defaultContainerName))
-        {
-            return null;
-        }
-
-        var directLocation = ResolveContainerRelativePath(normalizedPath, defaultContainerName);
-        if (directLocation != null)
-        {
-            return directLocation;
-        }
-
-        var firstSlashIndex = normalizedPath.IndexOf('/');
-
-        if (firstSlashIndex > 0)
-        {
-            var remainingPath = normalizedPath[(firstSlashIndex + 1)..];
-            return ResolveContainerRelativePath(remainingPath, defaultContainerName);
-        }
-
-        return null;
-    }
-
-    private static BlobLocation? ResolveContainerRelativePath(string normalizedPath, string defaultContainerName)
-    {
-        var defaultContainerPrefix = $"{defaultContainerName}/";
-
-        if (normalizedPath.StartsWith(defaultContainerPrefix, StringComparison.OrdinalIgnoreCase))
-        {
-            return new BlobLocation(defaultContainerName, normalizedPath[defaultContainerPrefix.Length..]);
-        }
-
-        var firstSlashIndex = normalizedPath.IndexOf('/');
-
-        if (firstSlashIndex > 0)
-        {
-            var firstSegment = normalizedPath[..firstSlashIndex];
-            var remainingPath = normalizedPath[(firstSlashIndex + 1)..];
-
-            if (firstSegment.StartsWith("profile-photos", StringComparison.OrdinalIgnoreCase)
-                && !string.IsNullOrWhiteSpace(remainingPath))
-            {
-                return new BlobLocation(firstSegment, remainingPath);
-            }
-        }
-
-        return normalizedPath.StartsWith("users/", StringComparison.OrdinalIgnoreCase)
-            ? new BlobLocation(defaultContainerName, normalizedPath)
-            : null;
-    }
-
-    private sealed record BlobLocation(string ContainerName, string BlobName);
 }
