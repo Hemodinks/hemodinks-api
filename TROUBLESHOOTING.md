@@ -54,11 +54,11 @@ Confira primeiro se o fluxo por email esta ativo:
 PasswordReset__UseEmail=true
 ```
 
-Depois valide a ordem de escolha da API:
+Depois valide a ordem de tentativa da API. Quando um canal configurado falha em runtime, a API registra o erro e tenta o proximo:
 
 1. `PasswordResetFunctions__BaseUrl` valida + `PasswordResetFunctions__FunctionKey` preenchida -> chamada HTTP direta para o Function App.
-2. Sem configuracao HTTP valida, `AsyncQueues__PasswordResetEnabled=true` -> fila Azure `password-reset-emails`.
-3. Sem Function HTTP valida e sem fila ativa -> SMTP direto na API.
+2. `AsyncQueues__PasswordResetEnabled=true` -> fila Azure `password-reset-emails`.
+3. SMTP direto na API.
 
 Se estiver usando Function HTTP, confirme:
 
@@ -71,6 +71,7 @@ Notas:
 
 - `PasswordResetFunctions__BaseUrl` sem `https://` ou `http://` e tratada como invalida e faz a API cair para fila ou SMTP.
 - A API normaliza automaticamente o sufixo `/api`, entao a URL pode ser informada com ou sem esse trecho.
+- Se a Function App foi movida/recriada na Azure, gere uma nova function key e atualize `PasswordResetFunctions__FunctionKey`.
 
 Se estiver usando fila, confira:
 
@@ -81,6 +82,18 @@ AsyncQueues__PasswordResetEmailQueueName=password-reset-emails
 ```
 
 Tambem confirme que o `HemodinksAPI.Workers` esta ativo e escutando a mesma fila.
+
+Depois de mover Storage Account ou Function App entre Resource Groups, revise juntos:
+
+```text
+AsyncQueues__ConnectionString
+AzureStorage__ConnectionString
+AzureWebJobsStorage
+PasswordResetEmailQueueName
+FileExportQueueName
+```
+
+As filas configuradas na API precisam estar na mesma Storage Account que o worker escuta em `AzureWebJobsStorage`.
 
 Se estiver usando SMTP direto, confira:
 
@@ -93,9 +106,10 @@ Email__FromEmail=<remetente>
 Frontend__ResetPasswordUrl=https://<frontend>/reset-password
 ```
 
-Se o sender escolhido falhar em runtime, a API registra erro e cai para senha padrao. Nesse caso, procure nos logs por:
+Se todos os canais falharem em runtime, a API registra erro e cai para senha padrao. Nesse caso, procure nos logs por:
 
 ```text
+Falha ao enviar reset de senha via
 Erro ao enviar email de reset de senha
 ```
 

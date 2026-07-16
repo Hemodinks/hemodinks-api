@@ -95,17 +95,16 @@ public static partial class ApiServiceCollectionExtensions
             services.Configure<PasswordResetFunctionOptions>(configuration.GetSection("PasswordResetFunctions"));
             services.AddHttpClient(nameof(PasswordResetFunctionClient));
             services.AddSingleton<PasswordResetFunctionClient>();
-            services.AddScoped<IPasswordResetNotificationSender, FunctionBackedPasswordResetNotificationSender>();
-            return;
+            services.AddScoped<IPasswordResetNotificationTransport, FunctionBackedPasswordResetNotificationSender>();
         }
 
         if (passwordResetQueueEnabled)
         {
-            services.AddScoped<IPasswordResetNotificationSender, AzureQueuePasswordResetNotificationSender>();
-            return;
+            services.AddScoped<IPasswordResetNotificationTransport, AzureQueuePasswordResetNotificationSender>();
         }
 
-        services.AddScoped<IPasswordResetNotificationSender, SmtpPasswordResetNotificationSender>();
+        services.AddScoped<IPasswordResetNotificationTransport, SmtpPasswordResetNotificationSender>();
+        services.AddScoped<IPasswordResetNotificationSender, FallbackPasswordResetNotificationSender>();
     }
 
     private static void ConfigurePasswordResetOptions(

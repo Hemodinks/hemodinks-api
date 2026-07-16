@@ -2,7 +2,7 @@ using HemodinksAPI.Application.Services;
 
 namespace HemodinksAPI.Infrastructure.PasswordReset;
 
-public class FunctionBackedPasswordResetNotificationSender : IPasswordResetNotificationSender
+public class FunctionBackedPasswordResetNotificationSender : IPasswordResetNotificationTransport
 {
     private readonly PasswordResetFunctionClient _client;
 
@@ -10,6 +10,8 @@ public class FunctionBackedPasswordResetNotificationSender : IPasswordResetNotif
     {
         _client = client;
     }
+
+    public string Name => "Azure Function HTTP";
 
     public async Task<PasswordResetNotificationDispatchStatus> SendAsync(
         PasswordResetNotification notification,
