@@ -1,11 +1,12 @@
 using System.Net;
 using System.Net.Mail;
 using System.Text.Encodings.Web;
+using HemodinksAPI.Infrastructure.PasswordReset;
 using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Infrastructure.Services;
 
-public class SmtpPasswordResetNotificationSender : IPasswordResetNotificationSender
+public class SmtpPasswordResetNotificationSender : IPasswordResetNotificationTransport
 {
     private readonly EmailOptions _emailOptions;
     private readonly FrontendOptions _frontendOptions;
@@ -20,6 +21,8 @@ public class SmtpPasswordResetNotificationSender : IPasswordResetNotificationSen
         _frontendOptions = frontendOptions.Value;
         _logger = logger;
     }
+
+    public string Name => "SMTP";
 
     public async Task<PasswordResetNotificationDispatchStatus> SendAsync(
         PasswordResetNotification notification,
