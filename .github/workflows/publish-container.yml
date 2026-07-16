@@ -76,7 +76,7 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     environment: production
-    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_API_NAME != '' && vars.AZURE_RESOURCE_GROUP != '' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure)) }}
+    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_API_NAME != '' && (vars.AZURE_CONTAINER_APP_API_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure)) }}
 
     steps:
       - name: Log in to Azure
@@ -91,9 +91,23 @@ jobs:
 
       - name: Update API image
         run: |
+          api_name="${{ vars.AZURE_CONTAINER_APP_API_NAME }}"
+          resource_group="${{ vars.AZURE_CONTAINER_APP_API_RESOURCE_GROUP || vars.AZURE_RESOURCE_GROUP }}"
+
+          if ! az containerapp show --name "$api_name" --resource-group "$resource_group" >/dev/null 2>&1; then
+            echo "Container App '$api_name' not found in Resource Group '$resource_group'. Searching current subscription..."
+            resource_group="$(az containerapp list --query "[?name=='$api_name'].resourceGroup | [0]" -o tsv 2>/dev/null || true)"
+          fi
+
+          if [ -z "$resource_group" ] || [ "$resource_group" = "None" ]; then
+            echo "::error::Container App '$api_name' was not found. Update AZURE_RESOURCE_GROUP or grant the deployment identity access to the new Resource Group."
+            exit 3
+          fi
+
+          echo "Deploying API Container App '$api_name' in Resource Group '$resource_group'."
           az containerapp update \
-            --name "${{ vars.AZURE_CONTAINER_APP_API_NAME }}" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "$api_name" \
+            --resource-group "$resource_group" \
             --image "ghcr.io/hemodinks/hemodinks-api:sha-${{ github.sha }}" \
             --set-env-vars Deployment__CommitSha="${{ github.sha }}"
 
@@ -102,7 +116,7 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     environment: production
-    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME != '' && vars.AZURE_RESOURCE_GROUP != '' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure)) }}
+    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME != '' && (vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure)) }}
 
     steps:
       - name: Log in to Azure
@@ -117,9 +131,23 @@ jobs:
 
       - name: Update Functions image
         run: |
+          functions_name="${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME }}"
+          resource_group="${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP || vars.AZURE_RESOURCE_GROUP }}"
+
+          if ! az containerapp show --name "$functions_name" --resource-group "$resource_group" >/dev/null 2>&1; then
+            echo "Container App '$functions_name' not found in Resource Group '$resource_group'. Searching current subscription..."
+            resource_group="$(az containerapp list --query "[?name=='$functions_name'].resourceGroup | [0]" -o tsv 2>/dev/null || true)"
+          fi
+
+          if [ -z "$resource_group" ] || [ "$resource_group" = "None" ]; then
+            echo "::error::Container App '$functions_name' was not found. Update AZURE_RESOURCE_GROUP or grant the deployment identity access to the new Resource Group."
+            exit 3
+          fi
+
+          echo "Deploying Functions Container App '$functions_name' in Resource Group '$resource_group'."
           az containerapp update \
-            --name "${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME }}" \
-            --resource-group "${{ vars.AZURE_RESOURCE_GROUP }}" \
+            --name "$functions_name" \
+            --resource-group "$resource_group" \
             --image "ghcr.io/hemodinks/hemodinks-api-workers:sha-${{ github.sha }}" \
             --set-env-vars Deployment__CommitSha="${{ github.sha }}"
 

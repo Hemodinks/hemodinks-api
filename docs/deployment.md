@@ -138,6 +138,8 @@ Repository variables:
 | --- | --- |
 | `AZURE_CONTAINER_APPS_DEPLOY_ENABLED` | `true` |
 | `AZURE_RESOURCE_GROUP` | `rg-hemodinks-prod` |
+| `AZURE_CONTAINER_APP_API_RESOURCE_GROUP` | opcional; sobrescreve `AZURE_RESOURCE_GROUP` para a API |
+| `AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP` | opcional; sobrescreve `AZURE_RESOURCE_GROUP` para o worker em Container Apps |
 | `AZURE_CONTAINER_APP_API_NAME` | `hemodinks-api` |
 | `AZURE_CONTAINER_APP_FUNCTIONS_NAME` | `hemodinks-functions` |
 | `AZURE_FUNCTION_APP_WORKERS_NAME` | `hemodinks-workers-production` |
@@ -157,6 +159,8 @@ Permissoes minimas esperadas para a identidade:
 
 Com `AZURE_CONTAINER_APPS_DEPLOY_ENABLED=true`, merge em `main` publica as imagens e atualiza as revisoes dos Container Apps usando tags `sha-<commit>`.
 O workflow tambem atualiza `Deployment__CommitSha` no Container App para forcar nova revisao; o valor aparece em `/healthz` para conferencia pos-deploy.
+
+Se um Container App for movido para outro Resource Group, atualize `AZURE_RESOURCE_GROUP` ou defina o override especifico `AZURE_CONTAINER_APP_API_RESOURCE_GROUP` / `AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP`. O workflow tenta descobrir o Resource Group pelo nome do Container App quando o valor configurado nao encontra o recurso.
 
 Se os workers estiverem em um Azure Function App tradicional em vez de Azure Container Apps, configure `AZURE_FUNCTION_APP_WORKERS_NAME` com o nome do Function App. O workflow publica `HemodinksAPI.Workers` diretamente nesse Function App usando o login Azure OIDC ja configurado.
 
