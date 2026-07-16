@@ -1,9 +1,10 @@
 using HemodinksAPI.Application.Async;
+using HemodinksAPI.Infrastructure.PasswordReset;
 using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Infrastructure.Queues;
 
-public class AzureQueuePasswordResetNotificationSender : IPasswordResetNotificationSender
+public class AzureQueuePasswordResetNotificationSender : IPasswordResetNotificationTransport
 {
     private readonly IAsyncQueuePublisher _queuePublisher;
     private readonly AsyncQueueOptions _options;
@@ -15,6 +16,8 @@ public class AzureQueuePasswordResetNotificationSender : IPasswordResetNotificat
         _queuePublisher = queuePublisher;
         _options = options.Value;
     }
+
+    public string Name => "Azure Storage Queue";
 
     public async Task<PasswordResetNotificationDispatchStatus> SendAsync(
         PasswordResetNotification notification,
