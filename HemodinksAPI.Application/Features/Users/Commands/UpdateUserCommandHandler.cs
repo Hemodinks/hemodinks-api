@@ -2,6 +2,7 @@ using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Users.Queries;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Storage;
+using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -16,6 +17,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
     private readonly IAppDbContext _context;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly IUserPatientSyncService _userPatientSyncService;
+    private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<UpdateUserCommandHandler> _logger;
 
     public UpdateUserCommandHandler(
@@ -23,10 +25,26 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
         IProfilePhotoStorage profilePhotoStorage,
         IUserPatientSyncService userPatientSyncService,
         ILogger<UpdateUserCommandHandler> logger)
+        : this(
+            context,
+            profilePhotoStorage,
+            userPatientSyncService,
+            ClinicaContextFactory.CreateDefaultResolved(),
+            logger)
+    {
+    }
+
+    public UpdateUserCommandHandler(
+        IAppDbContext context,
+        IProfilePhotoStorage profilePhotoStorage,
+        IUserPatientSyncService userPatientSyncService,
+        IClinicaContext clinicaContext,
+        ILogger<UpdateUserCommandHandler> logger)
     {
         _context = context;
         _profilePhotoStorage = profilePhotoStorage;
         _userPatientSyncService = userPatientSyncService;
+        _clinicaContext = clinicaContext;
         _logger = logger;
     }
 
@@ -34,6 +52,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
     {
         try
         {
+            _clinicaContext.GetRequiredClinicaId();
             _logger.LogInformation("Atualizando usuario: {UserId}", request.Id);
 
             var user = await _context.Users

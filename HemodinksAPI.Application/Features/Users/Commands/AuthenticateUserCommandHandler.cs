@@ -2,6 +2,7 @@ using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Licencas;
+using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Domain.Models;
 using MediatR;
@@ -18,6 +19,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ILicencaService _licencaService;
+    private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<AuthenticateUserCommandHandler> _logger;
 
     public AuthenticateUserCommandHandler(
@@ -26,11 +28,29 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
         IJwtTokenService jwtTokenService,
         ILicencaService licencaService,
         ILogger<AuthenticateUserCommandHandler> logger)
+        : this(
+            context,
+            passwordHasher,
+            jwtTokenService,
+            licencaService,
+            ClinicaContextFactory.CreateDefaultResolved(),
+            logger)
+    {
+    }
+
+    public AuthenticateUserCommandHandler(
+        IAppDbContext context,
+        IPasswordHasher passwordHasher,
+        IJwtTokenService jwtTokenService,
+        ILicencaService licencaService,
+        IClinicaContext clinicaContext,
+        ILogger<AuthenticateUserCommandHandler> logger)
     {
         _context = context;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
         _licencaService = licencaService;
+        _clinicaContext = clinicaContext;
         _logger = logger;
     }
 
@@ -38,10 +58,12 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
     {
         try
         {
+            var currentClinicaId = _clinicaContext.GetRequiredClinicaId();
             _logger.LogInformation("Autenticando usuario: {Email}", request.Email);
 
             var user = await _context.Users
                 .Include(u => u.Perfil)
+                .Include(u => u.Clinica)
                 .FirstOrDefaultAsync(u => u.Email == request.Email && u.Ativo, cancellationToken);
 
             if (user == null || !_passwordHasher.VerifyPassword(request.Senha, user.Senha))
@@ -60,6 +82,8 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
             return new AuthenticateUserResponse
             {
                 Id = user.Id,
+                ClinicaId = currentClinicaId,
+                ClinicaSlug = user.Clinica.Slug,
                 Nome = user.Nome,
                 Email = user.Email,
                 Token = token,

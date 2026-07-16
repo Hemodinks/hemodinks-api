@@ -110,7 +110,9 @@ internal static class PacienteMapper
             ReciboNotaContrato = faturamento.ReciboNotaContrato,
             Observacoes = faturamento.Observacoes,
             DataCadastro = faturamento.DataCadastro,
-            DataAtualizacao = faturamento.DataAtualizacao
+            DataAtualizacao = faturamento.DataAtualizacao,
+            CompetenciaInicio = faturamento.CompetenciaInicio,
+            CompetenciaFinal = faturamento.CompetenciaFinal
         };
     }
 

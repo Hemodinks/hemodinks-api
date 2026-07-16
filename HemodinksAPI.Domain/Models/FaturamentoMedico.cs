@@ -1,8 +1,12 @@
 namespace HemodinksAPI.Domain.Models;
 
-public class FaturamentoMedico
+public class FaturamentoMedico : IClinicaOwnedEntity
 {
     public int Id { get; set; }
+
+    public int ClinicaId { get; set; } = Clinica.DefaultId;
+
+    public Clinica Clinica { get; set; } = null!;
 
     public int PacienteId { get; set; }
 
@@ -51,4 +55,8 @@ public class FaturamentoMedico
     public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
 
     public DateTime? DataAtualizacao { get; set; }
+
+    public DateTime? CompetenciaInicio { get; set; }
+
+    public DateTime? CompetenciaFinal { get; set; }
 }

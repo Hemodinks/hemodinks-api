@@ -1,8 +1,12 @@
 namespace HemodinksAPI.Domain.Models;
 
-public class PasswordResetToken
+public class PasswordResetToken : IClinicaOwnedEntity
 {
     public int Id { get; set; }
+
+    public int ClinicaId { get; set; } = Clinica.DefaultId;
+
+    public Clinica Clinica { get; set; } = null!;
 
     public int UserId { get; set; }
 

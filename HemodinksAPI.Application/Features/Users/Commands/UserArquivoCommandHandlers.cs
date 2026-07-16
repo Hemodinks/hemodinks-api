@@ -48,6 +48,7 @@ public class UploadUserArquivoCommandHandler : IRequestHandler<UploadUserArquivo
             var storedFile = await _patientFileStorage.SaveAsync(request.File, cancellationToken);
             var arquivo = new UserArquivo
             {
+                ClinicaId = user.ClinicaId,
                 UserId = request.UserId,
                 NomeOriginal = storedFile.OriginalName,
                 ContentType = storedFile.ContentType,

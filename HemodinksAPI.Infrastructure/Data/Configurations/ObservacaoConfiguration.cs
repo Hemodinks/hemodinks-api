@@ -12,6 +12,9 @@ internal sealed class ObservacaoConfiguration : IEntityTypeConfiguration<Observa
 
         entity.HasKey(e => e.Id);
 
+        entity.Property(e => e.ClinicaId)
+            .IsRequired();
+
         entity.Property(e => e.Texto)
             .IsRequired()
             .HasMaxLength(500);
@@ -29,9 +32,14 @@ internal sealed class ObservacaoConfiguration : IEntityTypeConfiguration<Observa
         entity.Property(e => e.MedicoAuxiliar2)
             .HasMaxLength(255);
 
-        entity.HasIndex(e => new { e.PacienteId, e.DataCadastro });
-        entity.HasIndex(e => new { e.DestinatarioUserId, e.DataLeitura, e.DataCadastro });
-        entity.HasIndex(e => new { e.AutorUserId, e.DataCadastro });
+        entity.HasIndex(e => new { e.ClinicaId, e.PacienteId, e.DataCadastro });
+        entity.HasIndex(e => new { e.ClinicaId, e.DestinatarioUserId, e.DataLeitura, e.DataCadastro });
+        entity.HasIndex(e => new { e.ClinicaId, e.AutorUserId, e.DataCadastro });
+
+        entity.HasOne(e => e.Clinica)
+            .WithMany()
+            .HasForeignKey(e => e.ClinicaId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         entity.HasOne(e => e.Paciente)
             .WithMany(e => e.Observacoes)

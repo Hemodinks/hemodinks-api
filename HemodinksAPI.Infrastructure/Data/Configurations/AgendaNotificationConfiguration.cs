@@ -12,6 +12,9 @@ internal sealed class AgendaNotificationConfiguration : IEntityTypeConfiguration
 
         entity.HasKey(e => e.Id);
 
+        entity.Property(e => e.ClinicaId)
+            .IsRequired();
+
         entity.Property(e => e.Title)
             .IsRequired()
             .HasMaxLength(255);
@@ -26,9 +29,14 @@ internal sealed class AgendaNotificationConfiguration : IEntityTypeConfiguration
 
         entity.Property(e => e.ReadAt);
 
-        entity.HasIndex(e => new { e.RecipientUserId, e.ReadAt, e.CreatedAt });
-        entity.HasIndex(e => e.EventId);
-        entity.HasIndex(e => e.SenderUserId);
+        entity.HasIndex(e => new { e.ClinicaId, e.RecipientUserId, e.ReadAt, e.CreatedAt });
+        entity.HasIndex(e => new { e.ClinicaId, e.EventId });
+        entity.HasIndex(e => new { e.ClinicaId, e.SenderUserId });
+
+        entity.HasOne(e => e.Clinica)
+            .WithMany()
+            .HasForeignKey(e => e.ClinicaId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         entity.HasOne(e => e.Event)
             .WithMany()

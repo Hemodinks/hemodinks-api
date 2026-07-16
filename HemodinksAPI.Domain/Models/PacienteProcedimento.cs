@@ -1,8 +1,10 @@
 namespace HemodinksAPI.Domain.Models;
 
-public class PacienteProcedimento
+public class PacienteProcedimento : IClinicaOwnedEntity
 {
     public int Id { get; set; }
+    public int ClinicaId { get; set; } = Clinica.DefaultId;
+    public Clinica Clinica { get; set; } = null!;
     public int PacienteId { get; set; }
     public Paciente Paciente { get; set; } = null!;
     public string? CbhpmCodigo { get; set; }

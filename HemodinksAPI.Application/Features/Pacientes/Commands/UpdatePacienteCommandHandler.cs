@@ -3,6 +3,7 @@ using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.Faturamentos;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Application.Storage;
+using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -14,6 +15,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
     private readonly IAppDbContext _context;
     private readonly ICbhpmCache _cbhpmCache;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
+    private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<UpdatePacienteCommandHandler> _logger;
 
     public UpdatePacienteCommandHandler(
@@ -21,10 +23,26 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
         ICbhpmCache cbhpmCache,
         IProfilePhotoStorage profilePhotoStorage,
         ILogger<UpdatePacienteCommandHandler> logger)
+        : this(
+            context,
+            cbhpmCache,
+            profilePhotoStorage,
+            ClinicaContextFactory.CreateDefaultResolved(),
+            logger)
+    {
+    }
+
+    public UpdatePacienteCommandHandler(
+        IAppDbContext context,
+        ICbhpmCache cbhpmCache,
+        IProfilePhotoStorage profilePhotoStorage,
+        IClinicaContext clinicaContext,
+        ILogger<UpdatePacienteCommandHandler> logger)
     {
         _context = context;
         _cbhpmCache = cbhpmCache;
         _profilePhotoStorage = profilePhotoStorage;
+        _clinicaContext = clinicaContext;
         _logger = logger;
     }
 
@@ -32,6 +50,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
     {
         try
         {
+            _clinicaContext.GetRequiredClinicaId();
             PacienteRules.ValidateNome(request.NomePaciente);
 
             var paciente = await _context.Pacientes

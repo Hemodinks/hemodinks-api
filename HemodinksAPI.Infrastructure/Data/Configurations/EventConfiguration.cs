@@ -12,6 +12,9 @@ internal sealed class EventConfiguration : IEntityTypeConfiguration<Event>
 
         entity.HasKey(e => e.Id);
 
+        entity.Property(e => e.ClinicaId)
+            .IsRequired();
+
         entity.Property(e => e.Title)
             .IsRequired()
             .HasMaxLength(255);
@@ -43,10 +46,15 @@ internal sealed class EventConfiguration : IEntityTypeConfiguration<Event>
             .IsRequired()
             .HasDefaultValueSql("GETUTCDATE()");
 
-        entity.HasIndex(e => e.UserId);
-        entity.HasIndex(e => e.MedicalUserId);
-        entity.HasIndex(e => new { e.Start, e.End, e.IsCompleted });
-        entity.HasIndex(e => new { e.NextReminderAt, e.IsCompleted });
+        entity.HasIndex(e => new { e.ClinicaId, e.UserId });
+        entity.HasIndex(e => new { e.ClinicaId, e.MedicalUserId });
+        entity.HasIndex(e => new { e.ClinicaId, e.Start, e.End, e.IsCompleted });
+        entity.HasIndex(e => new { e.ClinicaId, e.NextReminderAt, e.IsCompleted });
+
+        entity.HasOne(e => e.Clinica)
+            .WithMany()
+            .HasForeignKey(e => e.ClinicaId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         entity.HasOne(e => e.User)
             .WithMany(e => e.Events)
