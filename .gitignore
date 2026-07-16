@@ -3,7 +3,7 @@ bin/
 obj/
 
 # IDE
-.vscode/
+
 .vs/
 *.swp
 *.swo
@@ -21,6 +21,7 @@ local-storage/
 # Dependências
 packages/
 .nuget/
+.venv/
 
 # Build
 out/
