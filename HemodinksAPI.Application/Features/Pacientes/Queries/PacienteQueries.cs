@@ -71,6 +71,8 @@ public class PacienteFaturamentoDto
     public string? Observacoes { get; set; }
     public DateTime DataCadastro { get; set; }
     public DateTime? DataAtualizacao { get; set; }
+    public DateTime? CompetenciaInicio { get; set; }
+    public DateTime? CompetenciaFinal { get; set; }
 }
 
 public class PacienteProcedimentoDto

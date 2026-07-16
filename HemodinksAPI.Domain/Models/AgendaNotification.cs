@@ -1,8 +1,12 @@
 namespace HemodinksAPI.Domain.Models;
 
-public class AgendaNotification
+public class AgendaNotification : IClinicaOwnedEntity
 {
     public int Id { get; set; }
+
+    public int ClinicaId { get; set; } = Clinica.DefaultId;
+
+    public Clinica Clinica { get; set; } = null!;
 
     public int EventId { get; set; }
 

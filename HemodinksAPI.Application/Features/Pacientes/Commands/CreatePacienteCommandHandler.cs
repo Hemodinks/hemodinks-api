@@ -3,6 +3,7 @@ using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.Faturamentos;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Application.Storage;
+using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
@@ -16,6 +17,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
     private readonly ICbhpmCache _cbhpmCache;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
+    private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<CreatePacienteCommandHandler> _logger;
 
     public CreatePacienteCommandHandler(
@@ -24,11 +26,29 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
         ILogger<CreatePacienteCommandHandler> logger)
+        : this(
+            context,
+            cbhpmCache,
+            passwordHasher,
+            profilePhotoStorage,
+            ClinicaContextFactory.CreateDefaultResolved(),
+            logger)
+    {
+    }
+
+    public CreatePacienteCommandHandler(
+        IAppDbContext context,
+        ICbhpmCache cbhpmCache,
+        IPasswordHasher passwordHasher,
+        IProfilePhotoStorage profilePhotoStorage,
+        IClinicaContext clinicaContext,
+        ILogger<CreatePacienteCommandHandler> logger)
     {
         _context = context;
         _cbhpmCache = cbhpmCache;
         _passwordHasher = passwordHasher;
         _profilePhotoStorage = profilePhotoStorage;
+        _clinicaContext = clinicaContext;
         _logger = logger;
     }
 
@@ -36,6 +56,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
     {
         try
         {
+            var clinicaId = _clinicaContext.GetRequiredClinicaId();
             if (!PacienteCommandAccess.CanCreate(request.CurrentPerfilId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para criar paciente");
@@ -97,6 +118,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
 
             var user = new User
             {
+                ClinicaId = clinicaId,
                 Nome = request.NomePaciente.Trim(),
                 Email = email,
                 Telefone = telefone,
@@ -115,6 +137,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
 
             var paciente = new Paciente
             {
+                ClinicaId = clinicaId,
                 UserId = user.Id,
                 User = user,
                 Data = request.Data,

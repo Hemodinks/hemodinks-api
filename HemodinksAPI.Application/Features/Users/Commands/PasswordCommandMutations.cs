@@ -31,6 +31,7 @@ internal static class PasswordCommandMutations
     }
 
     public static PasswordResetToken CreatePasswordResetToken(
+        int clinicaId,
         int userId,
         string token,
         string? requestIp,
@@ -38,6 +39,7 @@ internal static class PasswordCommandMutations
     {
         return new PasswordResetToken
         {
+            ClinicaId = clinicaId,
             UserId = userId,
             TokenHash = PasswordResetRules.HashToken(token),
             CreatedAt = now,

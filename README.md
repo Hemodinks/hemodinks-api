@@ -77,10 +77,17 @@ Em ambiente publicado, Swagger/Scalar/OpenAPI so aparecem quando `ApiDocumentati
 ```powershell
 Copy-Item .env.example .env
 # Edite MSSQL_SA_PASSWORD e JWT_SECRET_KEY no .env
-docker-compose up -d
+docker compose up -d --build api workers
 ```
 
 A API aplica migrations no startup, cria perfis, seeda usuarios quando necessario e carrega CBHPM de `HemodinksAPI.Infrastructure/Data/SeedData/cbhpm-geral.json` quando o seed estiver habilitado.
+
+O compose principal usa `restart: unless-stopped` para `api`, `workers`, `sqlserver` e `azurite`. Depois da primeira subida com o comando acima, o Docker Desktop volta a iniciar o stack da API junto com o engine. Se o compose avulso de `sqlserver/` ja tiver sido usado antes, pare o container antigo uma vez:
+
+```powershell
+docker compose -f sqlserver/docker-compose.yml stop
+docker update --restart=no hemodinks-sqlserver-dev
+```
 
 ### Docker Compose com observabilidade
 

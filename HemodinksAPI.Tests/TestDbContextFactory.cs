@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.Data.Sqlite;
@@ -14,7 +15,7 @@ internal static class TestDbContextFactory
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        var context = new AppDbContext(options);
+        var context = new AppDbContext(options, ClinicaContextFactory.CreateDefaultResolved());
         context.Database.EnsureCreated();
 
         return context;
@@ -103,6 +104,7 @@ internal sealed class RelationalCbhpmTestAppDbContext : IAppDbContext
 
     public DbSet<CbhpmGeral> CbhpmGeral => _context.CbhpmGeral;
 
+    public DbSet<Clinica> Clinicas => throw new NotSupportedException();
     public DbSet<User> Users => throw new NotSupportedException();
     public DbSet<Perfil> Perfis => throw new NotSupportedException();
     public DbSet<Paciente> Pacientes => throw new NotSupportedException();
@@ -120,6 +122,7 @@ internal sealed class RelationalCbhpmTestAppDbContext : IAppDbContext
     public DbSet<Event> Events => throw new NotSupportedException();
     public DbSet<AgendaNotification> AgendaNotifications => throw new NotSupportedException();
     public DbSet<PasswordResetToken> PasswordResetTokens => throw new NotSupportedException();
+    public DbSet<ConfiguracaoSistema> ConfiguracoesSistema => throw new NotSupportedException();
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

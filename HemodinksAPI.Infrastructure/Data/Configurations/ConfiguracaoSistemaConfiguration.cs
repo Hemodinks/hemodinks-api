@@ -12,6 +12,9 @@ internal sealed class ConfiguracaoSistemaConfiguration : IEntityTypeConfiguratio
 
         entity.HasKey(e => e.Id);
 
+        entity.Property(e => e.ClinicaId)
+            .IsRequired();
+
         entity.Property(e => e.NomeEmpresa)
             .IsRequired()
             .HasMaxLength(120);
@@ -25,9 +28,18 @@ internal sealed class ConfiguracaoSistemaConfiguration : IEntityTypeConfiguratio
 
         entity.Property(e => e.DataAtualizacao);
 
+        entity.HasIndex(e => e.ClinicaId)
+            .IsUnique();
+
+        entity.HasOne(e => e.Clinica)
+            .WithMany()
+            .HasForeignKey(e => e.ClinicaId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         entity.HasData(new ConfiguracaoSistema
         {
             Id = ConfiguracaoSistema.DefaultId,
+            ClinicaId = Clinica.DefaultId,
             NomeEmpresa = ConfiguracaoSistema.DefaultNomeEmpresa,
             DataCadastro = new DateTime(2026, 6, 22, 0, 0, 0, DateTimeKind.Utc)
         });

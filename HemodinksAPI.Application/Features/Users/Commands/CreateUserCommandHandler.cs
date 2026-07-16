@@ -2,6 +2,7 @@ using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Storage;
+using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
@@ -21,6 +22,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
     private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly IUserPatientSyncService _userPatientSyncService;
     private readonly LicencaOptions _licencaOptions;
+    private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<CreateUserCommandHandler> _logger;
 
     public CreateUserCommandHandler(
@@ -30,12 +32,32 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
         IUserPatientSyncService userPatientSyncService,
         IOptions<LicencaOptions> licencaOptions,
         ILogger<CreateUserCommandHandler> logger)
+        : this(
+            context,
+            passwordHasher,
+            profilePhotoStorage,
+            userPatientSyncService,
+            licencaOptions,
+            ClinicaContextFactory.CreateDefaultResolved(),
+            logger)
+    {
+    }
+
+    public CreateUserCommandHandler(
+        IAppDbContext context,
+        IPasswordHasher passwordHasher,
+        IProfilePhotoStorage profilePhotoStorage,
+        IUserPatientSyncService userPatientSyncService,
+        IOptions<LicencaOptions> licencaOptions,
+        IClinicaContext clinicaContext,
+        ILogger<CreateUserCommandHandler> logger)
     {
         _context = context;
         _passwordHasher = passwordHasher;
         _profilePhotoStorage = profilePhotoStorage;
         _userPatientSyncService = userPatientSyncService;
         _licencaOptions = licencaOptions.Value;
+        _clinicaContext = clinicaContext;
         _logger = logger;
     }
 
@@ -43,6 +65,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
     {
         try
         {
+            var clinicaId = _clinicaContext.GetRequiredClinicaId();
             _logger.LogInformation("Criando novo usuario: {Email}", request.Email);
 
             var emailAlreadyExists = await _context.Users
@@ -81,6 +104,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
 
             var user = new User
             {
+                ClinicaId = clinicaId,
                 Nome = request.Nome,
                 Email = request.Email,
                 Telefone = request.Telefone,
@@ -104,6 +128,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 var now = DateTime.UtcNow;
                 _context.Licencas.Add(new Licenca
                 {
+                    ClinicaId = clinicaId,
                     UserId = user.Id,
                     Plano = LicencaPlanos.Trial,
                     Status = LicencaStatus.Ativa,

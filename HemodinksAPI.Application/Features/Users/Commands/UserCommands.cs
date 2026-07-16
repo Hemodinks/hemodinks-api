@@ -59,6 +59,8 @@ public partial class AuthenticateUserCommand : IRequest<AuthenticateUserResponse
 public class AuthenticateUserResponse
 {
     public int Id { get; set; }
+    public int ClinicaId { get; set; }
+    public string ClinicaSlug { get; set; } = null!;
     public string Nome { get; set; } = null!;
     public string Email { get; set; } = null!;
     public string Token { get; set; } = null!;

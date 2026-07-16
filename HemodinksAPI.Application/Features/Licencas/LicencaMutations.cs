@@ -4,10 +4,11 @@ namespace HemodinksAPI.Application.Features.Licencas;
 
 internal static class LicencaMutations
 {
-    public static Licenca CreateTrial(int userId, DateTime now, int trialDays)
+    public static Licenca CreateTrial(int userId, int clinicaId, DateTime now, int trialDays)
     {
         return new Licenca
         {
+            ClinicaId = clinicaId,
             UserId = userId,
             Plano = LicencaPlanos.Trial,
             Status = LicencaStatus.Ativa,

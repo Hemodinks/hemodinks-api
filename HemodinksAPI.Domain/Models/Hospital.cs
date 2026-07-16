@@ -1,8 +1,12 @@
 namespace HemodinksAPI.Domain.Models;
 
-public class Hospital
+public class Hospital : IClinicaOwnedEntity
 {
     public int Id { get; set; }
+
+    public int ClinicaId { get; set; } = Clinica.DefaultId;
+
+    public Clinica Clinica { get; set; } = null!;
 
     public string Nome { get; set; } = null!;
 

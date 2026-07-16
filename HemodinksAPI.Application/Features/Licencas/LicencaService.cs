@@ -97,7 +97,7 @@ public class LicencaService : ILicencaService
         var user = await _context.Users
             .AsNoTracking()
             .Where(item => item.Id == userId)
-            .Select(item => new { item.Id, item.PerfilId })
+            .Select(item => new { item.Id, item.PerfilId, item.ClinicaId })
             .FirstOrDefaultAsync(cancellationToken);
 
         if (user == null)
@@ -110,7 +110,7 @@ public class LicencaService : ILicencaService
             throw new InvalidOperationException("Licenca de uso esta disponivel apenas para medicos");
         }
 
-        licenca = LicencaMutations.CreateTrial(user.Id, now, _options.TrialDays);
+        licenca = LicencaMutations.CreateTrial(user.Id, user.ClinicaId, now, _options.TrialDays);
         _context.Licencas.Add(licenca);
         await _context.SaveChangesAsync(cancellationToken);
 

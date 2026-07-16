@@ -40,7 +40,9 @@ public class GetAllFaturamentosMedicosQueryHandler : IRequestHandler<GetAllFatur
                 digits,
                 request.Medico,
                 request.Convenio,
-                request.Procedimento);
+                request.Procedimento,
+                request.CompetenciaInicio,
+                request.CompetenciaFinal);
 
             var totalItems = await query.CountAsync(cancellationToken);
 

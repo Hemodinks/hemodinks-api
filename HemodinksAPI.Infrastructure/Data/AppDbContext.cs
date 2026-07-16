@@ -1,4 +1,6 @@
+using System.Reflection;
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Infrastructure.Data;
@@ -8,6 +10,13 @@ namespace HemodinksAPI.Infrastructure.Data;
 /// </summary>
 public class AppDbContext : DbContext, IAppDbContext
 {
+    private static readonly MethodInfo ApplyClinicaQueryFilterMethod = typeof(AppDbContext)
+        .GetMethod(nameof(ApplyClinicaQueryFilter), BindingFlags.Instance | BindingFlags.NonPublic)!;
+
+    private readonly IClinicaContext _clinicaContext;
+
+    public DbSet<Clinica> Clinicas { get; set; } = null!;
+
     /// <summary>
     /// DbSet de usuários
     /// </summary>
@@ -51,8 +60,13 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<ConfiguracaoSistema> ConfiguracoesSistema { get; set; } = null!;
 
-    public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
+    private int? CurrentClinicaId => _clinicaContext.ClinicaId;
+
+    public AppDbContext(
+        DbContextOptions<AppDbContext> options,
+        IClinicaContext clinicaContext) : base(options)
     {
+        _clinicaContext = clinicaContext;
     }
 
     /// <summary>
@@ -62,5 +76,50 @@ public class AppDbContext : DbContext, IAppDbContext
     {
         base.OnModelCreating(modelBuilder);
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+        ApplyClinicaQueryFilters(modelBuilder);
+    }
+
+    public override int SaveChanges(bool acceptAllChangesOnSuccess)
+    {
+        ApplyDefaultClinicaIds();
+        return base.SaveChanges(acceptAllChangesOnSuccess);
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        ApplyDefaultClinicaIds();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void ApplyDefaultClinicaIds()
+    {
+        foreach (var entry in ChangeTracker.Entries<IClinicaOwnedEntity>()
+                     .Where(entry => entry.State == EntityState.Added && entry.Entity.ClinicaId <= 0))
+        {
+            entry.Entity.ClinicaId = _clinicaContext.ClinicaId ?? Clinica.DefaultId;
+        }
+    }
+
+    private void ApplyClinicaQueryFilters(ModelBuilder modelBuilder)
+    {
+        var clinicaOwnedEntityTypes = modelBuilder.Model
+            .GetEntityTypes()
+            .Select(entityType => entityType.ClrType)
+            .Where(entityClrType => typeof(IClinicaOwnedEntity).IsAssignableFrom(entityClrType))
+            .Distinct();
+
+        foreach (var entityClrType in clinicaOwnedEntityTypes)
+        {
+            ApplyClinicaQueryFilterMethod
+                .MakeGenericMethod(entityClrType)
+                .Invoke(this, [modelBuilder]);
+        }
+    }
+
+    private void ApplyClinicaQueryFilter<TEntity>(ModelBuilder modelBuilder)
+        where TEntity : class, IClinicaOwnedEntity
+    {
+        modelBuilder.Entity<TEntity>()
+            .HasQueryFilter(entity => CurrentClinicaId == null || entity.ClinicaId == CurrentClinicaId);
     }
 }

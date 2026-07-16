@@ -81,7 +81,7 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
         }
 
         var token = PasswordResetRules.GenerateToken();
-        var tokenEntity = PasswordCommandMutations.CreatePasswordResetToken(user.Id, token, requestIp, now);
+        var tokenEntity = PasswordCommandMutations.CreatePasswordResetToken(user.ClinicaId, user.Id, token, requestIp, now);
 
         await PasswordCommandMutations.InvalidateActiveTokensAsync(_context, user.Id, now, cancellationToken);
         _context.PasswordResetTokens.Add(tokenEntity);
