@@ -151,7 +151,9 @@ public class StorageRegistrationTests
 
         using var serviceProvider = services.BuildServiceProvider();
 
-        Assert.IsType<SmtpPasswordResetNotificationSender>(serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
+        AssertPasswordResetSenderPipeline(
+            serviceProvider,
+            typeof(SmtpPasswordResetNotificationSender));
         Assert.IsType<DisabledFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
     }
 
@@ -177,8 +179,11 @@ public class StorageRegistrationTests
 
         using var serviceProvider = services.BuildServiceProvider();
 
-        Assert.IsType<FunctionBackedPasswordResetNotificationSender>(
-            serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
+        AssertPasswordResetSenderPipeline(
+            serviceProvider,
+            typeof(FunctionBackedPasswordResetNotificationSender),
+            typeof(AzureQueuePasswordResetNotificationSender),
+            typeof(SmtpPasswordResetNotificationSender));
         Assert.IsType<AzureFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
     }
 
@@ -204,8 +209,10 @@ public class StorageRegistrationTests
 
         using var serviceProvider = services.BuildServiceProvider();
 
-        Assert.IsType<AzureQueuePasswordResetNotificationSender>(
-            serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
+        AssertPasswordResetSenderPipeline(
+            serviceProvider,
+            typeof(AzureQueuePasswordResetNotificationSender),
+            typeof(SmtpPasswordResetNotificationSender));
         Assert.IsType<AzureFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
     }
 
@@ -230,8 +237,10 @@ public class StorageRegistrationTests
 
         using var serviceProvider = services.BuildServiceProvider();
 
-        Assert.IsType<AzureQueuePasswordResetNotificationSender>(
-            serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
+        AssertPasswordResetSenderPipeline(
+            serviceProvider,
+            typeof(AzureQueuePasswordResetNotificationSender),
+            typeof(SmtpPasswordResetNotificationSender));
         Assert.IsType<AzureFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
     }
 
@@ -253,7 +262,10 @@ public class StorageRegistrationTests
 
         using var serviceProvider = services.BuildServiceProvider();
 
-        Assert.IsType<AzureQueuePasswordResetNotificationSender>(serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
+        AssertPasswordResetSenderPipeline(
+            serviceProvider,
+            typeof(AzureQueuePasswordResetNotificationSender),
+            typeof(SmtpPasswordResetNotificationSender));
         Assert.IsType<AzureFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
     }
 
@@ -277,8 +289,25 @@ public class StorageRegistrationTests
 
         using var serviceProvider = services.BuildServiceProvider();
 
-        Assert.IsType<SmtpPasswordResetNotificationSender>(serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
+        AssertPasswordResetSenderPipeline(
+            serviceProvider,
+            typeof(SmtpPasswordResetNotificationSender));
         Assert.IsType<AzureFileExportQueue>(serviceProvider.GetRequiredService<IFileExportQueue>());
+    }
+
+    private static void AssertPasswordResetSenderPipeline(
+        IServiceProvider serviceProvider,
+        params Type[] expectedTransportTypes)
+    {
+        Assert.IsType<FallbackPasswordResetNotificationSender>(
+            serviceProvider.GetRequiredService<IPasswordResetNotificationSender>());
+
+        var transportTypes = serviceProvider
+            .GetServices<IPasswordResetNotificationTransport>()
+            .Select(transport => transport.GetType())
+            .ToArray();
+
+        Assert.Equal(expectedTransportTypes, transportTypes);
     }
 
     private sealed class TestWebHostEnvironment(string environmentName) : IWebHostEnvironment
