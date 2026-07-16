@@ -65,7 +65,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
         /// <inheritdoc />
         protected override void Down(MigrationBuilder migrationBuilder)
         {
-            // Data cleanup is intentionally not reverted.
+            // Intentionally empty: this data cleanup normalizes corrupted encoding and must not be reverted automatically.
         }
     }
 }
