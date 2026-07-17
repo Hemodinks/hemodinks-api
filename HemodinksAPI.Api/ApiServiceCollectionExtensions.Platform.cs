@@ -17,6 +17,7 @@ public static partial class ApiServiceCollectionExtensions
             "http://localhost:3000",
             "http://localhost:5173",
             "http://localhost:8080",
+            "https://hemodinks.gestao-saude.tec.br",
             "https://hemodinks-saude.vercel.app",
             "https://hemodinks-homologacao.vercel.app"
         };
