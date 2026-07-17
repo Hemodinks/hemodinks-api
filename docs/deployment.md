@@ -276,8 +276,17 @@ Variaveis que devem diferir da producao:
 | `NEW_RELIC_APP_NAME` | `Hemodinks API Confirmation` |
 | `AzureStorage__ContainerName` | `profile-photos-confirmation` |
 | `AzureStorage__PatientFilesContainerName` | `patient-files-confirmation` |
+| `AsyncQueues__PasswordResetEnabled` | `false` para Render confirmation enviar o reset direto por SMTP e evitar worker antigo |
 | `AsyncQueues__PasswordResetEmailQueueName` | `password-reset-emails-confirmation` |
 | `AsyncQueues__FileExportQueueName` | `file-export-jobs-confirmation` |
+
+Se `AsyncQueues__PasswordResetEnabled=true` ou `PasswordResetFunctions__BaseUrl` estiver configurado, o email de reset pode ser enviado pelo worker/Function em vez da API Render. Nesse caso, o worker tambem precisa estar no mesmo commit da API e usar:
+
+```text
+Frontend__ResetPasswordUrl=https://hemodinks-homologacao.gestao-saude.tec.br/reset-password
+Email__BrandLogoUrl=<url publica da logomarca>
+PasswordResetEmailQueueName=password-reset-emails-confirmation
+```
 
 ## Azure SQL Database
 
