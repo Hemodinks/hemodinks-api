@@ -11,7 +11,8 @@ URLs principais:
 | Frontend local | `http://localhost:5173` |
 | Frontend producao | `https://hemodinks.gestao-saude.tec.br` |
 | Frontend producao legado | `https://hemodinks-saude.vercel.app` |
-| Frontend homologacao principal | `https://hemodinks-homologacao.vercel.app` |
+| Frontend homologacao principal | `https://hemodinks-homologacao.gestao-saude.tec.br` |
+| Frontend homologacao legado | `https://hemodinks-homologacao.vercel.app` |
 | Frontend confirmation Render opcional | `https://hemodinks-front-confirmation.onrender.com` |
 | API local | `http://localhost:5000` |
 | Swagger local | `/swagger` |

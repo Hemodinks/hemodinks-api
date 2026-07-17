@@ -65,7 +65,8 @@ Ambientes publicados:
 | --- | --- |
 | Front producao | `https://hemodinks.gestao-saude.tec.br` |
 | Front producao legado | `https://hemodinks-saude.vercel.app` |
-| Front homologacao principal | `https://hemodinks-homologacao.vercel.app` |
+| Front homologacao principal | `https://hemodinks-homologacao.gestao-saude.tec.br` |
+| Front homologacao legado | `https://hemodinks-homologacao.vercel.app` |
 | Front confirmation Render opcional | `https://hemodinks-front-confirmation.onrender.com` |
 | API | configure em `VITE_API_URL`, por exemplo `https://hemodinks-api.onrender.com` |
 

@@ -20,7 +20,8 @@ Publicado:
 | --- | --- |
 | Front producao | `https://hemodinks.gestao-saude.tec.br` |
 | Front producao legado | `https://hemodinks-saude.vercel.app` |
-| Front homologacao principal | `https://hemodinks-homologacao.vercel.app` |
+| Front homologacao principal | `https://hemodinks-homologacao.gestao-saude.tec.br` |
+| Front homologacao legado | `https://hemodinks-homologacao.vercel.app` |
 | Front confirmation Render opcional | `https://hemodinks-front-confirmation.onrender.com` |
 | API | `https://<api-publica>` |
 | Swagger | `https://<api-publica>/swagger` quando `ApiDocumentation__Enabled=true` |
@@ -258,8 +259,9 @@ Observacao: o blueprint deixa `AsyncQueues__Enabled=false`, mas ativa os recurso
 Origens CORS configuradas no blueprint:
 
 ```text
-Cors__AllowedOrigins__0=https://hemodinks-homologacao.vercel.app
-Cors__AllowedOrigins__1=https://hemodinks-front-confirmation.onrender.com
+Cors__AllowedOrigins__0=https://hemodinks-homologacao.gestao-saude.tec.br
+Cors__AllowedOrigins__1=https://hemodinks-homologacao.vercel.app
+Cors__AllowedOrigins__2=https://hemodinks-front-confirmation.onrender.com
 ```
 
 Variaveis que devem diferir da producao:
@@ -270,7 +272,7 @@ Variaveis que devem diferir da producao:
 | `JwtSettings__SecretKey` | usar outra chave |
 | `JwtSettings__Issuer` | `HemodinksAPI.Confirmation` |
 | `JwtSettings__Audience` | `HemodinksAPI.Confirmation` |
-| `Frontend__ResetPasswordUrl` | `https://hemodinks-homologacao.vercel.app/reset-password` |
+| `Frontend__ResetPasswordUrl` | `https://hemodinks-homologacao.gestao-saude.tec.br/reset-password` |
 | `NEW_RELIC_APP_NAME` | `Hemodinks API Confirmation` |
 | `AzureStorage__ContainerName` | `profile-photos-confirmation` |
 | `AzureStorage__PatientFilesContainerName` | `patient-files-confirmation` |

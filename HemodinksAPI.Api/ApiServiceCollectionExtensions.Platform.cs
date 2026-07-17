@@ -19,6 +19,7 @@ public static partial class ApiServiceCollectionExtensions
             "http://localhost:8080",
             "https://hemodinks.gestao-saude.tec.br",
             "https://hemodinks-saude.vercel.app",
+            "https://hemodinks-homologacao.gestao-saude.tec.br",
             "https://hemodinks-homologacao.vercel.app"
         };
 
