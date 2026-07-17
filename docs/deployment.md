@@ -18,7 +18,8 @@ Publicado:
 
 | Recurso | URL |
 | --- | --- |
-| Front producao | `https://hemodinks-saude.vercel.app` |
+| Front producao | `https://hemodinks.gestao-saude.tec.br` |
+| Front producao legado | `https://hemodinks-saude.vercel.app` |
 | Front homologacao principal | `https://hemodinks-homologacao.vercel.app` |
 | Front confirmation Render opcional | `https://hemodinks-front-confirmation.onrender.com` |
 | API | `https://<api-publica>` |
@@ -77,8 +78,9 @@ JwtSettings__Audience=HemodinksAPI
 AzureStorage__ConnectionString=<Azure Storage>
 AzureStorage__ContainerName=profile-photos
 AzureStorage__PatientFilesContainerName=patient-files
-Cors__AllowedOrigins__0=https://hemodinks-saude.vercel.app
-Frontend__ResetPasswordUrl=https://hemodinks-saude.vercel.app/reset-password
+Cors__AllowedOrigins__0=https://hemodinks.gestao-saude.tec.br
+Cors__AllowedOrigins__1=https://hemodinks-saude.vercel.app
+Frontend__ResetPasswordUrl=https://hemodinks.gestao-saude.tec.br/reset-password
 Database__RunMigrationsOnStartup=true
 Seed__CbhpmOnStartup=false
 Seed__UsersOnStartup=false
@@ -112,7 +114,7 @@ Email__Smtp__Password=<senha SMTP>
 Email__FromEmail=<email remetente>
 Email__FromName=Hemodinks
 Email__BrandLogoUrl=<url publica da logomarca>
-Frontend__ResetPasswordUrl=https://hemodinks-saude.vercel.app/reset-password
+Frontend__ResetPasswordUrl=https://hemodinks.gestao-saude.tec.br/reset-password
 ```
 
 Se as imagens GHCR estiverem privadas, configure o pull do Container Apps com um PAT do GitHub com `read:packages` ou publique as imagens como publicas. Exemplo:
@@ -205,8 +207,9 @@ Variaveis obrigatorias:
 | `AzureStorage__ConnectionString` | connection string da Storage Account |
 | `AzureStorage__PublicBaseUrl` | URL publica do container `profile-photos` |
 | `AzureStorage__PatientFilesPublicBaseUrl` | URL publica do container `patient-files` |
-| `Cors__AllowedOrigins__0` | `https://hemodinks-saude.vercel.app` |
-| `Frontend__ResetPasswordUrl` | `https://hemodinks-saude.vercel.app/reset-password` |
+| `Cors__AllowedOrigins__0` | `https://hemodinks.gestao-saude.tec.br` |
+| `Cors__AllowedOrigins__1` | `https://hemodinks-saude.vercel.app`, se o dominio legado continuar ativo |
+| `Frontend__ResetPasswordUrl` | `https://hemodinks.gestao-saude.tec.br/reset-password` |
 
 Variaveis opcionais importantes:
 

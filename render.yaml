@@ -39,7 +39,11 @@ services:
       - key: PasswordReset__UseEmail
         value: "true"
       - key: Frontend__ResetPasswordUrl
-        value: https://hemodinks-saude.vercel.app/reset-password
+        value: https://hemodinks.gestao-saude.tec.br/reset-password
+      - key: Cors__AllowedOrigins__0
+        value: https://hemodinks.gestao-saude.tec.br
+      - key: Cors__AllowedOrigins__1
+        value: https://hemodinks-saude.vercel.app
       - key: AsyncQueues__Enabled
         value: "false"
       - key: AsyncQueues__PasswordResetEnabled
