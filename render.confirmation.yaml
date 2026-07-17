@@ -33,7 +33,7 @@ services:
       - key: PasswordReset__UseEmail
         value: "true"
       - key: Frontend__ResetPasswordUrl
-        value: https://hemodinks-homologacao.vercel.app/reset-password
+        value: https://hemodinks-homologacao.gestao-saude.tec.br/reset-password
       - key: AsyncQueues__Enabled
         value: "false"
       - key: AsyncQueues__PasswordResetEnabled
@@ -63,8 +63,10 @@ services:
       - key: Email__BrandLogoUrl
         sync: false
       - key: Cors__AllowedOrigins__0
-        value: https://hemodinks-homologacao.vercel.app
+        value: https://hemodinks-homologacao.gestao-saude.tec.br
       - key: Cors__AllowedOrigins__1
+        value: https://hemodinks-homologacao.vercel.app
+      - key: Cors__AllowedOrigins__2
         value: https://hemodinks-front-confirmation.onrender.com
       - key: AzureStorage__ConnectionString
         sync: false

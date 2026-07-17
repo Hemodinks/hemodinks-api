@@ -4,11 +4,16 @@ namespace HemodinksAPI.Tests;
 
 public sealed class ApiCorsTests
 {
-    [Fact]
-    public async Task PreflightFromProductionCustomDomain_ReturnsAllowedOrigin()
+    public static TheoryData<string> FrontendOrigins => new()
     {
-        const string origin = "https://hemodinks.gestao-saude.tec.br";
+        "https://hemodinks.gestao-saude.tec.br",
+        "https://hemodinks-homologacao.gestao-saude.tec.br"
+    };
 
+    [Theory]
+    [MemberData(nameof(FrontendOrigins))]
+    public async Task PreflightFromCustomDomains_ReturnsAllowedOrigin(string origin)
+    {
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient(new()
         {
