@@ -106,6 +106,36 @@ Email__FromEmail=<remetente>
 Frontend__ResetPasswordUrl=https://<frontend>/reset-password
 ```
 
+### Email de reset com link ou layout antigo
+
+Sintomas comuns:
+
+- o email aponta para `https://hemodinks-homologacao.vercel.app/reset-password` e abre `404 DEPLOYMENT_NOT_FOUND`;
+- o email chega em texto simples com `Clique aqui para criar uma nova senha`;
+- producao usa o layout novo, mas homologacao nao.
+
+Em homologacao, o front atual deve ser:
+
+```text
+Frontend__ResetPasswordUrl=https://hemodinks-homologacao.gestao-saude.tec.br/reset-password
+```
+
+No Render confirmation, prefira SMTP direto pela API para evitar worker antigo:
+
+```text
+AsyncQueues__PasswordResetEnabled=false
+PasswordResetFunctions__BaseUrl=
+PasswordResetFunctions__FunctionKey=
+```
+
+Se a homologacao precisar usar fila ou Function, atualize tambem o `HemodinksAPI.Workers` para o mesmo commit da API e confira estas variaveis no worker:
+
+```text
+Frontend__ResetPasswordUrl=https://hemodinks-homologacao.gestao-saude.tec.br/reset-password
+PasswordResetEmailQueueName=password-reset-emails-confirmation
+Email__BrandLogoUrl=<url publica da logomarca>
+```
+
 Se todos os canais falharem em runtime, a API registra erro e cai para senha padrao. Nesse caso, procure nos logs por:
 
 ```text
