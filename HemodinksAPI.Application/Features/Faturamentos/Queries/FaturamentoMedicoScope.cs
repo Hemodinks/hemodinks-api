@@ -6,7 +6,7 @@ internal static class FaturamentoMedicoScope
 {
     public static IQueryable<Paciente> ApplyScope(IQueryable<Paciente> query, int perfilId, int currentUserId)
     {
-        if (perfilId == Perfil.AdministradorId || perfilId == Perfil.ControllerId)
+        if (Perfil.IsAdministradorOuSuper(perfilId) || perfilId == Perfil.ControllerId)
         {
             return query;
         }

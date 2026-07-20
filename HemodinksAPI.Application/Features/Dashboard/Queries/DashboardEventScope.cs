@@ -84,7 +84,7 @@ internal static class DashboardEventScope
 
     private static IQueryable<Event> ApplyEventScope(IQueryable<Event> query, int perfilId, int userId)
     {
-        if (perfilId == Perfil.AdministradorId)
+        if (Perfil.IsAdministradorOuSuper(perfilId))
         {
             return query;
         }

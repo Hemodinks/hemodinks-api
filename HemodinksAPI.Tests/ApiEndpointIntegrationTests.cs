@@ -135,6 +135,7 @@ public partial class ApiEndpointIntegrationTests
 
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>().SetPlatformScope();
         Assert.Equal(1, dbContext.Events.Count(item => item.Title == "Evento idempotente"));
         Assert.Equal(1, dbContext.IdempotencyRequests.Count(item => item.Operation == "events.create"));
     }

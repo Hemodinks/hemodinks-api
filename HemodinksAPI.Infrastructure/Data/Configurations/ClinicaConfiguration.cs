@@ -30,6 +30,20 @@ internal sealed class ClinicaConfiguration : IEntityTypeConfiguration<Clinica>
 
         entity.Property(e => e.DataAtualizacao);
 
+        entity.Property(e => e.Plano)
+            .IsRequired()
+            .HasMaxLength(50)
+            .HasDefaultValue("Trial");
+
+        entity.Property(e => e.AssinaturaStatus)
+            .IsRequired()
+            .HasMaxLength(30)
+            .HasDefaultValue("Trial");
+
+        entity.Property(e => e.TrialAte);
+        entity.Property(e => e.AssinaturaValidaAte);
+        entity.Property(e => e.LimiteUsuarios);
+
         entity.HasIndex(e => e.Slug)
             .IsUnique();
 
@@ -39,6 +53,8 @@ internal sealed class ClinicaConfiguration : IEntityTypeConfiguration<Clinica>
             Nome = Clinica.DefaultNome,
             Slug = Clinica.DefaultSlug,
             Ativa = true,
+            Plano = "Trial",
+            AssinaturaStatus = "Trial",
             DataCadastro = new DateTime(2026, 7, 3, 0, 0, 0, DateTimeKind.Utc)
         });
     }

@@ -26,6 +26,8 @@ services:
         value: HemodinksAPI.Confirmation
       - key: JwtSettings__ExpirationMinutes
         value: 60
+      - key: Platform__SuperAdminEmails__0
+        sync: false
       - key: NEW_RELIC_LICENSE_KEY
         sync: false
       - key: NEW_RELIC_APP_NAME

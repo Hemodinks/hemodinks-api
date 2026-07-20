@@ -48,6 +48,7 @@ public partial class ApiEndpointIntegrationTests
 
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>().SetPlatformScope();
         Assert.Equal(1, dbContext.PasswordResetTokens.Count());
         Assert.Equal(1, dbContext.IdempotencyRequests.Count(item => item.Operation == "users.password-reset.request"));
     }

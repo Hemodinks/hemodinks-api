@@ -21,7 +21,7 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
 
     public async Task<DashboardSummaryDto> Handle(GetDashboardSummaryQuery request, CancellationToken cancellationToken)
     {
-        var usersSummary = request.CurrentPerfilId == Perfil.AdministradorId
+        var usersSummary = Perfil.IsAdministradorOuSuper(request.CurrentPerfilId)
             ? await _context.Users
                 .AsNoTracking()
                 .Where(user => user.PerfilId != Perfil.PacientesId)

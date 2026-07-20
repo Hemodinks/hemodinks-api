@@ -20,6 +20,11 @@ internal static class UserProfileRules
 
     public static void EnsureAssignablePerfilId(int perfilId)
     {
+        if (perfilId == Perfil.SuperAdministradorId)
+        {
+            throw new UnauthorizedAccessException("Perfil SuperAdministrador somente pode ser atribuido pela plataforma");
+        }
+
         if (perfilId == Perfil.PacientesId)
         {
             throw new InvalidOperationException("Perfil Pacientes desativado para cadastro de usuarios");

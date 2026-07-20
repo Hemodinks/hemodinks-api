@@ -25,5 +25,6 @@ public static partial class ApiApplicationExtensions
         app.MapLicencaEndpoints();
         app.MapEventEndpoints();
         app.MapExportEndpoints();
+        app.MapClinicaPlatformEndpoints();
     }
 }

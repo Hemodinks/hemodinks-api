@@ -46,6 +46,7 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
                 ["Database:RunMigrationsOnStartup"] = "true",
                 ["Seed:CbhpmOnStartup"] = "true",
                 ["Seed:UsersOnStartup"] = "true",
+                ["Platform:SuperAdminEmails:0"] = "gmarcone@gmail.com",
                 ["PasswordReset:UseEmail"] = "true",
                 ["PasswordReset:ExposeTokenInResponse"] = "true"
             });

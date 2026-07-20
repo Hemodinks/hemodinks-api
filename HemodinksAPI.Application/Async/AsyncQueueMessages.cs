@@ -1,6 +1,7 @@
 namespace HemodinksAPI.Application.Async;
 
 public sealed record PasswordResetEmailQueueMessage(
+    int ClinicaId,
     string Email,
     string Nome,
     string Token,
@@ -12,5 +13,6 @@ public sealed record FileExportQueueMessage(
     string Format,
     int RequestedByUserId,
     int RequestedByPerfilId,
+    int ClinicaId,
     DateTime RequestedAt,
     IReadOnlyDictionary<string, string?> Filters);

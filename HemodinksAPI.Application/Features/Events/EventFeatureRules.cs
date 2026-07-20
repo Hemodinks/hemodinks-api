@@ -81,7 +81,7 @@ internal static class EventFeatureRules
                 .AsNoTracking()
                 .Where(user => user.Ativo
                     && user.Id != currentUser.Id
-                    && (user.PerfilId == Perfil.AdministradorId || user.PerfilId == Perfil.ControllerId))
+                    && (Perfil.IsAdministradorOuSuper(user.PerfilId) || user.PerfilId == Perfil.ControllerId))
                 .Select(user => user.Id)
                 .ToHashSet();
         }
