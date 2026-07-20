@@ -2,7 +2,6 @@ using System.Security.Claims;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using HemodinksAPI.Domain.Models;
 
 namespace HemodinksAPI.Api;
 
@@ -23,26 +22,10 @@ public sealed class ClinicaResolutionService
     public async Task<ResolvedClinica?> ResolveAsync(HttpContext httpContext, CancellationToken cancellationToken)
     {
         var user = httpContext.User;
-        var isSuperAdministrador = user.HasClaim("perfilId", Perfil.SuperAdministradorId.ToString());
-
-        if (isSuperAdministrador)
-        {
-            var selectedClinica = await ResolveFromHeadersAsync(httpContext.Request, cancellationToken)
-                ?? await ResolveFromSubdomainAsync(httpContext.Request.Host.Host, cancellationToken);
-
-            if (selectedClinica != null)
-            {
-                return selectedClinica;
-            }
-        }
-
         if (user.Identity?.IsAuthenticated == true)
         {
-            var resolvedFromClaims = await ResolveFromAuthenticatedUserAsync(user, cancellationToken);
-            if (resolvedFromClaims != null)
-            {
-                return resolvedFromClaims;
-            }
+            // Fail-closed: uma requisicao autenticada nunca troca de clinica por header/subdominio.
+            return await ResolveFromAuthenticatedUserAsync(user, cancellationToken);
         }
 
         var resolvedFromHeader = await ResolveFromHeadersAsync(httpContext.Request, cancellationToken);

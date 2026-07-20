@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Storage;
@@ -122,6 +123,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync(cancellationToken);
+            await GlobalIdentityService.EnsureForUserAsync(_context, user, cancellationToken);
 
             if (user.PerfilId == Perfil.MedicosId)
             {

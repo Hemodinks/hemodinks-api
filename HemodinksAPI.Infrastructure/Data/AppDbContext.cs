@@ -20,6 +20,12 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<Clinica> Clinicas { get; set; } = null!;
 
+    public DbSet<UsuarioGlobal> UsuariosGlobais { get; set; } = null!;
+
+    public DbSet<UsuarioClinica> UsuariosClinicas { get; set; } = null!;
+
+    public DbSet<AuditoriaPlataforma> AuditoriasPlataforma { get; set; } = null!;
+
     /// <summary>
     /// DbSet de usuários
     /// </summary>

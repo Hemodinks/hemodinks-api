@@ -1,6 +1,6 @@
 using HemodinksAPI.Application.Tenancy;
 using System.Security.Claims;
-using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -46,12 +46,12 @@ public sealed class ClinicaResolutionMiddleware
         }
 
         clinicaContext.SetCurrent(resolvedClinica.Id, resolvedClinica.Slug);
-        if (!await ApplyEffectiveClinicClaimsAsync(httpContext.User, resolvedClinica, dbContext, httpContext.RequestAborted))
+        if (!await ValidateActiveMembershipAsync(httpContext.User, resolvedClinica, dbContext, httpContext.RequestAborted))
         {
             httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
             await httpContext.Response.WriteAsJsonAsync(new
             {
-                message = "Superadministrador sem identidade local na clinica selecionada. Execute o provisionamento da plataforma."
+                message = "A sessao nao possui associacao ativa com a clinica selecionada. Selecione a clinica novamente."
             }, httpContext.RequestAborted);
             return;
         }
@@ -62,57 +62,40 @@ public sealed class ClinicaResolutionMiddleware
 
     private static bool ShouldResolveClinica(PathString path)
     {
-        return path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase)
-            && !path.StartsWithSegments("/api/platform", StringComparison.OrdinalIgnoreCase);
+        return path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static async Task<bool> ApplyEffectiveClinicClaimsAsync(
+    private static async Task<bool> ValidateActiveMembershipAsync(
         ClaimsPrincipal principal,
         ResolvedClinica clinica,
         AppDbContext context,
         CancellationToken cancellationToken)
     {
-        if (!principal.HasClaim("perfilId", Perfil.SuperAdministradorId.ToString())
-            || principal.Identity is not ClaimsIdentity identity)
+        if (principal.Identity?.IsAuthenticated != true)
         {
             return true;
         }
 
-        var email = principal.FindFirstValue(ClaimTypes.Email);
-        var localIdentity = await context.Users
-            .AsNoTracking()
-            .Where(item => item.Email == email
-                && item.PerfilId == Perfil.SuperAdministradorId
-                && item.Ativo)
-            .Select(item => new { item.Id, item.Nome })
-            .FirstOrDefaultAsync(cancellationToken);
-
-        if (localIdentity == null)
+        var userIdValue = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        var membershipIdValue = principal.FindFirstValue(GlobalIdentityClaimTypes.UsuarioClinicaId);
+        var globalUserIdValue = principal.FindFirstValue(GlobalIdentityClaimTypes.UsuarioGlobalId);
+        if (!int.TryParse(userIdValue, out var userId)
+            || !int.TryParse(membershipIdValue, out var membershipId)
+            || !int.TryParse(globalUserIdValue, out var globalUserId))
         {
             return false;
         }
 
-        var originalId = principal.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (!identity.HasClaim(claim => claim.Type == "platformActorId") && originalId != null)
-        {
-            identity.AddClaim(new Claim("platformActorId", originalId));
-        }
-
-        ReplaceClaims(identity, ClaimTypes.NameIdentifier, localIdentity.Id.ToString());
-        ReplaceClaims(identity, ClaimTypes.Name, localIdentity.Nome);
-        ReplaceClaims(identity, ClinicaClaimTypes.ClinicaId, clinica.Id.ToString());
-        ReplaceClaims(identity, ClinicaClaimTypes.ClinicaSlug, clinica.Slug);
-
-        return true;
-    }
-
-    private static void ReplaceClaims(ClaimsIdentity identity, string claimType, string value)
-    {
-        foreach (var claim in identity.FindAll(claimType).ToList())
-        {
-            identity.TryRemoveClaim(claim);
-        }
-
-        identity.AddClaim(new Claim(claimType, value));
+        return await context.UsuariosClinicas
+            .AsNoTracking()
+            .AnyAsync(item => item.Id == membershipId
+                && item.UsuarioGlobalId == globalUserId
+                && item.UserId == userId
+                && item.ClinicaId == clinica.Id
+                && item.Ativo
+                && item.UsuarioGlobal.Ativo
+                && item.User.Ativo
+                && item.Clinica.Ativa,
+                cancellationToken);
     }
 }

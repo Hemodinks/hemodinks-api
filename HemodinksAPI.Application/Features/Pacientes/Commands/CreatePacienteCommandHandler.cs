@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.Faturamentos;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
@@ -134,6 +135,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync(cancellationToken);
+            await GlobalIdentityService.EnsureForUserAsync(_context, user, cancellationToken);
 
             var paciente = new Paciente
             {

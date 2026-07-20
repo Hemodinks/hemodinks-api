@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text.RegularExpressions;
 using System.Net.Mail;
 using HemodinksAPI.Application.Tenancy;
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
@@ -34,6 +35,10 @@ public static partial class ClinicaPlatformEndpointExtensions
         group.MapGet("/{id:int}", GetClinica);
         group.MapPost("/", CreateClinica);
         group.MapPut("/{id:int}", UpdateClinica);
+
+        app.MapGet("/api/platform/auditoria", ListPlatformAudit)
+            .WithTags("Plataforma - Auditoria")
+            .RequireAuthorization("SuperAdministrador");
     }
 
     private static async Task<IResult> ListClinicas(AppDbContext context, CancellationToken cancellationToken)
@@ -67,9 +72,11 @@ public static partial class ClinicaPlatformEndpointExtensions
     private static async Task<IResult> CreateClinica(
         CreateClinicaRequest request,
         ClaimsPrincipal principal,
+        HttpContext httpContext,
         AppDbContext context,
         ClinicaContext clinicaContext,
         IPasswordHasher passwordHasher,
+        PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
         var nome = RequireText(request.Nome, "Nome da clinica obrigatorio", 120);
@@ -134,9 +141,24 @@ public static partial class ClinicaPlatformEndpointExtensions
             NomeEmpresa = clinica.Nome
         });
 
-        await AddPlatformShadowUserAsync(principal, clinica.Id, context, cancellationToken);
+        var platformShadowUser = await AddPlatformShadowUserAsync(principal, clinica.Id, context, cancellationToken);
         await CloneClinicReferenceDataAsync(clinica.Id, context, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);
+        await GlobalIdentityService.EnsureForUserAsync(context, admin, cancellationToken, clinicaPadrao: true);
+        if (platformShadowUser != null)
+        {
+            await GlobalIdentityService.EnsureForUserAsync(context, platformShadowUser, cancellationToken);
+        }
+
+        await auditService.RecordAsync(
+            httpContext,
+            "clinic.create",
+            "clinic",
+            clinica.Id.ToString(),
+            clinica.Id,
+            new { clinica.Nome, clinica.Slug, admin.Email },
+            true,
+            cancellationToken);
 
         if (transaction != null)
         {
@@ -150,7 +172,9 @@ public static partial class ClinicaPlatformEndpointExtensions
     private static async Task<IResult> UpdateClinica(
         int id,
         UpdateClinicaRequest request,
+        HttpContext httpContext,
         AppDbContext context,
+        PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
         var clinica = await context.Clinicas.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -192,10 +216,19 @@ public static partial class ClinicaPlatformEndpointExtensions
         clinica.DataAtualizacao = DateTime.UtcNow;
 
         await context.SaveChangesAsync(cancellationToken);
+        await auditService.RecordAsync(
+            httpContext,
+            "clinic.update",
+            "clinic",
+            clinica.Id.ToString(),
+            clinica.Id,
+            new { clinica.Nome, clinica.Slug, clinica.Ativa, clinica.Plano, clinica.AssinaturaStatus },
+            true,
+            cancellationToken);
         return Results.Ok(ToResponse(clinica, null));
     }
 
-    private static async Task AddPlatformShadowUserAsync(
+    private static async Task<User?> AddPlatformShadowUserAsync(
         ClaimsPrincipal principal,
         int clinicaId,
         AppDbContext context,
@@ -211,10 +244,10 @@ public static partial class ClinicaPlatformEndpointExtensions
                 item => item.ClinicaId == clinicaId && item.Email == source.Email,
                 cancellationToken))
         {
-            return;
+            return null;
         }
 
-        context.Users.Add(new User
+        var shadowUser = new User
         {
             ClinicaId = clinicaId,
             Nome = source.Nome,
@@ -227,7 +260,54 @@ public static partial class ClinicaPlatformEndpointExtensions
             Ativo = true,
             PrecisaTrocarSenha = source.PrecisaTrocarSenha,
             PerfilId = Perfil.SuperAdministradorId
-        });
+        };
+        context.Users.Add(shadowUser);
+        return shadowUser;
+    }
+
+    private static async Task<IResult> ListPlatformAudit(
+        AppDbContext context,
+        int? clinicaId,
+        string? acao,
+        DateTime? de,
+        DateTime? ate,
+        int pagina = 1,
+        int tamanhoPagina = 50,
+        CancellationToken cancellationToken = default)
+    {
+        pagina = Math.Max(1, pagina);
+        tamanhoPagina = Math.Clamp(tamanhoPagina, 1, 200);
+
+        var query = context.AuditoriasPlataforma.AsNoTracking().AsQueryable();
+        if (clinicaId.HasValue) query = query.Where(item => item.ClinicaId == clinicaId.Value);
+        if (!string.IsNullOrWhiteSpace(acao)) query = query.Where(item => item.Acao == acao.Trim());
+        if (de.HasValue) query = query.Where(item => item.DataCadastro >= de.Value);
+        if (ate.HasValue) query = query.Where(item => item.DataCadastro <= ate.Value);
+
+        var total = await query.CountAsync(cancellationToken);
+        var items = await query
+            .OrderByDescending(item => item.DataCadastro)
+            .Skip((pagina - 1) * tamanhoPagina)
+            .Take(tamanhoPagina)
+            .Select(item => new
+            {
+                item.Id,
+                item.UsuarioGlobalId,
+                item.ClinicaId,
+                item.UserId,
+                item.Acao,
+                item.Recurso,
+                item.EntidadeId,
+                item.DetalhesJson,
+                item.Ip,
+                item.UserAgent,
+                item.RequestId,
+                item.Sucesso,
+                item.DataCadastro
+            })
+            .ToListAsync(cancellationToken);
+
+        return Results.Ok(new { pagina, tamanhoPagina, total, items });
     }
 
     private static async Task CloneClinicReferenceDataAsync(

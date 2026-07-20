@@ -169,7 +169,7 @@ Regras principais:
 - Controller acessa pacientes, faturamento e operacoes liberadas por policy, sem dashboard nem agenda no front atual.
 - Licencas controlam dashboard, pacientes e CBHPM para medicos.
 - A assinatura comercial pertence a `Clinica`; licencas individuais de medicos continuam existindo como uma segunda camada de compatibilidade e liberacao de features.
-- SuperAdministrador lista e provisiona clinicas pelos endpoints de plataforma. Nos endpoints operacionais, ele deve selecionar uma clinica por `X-Clinica-Slug` e continua sujeito ao isolamento desse tenant.
+- SuperAdministrador lista e provisiona clinicas pelos endpoints de plataforma. Para navegar, ele solicita um novo token tenant-scoped em `/api/session/selecionar-clinica`; headers nao alteram a clinica de uma sessao autenticada.
 
 Features atuais de licenca:
 
@@ -187,10 +187,13 @@ Features atuais de licenca:
 | `GET` | `/api/platform/clinicas/{id}` | superadmin | detalhe, assinatura e total de usuarios |
 | `POST` | `/api/platform/clinicas` | superadmin | provisiona clinica, administrador, identidade local do superadmin e catalogos iniciais |
 | `PUT` | `/api/platform/clinicas/{id}` | superadmin | atualiza cadastro, ativacao, plano e assinatura |
+| `GET` | `/api/platform/auditoria` | superadmin | consulta paginada da auditoria de plataforma |
+| `GET` | `/api/session/clinicas` | autenticado | lista associacoes ativas da identidade global |
+| `POST` | `/api/session/selecionar-clinica` | autenticado | valida `UsuarioClinica` e emite novo JWT para a clinica |
 
-Configure os emails autorizados com `Platform__SuperAdminEmails__0`. No startup, o usuario correspondente e promovido e recebe uma identidade local em cada clinica ativa. Administradores comuns permanecem restritos a sua propria clinica.
+Configure os emails autorizados com `Platform__SuperAdminEmails__0`. No startup, o usuario correspondente e promovido e recebe uma associacao `UsuarioClinica` em cada clinica ativa. Administradores comuns permanecem restritos as associacoes explicitamente cadastradas.
 
-O `ClinicaId` e o tenant efetivo. Consultas sem contexto resolvido falham fechadas; gravacoes com `ClinicaId` divergente e relacionamentos internos entre clinicas diferentes sao recusados antes do `SaveChanges`.
+`UsuarioGlobal` guarda a credencial unica; `UsuarioClinica` liga essa identidade ao usuario local, clinica e perfil. O `ClinicaId` do JWT e o tenant efetivo. Consultas sem contexto resolvido falham fechadas; gravacoes com `ClinicaId` divergente e relacionamentos internos entre clinicas diferentes sao recusados antes do `SaveChanges`.
 
 ### Auth e usuarios
 
