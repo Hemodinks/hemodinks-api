@@ -41,6 +41,8 @@ public interface IAppDbContext
 
     DbSet<AgendaNotification> AgendaNotifications { get; }
 
+    DbSet<IdempotencyRequest> IdempotencyRequests { get; }
+
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
 
     DbSet<ConfiguracaoSistema> ConfiguracoesSistema { get; }

@@ -11,7 +11,9 @@ public sealed record CurrentUserContext(
     int ClinicaId = Clinica.DefaultId,
     string ClinicaSlug = Clinica.DefaultSlug)
 {
-    public bool IsAdministrador => PerfilId == Perfil.AdministradorId;
+    public bool IsAdministrador => Perfil.IsAdministradorOuSuper(PerfilId);
+
+    public bool IsSuperAdministrador => PerfilId == Perfil.SuperAdministradorId;
 
     public bool IsMedico => PerfilId == Perfil.MedicosId;
 

@@ -137,6 +137,23 @@ public class LicencaServiceTests
         Assert.True(canView);
     }
 
+    [Fact]
+    public async Task HasFeatureAsync_WhenClinicSubscriptionIsSuspended_DeniesFeature()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var clinica = await context.Clinicas.SingleAsync(item => item.Id == Clinica.DefaultId);
+        clinica.AssinaturaStatus = ClinicaAssinaturaStatus.Suspensa;
+        await context.SaveChangesAsync();
+        var service = CreateService(context);
+
+        var allowed = await service.HasFeatureAsync(
+            new CurrentUserContext(42, Perfil.AdministradorId, "Administrador"),
+            LicencaFeatures.DashboardVisualizar,
+            CancellationToken.None);
+
+        Assert.False(allowed);
+    }
+
     private static LicencaService CreateService(HemodinksAPI.Infrastructure.Data.AppDbContext context)
     {
         return new LicencaService(context, Options.Create(new LicencaOptions()));

@@ -121,8 +121,136 @@ public partial class ApiEndpointIntegrationTests
 
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>().SetPlatformScope();
         Assert.Equal(2, dbContext.Events.Count(item => item.Title == "Evento multi-clinica"));
         Assert.Equal(2, dbContext.IdempotencyRequests.Count(item => item.Operation == "events.create"));
+    }
+
+    [Fact]
+    public async Task SuperAdministrador_CanProvisionListAndNavigateNewClinic()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var slug = $"clinica-{Guid.NewGuid():N}";
+        var createResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica Provisionada",
+            slug,
+            administradorNome = "Administradora Local",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123",
+            plano = "Profissional",
+            assinaturaStatus = "Ativa",
+            limiteUsuarios = 25
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var listResponse = await client.GetAsync("/api/platform/clinicas");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        using (var listJson = await ReadJsonAsync(listResponse))
+        {
+            Assert.Contains(listJson.RootElement.EnumerateArray(), item => item.GetProperty("slug").GetString() == slug);
+        }
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/");
+        request.Headers.Add(ClinicaResolutionService.ClinicaSlugHeaderName, slug);
+        var scopedResponse = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, scopedResponse.StatusCode);
+        using var scopedJson = await ReadJsonAsync(scopedResponse);
+        Assert.Equal(2, scopedJson.RootElement.GetProperty("items").GetArrayLength());
+    }
+
+    [Fact]
+    public async Task ClinicScopedEndpoints_DoNotExposeRecordsFromAnotherClinic()
+    {
+        const string marker = "TENANT-A-ONLY-MARKER";
+        using var factory = new HemodinksApiFactory();
+        var beta = await SeedClinicaBetaAsync(factory);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>().SetPlatformScope();
+            var admin = new User
+            {
+                ClinicaId = Clinica.DefaultId,
+                Nome = marker,
+                Email = $"{Guid.NewGuid():N}@example.com",
+                Telefone = "+5511999999901",
+                Senha = "hash",
+                PerfilId = Perfil.AdministradorId,
+                Ativo = true
+            };
+            var patientUser = new User
+            {
+                ClinicaId = Clinica.DefaultId,
+                Nome = marker,
+                Email = $"{Guid.NewGuid():N}@example.com",
+                Telefone = "+5511999999902",
+                Senha = "hash",
+                PerfilId = Perfil.PacientesId,
+                Ativo = true
+            };
+            var patient = new Paciente
+            {
+                ClinicaId = Clinica.DefaultId,
+                User = patientUser,
+                NomePaciente = marker
+            };
+
+            context.Users.Add(admin);
+            context.Pacientes.Add(patient);
+            context.FaturamentosMedicos.Add(new FaturamentoMedico
+            {
+                ClinicaId = Clinica.DefaultId,
+                Paciente = patient,
+                Observacoes = marker
+            });
+            context.Events.Add(new Event
+            {
+                ClinicaId = Clinica.DefaultId,
+                User = admin,
+                Title = marker,
+                Start = DateTime.UtcNow.AddDays(1),
+                End = DateTime.UtcNow.AddDays(1).AddHours(1)
+            });
+            context.GruposMedicos.Add(new GrupoMedico { ClinicaId = Clinica.DefaultId, Nome = marker });
+            context.Hospitais.Add(new Hospital { ClinicaId = Clinica.DefaultId, Nome = marker });
+            context.Convenios.Add(new Convenio { ClinicaId = Clinica.DefaultId, DescricaoConvenio = marker });
+            context.OPME.Add(new Opme { ClinicaId = Clinica.DefaultId, Fornecedor = marker });
+            await context.SaveChangesAsync();
+        }
+
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, beta.Slug, beta.AdminEmail, beta.AdminPassword);
+
+        var scopedUrls = new[]
+        {
+            "/api/users/",
+            "/api/pacientes/",
+            "/api/faturamentos-medicos/",
+            "/api/events/",
+            "/api/grupos-medicos/",
+            "/api/hospitais/",
+            "/api/convenios/",
+            "/api/opme/",
+            "/api/dashboard/summary",
+            "/api/dashboard/notifications"
+        };
+
+        foreach (var url in scopedUrls)
+        {
+            var response = await client.GetAsync(url);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var content = await response.Content.ReadAsStringAsync();
+            Assert.False(
+                content.Contains(marker, StringComparison.Ordinal),
+                $"A rota {url} expos dados de outra clinica: {content}");
+        }
     }
 
 }

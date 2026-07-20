@@ -8,19 +8,19 @@ internal static class PacienteCommandAccess
 {
     public static bool CanCreate(int perfilId)
     {
-        return perfilId == Perfil.AdministradorId
+        return Perfil.IsAdministradorOuSuper(perfilId)
             || perfilId == Perfil.ControllerId
             || perfilId == Perfil.MedicosId;
     }
 
     public static bool CanManage(int perfilId)
     {
-        return perfilId == Perfil.AdministradorId;
+        return Perfil.IsAdministradorOuSuper(perfilId);
     }
 
     public static async Task<bool> CanEditPacienteAsync(IAppDbContext context, Paciente paciente, int perfilId, int currentUserId, CancellationToken cancellationToken)
     {
-        if (perfilId == Perfil.AdministradorId || perfilId == Perfil.ControllerId)
+        if (Perfil.IsAdministradorOuSuper(perfilId) || perfilId == Perfil.ControllerId)
         {
             return true;
         }

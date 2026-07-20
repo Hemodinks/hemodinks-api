@@ -12,6 +12,9 @@ internal sealed class IdempotencyRequestConfiguration : IEntityTypeConfiguration
 
         entity.HasKey(e => e.Id);
 
+        entity.Property(e => e.ClinicaId)
+            .IsRequired();
+
         entity.Property(e => e.Operation)
             .IsRequired()
             .HasMaxLength(120);
@@ -41,9 +44,14 @@ internal sealed class IdempotencyRequestConfiguration : IEntityTypeConfiguration
 
         entity.Property(e => e.CompletedAt);
 
-        entity.HasIndex(e => new { e.Operation, e.Scope, e.IdempotencyKey })
+        entity.HasIndex(e => new { e.ClinicaId, e.Operation, e.Scope, e.IdempotencyKey })
             .IsUnique();
 
         entity.HasIndex(e => e.CreatedAt);
+
+        entity.HasOne(e => e.Clinica)
+            .WithMany()
+            .HasForeignKey(e => e.ClinicaId)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

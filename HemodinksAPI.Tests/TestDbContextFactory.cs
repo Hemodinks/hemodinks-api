@@ -121,6 +121,7 @@ internal sealed class RelationalCbhpmTestAppDbContext : IAppDbContext
     public DbSet<Licenca> Licencas => throw new NotSupportedException();
     public DbSet<Event> Events => throw new NotSupportedException();
     public DbSet<AgendaNotification> AgendaNotifications => throw new NotSupportedException();
+    public DbSet<IdempotencyRequest> IdempotencyRequests => throw new NotSupportedException();
     public DbSet<PasswordResetToken> PasswordResetTokens => throw new NotSupportedException();
     public DbSet<ConfiguracaoSistema> ConfiguracoesSistema => throw new NotSupportedException();
 

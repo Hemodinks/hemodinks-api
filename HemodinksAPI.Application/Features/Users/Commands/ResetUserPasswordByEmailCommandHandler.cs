@@ -95,7 +95,8 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
                 user.Email,
                 user.Nome,
                 token,
-                tokenEntity.ExpiresAt), cancellationToken);
+                tokenEntity.ExpiresAt,
+                user.ClinicaId), cancellationToken);
 
             response.Id = user.Id;
             response.Mode = PasswordResetModes.EmailToken;

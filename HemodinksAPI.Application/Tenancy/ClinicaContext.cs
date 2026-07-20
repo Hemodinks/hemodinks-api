@@ -11,10 +11,25 @@ public sealed class ClinicaContext : IClinicaContext
 
     public bool IsResolved => ClinicaId.HasValue;
 
+    public bool IsPlatformScope { get; private set; }
+
     public void SetCurrent(int clinicaId, string clinicaSlug)
     {
+        if (clinicaId <= 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(clinicaId));
+        }
+
         ClinicaId = clinicaId;
         ClinicaSlug = clinicaSlug;
+        IsPlatformScope = false;
+    }
+
+    public void SetPlatformScope()
+    {
+        ClinicaId = null;
+        ClinicaSlug = null;
+        IsPlatformScope = true;
     }
 
     public int GetRequiredClinicaId()

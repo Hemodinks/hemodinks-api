@@ -82,6 +82,7 @@ public partial class ApiEndpointIntegrationTests
 
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>().SetPlatformScope();
 
         if (await dbContext.Clinicas.AnyAsync(item => item.Id == clinicaId))
         {

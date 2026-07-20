@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Models;
 
 namespace HemodinksAPI.Api;
 
@@ -22,6 +23,19 @@ public sealed class ClinicaResolutionService
     public async Task<ResolvedClinica?> ResolveAsync(HttpContext httpContext, CancellationToken cancellationToken)
     {
         var user = httpContext.User;
+        var isSuperAdministrador = user.HasClaim("perfilId", Perfil.SuperAdministradorId.ToString());
+
+        if (isSuperAdministrador)
+        {
+            var selectedClinica = await ResolveFromHeadersAsync(httpContext.Request, cancellationToken)
+                ?? await ResolveFromSubdomainAsync(httpContext.Request.Host.Host, cancellationToken);
+
+            if (selectedClinica != null)
+            {
+                return selectedClinica;
+            }
+        }
+
         if (user.Identity?.IsAuthenticated == true)
         {
             var resolvedFromClaims = await ResolveFromAuthenticatedUserAsync(user, cancellationToken);
@@ -37,17 +51,21 @@ public sealed class ClinicaResolutionService
             return resolvedFromHeader;
         }
 
-        var subdomainSlug = TryExtractSubdomainSlug(httpContext.Request.Host.Host);
-        if (!string.IsNullOrWhiteSpace(subdomainSlug))
+        var resolvedFromSubdomain = await ResolveFromSubdomainAsync(httpContext.Request.Host.Host, cancellationToken);
+        if (resolvedFromSubdomain != null)
         {
-            var resolvedFromSubdomain = await ResolveBySlugAsync(subdomainSlug, cancellationToken);
-            if (resolvedFromSubdomain != null)
-            {
-                return resolvedFromSubdomain;
-            }
+            return resolvedFromSubdomain;
         }
 
         return await ResolveSingleActiveClinicaAsync(cancellationToken);
+    }
+
+    private Task<ResolvedClinica?> ResolveFromSubdomainAsync(string? host, CancellationToken cancellationToken)
+    {
+        var subdomainSlug = TryExtractSubdomainSlug(host);
+        return string.IsNullOrWhiteSpace(subdomainSlug)
+            ? Task.FromResult<ResolvedClinica?>(null)
+            : ResolveBySlugAsync(subdomainSlug, cancellationToken);
     }
 
     private async Task<ResolvedClinica?> ResolveFromAuthenticatedUserAsync(

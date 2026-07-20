@@ -8,5 +8,7 @@ public interface IClinicaContext
 
     bool IsResolved { get; }
 
+    bool IsPlatformScope { get; }
+
     int GetRequiredClinicaId();
 }

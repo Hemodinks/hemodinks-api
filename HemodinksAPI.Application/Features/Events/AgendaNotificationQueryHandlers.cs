@@ -38,7 +38,7 @@ public sealed class GetAgendaNotificationRecipientOptionsQueryHandler
         else if (currentUser.IsMedico)
         {
             usersQuery = usersQuery.Where(user =>
-                user.PerfilId == Perfil.AdministradorId
+                Perfil.IsAdministradorOuSuper(user.PerfilId)
                 || user.PerfilId == Perfil.ControllerId);
         }
         else
