@@ -61,6 +61,49 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task AuthenticatedSession_WhenClinicHeaderDiverges_KeepsTokenClinic()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/");
+        request.Headers.Add(ClinicaResolutionService.ClinicaSlugHeaderName, beta.Slug);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        var names = json.RootElement.GetProperty("items").EnumerateArray()
+            .Select(item => item.GetProperty("nome").GetString())
+            .ToList();
+        Assert.Contains("George Marcone Morais dos Santos", names);
+        Assert.DoesNotContain(beta.AdminName, names);
+    }
+
+    [Fact]
+    public async Task SelectClinic_WhenMembershipDoesNotExist_ReturnsForbiddenAndAuditsDenial()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var response = await client.PostAsJsonAsync("/api/session/selecionar-clinica", new
+        {
+            clinicaId = beta.Id
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
+            item.Acao == "session.clinic.switch.denied"
+            && item.EntidadeId == beta.Id.ToString()
+            && !item.Sucesso));
+    }
+
+    [Fact]
     public async Task UsersEndpoint_WhenAuthenticatedInSecondClinic_ReturnsOnlyItsOwnUsers()
     {
         using var factory = new HemodinksApiFactory();
@@ -155,13 +198,34 @@ public partial class ApiEndpointIntegrationTests
             Assert.Contains(listJson.RootElement.EnumerateArray(), item => item.GetProperty("slug").GetString() == slug);
         }
 
-        var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/");
-        request.Headers.Add(ClinicaResolutionService.ClinicaSlugHeaderName, slug);
-        var scopedResponse = await client.SendAsync(request);
+        var clinicsResponse = await client.GetAsync("/api/session/clinicas");
+        clinicsResponse.EnsureSuccessStatusCode();
+        using var clinicsJson = await ReadJsonAsync(clinicsResponse);
+        var targetClinic = clinicsJson.RootElement.EnumerateArray()
+            .Single(item => item.GetProperty("slug").GetString() == slug);
+        var targetClinicId = targetClinic.GetProperty("clinicaId").GetInt32();
+
+        var switchResponse = await client.PostAsJsonAsync("/api/session/selecionar-clinica", new
+        {
+            clinicaId = targetClinicId
+        });
+        switchResponse.EnsureSuccessStatusCode();
+        using var switchJson = await ReadJsonAsync(switchResponse);
+        var switchedToken = switchJson.RootElement.GetProperty("token").GetString();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", switchedToken);
+
+        var scopedResponse = await client.GetAsync("/api/users/");
 
         Assert.Equal(HttpStatusCode.OK, scopedResponse.StatusCode);
         using var scopedJson = await ReadJsonAsync(scopedResponse);
         Assert.Equal(2, scopedJson.RootElement.GetProperty("items").GetArrayLength());
+
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
+            item.Acao == "clinic.create" && item.ClinicaId == targetClinicId && item.Sucesso));
+        Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
+            item.Acao == "session.clinic.switch" && item.ClinicaId == targetClinicId && item.Sucesso));
     }
 
     [Fact]

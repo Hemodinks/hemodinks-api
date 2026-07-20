@@ -8,4 +8,6 @@ namespace HemodinksAPI.Application.Authentication;
 public interface IJwtTokenService
 {
     string GenerateToken(User user);
+
+    string GenerateToken(UsuarioGlobal usuarioGlobal, UsuarioClinica usuarioClinica, User user);
 }

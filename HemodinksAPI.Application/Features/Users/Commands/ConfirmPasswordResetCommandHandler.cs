@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Utils;
 using MediatR;
 
@@ -32,6 +33,7 @@ public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswor
         }
 
         PasswordCommandMutations.ApplyNewPassword(resetToken.User, _passwordHasher, request.NovaSenha, requirePasswordChange: false, now);
+        await GlobalIdentityService.SynchronizePasswordAsync(_context, resetToken.UserId, resetToken.User.Senha, cancellationToken);
         resetToken.UsedAt = now;
 
         await _context.SaveChangesAsync(cancellationToken);

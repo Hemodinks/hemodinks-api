@@ -94,6 +94,11 @@ public partial class UserCommandHandlerTests
         {
             return _token;
         }
+
+        public string GenerateToken(UsuarioGlobal usuarioGlobal, UsuarioClinica usuarioClinica, User user)
+        {
+            return _token;
+        }
     }
 
     private sealed class FakePatientFileStorage : IPatientFileStorage

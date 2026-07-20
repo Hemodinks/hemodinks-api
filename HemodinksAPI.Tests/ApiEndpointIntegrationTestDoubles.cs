@@ -76,7 +76,8 @@ public partial class ApiEndpointIntegrationTests
         const int clinicaId = 2;
         const string clinicaSlug = "clinica-beta";
         const string adminEmail = "gmarcone@gmail.com";
-        const string adminPassword = "ClinicaBeta@123";
+        // A credencial pertence a identidade global, nao a cada clinica.
+        const string adminPassword = DefaultUserPassword.Value;
         const string adminName = "George Beta";
         const string doctorName = "Dra. Beta";
 

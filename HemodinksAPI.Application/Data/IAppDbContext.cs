@@ -7,6 +7,12 @@ public interface IAppDbContext
 {
     DbSet<Clinica> Clinicas { get; }
 
+    DbSet<UsuarioGlobal> UsuariosGlobais { get; }
+
+    DbSet<UsuarioClinica> UsuariosClinicas { get; }
+
+    DbSet<AuditoriaPlataforma> AuditoriasPlataforma { get; }
+
     DbSet<User> Users { get; }
 
     DbSet<Perfil> Perfis { get; }

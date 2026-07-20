@@ -37,6 +37,7 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<UserSeeder>();
         services.AddScoped<CbhpmSeeder>();
         services.AddScoped<RequestIdempotencyService>();
+        services.AddScoped<PlatformAuditService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IEventReminderProcessor, EventReminderProcessor>();
         services.AddHostedService<EventNotificationHostedService>();

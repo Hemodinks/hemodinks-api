@@ -2,6 +2,7 @@ using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.Seeders;
 using HemodinksAPI.Application.Tenancy;
+using HemodinksAPI.Application.Authentication;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
@@ -35,6 +36,7 @@ internal static class DatabaseStartupInitializer
 
             await SeedReferenceDataAsync(app, scope.ServiceProvider, dbContext, logger);
             await ProvisionSuperAdministratorsAsync(app.Configuration, dbContext, logger);
+            await SynchronizeGlobalIdentitiesAsync(dbContext, logger);
             await SyncPatientRecordsAsync(dbContext, logger);
         }
         catch (Exception ex)
@@ -42,6 +44,25 @@ internal static class DatabaseStartupInitializer
             logger.LogError(ex, "Erro ao processar migracao ou seed do banco de dados");
             throw;
         }
+    }
+
+    private static async Task SynchronizeGlobalIdentitiesAsync(AppDbContext dbContext, ILogger logger)
+    {
+        var users = await dbContext.Users
+            .IgnoreQueryFilters()
+            .OrderBy(item => item.Id)
+            .ToListAsync();
+
+        foreach (var user in users)
+        {
+            var membership = await GlobalIdentityService.EnsureForUserAsync(dbContext, user, CancellationToken.None);
+            membership.PerfilId = user.PerfilId;
+            membership.Ativo = user.Ativo;
+            membership.DataAtualizacao = DateTime.UtcNow;
+        }
+
+        await dbContext.SaveChangesAsync();
+        logger.LogInformation("Identidades globais sincronizadas para {Count} usuarios locais", users.Count);
     }
 
     private static async Task ProvisionSuperAdministratorsAsync(
