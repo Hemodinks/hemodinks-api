@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hemodinks — Matriz de perfis e permissões</title>
+  <style>
+    :root {
+      --navy: #071a2d;
+      --navy-2: #0d2942;
+      --teal: #0f8279;
+      --blue: #2563eb;
+      --purple: #7c3aed;
+      --orange: #c46508;
+      --red: #c92a2a;
+      --green: #16845b;
+      --ink: #172033;
+      --muted: #5e6a7c;
+      --line: #d7dee8;
+      --soft: #f3f6fa;
+    }
+
+    * { box-sizing: border-box; }
+    html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { margin: 0; font-family: "Segoe UI", Arial, sans-serif; color: var(--ink); background: #dfe7ef; }
+    @page { size: A4 landscape; margin: 9mm; }
+
+    .page {
+      width: 279mm;
+      min-height: 192mm;
+      margin: 8mm auto;
+      padding: 11mm 12mm 9mm;
+      background: white;
+      position: relative;
+      overflow: hidden;
+      page-break-after: always;
+      box-shadow: 0 12px 35px rgba(7, 26, 45, .16);
+    }
+    .page:last-child { page-break-after: auto; }
+    .page::before { content: ""; position: absolute; inset: 0 0 auto; height: 5px; background: linear-gradient(90deg, var(--teal), var(--blue), var(--purple)); }
+    .footer { position: absolute; bottom: 5mm; left: 12mm; right: 12mm; display: flex; justify-content: space-between; color: #758195; font-size: 8px; }
+
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { font-size: 29px; letter-spacing: -.6px; color: white; margin-bottom: 8px; }
+    h2 { font-size: 21px; color: var(--navy); margin-bottom: 5px; }
+    h3 { font-size: 13px; color: var(--navy); margin-bottom: 6px; }
+    .subtitle { color: #d6e7f3; font-size: 13px; max-width: 175mm; line-height: 1.5; }
+    .eyebrow { text-transform: uppercase; letter-spacing: 1.4px; font-size: 8px; font-weight: 800; color: var(--teal); }
+    .lead { color: var(--muted); font-size: 10px; line-height: 1.45; margin-bottom: 10px; }
+
+    .cover { background: linear-gradient(135deg, #061728 0%, #0a3550 58%, #0c6e69 100%); color: white; padding: 17mm; }
+    .cover::after { content: ""; position: absolute; width: 110mm; height: 110mm; border-radius: 50%; right: -28mm; top: -35mm; border: 25px solid rgba(255,255,255,.05); }
+    .brand { font-size: 11px; font-weight: 900; letter-spacing: 1.7px; color: #7ee2d7; margin-bottom: 20mm; }
+    .cover-grid { display: grid; grid-template-columns: 1.3fr .7fr; gap: 20mm; align-items: center; }
+    .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    .stat { padding: 12px; border: 1px solid rgba(255,255,255,.18); background: rgba(255,255,255,.08); border-radius: 10px; }
+    .stat strong { display: block; font-size: 25px; color: #fff; }
+    .stat span { font-size: 9px; color: #cce0ec; }
+    .rule-strip { display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; margin-top: 18mm; }
+    .rule { border-top: 2px solid #53d3c7; padding-top: 7px; font-size: 9px; color: #d9e9f2; line-height: 1.35; }
+    .rule b { color: white; display: block; margin-bottom: 2px; }
+
+    .profile-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 10px 0 12px; }
+    .profile { padding: 9px; border-radius: 9px; color: white; min-height: 54px; }
+    .profile b { display: block; font-size: 11px; margin-bottom: 3px; }
+    .profile span { font-size: 8px; line-height: 1.3; display: block; opacity: .9; }
+    .p-admin { background: #157f77; }
+    .p-medico { background: #2563be; }
+    .p-paciente { background: #7250b5; }
+    .p-controller { background: #b7630b; }
+    .p-super { background: #a7194b; }
+
+    table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 8.2px; line-height: 1.22; }
+    th { padding: 6px 5px; background: var(--navy); color: white; text-align: center; border-right: 1px solid #29445c; }
+    th:first-child { text-align: left; border-radius: 7px 0 0 0; }
+    th:last-child { border-radius: 0 7px 0 0; border-right: 0; }
+    td { padding: 5px; border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); text-align: center; vertical-align: middle; }
+    td:first-child { text-align: left; font-weight: 700; border-left: 1px solid var(--line); }
+    tbody tr:nth-child(even) td { background: #f8fafc; }
+    .yes { color: #08764e; font-weight: 800; }
+    .limited { color: #9a5504; font-weight: 800; }
+    .no { color: #9aa3af; font-weight: 700; }
+    .platform { color: #a7194b; font-weight: 800; }
+    .legend { display: flex; gap: 14px; align-items: center; font-size: 8px; color: var(--muted); margin: 6px 0 8px; }
+    .legend span b { margin-right: 3px; }
+
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 11px; }
+    .card { border: 1px solid var(--line); border-radius: 9px; padding: 10px; background: white; }
+    .card.soft { background: var(--soft); }
+    .card p, .card li { font-size: 8.5px; line-height: 1.4; color: var(--muted); }
+    .card ul { margin: 4px 0 0; padding-left: 15px; }
+
+    .module-flow { display: grid; grid-template-columns: 1fr 28px 1fr 28px 1fr; gap: 5px; align-items: center; margin: 12px 0; }
+    .flow-box { min-height: 68px; border-radius: 10px; padding: 10px; border: 1px solid var(--line); }
+    .flow-box strong { display: block; font-size: 12px; color: var(--navy); margin-bottom: 4px; }
+    .flow-box span { color: var(--muted); font-size: 8.5px; line-height: 1.35; }
+    .arrow { font-size: 22px; text-align: center; color: var(--teal); font-weight: 900; }
+    .modules { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin: 10px 0; }
+    .module { border-radius: 9px; padding: 9px; border: 1px solid var(--line); border-top: 4px solid var(--blue); }
+    .module b { display: block; font-size: 10px; margin-bottom: 3px; }
+    .module span { font-size: 7.8px; color: var(--muted); line-height: 1.35; }
+    .blocked { border-top-color: var(--red); background: #fff7f7; }
+
+    .attention-table td { font-size: 8.5px; padding: 7px; }
+    .attention-table td:first-child { color: var(--navy); }
+    .badge { display: inline-block; padding: 2px 6px; border-radius: 999px; font-size: 7px; font-weight: 800; }
+    .badge.warn { background: #fff0cf; color: #8c5200; }
+    .badge.ok { background: #dff6eb; color: #08764e; }
+    .badge.risk { background: #ffe1e1; color: #ad2020; }
+    .callout { margin-top: 9px; border-left: 4px solid var(--orange); padding: 8px 10px; background: #fff8ea; border-radius: 0 8px 8px 0; color: #68430f; font-size: 8.5px; line-height: 1.4; }
+
+    @media print {
+      body { background: white; }
+      .page { margin: 0; box-shadow: none; }
+    }
+  </style>
+</head>
+<body>
+  <section class="page cover">
+    <div class="brand">HEMODINKS · GESTÃO DE CIRURGIAS</div>
+    <div class="cover-grid">
+      <div>
+        <div class="eyebrow" style="color:#7ee2d7">SaaS multiclínica</div>
+        <h1>Matriz de perfis<br>e permissões</h1>
+        <p class="subtitle">Visão ilustrada dos acessos por perfil, operações CRUD, módulos contratados e pontos que ainda exigem decisão de produto.</p>
+      </div>
+      <div class="stat-grid">
+        <div class="stat"><strong>5</strong><span>perfis existentes</span></div>
+        <div class="stat"><strong>35</strong><span>operações representativas</span></div>
+        <div class="stat"><strong>175</strong><span>verificações de autorização</span></div>
+        <div class="stat"><strong>100%</strong><span>testes aprovados</span></div>
+      </div>
+    </div>
+    <div class="rule-strip">
+      <div class="rule"><b>Tenant-scoped</b>Dados limitados à clínica selecionada.</div>
+      <div class="rule"><b>Plano Parcial</b>Módulos desmarcados ficam ocultos e retornam 403.</div>
+      <div class="rule"><b>Escopo médico</b>Pacientes e faturamentos seguem vínculos e grupos.</div>
+      <div class="rule"><b>SuperAdministrador</b>Administra a plataforma, respeitando o plano operacional.</div>
+    </div>
+    <div class="footer" style="color:#bdd2df"><span>Documento técnico e funcional</span><span>21/07/2026</span></div>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">Perfis da aplicação</div>
+    <h2>Quem pode fazer o quê na API?</h2>
+    <p class="lead">C = cadastrar · R = visualizar · U = alterar · D = excluir/desativar. “Escopo” significa que o usuário só alcança registros relacionados a ele.</p>
+    <div class="profile-grid">
+      <div class="profile p-admin"><b>Administrador</b><span>Gestão operacional completa da clínica.</span></div>
+      <div class="profile p-medico"><b>Médicos</b><span>Atendimento dentro do escopo médico.</span></div>
+      <div class="profile p-paciente"><b>Pacientes</b><span>Acesso pessoal e restrito.</span></div>
+      <div class="profile p-controller"><b>Controller</b><span>Operação clínica e financeira.</span></div>
+      <div class="profile p-super"><b>SuperAdministrador</b><span>Gestão global da plataforma.</span></div>
+    </div>
+    <table>
+      <thead><tr><th>Recurso</th><th>Administrador</th><th>Médicos</th><th>Pacientes</th><th>Controller</th><th>SuperAdministrador</th></tr></thead>
+      <tbody>
+        <tr><td>Dashboard</td><td class="yes">R</td><td class="yes">R</td><td class="yes">R</td><td class="yes">R</td><td class="yes">R</td></tr>
+        <tr><td>Clínicas</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="platform">CRUD + troca</td></tr>
+        <tr><td>Auditoria da plataforma</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="platform">R</td></tr>
+        <tr><td>Usuários</td><td class="yes">CRUD</td><td class="limited">R/U próprio</td><td class="limited">R próprio</td><td class="limited">R próprio</td><td class="yes">CRUD</td></tr>
+        <tr><td>Pacientes</td><td class="yes">CRUD</td><td class="limited">CRU · escopo</td><td class="no">—</td><td class="yes">CRU</td><td class="yes">CRUD</td></tr>
+        <tr><td>Arquivos e observações</td><td class="yes">CRU/D</td><td class="limited">CRU · escopo</td><td class="no">—</td><td class="yes">CRU</td><td class="yes">CRU/D</td></tr>
+        <tr><td>Faturamento médico</td><td class="yes">R clínica</td><td class="limited">R · escopo</td><td class="no">—</td><td class="yes">R clínica</td><td class="yes">R clínica</td></tr>
+        <tr><td>Grupos médicos</td><td class="yes">CRUD</td><td class="no">—</td><td class="no">—</td><td class="limited">Somente C</td><td class="yes">CRUD</td></tr>
+        <tr><td>Agenda e notificações</td><td class="yes">CRUD clínica</td><td class="limited">CRUD próprio</td><td class="limited">CRUD próprio</td><td class="limited">CRUD próprio</td><td class="yes">CRUD clínica</td></tr>
+        <tr><td>CBHPM</td><td class="yes">R + importar</td><td class="yes">R</td><td class="yes">R</td><td class="yes">R</td><td class="yes">R + importar</td></tr>
+        <tr><td>Licenças médicas</td><td class="yes">R/U/liberar</td><td class="limited">R própria</td><td class="no">—</td><td class="limited">R própria</td><td class="yes">R/U/liberar</td></tr>
+        <tr><td>Exportações</td><td class="yes">Solicitar</td><td class="yes">Solicitar</td><td class="yes">Solicitar</td><td class="yes">Solicitar</td><td class="yes">Solicitar</td></tr>
+      </tbody>
+    </table>
+    <div class="legend"><span><b class="yes">●</b> permitido</span><span><b class="limited">●</b> permitido com limite/escopo</span><span><b class="no">●</b> negado</span><span><b class="platform">●</b> função exclusiva de plataforma</span></div>
+    <div class="footer"><span>Hemodinks · Matriz efetiva da API</span><span>2</span></div>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">Experiência do usuário</div>
+    <h2>Itens exibidos no menu e no dashboard</h2>
+    <p class="lead">Um item marcado ainda depende de estar contratado quando a clínica utiliza o plano Parcial.</p>
+    <table style="font-size:9px">
+      <thead><tr><th>Item visual</th><th>Administrador</th><th>Médicos</th><th>Pacientes</th><th>Controller</th><th>SuperAdministrador</th></tr></thead>
+      <tbody>
+        <tr><td>Painel</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Usuários</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+        <tr><td>Meu cadastro</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>Pacientes</td><td class="yes">✓</td><td class="yes">✓</td><td class="limited">✓*</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Faturamento médico</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>Grupos médicos</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—*</td><td class="yes">✓</td></tr>
+        <tr><td>Agenda e notificações</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—*</td><td class="yes">✓</td></tr>
+        <tr><td>Clínicas</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="platform">✓</td></tr>
+        <tr><td>Configuração</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td><td class="yes">✓</td></tr>
+      </tbody>
+    </table>
+    <div class="two-col" style="margin-top:12px">
+      <div class="card soft">
+        <h3>Regra de exclusão</h3>
+        <ul>
+          <li>Clínica: desativação lógica, somente SuperAdministrador.</li>
+          <li>Usuários e pacientes: somente Administrador e SuperAdministrador.</li>
+          <li>Médico pode alterar paciente do escopo, mas não excluí-lo.</li>
+          <li>Evento: proprietário gerencia o próprio; administradores gerenciam a clínica.</li>
+        </ul>
+      </div>
+      <div class="card soft">
+        <h3>Leitura e alteração de usuário</h3>
+        <ul>
+          <li>Administrador e SuperAdministrador gerenciam todos da clínica.</li>
+          <li>Médico consulta e altera o próprio cadastro.</li>
+          <li>Paciente e Controller consultam o próprio cadastro.</li>
+          <li>Paciente atualmente não consegue salvar alterações do próprio cadastro pela API.</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout">Os itens com * representam divergências entre a interface e a autorização efetiva da API, detalhadas na última página.</div>
+    <div class="footer"><span>Hemodinks · Menu e dashboard</span><span>3</span></div>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">Assinatura da clínica</div>
+    <h2>Como funciona o plano Parcial</h2>
+    <p class="lead">A seleção feita no CRUD da clínica controla simultaneamente a interface e a proteção das rotas da API.</p>
+    <div class="module-flow">
+      <div class="flow-box"><strong>1. SuperAdministrador</strong><span>Seleciona o plano Parcial e marca os módulos contratados no cadastro da clínica.</span></div>
+      <div class="arrow">→</div>
+      <div class="flow-box"><strong>2. Sessão da clínica</strong><span>O login e a troca de clínica recebem a lista efetiva de módulos liberados.</span></div>
+      <div class="arrow">→</div>
+      <div class="flow-box"><strong>3. Dupla proteção</strong><span>Menu e cards são ocultados; chamadas diretas para módulos não contratados recebem 403.</span></div>
+    </div>
+    <div class="modules">
+      <div class="module"><b>Usuários</b><span>Gestão de usuários e rotas `/api/users`.</span></div>
+      <div class="module"><b>Pacientes</b><span>Pacientes, CBHPM, hospitais, convênios e OPME.</span></div>
+      <div class="module"><b>Faturamento</b><span>Listagens e indicadores de faturamento médico.</span></div>
+      <div class="module blocked"><b>Grupos médicos</b><span>Quando desmarcado: menu oculto e API retorna 403.</span></div>
+      <div class="module blocked"><b>Agenda</b><span>Quando desmarcado: agenda oculta e API retorna 403.</span></div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <h3>O que sempre permanece</h3>
+        <p>Painel básico, autenticação e funções necessárias à sessão. Para o SuperAdministrador, `Clínicas` e `Configuração` continuam disponíveis por serem recursos de plataforma.</p>
+      </div>
+      <div class="card">
+        <h3>O que o SuperAdministrador não ignora</h3>
+        <p>Ao atuar dentro de uma clínica, módulos operacionais desmarcados permanecem bloqueados, inclusive para o SuperAdministrador. Isso permite validar a experiência real do cliente.</p>
+      </div>
+      <div class="card">
+        <h3>Trial</h3>
+        <p>Todos os módulos previstos ficam disponíveis até `Trial até`, respeitando perfil, escopo e validade da assinatura.</p>
+      </div>
+      <div class="card">
+        <h3>Completa</h3>
+        <p>Todos os módulos ficam disponíveis até `Assinatura válida até`, respeitando as permissões do perfil.</p>
+      </div>
+    </div>
+    <div class="footer"><span>Hemodinks · Plano Parcial</span><span>4</span></div>
+  </section>
+
+  <section class="page">
+    <div class="eyebrow">Pontos de atenção</div>
+    <h2>Divergências encontradas pelos testes</h2>
+    <p class="lead">Esses pontos precisam de decisão funcional antes de alterar as permissões, pois envolvem comportamento de produto.</p>
+    <table class="attention-table">
+      <thead><tr><th>Situação</th><th>Interface atual</th><th>API atual</th><th>Recomendação/decisão</th><th>Risco</th></tr></thead>
+      <tbody>
+        <tr><td>Paciente em Pacientes</td><td>Exibe o módulo como leitura.</td><td>Bloqueia a listagem com 403.</td><td>Mostrar apenas o próprio prontuário ou remover o módulo.</td><td><span class="badge warn">UX</span></td></tr>
+        <tr><td>Paciente em Meu cadastro</td><td>Exibe edição.</td><td>Permite consulta, mas bloqueia o PUT.</td><td>Definir campos pessoais editáveis.</td><td><span class="badge warn">UX</span></td></tr>
+        <tr><td>Controller em Agenda</td><td>Menu oculto.</td><td>Permite CRUD de eventos próprios.</td><td>Liberar menu ou bloquear API.</td><td><span class="badge warn">Contrato</span></td></tr>
+        <tr><td>Controller em Grupos médicos</td><td>Módulo oculto.</td><td>Pode cadastrar, mas não listar/alterar/excluir.</td><td>Remover cadastro ou criar fluxo específico.</td><td><span class="badge risk">Inconsistente</span></td></tr>
+        <tr><td>Exportações</td><td>Depende do módulo/tela.</td><td>Todos autenticados podem solicitar três recursos.</td><td>Confirmar escopo e autorização no worker.</td><td><span class="badge risk">Segurança</span></td></tr>
+      </tbody>
+    </table>
+    <div class="two-col" style="margin-top:12px">
+      <div class="card soft">
+        <h3>Validação automatizada</h3>
+        <p><span class="badge ok">147 aprovados</span> Backend completo</p>
+        <p><span class="badge ok">107 aprovados</span> Frontend completo</p>
+        <p><span class="badge ok">175 verificações</span> Matriz de autorização CRUD</p>
+      </div>
+      <div class="card soft">
+        <h3>Arquivos de referência</h3>
+        <p><b>Backend:</b> `HemodinksAPI.Tests/ApiAuthorizationMatrixTests.cs`</p>
+        <p><b>Frontend:</b> `src/app/appAccess.test.ts`</p>
+        <p><b>Documento detalhado:</b> `docs/MATRIZ_PERFIS_PERMISSOES.md`</p>
+      </div>
+    </div>
+    <div class="callout">A API é a fonte de verdade para segurança. A interface melhora a experiência escondendo ações, mas nunca deve ser o único mecanismo de autorização.</div>
+    <div class="footer"><span>Hemodinks · Decisões pendentes e evidências</span><span>5</span></div>
+  </section>
+</body>
+</html>
