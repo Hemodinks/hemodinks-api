@@ -96,6 +96,7 @@ app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<ClinicaResolutionMiddleware>();
+app.UseMiddleware<ClinicaModuleAccessMiddleware>();
 app.UseAuthorization();
 
 app.MapDefaultEndpoints();

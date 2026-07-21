@@ -20,6 +20,9 @@ internal sealed class ClinicaConfiguration : IEntityTypeConfiguration<Clinica>
             .IsRequired()
             .HasMaxLength(120);
 
+        entity.Property(e => e.FotoClinica)
+            .HasColumnType("nvarchar(max)");
+
         entity.Property(e => e.Ativa)
             .IsRequired()
             .HasDefaultValue(true);
@@ -34,6 +37,9 @@ internal sealed class ClinicaConfiguration : IEntityTypeConfiguration<Clinica>
             .IsRequired()
             .HasMaxLength(50)
             .HasDefaultValue("Trial");
+
+        entity.Property(e => e.ModulosLiberados)
+            .HasMaxLength(500);
 
         entity.Property(e => e.AssinaturaStatus)
             .IsRequired()

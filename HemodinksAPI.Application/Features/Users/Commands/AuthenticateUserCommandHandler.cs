@@ -114,6 +114,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 PrecisaTrocarSenha = user.PrecisaTrocarSenha,
                 PerfilId = user.PerfilId,
                 PerfilNome = UserProfileRules.GetPerfilNome(user),
+                ModulosLiberados = ClinicaModulos.GetEffective(user.Clinica.Plano, user.Clinica.ModulosLiberados),
                 Licenca = licenca
             };
         }
