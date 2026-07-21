@@ -91,6 +91,11 @@ public static partial class UserEndpointExtensions
             .DisableAntiforgery()
             .RequireAuthorization();
 
+        group.MapGet("/{id}/arquivos/{arquivoId}/download", DownloadArquivo)
+            .WithName("DownloadUserArquivo")
+            .WithSummary("Baixar arquivo do cadastro medico")
+            .RequireAuthorization();
+
         group.MapDelete("/{id}/arquivos/{arquivoId}", DeleteArquivo)
             .WithName("DeleteUserArquivo")
             .WithSummary("Excluir arquivo do cadastro medico")

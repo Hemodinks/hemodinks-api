@@ -7,6 +7,31 @@ namespace HemodinksAPI.Api;
 
 public static partial class UserEndpointExtensions
 {
+    private static Task<IResult> DownloadArquivo(
+        int id,
+        int arquivoId,
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        return EndpointExecution.RunAsync(async () =>
+        {
+            var file = await mediator.Send(new DownloadUserArquivoQuery(
+                id,
+                arquivoId,
+                GetRequiredCurrentUser(claimsPrincipal)), cancellationToken);
+
+            return file == null
+                ? Results.NotFound()
+                : Results.Stream(
+                    file.Content,
+                    file.ContentType,
+                    fileDownloadName: file.FileName,
+                    enableRangeProcessing: true);
+        }, logger, "Erro ao baixar arquivo do usuario", "Erro ao baixar arquivo");
+    }
+
     private static Task<IResult> GetProfilePhoto(
         int id,
         ClaimsPrincipal claimsPrincipal,

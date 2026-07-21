@@ -116,6 +116,12 @@ public partial class UserCommandHandlerTests
         {
             return Task.CompletedTask;
         }
+
+        public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<StoredPatientFileContent?>(
+                new StoredPatientFileContent(new MemoryStream("conteudo"u8.ToArray())));
+        }
     }
 
     private sealed class FakePasswordResetNotificationSender : IPasswordResetNotificationSender

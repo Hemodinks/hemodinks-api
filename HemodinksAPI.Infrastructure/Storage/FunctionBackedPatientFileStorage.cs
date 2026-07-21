@@ -40,4 +40,9 @@ public class FunctionBackedPatientFileStorage : IPatientFileStorage
     {
         return _fallbackStorage.DeleteAsync(fileUrl, cancellationToken);
     }
+
+    public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
+    {
+        return _fallbackStorage.GetAsync(fileUrl, cancellationToken);
+    }
 }

@@ -1,5 +1,7 @@
 # Hemodinks API
 
+Documentação de autorização: [matriz de perfis e permissões](docs/MATRIZ_PERFIS_PERMISSOES.md).
+
 API ASP.NET Core/.NET 10 para usuarios, pacientes, observacoes, agenda/notificacoes, faturamento medico, grupos medicos, licencas, configuracao do sistema, arquivos, exportacoes e consulta CBHPM.
 
 ## Stack
