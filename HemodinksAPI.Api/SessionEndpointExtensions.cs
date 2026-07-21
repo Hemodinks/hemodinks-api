@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Tenancy;
+using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -39,18 +40,31 @@ public static class SessionEndpointExtensions
                 && item.Clinica.Ativa)
             .OrderByDescending(item => item.ClinicaPadrao)
             .ThenBy(item => item.Clinica.Nome)
-            .Select(item => new SessionClinicResponse(
+            .Select(item => new
+            {
                 item.ClinicaId,
                 item.Clinica.Nome,
                 item.Clinica.Slug,
                 item.UserId,
                 item.PerfilId,
-                item.Perfil.Nome,
+                Perfil = item.Perfil.Nome,
+                item.Clinica.Plano,
+                item.Clinica.ModulosLiberados,
                 item.ClinicaPadrao,
-                item.Id))
+                UsuarioClinicaId = item.Id
+            })
             .ToListAsync(cancellationToken);
 
-        return Results.Ok(memberships);
+        return Results.Ok(memberships.Select(item => new SessionClinicResponse(
+            item.ClinicaId,
+            item.Nome,
+            item.Slug,
+            item.UserId,
+            item.PerfilId,
+            item.Perfil,
+            ClinicaModulos.GetEffective(item.Plano, item.ModulosLiberados),
+            item.ClinicaPadrao,
+            item.UsuarioClinicaId)));
     }
 
     private static async Task<IResult> SelectClinica(
@@ -123,6 +137,7 @@ public static class SessionEndpointExtensions
                 membership.UserId,
                 membership.PerfilId,
                 membership.Perfil.Nome,
+                ClinicaModulos.GetEffective(membership.Clinica.Plano, membership.Clinica.ModulosLiberados),
                 membership.ClinicaPadrao,
                 membership.Id)));
     }
@@ -144,6 +159,7 @@ public static class SessionEndpointExtensions
         int UserId,
         int PerfilId,
         string Perfil,
+        IReadOnlyList<string> ModulosLiberados,
         bool ClinicaPadrao,
         int UsuarioClinicaId);
 

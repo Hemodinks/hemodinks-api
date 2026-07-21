@@ -3,6 +3,7 @@ using System.Text.RegularExpressions;
 using System.Net.Mail;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Application.Authentication;
+using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
@@ -35,6 +36,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         group.MapGet("/{id:int}", GetClinica);
         group.MapPost("/", CreateClinica);
         group.MapPut("/{id:int}", UpdateClinica);
+        group.MapDelete("/{id:int}", DeactivateClinica);
 
         app.MapGet("/api/platform/auditoria", ListPlatformAudit)
             .WithTags("Plataforma - Auditoria")
@@ -43,11 +45,19 @@ public static partial class ClinicaPlatformEndpointExtensions
 
     private static async Task<IResult> ListClinicas(AppDbContext context, CancellationToken cancellationToken)
     {
-        var items = await context.Clinicas
+        var clinicas = await context.Clinicas
             .AsNoTracking()
             .OrderBy(item => item.Nome)
-            .Select(item => ToResponse(item, null))
             .ToListAsync(cancellationToken);
+        var userCounts = await context.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .GroupBy(item => item.ClinicaId)
+            .Select(group => new { ClinicaId = group.Key, Count = group.Count() })
+            .ToDictionaryAsync(item => item.ClinicaId, item => item.Count, cancellationToken);
+        var items = clinicas
+            .Select(item => ToResponse(item, userCounts.GetValueOrDefault(item.Id)))
+            .ToList();
 
         return Results.Ok(items);
     }
@@ -76,6 +86,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         AppDbContext context,
         ClinicaContext clinicaContext,
         IPasswordHasher passwordHasher,
+        IProfilePhotoStorage photoStorage,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -104,21 +115,27 @@ public static partial class ClinicaPlatformEndpointExtensions
             ? await context.Database.BeginTransactionAsync(cancellationToken)
             : null;
         var now = DateTime.UtcNow;
+        var plano = NormalizePlano(request.Plano);
         var clinica = new Clinica
         {
             Nome = nome,
             Slug = slug,
             Ativa = true,
-            Plano = NormalizeOptional(request.Plano, "Trial", 50),
+            Plano = plano,
+            ModulosLiberados = NormalizeModulos(plano, request.ModulosLiberados),
             AssinaturaStatus = NormalizeOptional(request.AssinaturaStatus, "Trial", 30),
-            TrialAte = request.TrialAte ?? now.AddDays(14),
-            AssinaturaValidaAte = request.AssinaturaValidaAte,
+            TrialAte = plano == ClinicaPlanos.Trial ? request.TrialAte ?? now.AddDays(14) : null,
+            AssinaturaValidaAte = plano == ClinicaPlanos.Trial ? null : request.AssinaturaValidaAte,
             LimiteUsuarios = request.LimiteUsuarios,
             DataCadastro = now
         };
 
         context.Clinicas.Add(clinica);
         await context.SaveChangesAsync(cancellationToken);
+        if (!string.IsNullOrWhiteSpace(request.FotoClinica))
+        {
+            clinica.FotoClinica = await photoStorage.SaveAsync(request.FotoClinica, null, cancellationToken);
+        }
 
         clinicaContext.SetPlatformScope();
         var admin = new User
@@ -138,7 +155,8 @@ public static partial class ClinicaPlatformEndpointExtensions
         context.ConfiguracoesSistema.Add(new ConfiguracaoSistema
         {
             ClinicaId = clinica.Id,
-            NomeEmpresa = clinica.Nome
+            NomeEmpresa = clinica.Nome,
+            FotoEmpresa = clinica.FotoClinica
         });
 
         var platformShadowUser = await AddPlatformShadowUserAsync(principal, clinica.Id, context, cancellationToken);
@@ -174,6 +192,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         UpdateClinicaRequest request,
         HttpContext httpContext,
         AppDbContext context,
+        IProfilePhotoStorage photoStorage,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -200,10 +219,33 @@ public static partial class ClinicaPlatformEndpointExtensions
         }
 
         if (request.Ativa.HasValue) clinica.Ativa = request.Ativa.Value;
-        if (request.Plano != null) clinica.Plano = NormalizeOptional(request.Plano, "Trial", 50);
+        var previousPlan = clinica.Plano;
+        var nextPlan = request.Plano != null ? NormalizePlano(request.Plano) : previousPlan;
+        clinica.Plano = nextPlan;
+        if (nextPlan == ClinicaPlanos.Parcial)
+        {
+            clinica.ModulosLiberados = request.ModulosLiberados != null
+                ? NormalizeModulos(nextPlan, request.ModulosLiberados)
+                : previousPlan == ClinicaPlanos.Parcial
+                    ? NormalizeModulos(nextPlan, ClinicaModulos.Parse(clinica.ModulosLiberados))
+                    : throw new InvalidOperationException("Selecione ao menos um modulo para o plano Parcial");
+        }
+        else
+        {
+            clinica.ModulosLiberados = null;
+        }
         if (request.AssinaturaStatus != null) clinica.AssinaturaStatus = NormalizeOptional(request.AssinaturaStatus, "Trial", 30);
-        if (request.TrialAte.HasValue) clinica.TrialAte = request.TrialAte;
-        if (request.AssinaturaValidaAte.HasValue) clinica.AssinaturaValidaAte = request.AssinaturaValidaAte;
+        if (nextPlan == ClinicaPlanos.Trial)
+        {
+            clinica.TrialAte = request.TrialAte
+                ?? (previousPlan == ClinicaPlanos.Trial ? null : DateTime.UtcNow.AddDays(14));
+            clinica.AssinaturaValidaAte = null;
+        }
+        else
+        {
+            clinica.TrialAte = null;
+            clinica.AssinaturaValidaAte = request.AssinaturaValidaAte;
+        }
         if (request.LimiteUsuarios.HasValue)
         {
             if (request.LimiteUsuarios <= 0)
@@ -213,7 +255,24 @@ public static partial class ClinicaPlatformEndpointExtensions
 
             clinica.LimiteUsuarios = request.LimiteUsuarios;
         }
+        if (request.FotoClinica != null)
+        {
+            clinica.FotoClinica = await photoStorage.SaveAsync(
+                request.FotoClinica,
+                clinica.FotoClinica,
+                cancellationToken);
+        }
         clinica.DataAtualizacao = DateTime.UtcNow;
+
+        var legacySettings = await context.ConfiguracoesSistema
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
+        if (legacySettings != null)
+        {
+            legacySettings.NomeEmpresa = clinica.Nome;
+            legacySettings.FotoEmpresa = clinica.FotoClinica;
+            legacySettings.DataAtualizacao = clinica.DataAtualizacao;
+        }
 
         await context.SaveChangesAsync(cancellationToken);
         await auditService.RecordAsync(
@@ -226,6 +285,46 @@ public static partial class ClinicaPlatformEndpointExtensions
             true,
             cancellationToken);
         return Results.Ok(ToResponse(clinica, null));
+    }
+
+    private static async Task<IResult> DeactivateClinica(
+        int id,
+        HttpContext httpContext,
+        AppDbContext context,
+        PlatformAuditService auditService,
+        CancellationToken cancellationToken)
+    {
+        var currentClinicId = int.TryParse(
+            httpContext.User.FindFirstValue(ClinicaClaimTypes.ClinicaId),
+            out var parsedClinicId)
+            ? parsedClinicId
+            : 0;
+        if (currentClinicId == id)
+        {
+            return Results.Conflict(new { message = "Troque para outra clinica antes de desativar a clinica atual." });
+        }
+
+        var clinica = await context.Clinicas.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
+        if (clinica == null)
+        {
+            return Results.NotFound();
+        }
+
+        clinica.Ativa = false;
+        clinica.AssinaturaStatus = ClinicaAssinaturaStatus.Cancelada;
+        clinica.DataAtualizacao = DateTime.UtcNow;
+        await context.SaveChangesAsync(cancellationToken);
+        await auditService.RecordAsync(
+            httpContext,
+            "clinic.deactivate",
+            "clinic",
+            clinica.Id.ToString(),
+            clinica.Id,
+            new { clinica.Nome, clinica.Slug },
+            true,
+            cancellationToken);
+
+        return Results.NoContent();
     }
 
     private static async Task<User?> AddPlatformShadowUserAsync(
@@ -344,8 +443,10 @@ public static partial class ClinicaPlatformEndpointExtensions
             clinica.Id,
             clinica.Nome,
             clinica.Slug,
+            clinica.FotoClinica == null ? null : $"/api/public/clinicas/{clinica.Slug}/foto",
             clinica.Ativa,
             clinica.Plano,
+            ClinicaModulos.GetEffective(clinica.Plano, clinica.ModulosLiberados),
             clinica.AssinaturaStatus,
             clinica.TrialAte,
             clinica.AssinaturaValidaAte,
@@ -364,6 +465,53 @@ public static partial class ClinicaPlatformEndpointExtensions
         }
 
         return slug;
+    }
+
+    private static string NormalizePlano(string? value)
+    {
+        var plano = string.IsNullOrWhiteSpace(value) ? ClinicaPlanos.Trial : value.Trim();
+        if (plano.Equals(ClinicaPlanos.Trial, StringComparison.OrdinalIgnoreCase))
+        {
+            return ClinicaPlanos.Trial;
+        }
+
+        if (plano.Equals(ClinicaPlanos.Completa, StringComparison.OrdinalIgnoreCase))
+        {
+            return ClinicaPlanos.Completa;
+        }
+
+        if (plano.Equals(ClinicaPlanos.Parcial, StringComparison.OrdinalIgnoreCase))
+        {
+            return ClinicaPlanos.Parcial;
+        }
+
+        throw new InvalidOperationException("Plano deve ser Trial, Parcial ou Completa");
+    }
+
+    private static string? NormalizeModulos(string plano, IEnumerable<string>? values)
+    {
+        if (plano != ClinicaPlanos.Parcial)
+        {
+            return null;
+        }
+
+        var requested = values?.Where(value => !string.IsNullOrWhiteSpace(value)).ToList() ?? [];
+        var invalid = requested.FirstOrDefault(value =>
+            !ClinicaModulos.Todos.Contains(value.Trim(), StringComparer.OrdinalIgnoreCase));
+        if (invalid != null)
+        {
+            throw new InvalidOperationException($"Modulo invalido: {invalid}");
+        }
+
+        var normalized = ClinicaModulos.Todos
+            .Where(allowed => requested.Contains(allowed, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        if (normalized.Count == 0)
+        {
+            throw new InvalidOperationException("Selecione ao menos um modulo para o plano Parcial");
+        }
+
+        return string.Join(',', normalized);
     }
 
     private static string RequireText(string? value, string message, int maxLength)
@@ -394,27 +542,33 @@ public sealed record CreateClinicaRequest(
     string AdministradorSenha,
     string? AdministradorTelefone,
     string? Plano,
+    IReadOnlyList<string>? ModulosLiberados,
     string? AssinaturaStatus,
     DateTime? TrialAte,
     DateTime? AssinaturaValidaAte,
-    int? LimiteUsuarios);
+    int? LimiteUsuarios,
+    string? FotoClinica);
 
 public sealed record UpdateClinicaRequest(
     string? Nome,
     string? Slug,
     bool? Ativa,
     string? Plano,
+    IReadOnlyList<string>? ModulosLiberados,
     string? AssinaturaStatus,
     DateTime? TrialAte,
     DateTime? AssinaturaValidaAte,
-    int? LimiteUsuarios);
+    int? LimiteUsuarios,
+    string? FotoClinica);
 
 public sealed record ClinicaPlatformResponse(
     int Id,
     string Nome,
     string Slug,
+    string? FotoUrl,
     bool Ativa,
     string Plano,
+    IReadOnlyList<string> ModulosLiberados,
     string AssinaturaStatus,
     DateTime? TrialAte,
     DateTime? AssinaturaValidaAte,

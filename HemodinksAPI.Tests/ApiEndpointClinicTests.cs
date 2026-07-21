@@ -184,12 +184,26 @@ public partial class ApiEndpointIntegrationTests
             administradorNome = "Administradora Local",
             administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
             administradorSenha = "AdminLocal@123",
-            plano = "Profissional",
+            fotoClinica = "data:image/png;base64,Zm90by1kYS1jbGluaWNh",
+            plano = "Completa",
             assinaturaStatus = "Ativa",
             limiteUsuarios = 25
         });
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var publicListResponse = await client.GetAsync("/api/public/clinicas");
+        Assert.Equal(HttpStatusCode.OK, publicListResponse.StatusCode);
+        using (var publicListJson = await ReadJsonAsync(publicListResponse))
+        {
+            var publicClinic = publicListJson.RootElement.EnumerateArray()
+                .Single(item => item.GetProperty("slug").GetString() == slug);
+            Assert.NotEqual(JsonValueKind.Null, publicClinic.GetProperty("fotoUrl").ValueKind);
+        }
+
+        var publicPhotoResponse = await client.GetAsync($"/api/public/clinicas/{slug}/foto");
+        Assert.Equal(HttpStatusCode.OK, publicPhotoResponse.StatusCode);
+        Assert.Equal("foto-da-clinica", await publicPhotoResponse.Content.ReadAsStringAsync());
 
         var listResponse = await client.GetAsync("/api/platform/clinicas");
         Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
@@ -226,6 +240,104 @@ public partial class ApiEndpointIntegrationTests
             item.Acao == "clinic.create" && item.ClinicaId == targetClinicId && item.Sucesso));
         Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
             item.Acao == "session.clinic.switch" && item.ClinicaId == targetClinicId && item.Sucesso));
+    }
+
+    [Fact]
+    public async Task PlatformClinics_WhenPlanIsInvalid_ReturnsBadRequest()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var response = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica Plano Invalido",
+            slug = $"clinica-{Guid.NewGuid():N}",
+            administradorNome = "Administradora Local",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123",
+            plano = "Profissional"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("Trial, Parcial ou Completa", await response.Content.ReadAsStringAsync());
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/platform/clinicas/{Clinica.DefaultId}", new
+        {
+            plano = "Profissional"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
+        Assert.Contains("Trial, Parcial ou Completa", await updateResponse.Content.ReadAsStringAsync());
+
+        var partialWithoutModulesResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica Parcial Sem Modulos",
+            slug = $"clinica-{Guid.NewGuid():N}",
+            administradorNome = "Administradora Local",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123",
+            plano = "Parcial"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, partialWithoutModulesResponse.StatusCode);
+        Assert.Contains("ao menos um modulo", await partialWithoutModulesResponse.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task PartialClinicPlan_ExposesAndEnforcesOnlyContractedModules()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var platformClient = factory.CreateClient();
+        await AuthenticateAsync(platformClient, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var slug = $"clinica-{Guid.NewGuid():N}";
+        var adminEmail = $"admin-{Guid.NewGuid():N}@example.com";
+        const string adminPassword = "AdminLocal@123";
+        var createResponse = await platformClient.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica Parcial",
+            slug,
+            administradorNome = "Administradora Parcial",
+            administradorEmail = adminEmail,
+            administradorSenha = adminPassword,
+            plano = "Parcial",
+            modulosLiberados = new[] { ClinicaModulos.Pacientes },
+            assinaturaStatus = "Ativa",
+            assinaturaValidaAte = DateTime.UtcNow.AddYears(1)
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        using var clinicClient = factory.CreateClient();
+        var authResponse = await PostAsJsonWithClinicHeaderAsync(
+            clinicClient,
+            slug,
+            "/api/users/authenticate",
+            new { Email = adminEmail, Senha = adminPassword });
+        authResponse.EnsureSuccessStatusCode();
+        using var authJson = await ReadJsonAsync(authResponse);
+        var modules = authJson.RootElement.GetProperty("modulosLiberados").EnumerateArray().ToList();
+        Assert.Single(modules);
+        Assert.Equal(ClinicaModulos.Pacientes, modules[0].GetString());
+        clinicClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            authJson.RootElement.GetProperty("token").GetString());
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/users/")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await clinicClient.GetAsync("/api/pacientes/")).StatusCode);
+    }
+
+    [Fact]
+    public async Task PlatformClinics_WhenUserIsCommonAdministrator_ReturnsForbidden()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+        await AuthenticateAsync(client, beta.Slug, beta.AdminEmail, beta.AdminPassword);
+
+        var response = await client.GetAsync("/api/platform/clinicas");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
     [Fact]

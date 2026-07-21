@@ -49,7 +49,7 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
-    public async Task ConfiguracoesSistema_AllowsPublicReadAndAdminUpdate()
+    public async Task ConfiguracoesSistema_AllowsPublicReadAndRejectsLegacyBrandUpdate()
     {
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient();
@@ -58,7 +58,7 @@ public partial class ApiEndpointIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, getResponse.StatusCode);
         using var getJson = await ReadJsonAsync(getResponse);
-        Assert.Equal("Hemodinks", getJson.RootElement.GetProperty("nomeEmpresa").GetString());
+        Assert.Equal("HemoDinks", getJson.RootElement.GetProperty("nomeEmpresa").GetString());
         Assert.Equal(JsonValueKind.Null, getJson.RootElement.GetProperty("fotoEmpresa").ValueKind);
 
         await AuthenticateAsync(client);
@@ -69,19 +69,11 @@ public partial class ApiEndpointIntegrationTests
             fotoEmpresa = "data:image/png;base64,Zm90by1kYS1lbXByZXNh"
         });
 
-        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
-        using var updateJson = await ReadJsonAsync(updateResponse);
-        Assert.Equal("Clinica Alfa", updateJson.RootElement.GetProperty("nomeEmpresa").GetString());
-        var fotoEmpresa = updateJson.RootElement.GetProperty("fotoEmpresa").GetString();
-        Assert.False(string.IsNullOrWhiteSpace(fotoEmpresa));
-        Assert.False(fotoEmpresa!.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase));
-        Assert.NotEqual(JsonValueKind.Null, updateJson.RootElement.GetProperty("dataAtualizacao").ValueKind);
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, updateResponse.StatusCode);
 
         var photoResponse = await client.GetAsync("/api/configuracoes-sistema/current/foto-empresa");
 
-        Assert.Equal(HttpStatusCode.OK, photoResponse.StatusCode);
-        Assert.Equal("image/png", photoResponse.Content.Headers.ContentType?.MediaType);
-        Assert.Equal("foto-da-empresa", await photoResponse.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.NotFound, photoResponse.StatusCode);
     }
 
     [Fact]

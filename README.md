@@ -186,14 +186,19 @@ Features atuais de licenca:
 | `GET` | `/api/platform/clinicas` | superadmin | lista todas as clinicas |
 | `GET` | `/api/platform/clinicas/{id}` | superadmin | detalhe, assinatura e total de usuarios |
 | `POST` | `/api/platform/clinicas` | superadmin | provisiona clinica, administrador, identidade local do superadmin e catalogos iniciais |
-| `PUT` | `/api/platform/clinicas/{id}` | superadmin | atualiza cadastro, ativacao, plano e assinatura |
+| `PUT` | `/api/platform/clinicas/{id}` | superadmin | atualiza nome, foto, cadastro, ativacao, plano e assinatura |
+| `DELETE` | `/api/platform/clinicas/{id}` | superadmin | desativa logicamente a clinica e preserva seus dados |
 | `GET` | `/api/platform/auditoria` | superadmin | consulta paginada da auditoria de plataforma |
+| `GET` | `/api/public/clinicas` | publico | lista minima das clinicas ativas para o seletor do login |
+| `GET` | `/api/public/clinicas/{slug}/foto` | publico | retorna a foto publica da clinica ativa |
 | `GET` | `/api/session/clinicas` | autenticado | lista associacoes ativas da identidade global |
 | `POST` | `/api/session/selecionar-clinica` | autenticado | valida `UsuarioClinica` e emite novo JWT para a clinica |
 
 Configure os emails autorizados com `Platform__SuperAdminEmails__0`. No startup, o usuario correspondente e promovido e recebe uma associacao `UsuarioClinica` em cada clinica ativa. Administradores comuns permanecem restritos as associacoes explicitamente cadastradas.
 
 `UsuarioGlobal` guarda a credencial unica; `UsuarioClinica` liga essa identidade ao usuario local, clinica e perfil. O `ClinicaId` do JWT e o tenant efetivo. Consultas sem contexto resolvido falham fechadas; gravacoes com `ClinicaId` divergente e relacionamentos internos entre clinicas diferentes sao recusados antes do `SaveChanges`.
+
+O nome e a foto institucionais pertencem a `Clinica` e somente o SuperAdministrador pode altera-los pelo CRUD de plataforma. O antigo `PUT /api/configuracoes-sistema/current` nao e mais exposto.
 
 ### Auth e usuarios
 

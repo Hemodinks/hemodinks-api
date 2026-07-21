@@ -72,6 +72,7 @@ public class AuthenticateUserResponse
     public bool PrecisaTrocarSenha { get; set; }
     public int PerfilId { get; set; }
     public string PerfilNome { get; set; } = null!;
+    public IReadOnlyList<string> ModulosLiberados { get; set; } = [];
     public LicencaDto? Licenca { get; set; }
 }
 
