@@ -1,4 +1,3 @@
-using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
@@ -22,9 +21,7 @@ public sealed class ClinicaModuleAccessMiddleware
     {
         var requiredModule = ResolveRequiredModule(context.Request.Path);
         if (requiredModule == null
-            || context.User.Identity?.IsAuthenticated != true
-            || context.User.IsInRole("SuperAdministrador")
-            || context.User.HasClaim("perfilId", Perfil.SuperAdministradorId.ToString()))
+            || context.User.Identity?.IsAuthenticated != true)
         {
             await _next(context);
             return;

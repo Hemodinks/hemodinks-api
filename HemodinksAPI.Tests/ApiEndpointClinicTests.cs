@@ -307,6 +307,20 @@ public partial class ApiEndpointIntegrationTests
             assinaturaValidaAte = DateTime.UtcNow.AddYears(1)
         });
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        using (var createJson = await ReadJsonAsync(createResponse))
+        {
+            var clinicId = createJson.RootElement.GetProperty("id").GetInt32();
+            var switchResponse = await platformClient.PostAsJsonAsync("/api/session/selecionar-clinica", new
+            {
+                clinicaId = clinicId
+            });
+            switchResponse.EnsureSuccessStatusCode();
+            using var switchJson = await ReadJsonAsync(switchResponse);
+            platformClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Bearer",
+                switchJson.RootElement.GetProperty("token").GetString());
+            Assert.Equal(HttpStatusCode.Forbidden, (await platformClient.GetAsync("/api/users/")).StatusCode);
+        }
 
         using var clinicClient = factory.CreateClient();
         var authResponse = await PostAsJsonWithClinicHeaderAsync(
