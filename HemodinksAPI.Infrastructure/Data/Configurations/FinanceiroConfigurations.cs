@@ -22,6 +22,7 @@ internal sealed class AtendimentoCirurgicoConfiguration : IEntityTypeConfigurati
         entity.HasOne(x => x.Paciente).WithMany(x => x.AtendimentosCirurgicos).HasForeignKey(x => x.PacienteId).OnDelete(DeleteBehavior.Restrict);
         entity.HasOne(x => x.Hospital).WithMany().HasForeignKey(x => x.HospitalId).OnDelete(DeleteBehavior.Restrict);
         entity.HasOne(x => x.Convenio).WithMany().HasForeignKey(x => x.ConvenioId).OnDelete(DeleteBehavior.Restrict);
+        entity.HasOne(x => x.OpmeFornecedor).WithMany().HasForeignKey(x => x.OpmeFornecedorId).OnDelete(DeleteBehavior.Restrict);
         entity.HasOne(x => x.MedicoResponsavel).WithMany().HasForeignKey(x => x.MedicoResponsavelId).OnDelete(DeleteBehavior.Restrict);
         entity.HasOne(x => x.MedicoAuxiliar1).WithMany().HasForeignKey(x => x.MedicoAuxiliar1Id).OnDelete(DeleteBehavior.Restrict);
         entity.HasOne(x => x.MedicoAuxiliar2).WithMany().HasForeignKey(x => x.MedicoAuxiliar2Id).OnDelete(DeleteBehavior.Restrict);

@@ -59,7 +59,7 @@ public record ObterPacienteFinanceiroResumoQuery(int PacienteId, int CurrentUser
 internal static class FinanceiroManagementQueries
 {
     public static IQueryable<AtendimentoCirurgico> FullAtendimento(IQueryable<AtendimentoCirurgico> query) =>
-        query.Include(x => x.Paciente).Include(x => x.Procedimentos);
+        query.Include(x => x.Paciente).Include(x => x.OpmeFornecedor).Include(x => x.Procedimentos);
 
     public static IQueryable<ContaReceber> FullConta(IQueryable<ContaReceber> query) =>
         query.Include(x => x.Paciente).Include(x => x.Recebimentos);

@@ -33,6 +33,7 @@ public partial class ApiEndpointIntegrationTests
             pacienteId = seed.PacienteId,
             dataProcedimento = new DateTime(2026, 7, 10),
             convenioId = seed.ConvenioId,
+            opmeFornecedorId = seed.OpmeFornecedorId,
             medicoResponsavelId = seed.MedicoId,
             diagnostico = "Diagnostico inicial",
             tratamentoMedico = "Procedimento cirurgico",
@@ -43,6 +44,8 @@ public partial class ApiEndpointIntegrationTests
         Assert.Equal(HttpStatusCode.Created, atendimentoResponse.StatusCode);
         using var atendimentoJson = await ReadJsonAsync(atendimentoResponse);
         var atendimentoId = atendimentoJson.RootElement.GetProperty("id").GetInt32();
+        Assert.Equal(seed.OpmeFornecedorId, atendimentoJson.RootElement.GetProperty("opmeFornecedorId").GetInt32());
+        Assert.Equal(seed.OpmeFornecedor, atendimentoJson.RootElement.GetProperty("opmeFornecedor").GetString());
         var segundoAtendimentoResponse = await client.PostAsJsonAsync("/api/atendimentos-cirurgicos/", new
         {
             pacienteId = seed.PacienteId, dataProcedimento = new DateTime(2026, 9, 10), convenioId = seed.ConvenioId,
@@ -53,6 +56,11 @@ public partial class ApiEndpointIntegrationTests
 
         var detalheAtendimento = await client.GetAsync($"/api/atendimentos-cirurgicos/{atendimentoId}");
         Assert.Equal(HttpStatusCode.OK, detalheAtendimento.StatusCode);
+        using (var detalheJson = await ReadJsonAsync(detalheAtendimento))
+        {
+            Assert.Equal(seed.OpmeFornecedorId, detalheJson.RootElement.GetProperty("opmeFornecedorId").GetInt32());
+            Assert.Equal(seed.OpmeFornecedor, detalheJson.RootElement.GetProperty("opmeFornecedor").GetString());
+        }
         var atualizarAtendimento = await client.PutAsJsonAsync($"/api/atendimentos-cirurgicos/{atendimentoId}", new
         {
             id = atendimentoId, dataProcedimento = new DateTime(2026, 7, 11), convenioId = seed.ConvenioId,
@@ -218,16 +226,18 @@ public partial class ApiEndpointIntegrationTests
         var pacienteUser = new User { ClinicaId = Clinica.DefaultId, Nome = "Paciente Financeiro", Telefone = "+5511888888888",
             Email = $"paciente-{suffix}@teste.local", Senha = "hash", PerfilId = Perfil.PacientesId, Ativo = true, PrecisaTrocarSenha = false };
         var convenio = new Convenio { ClinicaId = Clinica.DefaultId, DescricaoConvenio = $"Convenio {suffix}" };
-        db.Users.AddRange(medico, pacienteUser); db.Convenios.Add(convenio); await db.SaveChangesAsync();
+        var opme = new Opme { ClinicaId = Clinica.DefaultId, Fornecedor = $"Fornecedor OPME {suffix}" };
+        db.Users.AddRange(medico, pacienteUser); db.Convenios.Add(convenio); db.OPME.Add(opme); await db.SaveChangesAsync();
         var paciente = new Paciente { ClinicaId = Clinica.DefaultId, UserId = pacienteUser.Id, NomePaciente = pacienteUser.Nome };
         db.Pacientes.Add(paciente); await db.SaveChangesAsync();
         const string code = "99999999";
         if (!await db.CbhpmGeral.AnyAsync(x => x.Codigo == code)) db.CbhpmGeral.Add(new CbhpmGeral { Codigo = code, Procedimento = "Procedimento financeiro", ValorReferencia = 1000m });
         await db.SaveChangesAsync();
-        return new(paciente.Id, medico.Id, convenio.IdConvenio, code);
+        return new(paciente.Id, medico.Id, convenio.IdConvenio, opme.IdFornecedor, opme.Fornecedor, code);
     }
 
-    private sealed record FinanceiroSeed(int PacienteId, int MedicoId, int ConvenioId, string CbhpmCodigo);
+    private sealed record FinanceiroSeed(int PacienteId, int MedicoId, int ConvenioId,
+        int OpmeFornecedorId, string OpmeFornecedor, string CbhpmCodigo);
 
     private sealed class TestingFinancialFileStorage : IPatientFileStorage
     {

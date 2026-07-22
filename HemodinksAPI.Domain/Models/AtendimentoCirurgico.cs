@@ -12,6 +12,8 @@ public class AtendimentoCirurgico : IClinicaOwnedEntity
     public Hospital? Hospital { get; set; }
     public int? ConvenioId { get; set; }
     public Convenio? Convenio { get; set; }
+    public int? OpmeFornecedorId { get; set; }
+    public Opme? OpmeFornecedor { get; set; }
     public int MedicoResponsavelId { get; set; }
     public User MedicoResponsavel { get; set; } = null!;
     public int? MedicoAuxiliar1Id { get; set; }
@@ -27,4 +29,3 @@ public class AtendimentoCirurgico : IClinicaOwnedEntity
     public ICollection<AtendimentoProcedimento> Procedimentos { get; set; } = new List<AtendimentoProcedimento>();
     public ICollection<Faturamento> Faturamentos { get; set; } = new List<Faturamento>();
 }
-

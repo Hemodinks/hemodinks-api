@@ -10,7 +10,7 @@ namespace HemodinksAPI.Application.Features.Financeiro;
 public record AtendimentoProcedimentoInput(string? CbhpmCodigo, string? Descricao, decimal Quantidade = 1m,
     decimal PesoPercentual = 100m, string? CbhpmPorte = null);
 public record CriarAtendimentoCommand(
-    int PacienteId, DateTime DataProcedimento, int? HospitalId, int? ConvenioId,
+    int PacienteId, DateTime DataProcedimento, int? HospitalId, int? ConvenioId, int? OpmeFornecedorId,
     int MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
     string? Diagnostico, string? TratamentoMedico, string? NumeroAutorizacao,
     AtendimentoCirurgicoStatus Status, List<AtendimentoProcedimentoInput> Procedimentos) : IRequest<AtendimentoDto>
@@ -49,7 +49,8 @@ public record ListarConvenioProcedimentoPrecosQuery(int? ConvenioId = null, stri
 public record AtendimentoProcedimentoDto(int Id, string? CbhpmCodigo, string? CbhpmPorte, string Descricao,
     decimal Quantidade, decimal PesoPercentual, decimal? ValorReferencia, decimal? ValorNegociado, int Ordem);
 public record AtendimentoDto(int Id, int PacienteId, string Paciente, DateTime DataProcedimento, int? HospitalId,
-    int? ConvenioId, int MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
+    int? ConvenioId, int? OpmeFornecedorId, string? OpmeFornecedor, int MedicoResponsavelId,
+    int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
     string? Diagnostico, string? TratamentoMedico, string? NumeroAutorizacao,
     AtendimentoCirurgicoStatus Status, List<AtendimentoProcedimentoDto> Procedimentos);
 public record FaturamentoItemDto(int Id, int? AtendimentoProcedimentoId, string? Codigo, string Descricao,
@@ -78,7 +79,8 @@ public record ConvenioProcedimentoPrecoDto(int Id, int ConvenioId, string CbhpmC
 internal static class FinanceiroMapper
 {
     public static AtendimentoDto ToDto(AtendimentoCirurgico x) => new(x.Id, x.PacienteId, x.Paciente.NomePaciente,
-        x.DataProcedimento, x.HospitalId, x.ConvenioId, x.MedicoResponsavelId, x.MedicoAuxiliar1Id,
+        x.DataProcedimento, x.HospitalId, x.ConvenioId, x.OpmeFornecedorId, x.OpmeFornecedor?.Fornecedor,
+        x.MedicoResponsavelId, x.MedicoAuxiliar1Id,
         x.MedicoAuxiliar2Id, x.Diagnostico, x.TratamentoMedico, x.NumeroAutorizacao, x.Status,
         x.Procedimentos.OrderBy(p => p.Ordem).Select(p => new AtendimentoProcedimentoDto(p.Id, p.CbhpmCodigo,
             p.CbhpmPorte, p.Descricao, p.Quantidade, p.PesoPercentual, p.ValorReferencia, p.ValorNegociado, p.Ordem)).ToList());
@@ -117,6 +119,10 @@ public sealed class CriarAtendimentoCommandHandler(IAppDbContext db, IClinicaCon
             throw new InvalidOperationException("Os medicos do atendimento devem ser distintos.");
         var paciente = await db.Pacientes.SingleOrDefaultAsync(x => x.Id == request.PacienteId, ct)
             ?? throw new KeyNotFoundException("Paciente nao encontrado.");
+        var opmeFornecedor = request.OpmeFornecedorId.HasValue
+            ? await db.OPME.SingleOrDefaultAsync(x => x.IdFornecedor == request.OpmeFornecedorId.Value, ct)
+                ?? throw new InvalidOperationException("Fornecedor OPME invalido.")
+            : null;
         if (await db.Users.CountAsync(x => ids.Contains(x.Id) && x.PerfilId == Perfil.MedicosId && x.Ativo, ct) != ids.Count)
             throw new InvalidOperationException("Selecione apenas medicos ativos da clinica.");
 
@@ -124,6 +130,7 @@ public sealed class CriarAtendimentoCommandHandler(IAppDbContext db, IClinicaCon
         {
             ClinicaId = clinicaId, Paciente = paciente, DataProcedimento = request.DataProcedimento,
             HospitalId = request.HospitalId, ConvenioId = request.ConvenioId,
+            OpmeFornecedorId = opmeFornecedor?.IdFornecedor, OpmeFornecedor = opmeFornecedor,
             MedicoResponsavelId = medicoResponsavelId, MedicoAuxiliar1Id = request.MedicoAuxiliar1Id,
             MedicoAuxiliar2Id = request.MedicoAuxiliar2Id, Diagnostico = request.Diagnostico?.Trim(),
             TratamentoMedico = request.TratamentoMedico?.Trim(), NumeroAutorizacao = request.NumeroAutorizacao?.Trim(),
@@ -164,7 +171,8 @@ public sealed class ListarAtendimentosQueryHandler(IAppDbContext db) : IRequestH
 {
     public async Task<List<AtendimentoDto>> Handle(ListarAtendimentosQuery request, CancellationToken ct)
     {
-        var query = db.AtendimentosCirurgicos.AsNoTracking().Include(x => x.Paciente).Include(x => x.Procedimentos).AsQueryable();
+        var query = db.AtendimentosCirurgicos.AsNoTracking().Include(x => x.Paciente)
+            .Include(x => x.OpmeFornecedor).Include(x => x.Procedimentos).AsQueryable();
         if (request.CurrentPerfilId == Perfil.MedicosId)
             query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId || x.MedicoAuxiliar1Id == request.CurrentUserId || x.MedicoAuxiliar2Id == request.CurrentUserId);
         if (request.PacienteId.HasValue) query = query.Where(x => x.PacienteId == request.PacienteId);
