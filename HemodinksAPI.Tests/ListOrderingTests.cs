@@ -166,6 +166,31 @@ public class ListOrderingTests
     }
 
     [Fact]
+    public async Task GetAllPacientes_WhenLoggedPatient_ReturnsOnlyOwnMedicalRecord()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var currentUser = CreateUser("Paciente Atual", "atual@hemodinks.com", "52998224725", DateTime.UtcNow, null, Perfil.PacientesId);
+        var otherUser = CreateUser("Outro Paciente", "outro@hemodinks.com", "11144477735", DateTime.UtcNow, null, Perfil.PacientesId);
+        context.Pacientes.AddRange(
+            new Paciente { User = currentUser, NomePaciente = currentUser.Nome },
+            new Paciente { User = otherUser, NomePaciente = otherUser.Nome });
+        await context.SaveChangesAsync();
+
+        var handler = new GetAllPacientesQueryHandler(context, NullLogger<GetAllPacientesQueryHandler>.Instance);
+        var result = await handler.Handle(new GetAllPacientesQuery
+        {
+            Page = 1,
+            PageSize = 10,
+            CurrentPerfilId = Perfil.PacientesId,
+            CurrentUserId = currentUser.Id
+        }, CancellationToken.None);
+
+        var ownRecord = Assert.Single(result.Items);
+        Assert.Equal(currentUser.Id, ownRecord.UserId);
+        Assert.Equal("Paciente Atual", ownRecord.NomePaciente);
+    }
+
+    [Fact]
     public async Task GetAllPacientes_WhenLoggedDoctor_ReturnsAuxiliaryAndGroupPatients()
     {
         await using var context = TestDbContextFactory.Create();

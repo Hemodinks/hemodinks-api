@@ -88,6 +88,9 @@ public static partial class ApiServiceCollectionExtensions
         options.AddPolicy("GrupoMedicoCadastrar", policy =>
             policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString()));
 
+        options.AddPolicy("GrupoMedicoGerenciar", policy =>
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString()));
+
         options.AddPolicy("PacienteCadastrar", policy =>
             policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString(), Perfil.MedicosId.ToString()));
 
@@ -107,7 +110,7 @@ public static partial class ApiServiceCollectionExtensions
             policy.Requirements.Add(new LicencaFeatureRequirement(LicencaFeatures.DashboardVisualizar)));
 
         options.AddPolicy(LicencaPolicies.PacientesVisualizar, policy =>
-            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.ControllerId.ToString()));
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.PacientesId.ToString(), Perfil.ControllerId.ToString()));
 
         options.AddPolicy(LicencaPolicies.PacientesGerenciar, policy =>
             policy.Requirements.Add(new LicencaFeatureRequirement(LicencaFeatures.PacientesGerenciar)));

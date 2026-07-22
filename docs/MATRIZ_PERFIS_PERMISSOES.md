@@ -1,6 +1,6 @@
 # Matriz de perfis e permissões
 
-Atualizado em 21/07/2026.
+Atualizado em 22/07/2026.
 
 Esta documentação descreve o comportamento efetivamente validado na API e a visibilidade atual da interface. As permissões sempre acumulam as seguintes restrições:
 
@@ -41,16 +41,16 @@ Esta é a fonte de verdade para segurança. Ocultar um botão na interface não 
 | Dashboard | R | R | R | R | R |
 | Clínicas | — | — | — | — | CRUD e troca de clínica |
 | Auditoria da plataforma | — | — | — | — | R |
-| Usuários | CRUD | R/U próprio | R próprio | R próprio | CRUD |
+| Usuários | CRUD | R/U próprio | R/U próprio limitado | R próprio | CRUD |
 | Resetar senha de outro usuário | Sim | — | — | — | Sim |
 | Senha própria | Alterar | Alterar | Alterar | Alterar | Alterar |
 | Arquivos do usuário | Qualquer usuário | Próprios | — | — | Qualquer usuário |
 | Foto de perfil | Qualquer usuário | Própria e pacientes do escopo | Própria | Própria | Qualquer usuário |
-| Pacientes | CRUD | CRU no escopo | — | CRU | CRUD |
-| Arquivos de pacientes | CRUD | CRU no escopo | — | CRU | CRUD |
+| Pacientes | CRUD | CRU no escopo | R próprio | CRU | CRUD |
+| Arquivos de pacientes | CRUD | CRU no escopo | R próprios | CRU | CRUD |
 | Observações de pacientes | CRU | CRU no escopo | — | CRU | CRU |
 | Faturamento médico | R total da clínica | R no escopo | — | R total da clínica | R total da clínica |
-| Grupos médicos | CRUD | — | — | Apenas C | CRUD |
+| Grupos médicos | CRUD | — | — | CRUD | CRUD |
 | Agenda e notificações | CRUD da clínica | CRUD próprio/escopo | CRUD próprio | CRUD próprio | CRUD da clínica |
 | CBHPM | R e importar | R | R | R | R e importar |
 | Hospitais, convênios e OPME | R | R | R | R | R |
@@ -79,8 +79,8 @@ Esta é a fonte de verdade para segurança. Ocultar um botão na interface não 
 | Meu cadastro | — | Sim | Sim | — | — |
 | Pacientes | Sim | Sim | Sim | Sim | Sim |
 | Faturamento médico | Sim | Sim | — | Sim | Sim |
-| Grupos médicos | Sim | — | — | — | Sim |
-| Agenda e notificações | Sim | Sim | Sim | — | Sim |
+| Grupos médicos | Sim | — | — | Sim | Sim |
+| Agenda e notificações | Sim | Sim | Sim | Sim | Sim |
 | Clínicas | — | — | — | — | Sim |
 | Configuração | Sim | — | — | — | Sim |
 
@@ -102,19 +102,31 @@ Quando um módulo não está contratado:
 - a restrição também vale para o SuperAdministrador dentro da clínica selecionada;
 - `Clínicas` e `Configuração` continuam disponíveis ao SuperAdministrador por serem funções de plataforma.
 
-## Divergências identificadas
+## Alinhamentos realizados
 
 Os testes registram separadamente o contrato da API e o comportamento da interface. Atualmente existem estas diferenças:
 
-| Situação | Interface | API | Decisão necessária |
+| Situação | Interface | API | Estado |
 |---|---|---|---|
-| Paciente em Pacientes | Exibe o módulo como leitura | Retorna `403` para listar pacientes | Definir se o paciente verá apenas o próprio prontuário ou se o menu deve ser removido. |
-| Paciente em Meu cadastro | Exibe opção de edição | Permite consultar, mas bloqueia `PUT` do próprio usuário | Definir quais campos pessoais o paciente pode editar. |
-| Controller em Agenda | Menu oculto | Permite CRUD de eventos próprios | Liberar o menu ou bloquear a API. |
-| Controller em Grupos médicos | Menu oculto | Pode cadastrar, mas não listar/alterar/excluir | Remover a permissão de cadastro ou criar uma tela/fluxo específico. |
-| Exportações | Todos os perfis autenticados podem solicitar | Aceita pacientes, faturamentos e CBHPM | Confirmar que o worker aplica o mesmo escopo do perfil ao produzir o arquivo. |
+| Paciente em Pacientes | Exibe o módulo como leitura | Lista apenas o próprio prontuário | Alinhado. |
+| Paciente em Meu cadastro | Exibe edição de nome, telefone, nascimento e foto; e-mail é somente leitura | Permite `PUT` próprio e preserva e-mail, CPF, perfil, status e dados médicos | Alinhado. |
+| Controller em Agenda | Menu visível | Permite CRUD de eventos próprios | Alinhado. |
+| Controller em Grupos médicos | Menu visível | Permite listar, cadastrar, alterar e excluir | Alinhado. |
+| Exportações | Todos os perfis autenticados podem solicitar | Aceita pacientes, faturamentos e CBHPM | Contrato confirmado: o conteúdo deve respeitar módulo, clínica e escopo de leitura do perfil. |
 
-Essas divergências não foram alteradas automaticamente porque representam decisões de produto, não apenas falhas técnicas.
+As divergências de navegação e autorização foram eliminadas e o contrato funcional das exportações foi definido.
+
+### Escopo obrigatório das exportações
+
+Todos os perfis autenticados podem solicitar os três recursos, mas solicitar uma exportação não amplia o acesso do usuário:
+
+| Recurso exportado | Escopo obrigatório |
+|---|---|
+| Pacientes | Administrador, Controller e SuperAdministrador: clínica selecionada; Médico: pacientes do seu vínculo/grupo; Paciente: somente o próprio prontuário. |
+| Faturamentos médicos | Administrador, Controller e SuperAdministrador: clínica selecionada; Médico: seu escopo médico; Paciente: nenhum dado de faturamento. |
+| CBHPM | Somente dados que o perfil já pode consultar no módulo CBHPM. |
+
+A mensagem assíncrona já contém `ClinicaId`, `RequestedByUserId` e `RequestedByPerfilId`. O worker atual gera um manifesto técnico do job; quando a geração dos dados reais for implementada, deverá reutilizar as mesmas regras de escopo aplicadas pelas queries da API, sem confiar em filtros enviados pelo cliente.
 
 ## Cobertura automatizada
 
@@ -129,6 +141,7 @@ Arquivo: `HemodinksAPI.Tests/ApiAuthorizationMatrixTests.cs`
 - Uma permissão negada precisa retornar `403`.
 - Uma permissão concedida precisa alcançar o endpoint sem `401`, `403` ou `500`.
 - Os testes funcionais existentes continuam responsáveis por validar payloads, persistência, isolamento e regras de negócio de cada CRUD.
+- Suíte completa atual: 152 testes aprovados.
 
 ### Frontend
 
@@ -137,6 +150,7 @@ Arquivo: `src/app/appAccess.test.ts` no projeto `hemodinks-front`.
 - Valida as permissões calculadas para os cinco perfis.
 - Valida menu, dashboard, criação/edição/exclusão de pacientes e administração da plataforma.
 - Valida a sobreposição das restrições do plano Parcial.
+- Suíte completa atual: 108 testes aprovados.
 
 ### Comandos
 
@@ -147,4 +161,3 @@ dotnet test HemodinksAPI.Tests\HemodinksAPI.Tests.csproj --filter "FullyQualifie
 ```powershell
 npx vitest run src/app/appAccess.test.ts
 ```
-
