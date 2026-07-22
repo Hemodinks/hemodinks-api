@@ -37,7 +37,7 @@ public partial class ApiEndpointIntegrationTests
             diagnostico = "Diagnostico inicial",
             tratamentoMedico = "Procedimento cirurgico",
             numeroAutorizacao = "AUT-1",
-            status = AtendimentoCirurgicoStatus.Realizado,
+            status = "Realizado",
             procedimentos = new[] { new { cbhpmCodigo = seed.CbhpmCodigo, descricao = "Procedimento teste", quantidade = 1m, pesoPercentual = 100m } }
         });
         Assert.Equal(HttpStatusCode.Created, atendimentoResponse.StatusCode);
@@ -177,6 +177,12 @@ public partial class ApiEndpointIntegrationTests
             (await client.GetAsync("/api/faturamentos/pesquisa?page=0&pageSize=101")).StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest,
             (await client.GetAsync("/api/financeiro/contas-receber/pesquisa?page=1&pageSize=101")).StatusCode);
+        using var invalidBody = new StringContent("{\"pacienteId\":1,\"status\":\"StatusInexistente\"}", Encoding.UTF8, "application/json");
+        var invalidResponse = await client.PostAsync("/api/atendimentos-cirurgicos/", invalidBody);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidResponse.StatusCode);
+        var invalidMessage = await invalidResponse.Content.ReadAsStringAsync();
+        Assert.Contains("formato invalido", invalidMessage);
+        Assert.DoesNotContain("stack trace", invalidMessage, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
