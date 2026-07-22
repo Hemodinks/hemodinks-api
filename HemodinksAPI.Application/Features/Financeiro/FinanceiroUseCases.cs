@@ -228,6 +228,14 @@ public sealed class AtualizarStatusFaturamentoCommandHandler(IAppDbContext db) :
         var faturamento = await ListarFaturamentosQueryHandler.Full(db.Faturamentos).SingleOrDefaultAsync(x => x.Id == request.Id, ct)
             ?? throw new KeyNotFoundException("Faturamento nao encontrado.");
         if (!faturamento.RowVersion.SequenceEqual(request.RowVersion)) throw new DbUpdateConcurrencyException("O faturamento foi alterado por outro usuario.");
+        var allowed = faturamento.Status switch
+        {
+            FaturamentoStatus.Rascunho => request.Status is FaturamentoStatus.ProntoParaEnvio or FaturamentoStatus.Cancelado,
+            FaturamentoStatus.ProntoParaEnvio => request.Status is FaturamentoStatus.Rascunho or FaturamentoStatus.Enviado or FaturamentoStatus.Cancelado,
+            FaturamentoStatus.Enviado => request.Status is FaturamentoStatus.EmAnalise or FaturamentoStatus.Cancelado,
+            _ => request.Status == faturamento.Status
+        };
+        if (!allowed) throw new InvalidOperationException($"Transicao de {faturamento.Status} para {request.Status} nao permitida.");
         faturamento.Status = request.Status;
         if (request.Status == FaturamentoStatus.Enviado && faturamento.DataEnvio == null) faturamento.DataEnvio = DateTime.UtcNow;
         faturamento.DataAtualizacao = DateTime.UtcNow;

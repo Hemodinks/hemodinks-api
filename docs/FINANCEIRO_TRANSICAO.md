@@ -27,14 +27,16 @@ A migration `20260722181233_AddNormalizedBillingAndReceivables` é aditiva. Ela:
 5. converte glosas e pagamentos conferidos, marcando-os como dados migrados que exigem conciliação;
 6. não remove nem altera as tabelas antigas.
 
-Em 22/07/2026, a cadeia completa até `20260722181233_AddNormalizedBillingAndReceivables` foi aplicada com sucesso em um SQL Server LocalDB descartável e o banco foi removido após o teste. Isso valida o SQL gerado e o caminho de banco vazio; não substitui o ensaio com cópia anonimizada da homologação.
+A migration complementar `20260722202127_AddLegacyPatientFinancialBackfillAudit` cobre pacientes que tinham apenas os campos `Pacientes.Pagamento`, `Pacientes.RepasseGlosa` e `Pacientes.StatusPago`, sem registro em `FaturamentosMedicos`. Valores monetários válidos são convertidos para faturamento, glosa, título e recebimento histórico; textos inválidos e glosas incompatíveis são preservados integralmente em `FinanceiroMigracaoInconsistencias` para conciliação manual. A operação é idempotente e os registros criados recebem o marcador `LEG-PACIENTE-FINANCEIRO`.
+
+Em 22/07/2026, a cadeia completa até `20260722202127_AddLegacyPatientFinancialBackfillAudit` foi aplicada em um SQL Server LocalDB descartável. O teste automatizado parte do esquema anterior, insere registros legados válidos e inválidos, valida totais, título/recebimento e os valores originais na fila de inconsistências, e remove o banco ao final. Isso valida o SQL e cenários representativos; a execução com cópia anonimizada da base real de homologação continua obrigatória antes de produção.
 
 Não aplicar automaticamente em produção. Antes da implantação:
 
 1. gerar e revisar o script SQL com `scripts/Export-MigrationScripts.ps1`;
 2. restaurar um backup recente em homologação;
 3. executar a migration em homologação e comparar contagens e totais por clínica;
-4. revisar títulos com prefixo `LEG-FAT-` e recebimentos com forma `Outro`;
+4. revisar títulos com prefixos `LEG-FAT-`/`LEG-PAC-`, recebimentos com forma `Outro` e todas as linhas não resolvidas de `FinanceiroMigracaoInconsistencias`;
 5. validar rollback e backup;
 6. agendar a execução em produção com observabilidade e plano de retorno.
 

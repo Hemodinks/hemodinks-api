@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Financeiro;
+using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
@@ -67,6 +68,10 @@ public static class FinanceiroEndpointExtensions
         }).RequireAuthorization("FaturamentoVisualizar");
         faturamentos.MapPut("/{id:int}", async (int id, AtualizarFaturamentoCommand command, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(command with { Id = id }, ct))).RequireAuthorization("FaturamentoGerenciar");
+        faturamentos.MapPut("/{id:int}/itens/{itemId:int}", async (int id, int itemId,
+            AtualizarFaturamentoItemCommand command, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(command with { FaturamentoId = id, ItemId = itemId }, ct)))
+            .RequireAuthorization("FaturamentoGerenciar");
         faturamentos.MapDelete("/{id:int}", async (int id, IMediator mediator, CancellationToken ct) =>
         {
             await mediator.Send(new ExcluirFaturamentoCommand(id), ct); return Results.NoContent();
@@ -97,9 +102,10 @@ public static class FinanceiroEndpointExtensions
         financeiro.MapGet("/{id:int}", async (int id, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ObterContaReceberQuery(id), ct))).RequireAuthorization("FinanceiroVisualizar");
         financeiro.MapGet("/pesquisa", async (int page, int pageSize, string? termo, ContaReceberStatus? status,
-            DateTime? vencimentoInicio, DateTime? vencimentoFim, int? convenioId, IMediator mediator, CancellationToken ct) =>
+            DateTime? vencimentoInicio, DateTime? vencimentoFim, int? convenioId, int? medicoId, int? pacienteId,
+            IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new PesquisarContasReceberQuery(page, pageSize, termo, status,
-                vencimentoInicio, vencimentoFim, convenioId), ct))).RequireAuthorization("FinanceiroVisualizar");
+                vencimentoInicio, vencimentoFim, convenioId, medicoId, pacienteId), ct))).RequireAuthorization("FinanceiroVisualizar");
         financeiro.MapPut("/{id:int}", async (int id, AtualizarContaReceberCommand command, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(command with { Id = id }, ct))).RequireAuthorization("FinanceiroGerenciar");
         financeiro.MapPost("/{id:int}/cancelamento", async (int id, CancelarContaReceberCommand command, IMediator mediator, CancellationToken ct) =>
@@ -154,9 +160,10 @@ public static class FinanceiroEndpointExtensions
 
         var reports = app.MapGroup("/api/financeiro").WithTags("Relatorios financeiros").RequireAuthorization()
             .AddEndpointFilter(new FinanceiroExceptionFilter());
-        reports.MapGet("/relatorios/resumo", async (DateTime? inicio, DateTime? fim, int? convenioId,
+        reports.MapGet("/relatorios/resumo", async (DateTime? inicio, DateTime? fim, int? convenioId, int? medicoId,
+            int? pacienteId,
             IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(
-                new ObterFinanceiroResumoQuery(inicio, fim, convenioId), ct))).RequireAuthorization("FinanceiroVisualizar");
+                new ObterFinanceiroResumoQuery(inicio, fim, convenioId, medicoId, pacienteId), ct))).RequireAuthorization("FinanceiroVisualizar");
         reports.MapGet("/auditoria", async (int page, int pageSize, string? recurso, AppDbContext db,
             IClinicaContext tenant, CancellationToken ct) =>
         {
@@ -170,6 +177,13 @@ public static class FinanceiroEndpointExtensions
                 .Select(x => new { x.Id, x.Acao, x.Recurso, x.EntidadeId, x.DetalhesJson, x.UserId, x.Ip, x.Sucesso, x.DataCadastro }).ToListAsync(ct);
             return Results.Ok(new PagedResult<object>(items.Cast<object>().ToList(), page, pageSize, total));
         }).RequireAuthorization("FinanceiroVisualizar");
+
+        app.MapGet("/api/pacientes/{id:int}/resumo-financeiro", async (int id, ClaimsPrincipal principal,
+            IMediator mediator, CancellationToken ct) =>
+        {
+            var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
+            return Results.Ok(await mediator.Send(new ObterPacienteFinanceiroResumoQuery(id, user.Id, user.PerfilId), ct));
+        }).WithTags("Pacientes").RequireAuthorization(LicencaPolicies.PacientesVisualizar).AddEndpointFilter(new FinanceiroExceptionFilter());
     }
 }
 
@@ -186,8 +200,10 @@ internal sealed class FinanceiroAuditFilter(PlatformAuditService audit, IClinica
             var route = http.Request.Path.Value?.Trim('/').Replace("api/", string.Empty) ?? "operacao";
             var resource = route.Split('/', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault() ?? "operacao";
             var entityId = http.Request.RouteValues.TryGetValue("id", out var id) ? id?.ToString() : null;
+            var command = context.Arguments.FirstOrDefault(argument => argument?.GetType().Namespace == "HemodinksAPI.Application.Features.Financeiro"
+                && argument.GetType().Name.EndsWith("Command", StringComparison.Ordinal));
             await audit.RecordAsync(http, http.Request.Method, $"financeiro:{resource}", entityId, tenant.ClinicaId,
-                new { rota = http.Request.Path.Value, requestId = http.TraceIdentifier }, true, http.RequestAborted);
+                new { rota = http.Request.Path.Value, requestId = http.TraceIdentifier, alteracao = command }, true, http.RequestAborted);
         }
         catch (Exception ex)
         {

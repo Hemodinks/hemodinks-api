@@ -30,6 +30,7 @@ public interface IAppDbContext
     DbSet<ContaReceber> ContasReceber { get; }
     DbSet<Recebimento> Recebimentos { get; }
     DbSet<ConvenioProcedimentoPreco> ConvenioProcedimentoPrecos { get; }
+    DbSet<FinanceiroMigracaoInconsistencia> FinanceiroMigracaoInconsistencias { get; }
 
     DbSet<Observacao> Observacoes { get; }
 

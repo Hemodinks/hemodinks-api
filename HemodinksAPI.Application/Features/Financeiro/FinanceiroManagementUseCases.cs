@@ -20,6 +20,8 @@ public record ExcluirAtendimentoCommand(int Id) : IRequest;
 public record ObterFaturamentoQuery(int Id, int CurrentUserId, int CurrentPerfilId) : IRequest<FaturamentoDto>;
 public record AtualizarFaturamentoCommand(int Id, string? NumeroGuia, string? NumeroLote, DateTime Competencia,
     string? Observacao, byte[] RowVersion) : IRequest<FaturamentoDto>;
+public record AtualizarFaturamentoItemCommand(int FaturamentoId, int ItemId, string? Codigo, string Descricao,
+    decimal Quantidade, decimal PesoPercentual, decimal ValorUnitario, byte[] RowVersion) : IRequest<FaturamentoDto>;
 public record ExcluirFaturamentoCommand(int Id) : IRequest;
 public record AtualizarGlosaCommand(int Id, string? CodigoMotivo, string DescricaoMotivo, decimal ValorGlosado,
     DateTime DataGlosa, string? Observacao) : IRequest<FaturamentoDto>;
@@ -36,16 +38,23 @@ public record CancelarContaReceberCommand(int Id, string Motivo, byte[] RowVersi
 public record ExcluirConvenioProcedimentoPrecoCommand(int Id) : IRequest;
 public record PesquisarContasReceberQuery(int Page = 1, int PageSize = 25, string? Termo = null,
     ContaReceberStatus? Status = null, DateTime? VencimentoInicio = null, DateTime? VencimentoFim = null,
-    int? ConvenioId = null) : IRequest<PagedResult<ContaReceberDto>>;
+    int? ConvenioId = null, int? MedicoId = null, int? PacienteId = null) : IRequest<PagedResult<ContaReceberDto>>;
 public record PesquisarFaturamentosQuery(int Page, int PageSize, string? Termo, FaturamentoStatus? Status,
     DateTime? CompetenciaInicio, DateTime? CompetenciaFim, int? ConvenioId, int CurrentUserId,
     int CurrentPerfilId) : IRequest<PagedResult<FaturamentoDto>>;
 public record FinanceiroResumoDto(decimal ValorApresentado, decimal ValorGlosado, decimal ValorRecuperado,
-    decimal ValorReconhecido, decimal ValorRecebido, decimal SaldoAberto, int TitulosVencidos,
+    decimal ValorReconhecido, decimal ValorRecebido, decimal SaldoAberto, decimal ValorVencido,
+    decimal RecebimentosPeriodo, int TitulosVencidos,
     IReadOnlyList<FinanceiroResumoMensalDto> PorCompetencia);
 public record FinanceiroResumoMensalDto(DateTime Competencia, decimal Apresentado, decimal Reconhecido,
     decimal Recebido, decimal SaldoAberto);
-public record ObterFinanceiroResumoQuery(DateTime? Inicio, DateTime? Fim, int? ConvenioId) : IRequest<FinanceiroResumoDto>;
+public record ObterFinanceiroResumoQuery(DateTime? Inicio, DateTime? Fim, int? ConvenioId, int? MedicoId,
+    int? PacienteId) : IRequest<FinanceiroResumoDto>;
+public record PacienteFinanceiroResumoDto(decimal ValorApresentado, decimal ValorGlosado, decimal ValorReconhecido,
+    decimal ValorRecebido, decimal SaldoAberto, string StatusFinanceiro, string OrigemDados,
+    IReadOnlyList<string> Avisos);
+public record ObterPacienteFinanceiroResumoQuery(int PacienteId, int CurrentUserId, int CurrentPerfilId)
+    : IRequest<PacienteFinanceiroResumoDto>;
 
 internal static class FinanceiroManagementQueries
 {
@@ -153,6 +162,32 @@ public sealed class ExcluirFaturamentoCommandHandler(IAppDbContext db) : IReques
         if (item.Status != FaturamentoStatus.Rascunho || item.ContasReceber.Count > 0)
             throw new InvalidOperationException("Somente faturamento em rascunho e sem titulos pode ser excluido.");
         db.Faturamentos.Remove(item); await db.SaveChangesAsync(ct);
+    }
+}
+
+public sealed class AtualizarFaturamentoItemCommandHandler(IAppDbContext db)
+    : IRequestHandler<AtualizarFaturamentoItemCommand, FaturamentoDto>
+{
+    public async Task<FaturamentoDto> Handle(AtualizarFaturamentoItemCommand request, CancellationToken ct)
+    {
+        var faturamento = await ListarFaturamentosQueryHandler.Full(db.Faturamentos)
+            .SingleOrDefaultAsync(x => x.Id == request.FaturamentoId, ct)
+            ?? throw new KeyNotFoundException("Faturamento nao encontrado.");
+        if (!faturamento.RowVersion.SequenceEqual(request.RowVersion))
+            throw new DbUpdateConcurrencyException("O faturamento foi alterado por outro usuario.");
+        if (faturamento.Status != FaturamentoStatus.Rascunho)
+            throw new InvalidOperationException("Itens so podem ser editados enquanto o faturamento estiver em rascunho.");
+        if (request.Quantidade <= 0 || request.PesoPercentual < 0 || request.ValorUnitario < 0 || string.IsNullOrWhiteSpace(request.Descricao))
+            throw new InvalidOperationException("Descricao, quantidade, peso e valor do item sao invalidos.");
+        var item = faturamento.Itens.SingleOrDefault(x => x.Id == request.ItemId)
+            ?? throw new KeyNotFoundException("Item do faturamento nao encontrado.");
+        item.Codigo = request.Codigo?.Trim(); item.Descricao = request.Descricao.Trim();
+        item.Quantidade = request.Quantidade; item.PesoPercentual = request.PesoPercentual;
+        item.ValorUnitario = request.ValorUnitario;
+        item.ValorApresentado = FinanceiroCalculations.CalculatePresentedValue(item.Quantidade, item.PesoPercentual, item.ValorUnitario);
+        item.ValorAprovado = item.ValorApresentado; item.ValorGlosado = 0; item.Status = FaturamentoItemStatus.Rascunho;
+        faturamento.DataAtualizacao = DateTime.UtcNow; FinanceiroCalculations.Recalculate(faturamento);
+        await db.SaveChangesAsync(ct); return FinanceiroMapper.ToDto(faturamento);
     }
 }
 
@@ -282,6 +317,9 @@ public sealed class PesquisarContasReceberQueryHandler(IAppDbContext db) : IRequ
         if (request.VencimentoInicio.HasValue) query = query.Where(x => x.DataVencimento >= request.VencimentoInicio);
         if (request.VencimentoFim.HasValue) query = query.Where(x => x.DataVencimento <= request.VencimentoFim);
         if (request.ConvenioId.HasValue) query = query.Where(x => x.ConvenioId == request.ConvenioId);
+        if (request.MedicoId.HasValue) query = query.Where(x => x.Faturamento.AtendimentoCirurgico.MedicoResponsavelId == request.MedicoId
+            || x.Faturamento.AtendimentoCirurgico.MedicoAuxiliar1Id == request.MedicoId || x.Faturamento.AtendimentoCirurgico.MedicoAuxiliar2Id == request.MedicoId);
+        if (request.PacienteId.HasValue) query = query.Where(x => x.PacienteId == request.PacienteId);
         var count = await query.CountAsync(ct); var items = await query.OrderBy(x => x.DataVencimento).Skip((request.Page - 1) * request.PageSize).Take(request.PageSize).ToListAsync(ct);
         return new(items.Select(FinanceiroMapper.ToDto).ToList(), request.Page, request.PageSize, count);
     }
@@ -311,12 +349,66 @@ public sealed class ObterFinanceiroResumoQueryHandler(IAppDbContext db) : IReque
         if (request.Inicio.HasValue) { faturamentos = faturamentos.Where(x => x.Competencia >= request.Inicio); contas = contas.Where(x => x.Competencia >= request.Inicio); }
         if (request.Fim.HasValue) { faturamentos = faturamentos.Where(x => x.Competencia <= request.Fim); contas = contas.Where(x => x.Competencia <= request.Fim); }
         if (request.ConvenioId.HasValue) { faturamentos = faturamentos.Where(x => x.ConvenioId == request.ConvenioId); contas = contas.Where(x => x.ConvenioId == request.ConvenioId); }
+        if (request.MedicoId.HasValue)
+        {
+            faturamentos = faturamentos.Where(x => x.AtendimentoCirurgico.MedicoResponsavelId == request.MedicoId || x.AtendimentoCirurgico.MedicoAuxiliar1Id == request.MedicoId || x.AtendimentoCirurgico.MedicoAuxiliar2Id == request.MedicoId);
+            contas = contas.Where(x => x.Faturamento.AtendimentoCirurgico.MedicoResponsavelId == request.MedicoId || x.Faturamento.AtendimentoCirurgico.MedicoAuxiliar1Id == request.MedicoId || x.Faturamento.AtendimentoCirurgico.MedicoAuxiliar2Id == request.MedicoId);
+        }
+        if (request.PacienteId.HasValue) { faturamentos = faturamentos.Where(x => x.AtendimentoCirurgico.PacienteId == request.PacienteId); contas = contas.Where(x => x.PacienteId == request.PacienteId); }
         var f = await faturamentos.GroupBy(x => 1).Select(g => new { Apresentado = g.Sum(x => x.ValorApresentado), Glosado = g.Sum(x => x.ValorGlosado), Recuperado = g.Sum(x => x.ValorGlosaRecuperada), Reconhecido = g.Sum(x => x.ValorReconhecido) }).SingleOrDefaultAsync(ct);
-        var c = await contas.Where(x => x.Status != ContaReceberStatus.Cancelado).GroupBy(x => 1).Select(g => new { Recebido = g.Sum(x => x.ValorRecebido), Saldo = g.Sum(x => x.SaldoAberto), Vencidos = g.Count(x => x.Status == ContaReceberStatus.Vencido) }).SingleOrDefaultAsync(ct);
+        var c = await contas.Where(x => x.Status != ContaReceberStatus.Cancelado).GroupBy(x => 1).Select(g => new { Recebido = g.Sum(x => x.ValorRecebido), Saldo = g.Sum(x => x.SaldoAberto), ValorVencido = g.Sum(x => x.Status == ContaReceberStatus.Vencido ? x.SaldoAberto : 0), Vencidos = g.Count(x => x.Status == ContaReceberStatus.Vencido) }).SingleOrDefaultAsync(ct);
+        var recebimentos = db.Recebimentos.AsNoTracking().Where(x => !x.Estornado);
+        if (request.Inicio.HasValue) recebimentos = recebimentos.Where(x => x.DataRecebimento >= request.Inicio);
+        if (request.Fim.HasValue) recebimentos = recebimentos.Where(x => x.DataRecebimento <= request.Fim.Value.AddDays(1).AddTicks(-1));
+        if (request.ConvenioId.HasValue) recebimentos = recebimentos.Where(x => x.ContaReceber.ConvenioId == request.ConvenioId);
+        if (request.PacienteId.HasValue) recebimentos = recebimentos.Where(x => x.ContaReceber.PacienteId == request.PacienteId);
+        if (request.MedicoId.HasValue) recebimentos = recebimentos.Where(x => x.ContaReceber.Faturamento.AtendimentoCirurgico.MedicoResponsavelId == request.MedicoId || x.ContaReceber.Faturamento.AtendimentoCirurgico.MedicoAuxiliar1Id == request.MedicoId || x.ContaReceber.Faturamento.AtendimentoCirurgico.MedicoAuxiliar2Id == request.MedicoId);
+        var recebidoPeriodo = await recebimentos.SumAsync(x => (decimal?)x.ValorRecebido, ct) ?? 0;
         var monthlyRows = await contas.Where(x => x.Status != ContaReceberStatus.Cancelado).GroupBy(x => x.Competencia)
             .Select(g => new { Competencia = g.Key, Apresentado = g.Sum(x => x.ValorOriginal), Reconhecido = g.Sum(x => x.ValorAjustado), Recebido = g.Sum(x => x.ValorRecebido), Saldo = g.Sum(x => x.SaldoAberto) })
             .OrderBy(x => x.Competencia).ToListAsync(ct);
         var monthly = monthlyRows.Select(x => new FinanceiroResumoMensalDto(x.Competencia, x.Apresentado, x.Reconhecido, x.Recebido, x.Saldo)).ToList();
-        return new(f?.Apresentado ?? 0, f?.Glosado ?? 0, f?.Recuperado ?? 0, f?.Reconhecido ?? 0, c?.Recebido ?? 0, c?.Saldo ?? 0, c?.Vencidos ?? 0, monthly);
+        return new(f?.Apresentado ?? 0, f?.Glosado ?? 0, f?.Recuperado ?? 0, f?.Reconhecido ?? 0, c?.Recebido ?? 0, c?.Saldo ?? 0, c?.ValorVencido ?? 0, recebidoPeriodo, c?.Vencidos ?? 0, monthly);
+    }
+}
+
+public sealed class ObterPacienteFinanceiroResumoQueryHandler(IAppDbContext db)
+    : IRequestHandler<ObterPacienteFinanceiroResumoQuery, PacienteFinanceiroResumoDto>
+{
+    public async Task<PacienteFinanceiroResumoDto> Handle(ObterPacienteFinanceiroResumoQuery request, CancellationToken ct)
+    {
+        var paciente = await db.Pacientes.AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.PacienteId, ct)
+            ?? throw new KeyNotFoundException("Paciente nao encontrado.");
+        if (request.CurrentPerfilId == Perfil.PacientesId && paciente.UserId != request.CurrentUserId)
+            throw new UnauthorizedAccessException("Paciente sem acesso a este resumo.");
+        if (request.CurrentPerfilId == Perfil.MedicosId && !await db.AtendimentosCirurgicos.AnyAsync(x => x.PacienteId == request.PacienteId
+            && (x.MedicoResponsavelId == request.CurrentUserId || x.MedicoAuxiliar1Id == request.CurrentUserId || x.MedicoAuxiliar2Id == request.CurrentUserId), ct))
+            throw new UnauthorizedAccessException("Medico sem acesso a este resumo.");
+        var f = await db.Faturamentos.AsNoTracking().Where(x => x.AtendimentoCirurgico.PacienteId == request.PacienteId)
+            .GroupBy(x => 1).Select(g => new { Apresentado = g.Sum(x => x.ValorApresentado), Glosado = g.Sum(x => x.ValorGlosado), Reconhecido = g.Sum(x => x.ValorReconhecido) }).SingleOrDefaultAsync(ct);
+        var contas = await db.ContasReceber.AsNoTracking().Where(x => x.PacienteId == request.PacienteId && x.Status != ContaReceberStatus.Cancelado).ToListAsync(ct);
+        if (f == null && contas.Count == 0)
+        {
+            var avisos = new List<string>();
+            var paymentValid = LegacyFinanceiroFallback.TryParseCurrency(paciente.Pagamento, out var presented);
+            var glosaValid = LegacyFinanceiroFallback.TryParseCurrency(paciente.RepasseGlosa, out var glosa);
+            if (!string.IsNullOrWhiteSpace(paciente.Pagamento) && !paymentValid) avisos.Add("Paciente.Pagamento legado requer conciliacao manual.");
+            if (!string.IsNullOrWhiteSpace(paciente.RepasseGlosa) && !glosaValid) avisos.Add("Paciente.RepasseGlosa legado requer conciliacao manual.");
+            if (!paymentValid) presented = 0;
+            if (!glosaValid) glosa = 0;
+            glosa = Math.Min(glosa, presented); var recognized = Math.Max(0, presented - glosa);
+            var receivedLegacy = paciente.StatusPago ? recognized : 0; var balanceLegacy = recognized - receivedLegacy;
+            var legacyStatus = avisos.Count > 0 ? "Requer conciliacao" : paciente.StatusPago ? "Recebido (legado)"
+                : balanceLegacy > 0 ? "Em aberto (legado)" : "Sem movimentacao";
+            return new(presented, glosa, recognized, receivedLegacy, balanceLegacy, legacyStatus, "Legado", avisos);
+        }
+        var recebido = contas.Sum(x => x.ValorRecebido); var saldo = contas.Sum(x => x.SaldoAberto);
+        var status = contas.Any(x => x.Status == ContaReceberStatus.Vencido) ? "Vencido"
+            : saldo <= 0 && recebido > 0 ? "Recebido" : recebido > 0 ? "Parcialmente recebido"
+            : saldo > 0 ? "Em aberto" : "Sem movimentacao";
+        var inconsistencias = await db.FinanceiroMigracaoInconsistencias.AsNoTracking()
+            .Where(x => x.PacienteId == request.PacienteId && !x.Resolvida).Select(x => x.Motivo).ToListAsync(ct);
+        return new(f?.Apresentado ?? 0, f?.Glosado ?? 0, f?.Reconhecido ?? 0, recebido, saldo,
+            inconsistencias.Count > 0 ? "Requer conciliacao" : status, "Normalizado", inconsistencias);
     }
 }

@@ -46,6 +46,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<ContaReceber> ContasReceber { get; set; } = null!;
     public DbSet<Recebimento> Recebimentos { get; set; } = null!;
     public DbSet<ConvenioProcedimentoPreco> ConvenioProcedimentoPrecos { get; set; } = null!;
+    public DbSet<FinanceiroMigracaoInconsistencia> FinanceiroMigracaoInconsistencias { get; set; } = null!;
 
     public DbSet<Observacao> Observacoes { get; set; } = null!;
 

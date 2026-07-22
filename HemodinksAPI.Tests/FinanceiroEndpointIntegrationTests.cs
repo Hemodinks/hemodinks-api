@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
@@ -42,6 +43,13 @@ public partial class ApiEndpointIntegrationTests
         Assert.Equal(HttpStatusCode.Created, atendimentoResponse.StatusCode);
         using var atendimentoJson = await ReadJsonAsync(atendimentoResponse);
         var atendimentoId = atendimentoJson.RootElement.GetProperty("id").GetInt32();
+        var segundoAtendimentoResponse = await client.PostAsJsonAsync("/api/atendimentos-cirurgicos/", new
+        {
+            pacienteId = seed.PacienteId, dataProcedimento = new DateTime(2026, 9, 10), convenioId = seed.ConvenioId,
+            medicoResponsavelId = seed.MedicoId, status = AtendimentoCirurgicoStatus.Planejado,
+            procedimentos = new[] { new { cbhpmCodigo = seed.CbhpmCodigo, descricao = "Segundo procedimento", quantidade = 1m, pesoPercentual = 100m } }
+        });
+        Assert.Equal(HttpStatusCode.Created, segundoAtendimentoResponse.StatusCode);
 
         var detalheAtendimento = await client.GetAsync($"/api/atendimentos-cirurgicos/{atendimentoId}");
         Assert.Equal(HttpStatusCode.OK, detalheAtendimento.StatusCode);
@@ -62,6 +70,17 @@ public partial class ApiEndpointIntegrationTests
         using var faturamentoJson = await ReadJsonAsync(faturamentoResponse);
         var faturamentoId = faturamentoJson.RootElement.GetProperty("id").GetInt32();
         var faturamentoVersion = faturamentoJson.RootElement.GetProperty("rowVersion").GetBytesFromBase64();
+        var faturamentoItemId = faturamentoJson.RootElement.GetProperty("itens")[0].GetProperty("id").GetInt32();
+
+        var itemResponse = await client.PutAsJsonAsync($"/api/faturamentos/{faturamentoId}/itens/{faturamentoItemId}", new
+        {
+            faturamentoId, itemId = faturamentoItemId, codigo = seed.CbhpmCodigo, descricao = "Procedimento revisado",
+            quantidade = 1m, pesoPercentual = 100m, valorUnitario = 950m, rowVersion = faturamentoVersion
+        });
+        Assert.Equal(HttpStatusCode.OK, itemResponse.StatusCode);
+        using var itemJson = await ReadJsonAsync(itemResponse);
+        Assert.Equal(950m, itemJson.RootElement.GetProperty("valorApresentado").GetDecimal());
+        faturamentoVersion = itemJson.RootElement.GetProperty("rowVersion").GetBytesFromBase64();
 
         var atualizarFaturamento = await client.PutAsJsonAsync($"/api/faturamentos/{faturamentoId}", new
         {
@@ -77,6 +96,15 @@ public partial class ApiEndpointIntegrationTests
             id = faturamentoId, status = FaturamentoStatus.ProntoParaEnvio, rowVersion = faturamentoVersion
         });
         Assert.Equal(HttpStatusCode.OK, statusResponse.StatusCode);
+        using var readyJson = await ReadJsonAsync(statusResponse);
+        var readyVersion = readyJson.RootElement.GetProperty("rowVersion").GetBytesFromBase64();
+        var sendResponse = await client.PutAsJsonAsync($"/api/faturamentos/{faturamentoId}/status", new
+        {
+            id = faturamentoId, status = FaturamentoStatus.Enviado, rowVersion = readyVersion
+        });
+        Assert.Equal(HttpStatusCode.OK, sendResponse.StatusCode);
+        using var sentJson = await ReadJsonAsync(sendResponse);
+        Assert.NotEqual(JsonValueKind.Null, sentJson.RootElement.GetProperty("dataEnvio").ValueKind);
 
         var contaResponse = await client.PostAsJsonAsync($"/api/faturamentos/{faturamentoId}/contas-receber", new
         {
@@ -88,6 +116,14 @@ public partial class ApiEndpointIntegrationTests
         var contaId = contaJson.RootElement.GetProperty("id").GetInt32();
         var contaVersion = contaJson.RootElement.GetProperty("rowVersion").GetBytesFromBase64();
         var saldo = contaJson.RootElement.GetProperty("saldoAberto").GetDecimal();
+        var duplicateAccountResponse = await client.PostAsJsonAsync($"/api/faturamentos/{faturamentoId}/contas-receber", new
+        {
+            faturamentoId, numeroDocumento = "TIT-1", descricao = "Honorarios", dataEmissao = new DateTime(2026, 7, 12),
+            dataVencimento = new DateTime(2026, 8, 12)
+        });
+        Assert.Equal(HttpStatusCode.OK, duplicateAccountResponse.StatusCode);
+        using var duplicateJson = await ReadJsonAsync(duplicateAccountResponse);
+        Assert.Equal(contaId, duplicateJson.RootElement.GetProperty("id").GetInt32());
 
         var recebimentoResponse = await client.PostAsJsonAsync($"/api/financeiro/contas-receber/{contaId}/recebimentos", new
         {
@@ -98,6 +134,18 @@ public partial class ApiEndpointIntegrationTests
         Assert.Equal(HttpStatusCode.OK, recebimentoResponse.StatusCode);
         using var recebidoJson = await ReadJsonAsync(recebimentoResponse);
         var recebimentoId = recebidoJson.RootElement.GetProperty("recebimentos")[0].GetProperty("id").GetInt32();
+        var patientSummary = await client.GetAsync($"/api/pacientes/{seed.PacienteId}/resumo-financeiro");
+        Assert.Equal(HttpStatusCode.OK, patientSummary.StatusCode);
+        using var patientSummaryJson = await ReadJsonAsync(patientSummary);
+        Assert.Equal(saldo, patientSummaryJson.RootElement.GetProperty("valorRecebido").GetDecimal());
+        Assert.Equal(0m, patientSummaryJson.RootElement.GetProperty("saldoAberto").GetDecimal());
+        var paidVersion = recebidoJson.RootElement.GetProperty("rowVersion").GetBytesFromBase64();
+        var aboveBalance = await client.PostAsJsonAsync($"/api/financeiro/contas-receber/{contaId}/recebimentos", new
+        {
+            contaReceberId = contaId, dataRecebimento = new DateTime(2026, 8, 2), valorRecebido = 1m,
+            formaRecebimento = FormaRecebimento.Pix, usuarioCadastroId = 0, rowVersion = paidVersion
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, aboveBalance.StatusCode);
 
         using var multipart = new MultipartFormDataContent();
         multipart.Add(new ByteArrayContent(Encoding.UTF8.GetBytes("comprovante")) { Headers = { ContentType = new("application/pdf") } }, "arquivo", "comprovante.pdf");
