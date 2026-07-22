@@ -37,6 +37,16 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<FaturamentoMedico> FaturamentosMedicos { get; set; } = null!;
 
+    public DbSet<AtendimentoCirurgico> AtendimentosCirurgicos { get; set; } = null!;
+    public DbSet<AtendimentoProcedimento> AtendimentoProcedimentos { get; set; } = null!;
+    public DbSet<Faturamento> Faturamentos { get; set; } = null!;
+    public DbSet<FaturamentoItem> FaturamentoItens { get; set; } = null!;
+    public DbSet<Glosa> Glosas { get; set; } = null!;
+    public DbSet<RecursoGlosa> RecursosGlosa { get; set; } = null!;
+    public DbSet<ContaReceber> ContasReceber { get; set; } = null!;
+    public DbSet<Recebimento> Recebimentos { get; set; } = null!;
+    public DbSet<ConvenioProcedimentoPreco> ConvenioProcedimentoPrecos { get; set; } = null!;
+
     public DbSet<Observacao> Observacoes { get; set; } = null!;
 
     public DbSet<GrupoMedico> GruposMedicos { get; set; } = null!;

@@ -107,7 +107,6 @@ public partial class PacienteCommandHandlerTests
 
         var storedUser = await context.Users.SingleAsync(user => user.PerfilId == Perfil.PacientesId);
         var storedPaciente = await context.Pacientes.SingleAsync();
-        var storedFaturamento = await context.FaturamentosMedicos.SingleAsync();
 
         Assert.Equal(storedUser.Id, storedPaciente.UserId);
         Assert.Equal(Perfil.PacientesId, storedUser.PerfilId);
@@ -131,10 +130,7 @@ public partial class PacienteCommandHandlerTests
         Assert.Equal("Em consultorio", storedPaciente.Procedimento);
         Assert.Equal("2B", storedPaciente.CbhpmPorte);
         Assert.True(storedPaciente.StatusPago);
-        Assert.Equal(storedPaciente.Id, storedFaturamento.PacienteId);
-        Assert.Equal("AUT-123", storedFaturamento.GuiaAutorizacaoConvenio);
-        Assert.Equal("Fornecedor Manual OPME", storedFaturamento.OpmeMateriaisEspeciais);
-        Assert.True(storedFaturamento.ConferenciaPagamentoRealizada);
+        Assert.Empty(await context.FaturamentosMedicos.ToListAsync());
         Assert.Equal(storedPaciente.Id, response.Id);
         Assert.Equal("Diagnostico clinico de teste", response.Diagnostico);
         Assert.Equal("Tratamento clinico de teste", response.TratamentoMedico);
@@ -158,8 +154,6 @@ public partial class PacienteCommandHandlerTests
         Assert.Equal(120m, storedProcedimentos[0].ValorReferencia);
         Assert.Equal("10102019", storedProcedimentos[1].CbhpmCodigo);
         Assert.Equal(180m, storedProcedimentos[1].ValorReferencia);
-        Assert.Equal("10101012, 10102019", storedFaturamento.CodigoTussCbhpmAmb);
-        Assert.Equal("2B, 2A", storedFaturamento.PorteCirurgicoAnestesico);
     }
 
     [Fact]

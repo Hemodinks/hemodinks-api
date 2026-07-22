@@ -131,12 +131,7 @@ public partial class PacienteCommandHandlerTests
         Assert.Equal(doctorName, response.Medico);
         Assert.Equal(3, response.OpmeFornecedorId);
         Assert.Equal("GE", response.OpmeFornecedor);
-        var storedFaturamento = await context.FaturamentosMedicos.SingleAsync();
-        Assert.Equal(2500m, storedFaturamento.HonorariosCirurgiao);
-        Assert.Equal(125.50m, storedFaturamento.ValorGlosa);
-        Assert.Equal(2374.50m, storedFaturamento.RepasseMedico);
-        Assert.Equal("GE", storedFaturamento.OpmeMateriaisEspeciais);
-        Assert.True(storedFaturamento.ConferenciaPagamentoRealizada);
+        Assert.Empty(await context.FaturamentosMedicos.ToListAsync());
         var storedUser = await context.Users.SingleAsync(storedUser => storedUser.Id == user.Id);
         Assert.NotNull(storedUser.DataAtualizacao);
         Assert.Equal(storedUser.DataAtualizacao, response.DataAtualizacao);

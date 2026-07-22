@@ -1,7 +1,6 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Cbhpm;
-using HemodinksAPI.Application.Features.Faturamentos;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Tenancy;
@@ -70,53 +69,21 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             var email = await PacienteRules.ResolveEmailAsync(_context, request.Email, cpf, null, cancellationToken);
             var telefone = PacienteRules.ResolveTelefone(request.Telefone);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, null, cancellationToken);
-            var medico = await PacienteRules.ResolveMedicoAsync(
-                _context,
-                request.CurrentPerfilId,
-                request.CurrentUserId,
-                request.CurrentUserName,
-                request.MedicoUserId,
-                request.Medico,
-                cancellationToken);
-            var medicoAuxiliar1 = await PacienteRules.ResolveOptionalMedicoAsync(
-                _context,
-                request.CurrentPerfilId,
-                request.CurrentUserId,
-                request.MedicoAuxiliar1UserId,
-                request.MedicoAuxiliar1,
-                cancellationToken);
-            var medicoAuxiliar2 = await PacienteRules.ResolveOptionalMedicoAsync(
-                _context,
-                request.CurrentPerfilId,
-                request.CurrentUserId,
-                request.MedicoAuxiliar2UserId,
-                request.MedicoAuxiliar2,
-                cancellationToken);
+            var medico = await PacienteRules.ResolveMedicoAsync(_context, request.CurrentPerfilId, request.CurrentUserId,
+                request.CurrentUserName, request.MedicoUserId, request.Medico, cancellationToken);
+            var medicoAuxiliar1 = await PacienteRules.ResolveOptionalMedicoAsync(_context, request.CurrentPerfilId,
+                request.CurrentUserId, request.MedicoAuxiliar1UserId, request.MedicoAuxiliar1, cancellationToken);
+            var medicoAuxiliar2 = await PacienteRules.ResolveOptionalMedicoAsync(_context, request.CurrentPerfilId,
+                request.CurrentUserId, request.MedicoAuxiliar2UserId, request.MedicoAuxiliar2, cancellationToken);
             PacienteRules.ValidateDistinctMedicos(medico, medicoAuxiliar1, medicoAuxiliar2);
-            var hospital = await PacienteRules.ResolveHospitalAsync(
-                _context,
-                request.HospitalId,
-                request.Hospital,
-                cancellationToken);
-            var convenio = await PacienteRules.ResolveConvenioAsync(
-                _context,
-                request.ConvenioId,
-                request.Convenio,
-                cancellationToken);
-            var opmeFornecedor = await PacienteRules.ResolveOpmeFornecedorAsync(
-                _context,
-                request.OpmeFornecedorId,
-                request.OpmeFornecedor,
-                cancellationToken);
-            var procedimentos = await PacienteRules.ResolveProcedimentosAsync(
-                _cbhpmCache,
-                request.Procedimentos,
-                request.CbhpmCodigo,
-                request.Procedimento,
-                request.CbhpmPorte,
-                cancellationToken);
+            var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
+                ? await PacienteRules.ResolveHospitalAsync(_context, request.HospitalId, request.Hospital, cancellationToken)
+                : null;
+            var convenio = await PacienteRules.ResolveConvenioAsync(_context, request.ConvenioId, request.Convenio, cancellationToken);
+            var opmeFornecedor = await PacienteRules.ResolveOpmeFornecedorAsync(_context, request.OpmeFornecedorId, request.OpmeFornecedor, cancellationToken);
+            var procedimentos = await PacienteRules.ResolveProcedimentosAsync(_cbhpmCache, request.Procedimentos,
+                request.CbhpmCodigo, request.Procedimento, request.CbhpmPorte, cancellationToken);
             var procedimentoPrincipal = procedimentos.FirstOrDefault();
-
             var user = new User
             {
                 ClinicaId = clinicaId,
@@ -146,9 +113,9 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 NomePaciente = user.Nome,
                 Diagnostico = diagnostico,
                 TratamentoMedico = tratamentoMedico,
-                HospitalId = hospital.Id,
-                HospitalReferencia = hospital.Referencia,
-                Hospital = hospital.Nome,
+                HospitalId = hospital?.Id,
+                HospitalReferencia = hospital?.Referencia,
+                Hospital = hospital?.Nome,
                 MedicoUserId = medico.UserId,
                 Medico = medico.Nome,
                 MedicoAuxiliar1UserId = medicoAuxiliar1.UserId,
@@ -172,7 +139,6 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             };
 
             _context.Pacientes.Add(paciente);
-            FaturamentoMedicoSync.EnsureSynced(paciente, DateTime.UtcNow);
             await _context.SaveChangesAsync(cancellationToken);
 
             return PacienteMapper.ToDto(paciente);

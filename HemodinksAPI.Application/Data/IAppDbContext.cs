@@ -21,6 +21,16 @@ public interface IAppDbContext
 
     DbSet<FaturamentoMedico> FaturamentosMedicos { get; }
 
+    DbSet<AtendimentoCirurgico> AtendimentosCirurgicos { get; }
+    DbSet<AtendimentoProcedimento> AtendimentoProcedimentos { get; }
+    DbSet<Faturamento> Faturamentos { get; }
+    DbSet<FaturamentoItem> FaturamentoItens { get; }
+    DbSet<Glosa> Glosas { get; }
+    DbSet<RecursoGlosa> RecursosGlosa { get; }
+    DbSet<ContaReceber> ContasReceber { get; }
+    DbSet<Recebimento> Recebimentos { get; }
+    DbSet<ConvenioProcedimentoPreco> ConvenioProcedimentoPrecos { get; }
+
     DbSet<Observacao> Observacoes { get; }
 
     DbSet<GrupoMedico> GruposMedicos { get; }
