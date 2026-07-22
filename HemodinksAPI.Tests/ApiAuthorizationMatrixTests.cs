@@ -22,6 +22,8 @@ public partial class ApiEndpointIntegrationTests
     ];
 
     private static readonly int[] Administrators = [Perfil.AdministradorId, Perfil.SuperAdministradorId];
+    private static readonly int[] AdministratorsAndController =
+        [Perfil.AdministradorId, Perfil.ControllerId, Perfil.SuperAdministradorId];
     private static readonly int[] ClinicalOperators =
     [
         Perfil.AdministradorId,
@@ -85,22 +87,22 @@ public partial class ApiEndpointIntegrationTests
             Probe("Usuarios", "Cadastrar", HttpMethod.Post, "/api/users/", Administrators, BodyKind.EmptyJson),
             Probe("Usuarios", "Visualizar proprio", HttpMethod.Get, "/api/users/{self}", AllProfiles),
             Probe("Usuarios", "Alterar proprio", HttpMethod.Put, "/api/users/{self}",
-                [Perfil.AdministradorId, Perfil.MedicosId, Perfil.SuperAdministradorId], BodyKind.ValidOwnUser),
+                [Perfil.AdministradorId, Perfil.MedicosId, Perfil.PacientesId, Perfil.SuperAdministradorId], BodyKind.ValidOwnUser),
             Probe("Usuarios", "Excluir", HttpMethod.Delete, "/api/users/999999", Administrators),
             Probe("Usuarios", "Resetar senha de terceiro", HttpMethod.Put, "/api/users/999999/password/reset", Administrators),
 
-            Probe("Pacientes", "Listar", HttpMethod.Get, "/api/pacientes/", ClinicalOperators),
+            Probe("Pacientes", "Listar", HttpMethod.Get, "/api/pacientes/", AllProfiles),
             Probe("Pacientes", "Cadastrar", HttpMethod.Post, "/api/pacientes/", ClinicalOperators, BodyKind.EmptyJson),
             Probe("Pacientes", "Alterar", HttpMethod.Put, "/api/pacientes/999999", ClinicalOperators, BodyKind.EmptyJson),
             Probe("Pacientes", "Excluir", HttpMethod.Delete, "/api/pacientes/999999", Administrators),
 
             Probe("Faturamento medico", "Visualizar", HttpMethod.Get, "/api/faturamentos-medicos/", ClinicalOperators),
 
-            Probe("Grupos medicos", "Listar", HttpMethod.Get, "/api/grupos-medicos/", Administrators),
+            Probe("Grupos medicos", "Listar", HttpMethod.Get, "/api/grupos-medicos/", AdministratorsAndController),
             Probe("Grupos medicos", "Cadastrar", HttpMethod.Post, "/api/grupos-medicos/",
                 [Perfil.AdministradorId, Perfil.ControllerId, Perfil.SuperAdministradorId], BodyKind.EmptyJson),
-            Probe("Grupos medicos", "Alterar", HttpMethod.Put, "/api/grupos-medicos/999999", Administrators, BodyKind.EmptyJson),
-            Probe("Grupos medicos", "Excluir", HttpMethod.Delete, "/api/grupos-medicos/999999", Administrators),
+            Probe("Grupos medicos", "Alterar", HttpMethod.Put, "/api/grupos-medicos/999999", AdministratorsAndController, BodyKind.EmptyJson),
+            Probe("Grupos medicos", "Excluir", HttpMethod.Delete, "/api/grupos-medicos/999999", AdministratorsAndController),
 
             Probe("Agenda", "Listar", HttpMethod.Get, "/api/events/", AllProfiles),
             Probe("Agenda", "Cadastrar", HttpMethod.Post, "/api/events/", AllProfiles, BodyKind.EmptyJson),

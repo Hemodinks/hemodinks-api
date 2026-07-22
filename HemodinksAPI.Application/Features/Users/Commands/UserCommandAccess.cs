@@ -6,7 +6,8 @@ internal static class UserCommandAccess
 {
     public static bool CanUpdateUser(CurrentUserContext currentUser, int userId)
     {
-        return currentUser.IsAdministrador || (currentUser.IsMedico && currentUser.Id == userId);
+        return currentUser.IsAdministrador
+            || ((currentUser.IsMedico || currentUser.IsPaciente) && currentUser.Id == userId);
     }
 
     public static bool CanManageUserFiles(CurrentUserContext currentUser, int userId)
