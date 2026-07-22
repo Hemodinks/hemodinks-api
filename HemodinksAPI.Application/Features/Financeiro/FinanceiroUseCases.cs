@@ -7,7 +7,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
-public record AtendimentoProcedimentoInput(string? CbhpmCodigo, string? Descricao, decimal Quantidade = 1m, decimal PesoPercentual = 100m);
+public record AtendimentoProcedimentoInput(string? CbhpmCodigo, string? Descricao, decimal Quantidade = 1m,
+    decimal PesoPercentual = 100m, string? CbhpmPorte = null);
 public record CriarAtendimentoCommand(
     int PacienteId, DateTime DataProcedimento, int? HospitalId, int? ConvenioId,
     int MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
@@ -146,7 +147,8 @@ public sealed class CriarAtendimentoCommandHandler(IAppDbContext db, IClinicaCon
                 throw new InvalidOperationException("Descricao obrigatoria para procedimento sem cadastro CBHPM.");
             atendimento.Procedimentos.Add(new AtendimentoProcedimento
             {
-                ClinicaId = clinicaId, CbhpmCodigo = reference?.Codigo ?? code, CbhpmPorte = reference?.Porte,
+                ClinicaId = clinicaId, CbhpmCodigo = reference?.Codigo ?? code,
+                CbhpmPorte = reference?.Porte ?? input.CbhpmPorte?.Trim().ToUpperInvariant(),
                 Descricao = description, Quantidade = input.Quantidade, PesoPercentual = input.PesoPercentual,
                 ValorReferencia = reference?.ValorReferencia, ValorNegociado = negotiated?.ValorNegociado,
                 Ordem = ++order
