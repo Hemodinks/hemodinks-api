@@ -54,8 +54,11 @@ public record AtendimentoDto(int Id, int PacienteId, string Paciente, DateTime D
 public record FaturamentoItemDto(int Id, int? AtendimentoProcedimentoId, string? Codigo, string Descricao,
     decimal Quantidade, decimal PesoPercentual, decimal ValorUnitario, decimal ValorApresentado,
     decimal ValorGlosado, decimal ValorAprovado, FaturamentoItemStatus Status, int Ordem);
+public record RecursoGlosaDto(int Id, DateTime? DataEnvio, string Justificativa, decimal ValorRecorrido,
+    DateTime? DataResposta, decimal ValorRecuperado, RecursoGlosaStatus Status, string? Observacao);
 public record GlosaDto(int Id, int? FaturamentoItemId, string? CodigoMotivo, string DescricaoMotivo,
-    decimal ValorGlosado, DateTime DataGlosa, GlosaStatus Status);
+    decimal ValorGlosado, DateTime DataGlosa, GlosaStatus Status, string? Observacao,
+    List<RecursoGlosaDto> Recursos);
 public record FaturamentoDto(int Id, int AtendimentoCirurgicoId, int PacienteId, string Paciente, int? ConvenioId,
     string? NumeroGuia, string? NumeroLote, DateTime Competencia, DateTime? DataEnvio, DateTime? DataRetorno,
     decimal ValorApresentado, decimal ValorGlosado, decimal ValorGlosaRecuperada, decimal ValorReconhecido,
@@ -87,7 +90,9 @@ internal static class FinanceiroMapper
             i.Codigo, i.Descricao, i.Quantidade, i.PesoPercentual, i.ValorUnitario, i.ValorApresentado,
             i.ValorGlosado, i.ValorAprovado, i.Status, i.Ordem)).ToList(),
         x.Glosas.Select(g => new GlosaDto(g.Id, g.FaturamentoItemId, g.CodigoMotivo, g.DescricaoMotivo,
-            g.ValorGlosado, g.DataGlosa, g.Status)).ToList());
+            g.ValorGlosado, g.DataGlosa, g.Status, g.Observacao, g.Recursos.OrderByDescending(r => r.DataCadastro)
+                .Select(r => new RecursoGlosaDto(r.Id, r.DataEnvio, r.Justificativa, r.ValorRecorrido,
+                    r.DataResposta, r.ValorRecuperado, r.Status, r.Observacao)).ToList())).ToList());
 
     public static ContaReceberDto ToDto(ContaReceber x) => new(x.Id, x.FaturamentoId, x.PacienteId,
         x.Paciente.NomePaciente, x.ConvenioId, x.NumeroDocumento, x.Descricao, x.Competencia, x.DataEmissao,
