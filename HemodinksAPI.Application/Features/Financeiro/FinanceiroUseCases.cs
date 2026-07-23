@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Pacientes.Commands;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Services;
@@ -11,6 +12,7 @@ public record AtendimentoProcedimentoInput(string? CbhpmCodigo, string? Descrica
     decimal PesoPercentual = 100m, string? CbhpmPorte = null);
 public record CriarAtendimentoCommand(
     int PacienteId, DateTime DataProcedimento, int? HospitalId, int? ConvenioId, int? OpmeFornecedorId,
+    string? Hospital, string? Convenio, string? OpmeFornecedor,
     int MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
     string? Diagnostico, string? TratamentoMedico, string? NumeroAutorizacao,
     AtendimentoCirurgicoStatus Status, List<AtendimentoProcedimentoInput> Procedimentos) : IRequest<AtendimentoDto>
@@ -119,18 +121,28 @@ public sealed class CriarAtendimentoCommandHandler(IAppDbContext db, IClinicaCon
             throw new InvalidOperationException("Os medicos do atendimento devem ser distintos.");
         var paciente = await db.Pacientes.SingleOrDefaultAsync(x => x.Id == request.PacienteId, ct)
             ?? throw new KeyNotFoundException("Paciente nao encontrado.");
-        var opmeFornecedor = request.OpmeFornecedorId.HasValue
-            ? await db.OPME.SingleOrDefaultAsync(x => x.IdFornecedor == request.OpmeFornecedorId.Value, ct)
-                ?? throw new InvalidOperationException("Fornecedor OPME invalido.")
+        var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
+            ? await PacienteRules.ResolveHospitalAsync(db, request.HospitalId, request.Hospital, ct)
             : null;
+        var convenio = await PacienteRules.ResolveConvenioAsync(db, request.ConvenioId, request.Convenio, ct);
+        var opmeFornecedor = await PacienteRules.ResolveOpmeFornecedorAsync(
+            db, request.OpmeFornecedorId, request.OpmeFornecedor, ct);
+        if (hospital != null)
+            hospital.Referencia.ClinicaId = clinicaId;
+        if (convenio != null)
+            convenio.Referencia.ClinicaId = clinicaId;
+        if (opmeFornecedor != null)
+            opmeFornecedor.FornecedorReferencia.ClinicaId = clinicaId;
         if (await db.Users.CountAsync(x => ids.Contains(x.Id) && x.PerfilId == Perfil.MedicosId && x.Ativo, ct) != ids.Count)
             throw new InvalidOperationException("Selecione apenas medicos ativos da clinica.");
 
         var atendimento = new AtendimentoCirurgico
         {
             ClinicaId = clinicaId, Paciente = paciente, DataProcedimento = request.DataProcedimento,
-            HospitalId = request.HospitalId, ConvenioId = request.ConvenioId,
-            OpmeFornecedorId = opmeFornecedor?.IdFornecedor, OpmeFornecedor = opmeFornecedor,
+            HospitalId = hospital?.Id > 0 ? hospital.Id : null, Hospital = hospital?.Referencia,
+            ConvenioId = convenio?.Id > 0 ? convenio.Id : null, Convenio = convenio?.Referencia,
+            OpmeFornecedorId = opmeFornecedor?.Id > 0 ? opmeFornecedor.Id : null,
+            OpmeFornecedor = opmeFornecedor?.FornecedorReferencia,
             MedicoResponsavelId = medicoResponsavelId, MedicoAuxiliar1Id = request.MedicoAuxiliar1Id,
             MedicoAuxiliar2Id = request.MedicoAuxiliar2Id, Diagnostico = request.Diagnostico?.Trim(),
             TratamentoMedico = request.TratamentoMedico?.Trim(), NumeroAutorizacao = request.NumeroAutorizacao?.Trim(),
@@ -144,8 +156,9 @@ public sealed class CriarAtendimentoCommandHandler(IAppDbContext db, IClinicaCon
                 throw new InvalidOperationException("Quantidade e peso do procedimento sao invalidos.");
             var code = input.CbhpmCodigo?.Trim();
             var reference = code == null ? null : await db.CbhpmGeral.AsNoTracking().SingleOrDefaultAsync(x => x.Codigo == code, ct);
-            var negotiated = code == null || request.ConvenioId == null ? null : await db.ConvenioProcedimentoPrecos.AsNoTracking()
-                .Where(x => x.ConvenioId == request.ConvenioId && x.CbhpmCodigo == code && x.Ativo
+            int? convenioId = convenio?.Id > 0 ? convenio.Id : null;
+            var negotiated = code == null || convenioId == null ? null : await db.ConvenioProcedimentoPrecos.AsNoTracking()
+                .Where(x => x.ConvenioId == convenioId && x.CbhpmCodigo == code && x.Ativo
                     && x.VigenciaInicio <= request.DataProcedimento
                     && (x.VigenciaFinal == null || x.VigenciaFinal >= request.DataProcedimento))
                 .OrderByDescending(x => x.VigenciaInicio).FirstOrDefaultAsync(ct);

@@ -16,6 +16,85 @@ namespace HemodinksAPI.Tests;
 public partial class ApiEndpointIntegrationTests
 {
     [Fact]
+    public async Task CriarAtendimento_ComCatalogosManuaisNaSegundaClinica_AtribuiClinicaAtual()
+    {
+        using var factory = new HemodinksApiFactory();
+        var beta = await SeedClinicaBetaAsync(factory);
+        int pacienteId;
+        int medicoId;
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            medicoId = await db.Users
+                .Where(x => x.ClinicaId == beta.Id && x.PerfilId == Perfil.MedicosId)
+                .Select(x => x.Id)
+                .SingleAsync();
+            var pacienteUser = new User
+            {
+                ClinicaId = beta.Id,
+                Nome = "Paciente Financeiro Beta",
+                Telefone = "+5511888888877",
+                Email = $"paciente-beta-{Guid.NewGuid():N}@teste.local",
+                Senha = "hash",
+                PerfilId = Perfil.PacientesId,
+                Ativo = true,
+                PrecisaTrocarSenha = false
+            };
+            var paciente = new Paciente
+            {
+                ClinicaId = beta.Id,
+                User = pacienteUser,
+                NomePaciente = pacienteUser.Nome
+            };
+            db.Pacientes.Add(paciente);
+            await db.SaveChangesAsync();
+            pacienteId = paciente.Id;
+        }
+
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, beta.Slug, beta.AdminEmail, beta.AdminPassword);
+        var suffix = Guid.NewGuid().ToString("N");
+        var hospitalNome = $"Hospital manual beta {suffix}";
+        var convenioNome = $"Convenio manual beta {suffix}";
+        var opmeNome = $"OPME manual beta {suffix}";
+
+        var response = await client.PostAsJsonAsync("/api/atendimentos-cirurgicos/", new
+        {
+            pacienteId,
+            dataProcedimento = new DateTime(2026, 8, 10),
+            hospital = hospitalNome,
+            convenio = convenioNome,
+            opmeFornecedor = opmeNome,
+            medicoResponsavelId = medicoId,
+            status = "Planejado",
+            procedimentos = new[]
+            {
+                new
+                {
+                    cbhpmCodigo = "20202020",
+                    descricao = "Cirurgia manual",
+                    cbhpmPorte = "3C",
+                    quantidade = 1m,
+                    pesoPercentual = 100m
+                }
+            }
+        });
+
+        var responseContent = await response.Content.ReadAsStringAsync();
+        Assert.True(
+            response.StatusCode == HttpStatusCode.Created,
+            $"Esperado 201, recebido {(int)response.StatusCode}: {responseContent}");
+        using var verificationScope = factory.Services.CreateScope();
+        verificationScope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+        var verificationDb = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.Equal(beta.Id, (await verificationDb.Hospitais.SingleAsync(x => x.Nome == hospitalNome)).ClinicaId);
+        Assert.Equal(beta.Id, (await verificationDb.Convenios.SingleAsync(x => x.DescricaoConvenio == convenioNome)).ClinicaId);
+        Assert.Equal(beta.Id, (await verificationDb.OPME.SingleAsync(x => x.Fornecedor == opmeNome)).ClinicaId);
+    }
+
+    [Fact]
     public async Task FinanceiroEndpoints_ExecuteNormalizedFlowWithCrudFiltersReportsAuditAndReceiptFile()
     {
         var fileStorage = new TestingFinancialFileStorage();
@@ -46,6 +125,28 @@ public partial class ApiEndpointIntegrationTests
         var atendimentoId = atendimentoJson.RootElement.GetProperty("id").GetInt32();
         Assert.Equal(seed.OpmeFornecedorId, atendimentoJson.RootElement.GetProperty("opmeFornecedorId").GetInt32());
         Assert.Equal(seed.OpmeFornecedor, atendimentoJson.RootElement.GetProperty("opmeFornecedor").GetString());
+        var atendimentoManualResponse = await client.PostAsJsonAsync("/api/atendimentos-cirurgicos/", new
+        {
+            pacienteId = seed.PacienteId,
+            dataProcedimento = new DateTime(2026, 8, 10),
+            hospital = "Hospital manual atendimento",
+            convenio = "Convenio manual atendimento",
+            opmeFornecedor = "OPME manual atendimento",
+            medicoResponsavelId = seed.MedicoId,
+            status = "Planejado",
+            procedimentos = new[] { new { descricao = "Procedimento manual", quantidade = 1m, pesoPercentual = 100m } }
+        });
+        Assert.Equal(HttpStatusCode.Created, atendimentoManualResponse.StatusCode);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            Assert.NotNull(await context.Hospitais.IgnoreQueryFilters()
+                .SingleOrDefaultAsync(x => x.Nome == "Hospital manual atendimento"));
+            Assert.NotNull(await context.Convenios.IgnoreQueryFilters()
+                .SingleOrDefaultAsync(x => x.DescricaoConvenio == "Convenio manual atendimento"));
+            Assert.NotNull(await context.OPME.IgnoreQueryFilters()
+                .SingleOrDefaultAsync(x => x.Fornecedor == "OPME manual atendimento"));
+        }
         var segundoAtendimentoResponse = await client.PostAsJsonAsync("/api/atendimentos-cirurgicos/", new
         {
             pacienteId = seed.PacienteId, dataProcedimento = new DateTime(2026, 9, 10), convenioId = seed.ConvenioId,
