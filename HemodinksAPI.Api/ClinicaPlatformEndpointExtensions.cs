@@ -192,10 +192,13 @@ public static partial class ClinicaPlatformEndpointExtensions
         UpdateClinicaRequest request,
         HttpContext httpContext,
         AppDbContext context,
+        ClinicaContext clinicaContext,
         IProfilePhotoStorage photoStorage,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
+        clinicaContext.SetPlatformScope();
+
         var clinica = await context.Clinicas.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (clinica == null)
         {

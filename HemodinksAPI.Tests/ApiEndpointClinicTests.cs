@@ -243,6 +243,45 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task SuperAdministrador_CanUpdateClinicDifferentFromCurrentClinic()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var slug = $"clinica-{Guid.NewGuid():N}";
+        var createResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica antes da edicao",
+            slug,
+            administradorNome = "Administradora Local",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123",
+            plano = "Completa",
+            assinaturaStatus = "Ativa"
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        using var createJson = await ReadJsonAsync(createResponse);
+        var targetClinicId = createJson.RootElement.GetProperty("id").GetInt32();
+        var updateResponse = await client.PutAsJsonAsync($"/api/platform/clinicas/{targetClinicId}", new
+        {
+            nome = "Clinica depois da edicao"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var clinicContext = scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>();
+        clinicContext.SetPlatformScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var settings = await context.ConfiguracoesSistema
+            .IgnoreQueryFilters()
+            .SingleAsync(item => item.ClinicaId == targetClinicId);
+        Assert.Equal("Clinica depois da edicao", settings.NomeEmpresa);
+    }
+
+    [Fact]
     public async Task PlatformClinics_WhenPlanIsInvalid_ReturnsBadRequest()
     {
         using var factory = new HemodinksApiFactory();
