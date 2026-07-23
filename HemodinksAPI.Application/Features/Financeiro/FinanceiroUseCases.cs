@@ -15,6 +15,7 @@ public record CriarAtendimentoCommand(
     string? Hospital, string? Convenio, string? OpmeFornecedor,
     int MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
     string? Diagnostico, string? TratamentoMedico, string? NumeroAutorizacao,
+    decimal? ValorGlosa, string? MotivoGlosa,
     AtendimentoCirurgicoStatus Status, List<AtendimentoProcedimentoInput> Procedimentos) : IRequest<AtendimentoDto>
 {
     public int CurrentUserId { get; init; }
@@ -54,6 +55,7 @@ public record AtendimentoDto(int Id, int PacienteId, string Paciente, DateTime D
     int? ConvenioId, int? OpmeFornecedorId, string? OpmeFornecedor, int MedicoResponsavelId,
     int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
     string? Diagnostico, string? TratamentoMedico, string? NumeroAutorizacao,
+    decimal? ValorGlosa, string? MotivoGlosa,
     AtendimentoCirurgicoStatus Status, List<AtendimentoProcedimentoDto> Procedimentos);
 public record FaturamentoItemDto(int Id, int? AtendimentoProcedimentoId, string? Codigo, string Descricao,
     decimal Quantidade, decimal PesoPercentual, decimal ValorUnitario, decimal ValorApresentado,
@@ -83,7 +85,8 @@ internal static class FinanceiroMapper
     public static AtendimentoDto ToDto(AtendimentoCirurgico x) => new(x.Id, x.PacienteId, x.Paciente.NomePaciente,
         x.DataProcedimento, x.HospitalId, x.ConvenioId, x.OpmeFornecedorId, x.OpmeFornecedor?.Fornecedor,
         x.MedicoResponsavelId, x.MedicoAuxiliar1Id,
-        x.MedicoAuxiliar2Id, x.Diagnostico, x.TratamentoMedico, x.NumeroAutorizacao, x.Status,
+        x.MedicoAuxiliar2Id, x.Diagnostico, x.TratamentoMedico, x.NumeroAutorizacao,
+        x.ValorGlosa, x.MotivoGlosa, x.Status,
         x.Procedimentos.OrderBy(p => p.Ordem).Select(p => new AtendimentoProcedimentoDto(p.Id, p.CbhpmCodigo,
             p.CbhpmPorte, p.Descricao, p.Quantidade, p.PesoPercentual, p.ValorReferencia, p.ValorNegociado, p.Ordem)).ToList());
 
@@ -115,6 +118,8 @@ public sealed class CriarAtendimentoCommandHandler(IAppDbContext db, IClinicaCon
         var clinicaId = tenant.GetRequiredClinicaId();
         if (request.DataProcedimento == default || request.Procedimentos.Count == 0)
             throw new InvalidOperationException("Data e ao menos um procedimento sao obrigatorios.");
+        if (request.ValorGlosa < 0 || request.ValorGlosa > 0 && string.IsNullOrWhiteSpace(request.MotivoGlosa))
+            throw new InvalidOperationException("Informe um valor de glosa valido e o respectivo motivo.");
         var medicoResponsavelId = request.CurrentPerfilId == Perfil.MedicosId ? request.CurrentUserId : request.MedicoResponsavelId;
         var ids = new[] { medicoResponsavelId, request.MedicoAuxiliar1Id ?? 0, request.MedicoAuxiliar2Id ?? 0 }.Where(x => x > 0).ToList();
         if (ids.Distinct().Count() != ids.Count)
@@ -146,6 +151,8 @@ public sealed class CriarAtendimentoCommandHandler(IAppDbContext db, IClinicaCon
             MedicoResponsavelId = medicoResponsavelId, MedicoAuxiliar1Id = request.MedicoAuxiliar1Id,
             MedicoAuxiliar2Id = request.MedicoAuxiliar2Id, Diagnostico = request.Diagnostico?.Trim(),
             TratamentoMedico = request.TratamentoMedico?.Trim(), NumeroAutorizacao = request.NumeroAutorizacao?.Trim(),
+            ValorGlosa = request.ValorGlosa > 0 ? request.ValorGlosa : null,
+            MotivoGlosa = request.ValorGlosa > 0 ? request.MotivoGlosa?.Trim() : null,
             Status = request.Status
         };
 
@@ -219,6 +226,21 @@ public sealed class CriarFaturamentoCommandHandler(IAppDbContext db, IClinicaCon
                 Descricao = p.Descricao, Quantidade = p.Quantidade, PesoPercentual = p.PesoPercentual,
                 ValorUnitario = unit, ValorApresentado = presented, ValorAprovado = presented,
                 Status = FaturamentoItemStatus.Rascunho, Ordem = p.Ordem
+            });
+        }
+        var requestedGlosa = atendimento.ValorGlosa ?? 0m;
+        if (requestedGlosa > 0)
+        {
+            var presentedTotal = faturamento.Itens.Sum(x => x.ValorApresentado);
+            if (requestedGlosa > presentedTotal)
+                throw new InvalidOperationException("A glosa informada no atendimento excede o valor apresentado.");
+            faturamento.Glosas.Add(new Glosa
+            {
+                ClinicaId = faturamento.ClinicaId,
+                DescricaoMotivo = atendimento.MotivoGlosa!,
+                ValorGlosado = requestedGlosa,
+                DataGlosa = atendimento.DataProcedimento,
+                Status = GlosaStatus.Aberta
             });
         }
         FinanceiroCalculations.Recalculate(faturamento);

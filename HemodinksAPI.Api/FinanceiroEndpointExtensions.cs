@@ -125,6 +125,10 @@ public static class FinanceiroEndpointExtensions
         financeiro.MapPost("/recebimentos/{id:int}/comprovante", async (int id, IFormFile arquivo,
             IPatientFileStorage storage, AppDbContext db, CancellationToken ct) =>
         {
+            var extension = Path.GetExtension(arquivo.FileName).ToLowerInvariant();
+            if (extension is not ".pdf" and not ".jpg" and not ".jpeg")
+                throw new InvalidOperationException("O comprovante deve estar no formato PDF ou JPG.");
+
             var receipt = await db.Recebimentos.SingleOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new KeyNotFoundException("Recebimento nao encontrado.");
             var oldUrl = receipt.DocumentoComprovante;
@@ -139,9 +143,21 @@ public static class FinanceiroEndpointExtensions
         {
             var receipt = await db.Recebimentos.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct)
                 ?? throw new KeyNotFoundException("Recebimento nao encontrado.");
-            var file = await storage.GetAsync(receipt.DocumentoComprovante, ct)
+            var storedUrl = receipt.DocumentoComprovante
                 ?? throw new KeyNotFoundException("Comprovante nao encontrado.");
-            return Results.Stream(file.Content, "application/octet-stream", $"comprovante-{id}");
+            var file = await storage.GetAsync(storedUrl, ct)
+                ?? throw new KeyNotFoundException("Comprovante nao encontrado.");
+            var storedPath = Uri.TryCreate(storedUrl, UriKind.Absolute, out var storedUri)
+                ? storedUri.AbsolutePath
+                : storedUrl;
+            var extension = Path.GetExtension(storedPath).ToLowerInvariant();
+            var (contentType, downloadExtension) = extension switch
+            {
+                ".pdf" => ("application/pdf", ".pdf"),
+                ".jpg" or ".jpeg" => ("image/jpeg", ".jpg"),
+                _ => throw new InvalidOperationException("O formato do comprovante armazenado não é suportado.")
+            };
+            return Results.Stream(file.Content, contentType, $"comprovante-{id}{downloadExtension}");
         }).RequireAuthorization("FinanceiroVisualizar");
 
         var precos = app.MapGroup("/api/convenios-procedimentos-precos").WithTags("Precos por convenio").RequireAuthorization()

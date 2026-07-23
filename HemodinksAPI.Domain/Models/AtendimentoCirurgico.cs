@@ -23,6 +23,8 @@ public class AtendimentoCirurgico : IClinicaOwnedEntity
     public string? Diagnostico { get; set; }
     public string? TratamentoMedico { get; set; }
     public string? NumeroAutorizacao { get; set; }
+    public decimal? ValorGlosa { get; set; }
+    public string? MotivoGlosa { get; set; }
     public AtendimentoCirurgicoStatus Status { get; set; } = AtendimentoCirurgicoStatus.Planejado;
     public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
     public DateTime? DataAtualizacao { get; set; }

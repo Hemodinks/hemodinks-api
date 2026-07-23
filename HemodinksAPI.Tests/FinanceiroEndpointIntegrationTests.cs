@@ -133,10 +133,17 @@ public partial class ApiEndpointIntegrationTests
             convenio = "Convenio manual atendimento",
             opmeFornecedor = "OPME manual atendimento",
             medicoResponsavelId = seed.MedicoId,
+            valorGlosa = 125m,
+            motivoGlosa = "Divergencia contratual",
             status = "Planejado",
             procedimentos = new[] { new { descricao = "Procedimento manual", quantidade = 1m, pesoPercentual = 100m } }
         });
         Assert.Equal(HttpStatusCode.Created, atendimentoManualResponse.StatusCode);
+        using (var atendimentoManualJson = await ReadJsonAsync(atendimentoManualResponse))
+        {
+            Assert.Equal(125m, atendimentoManualJson.RootElement.GetProperty("valorGlosa").GetDecimal());
+            Assert.Equal("Divergencia contratual", atendimentoManualJson.RootElement.GetProperty("motivoGlosa").GetString());
+        }
         using (var scope = factory.Services.CreateScope())
         {
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -256,12 +263,20 @@ public partial class ApiEndpointIntegrationTests
         });
         Assert.Equal(HttpStatusCode.BadRequest, aboveBalance.StatusCode);
 
+        using var invalidMultipart = new MultipartFormDataContent();
+        invalidMultipart.Add(new ByteArrayContent(Encoding.UTF8.GetBytes("imagem")) { Headers = { ContentType = new("image/png") } }, "arquivo", "comprovante.png");
+        var invalidUploadResponse = await client.PostAsync($"/api/financeiro/contas-receber/recebimentos/{recebimentoId}/comprovante", invalidMultipart);
+        Assert.Equal(HttpStatusCode.BadRequest, invalidUploadResponse.StatusCode);
+
         using var multipart = new MultipartFormDataContent();
         multipart.Add(new ByteArrayContent(Encoding.UTF8.GetBytes("comprovante")) { Headers = { ContentType = new("application/pdf") } }, "arquivo", "comprovante.pdf");
         var uploadResponse = await client.PostAsync($"/api/financeiro/contas-receber/recebimentos/{recebimentoId}/comprovante", multipart);
         Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
         Assert.Equal("comprovante.pdf", fileStorage.LastSavedName);
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/financeiro/contas-receber/recebimentos/{recebimentoId}/comprovante")).StatusCode);
+        var downloadResponse = await client.GetAsync($"/api/financeiro/contas-receber/recebimentos/{recebimentoId}/comprovante");
+        Assert.Equal(HttpStatusCode.OK, downloadResponse.StatusCode);
+        Assert.Equal("application/pdf", downloadResponse.Content.Headers.ContentType?.MediaType);
+        Assert.Equal($"comprovante-{recebimentoId}.pdf", downloadResponse.Content.Headers.ContentDisposition?.FileNameStar);
 
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/faturamentos/pesquisa?page=1&pageSize=10&termo=GUIA-2")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/financeiro/contas-receber/pesquisa?page=1&pageSize=10&termo=TIT-1")).StatusCode);

@@ -13,9 +13,9 @@ public record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int
 
 public record ObterAtendimentoQuery(int Id, int CurrentUserId, int CurrentPerfilId) : IRequest<AtendimentoDto>;
 public record AtualizarAtendimentoCommand(int Id, DateTime DataProcedimento, int? HospitalId, int? ConvenioId,
-    int MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id, string? Diagnostico,
+    int? OpmeFornecedorId, int MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id, string? Diagnostico,
     string? TratamentoMedico, string? NumeroAutorizacao, AtendimentoCirurgicoStatus Status,
-    List<AtendimentoProcedimentoInput> Procedimentos) : IRequest<AtendimentoDto>;
+    decimal? ValorGlosa, string? MotivoGlosa, List<AtendimentoProcedimentoInput> Procedimentos) : IRequest<AtendimentoDto>;
 public record ExcluirAtendimentoCommand(int Id) : IRequest;
 public record ObterFaturamentoQuery(int Id, int CurrentUserId, int CurrentPerfilId) : IRequest<FaturamentoDto>;
 public record AtualizarFaturamentoCommand(int Id, string? NumeroGuia, string? NumeroLote, DateTime Competencia,
@@ -90,14 +90,17 @@ public sealed class AtualizarAtendimentoCommandHandler(IAppDbContext db) : IRequ
         var item = await FinanceiroManagementQueries.FullAtendimento(db.AtendimentosCirurgicos)
             .Include(x => x.Faturamentos).SingleOrDefaultAsync(x => x.Id == request.Id, ct)
             ?? throw new KeyNotFoundException("Atendimento nao encontrado.");
-        if (item.Faturamentos.Count > 0 && request.Procedimentos.Count > 0)
-            throw new InvalidOperationException("Procedimentos nao podem ser substituidos depois da criacao do faturamento.");
         var doctors = new[] { request.MedicoResponsavelId, request.MedicoAuxiliar1Id ?? 0, request.MedicoAuxiliar2Id ?? 0 }.Where(x => x > 0).ToArray();
         if (doctors.Distinct().Count() != doctors.Length) throw new InvalidOperationException("Os medicos devem ser distintos.");
+        if (request.ValorGlosa < 0 || request.ValorGlosa > 0 && string.IsNullOrWhiteSpace(request.MotivoGlosa))
+            throw new InvalidOperationException("Informe um valor de glosa valido e o respectivo motivo.");
         item.DataProcedimento = request.DataProcedimento; item.HospitalId = request.HospitalId; item.ConvenioId = request.ConvenioId;
+        item.OpmeFornecedorId = request.OpmeFornecedorId;
         item.MedicoResponsavelId = request.MedicoResponsavelId; item.MedicoAuxiliar1Id = request.MedicoAuxiliar1Id;
         item.MedicoAuxiliar2Id = request.MedicoAuxiliar2Id; item.Diagnostico = request.Diagnostico?.Trim();
         item.TratamentoMedico = request.TratamentoMedico?.Trim(); item.NumeroAutorizacao = request.NumeroAutorizacao?.Trim();
+        item.ValorGlosa = request.ValorGlosa > 0 ? request.ValorGlosa : null;
+        item.MotivoGlosa = request.ValorGlosa > 0 ? request.MotivoGlosa?.Trim() : null;
         item.Status = request.Status; item.DataAtualizacao = DateTime.UtcNow;
         if (item.Faturamentos.Count == 0 && request.Procedimentos.Count > 0)
         {

@@ -15,6 +15,8 @@ internal sealed class AtendimentoCirurgicoConfiguration : IEntityTypeConfigurati
         entity.Property(x => x.Diagnostico).HasMaxLength(1000);
         entity.Property(x => x.TratamentoMedico).HasMaxLength(1000);
         entity.Property(x => x.NumeroAutorizacao).HasMaxLength(255);
+        entity.Property(x => x.ValorGlosa).HasColumnType("decimal(18,2)");
+        entity.Property(x => x.MotivoGlosa).HasMaxLength(1000);
         entity.Property(x => x.Status).HasConversion<string>().HasMaxLength(30);
         entity.Property(x => x.DataCadastro).HasDefaultValueSql("GETUTCDATE()");
         entity.HasIndex(x => new { x.ClinicaId, x.PacienteId, x.DataProcedimento });
