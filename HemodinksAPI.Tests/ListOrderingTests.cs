@@ -3,7 +3,6 @@ using HemodinksAPI.Application.Features.Users.Queries;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HemodinksAPI.Tests;

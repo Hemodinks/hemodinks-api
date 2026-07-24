@@ -1,6 +1,3 @@
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Hosting;
-
 namespace HemodinksAPI.Api;
 
 public static class LocalUserSecretsConfigurationExtensions

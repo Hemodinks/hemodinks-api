@@ -192,7 +192,7 @@ void ConfigureFront<TResource>(
     IResourceBuilder<TResource> api)
     where TResource : IResourceWithEndpoints
 {
-    var front = builder.AddNpmApp("front", frontPath, "dev")
+    var front = builder.AddJavaScriptApp("front", frontPath, "dev")
         .WithHttpEndpoint(targetPort: 5173, port: 5173, isProxied: false)
         .WithEnvironment("VITE_API_URL", api.GetEndpoint("http"));
 

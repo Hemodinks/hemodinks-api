@@ -1,10 +1,8 @@
 using HemodinksAPI.Application.Features.Faturamentos.Queries;
 using HemodinksAPI.Application.Features.Faturamentos;
-using HemodinksAPI.Application.Features.Pacientes.Commands;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HemodinksAPI.Tests;

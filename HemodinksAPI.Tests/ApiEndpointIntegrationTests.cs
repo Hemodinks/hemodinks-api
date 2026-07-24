@@ -1,16 +1,9 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using HemodinksAPI.Api;
-using HemodinksAPI.Application.Async;
-using HemodinksAPI.Application.Services;
-using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Data;
-using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Tests;
 

@@ -1,5 +1,3 @@
-using HemodinksAPI.Application.Storage;
-
 namespace HemodinksAPI.Infrastructure.Storage;
 
 internal static class ProfilePhotoStorageSupport
