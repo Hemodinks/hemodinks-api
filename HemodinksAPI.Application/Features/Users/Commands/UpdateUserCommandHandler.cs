@@ -75,6 +75,12 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 throw new UnauthorizedAccessException("Sem permissao para atualizar usuario");
             }
 
+            if (user.PerfilId == Perfil.SuperAdministradorId
+                && request.CurrentUser?.IsSuperAdministrador != true)
+            {
+                throw new UnauthorizedAccessException("Somente outro SuperAdministrador pode alterar este cadastro");
+            }
+
             if (request.CurrentUser != null && !request.CurrentUser.IsAdministrador)
             {
                 effectivePerfilId = user.PerfilId;
@@ -113,7 +119,8 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             }
 
             var perfilId = UserProfileRules.NormalizePerfilId(effectivePerfilId);
-            if (perfilId == Perfil.PacientesId)
+            var canAssignRestrictedProfiles = request.CurrentUser?.IsSuperAdministrador == true;
+            if (perfilId == Perfil.PacientesId && !canAssignRestrictedProfiles)
             {
                 if (user.PerfilId != Perfil.PacientesId)
                 {
@@ -122,7 +129,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             }
             else
             {
-                UserProfileRules.EnsureAssignablePerfilId(perfilId);
+                UserProfileRules.EnsureAssignablePerfilId(perfilId, canAssignRestrictedProfiles);
             }
             var perfil = await _context.Perfis
                 .AsNoTracking()

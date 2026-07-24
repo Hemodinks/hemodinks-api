@@ -381,7 +381,7 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
-    public async Task PlatformClinics_WhenUserIsCommonAdministrator_ReturnsForbidden()
+    public async Task PlatformClinics_WhenUserIsCommonAdministrator_ReturnsOnlyOwnClinic()
     {
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient();
@@ -390,7 +390,19 @@ public partial class ApiEndpointIntegrationTests
 
         var response = await client.GetAsync("/api/platform/clinicas");
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        var items = json.RootElement.EnumerateArray().ToList();
+        Assert.Single(items);
+        Assert.Equal(beta.Id, items[0].GetProperty("id").GetInt32());
+        Assert.Equal(beta.Slug, items[0].GetProperty("slug").GetString());
+
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await client.GetAsync($"/api/platform/clinicas/{Clinica.DefaultId}")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.GetAsync($"/api/platform/clinicas/{beta.Id}")).StatusCode);
     }
 
     [Fact]

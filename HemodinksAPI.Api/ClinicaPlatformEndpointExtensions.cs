@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using System.Text.RegularExpressions;
 using System.Net.Mail;
+using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Storage;
@@ -19,7 +20,7 @@ public static partial class ClinicaPlatformEndpointExtensions
     {
         var group = app.MapGroup("/api/platform/clinicas")
             .WithTags("Plataforma - Clinicas")
-            .RequireAuthorization("SuperAdministrador")
+            .RequireAuthorization("Administrador")
             .AddEndpointFilter(async (invocationContext, next) =>
             {
                 try
@@ -34,24 +35,37 @@ public static partial class ClinicaPlatformEndpointExtensions
 
         group.MapGet("/", ListClinicas);
         group.MapGet("/{id:int}", GetClinica);
-        group.MapPost("/", CreateClinica);
+        group.MapPost("/", CreateClinica).RequireAuthorization("SuperAdministrador");
         group.MapPut("/{id:int}", UpdateClinica);
-        group.MapDelete("/{id:int}", DeactivateClinica);
+        group.MapDelete("/{id:int}", DeactivateClinica).RequireAuthorization("SuperAdministrador");
 
         app.MapGet("/api/platform/auditoria", ListPlatformAudit)
             .WithTags("Plataforma - Auditoria")
             .RequireAuthorization("SuperAdministrador");
     }
 
-    private static async Task<IResult> ListClinicas(AppDbContext context, CancellationToken cancellationToken)
+    private static async Task<IResult> ListClinicas(
+        ClaimsPrincipal principal,
+        AppDbContext context,
+        CancellationToken cancellationToken)
     {
-        var clinicas = await context.Clinicas
-            .AsNoTracking()
+        var currentUser = principal.ToCurrentUserContext();
+        if (currentUser == null) return Results.Unauthorized();
+
+        var clinicQuery = context.Clinicas.AsNoTracking();
+        if (!currentUser.IsSuperAdministrador)
+        {
+            clinicQuery = clinicQuery.Where(item => item.Id == currentUser.ClinicaId);
+        }
+
+        var clinicas = await clinicQuery
             .OrderBy(item => item.Nome)
             .ToListAsync(cancellationToken);
+        var clinicIds = clinicas.Select(item => item.Id).ToArray();
         var userCounts = await context.Users
             .IgnoreQueryFilters()
             .AsNoTracking()
+            .Where(item => clinicIds.Contains(item.ClinicaId))
             .GroupBy(item => item.ClinicaId)
             .Select(group => new { ClinicaId = group.Key, Count = group.Count() })
             .ToDictionaryAsync(item => item.ClinicaId, item => item.Count, cancellationToken);
@@ -64,10 +78,15 @@ public static partial class ClinicaPlatformEndpointExtensions
 
     private static async Task<IResult> GetClinica(
         int id,
+        ClaimsPrincipal principal,
         AppDbContext context,
         ClinicaContext clinicaContext,
         CancellationToken cancellationToken)
     {
+        var currentUser = principal.ToCurrentUserContext();
+        if (currentUser == null) return Results.Unauthorized();
+        if (!currentUser.IsSuperAdministrador && currentUser.ClinicaId != id) return Results.Forbid();
+
         var clinica = await context.Clinicas.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (clinica == null)
         {
@@ -190,6 +209,7 @@ public static partial class ClinicaPlatformEndpointExtensions
     private static async Task<IResult> UpdateClinica(
         int id,
         UpdateClinicaRequest request,
+        ClaimsPrincipal principal,
         HttpContext httpContext,
         AppDbContext context,
         ClinicaContext clinicaContext,
@@ -197,6 +217,10 @@ public static partial class ClinicaPlatformEndpointExtensions
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
+        var currentUser = principal.ToCurrentUserContext();
+        if (currentUser == null) return Results.Unauthorized();
+        if (!currentUser.IsSuperAdministrador && currentUser.ClinicaId != id) return Results.Forbid();
+
         clinicaContext.SetPlatformScope();
 
         var clinica = await context.Clinicas.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -219,6 +243,31 @@ public static partial class ClinicaPlatformEndpointExtensions
             }
 
             clinica.Slug = slug;
+        }
+
+        if (!currentUser.IsSuperAdministrador)
+        {
+            if (request.FotoClinica != null)
+            {
+                clinica.FotoClinica = await photoStorage.SaveAsync(
+                    request.FotoClinica,
+                    clinica.FotoClinica,
+                    cancellationToken);
+            }
+
+            clinica.DataAtualizacao = DateTime.UtcNow;
+            await SynchronizeLegacySettingsAsync(context, clinica, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+            await auditService.RecordAsync(
+                httpContext,
+                "clinic.update-own",
+                "clinic",
+                clinica.Id.ToString(),
+                clinica.Id,
+                new { clinica.Nome, clinica.Slug },
+                true,
+                cancellationToken);
+            return Results.Ok(ToResponse(clinica, null));
         }
 
         if (request.Ativa.HasValue) clinica.Ativa = request.Ativa.Value;
@@ -267,15 +316,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         }
         clinica.DataAtualizacao = DateTime.UtcNow;
 
-        var legacySettings = await context.ConfiguracoesSistema
-            .IgnoreQueryFilters()
-            .FirstOrDefaultAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
-        if (legacySettings != null)
-        {
-            legacySettings.NomeEmpresa = clinica.Nome;
-            legacySettings.FotoEmpresa = clinica.FotoClinica;
-            legacySettings.DataAtualizacao = clinica.DataAtualizacao;
-        }
+        await SynchronizeLegacySettingsAsync(context, clinica, cancellationToken);
 
         await context.SaveChangesAsync(cancellationToken);
         await auditService.RecordAsync(
@@ -288,6 +329,21 @@ public static partial class ClinicaPlatformEndpointExtensions
             true,
             cancellationToken);
         return Results.Ok(ToResponse(clinica, null));
+    }
+
+    private static async Task SynchronizeLegacySettingsAsync(
+        AppDbContext context,
+        Clinica clinica,
+        CancellationToken cancellationToken)
+    {
+        var legacySettings = await context.ConfiguracoesSistema
+            .IgnoreQueryFilters()
+            .FirstOrDefaultAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
+        if (legacySettings == null) return;
+
+        legacySettings.NomeEmpresa = clinica.Nome;
+        legacySettings.FotoEmpresa = clinica.FotoClinica;
+        legacySettings.DataAtualizacao = clinica.DataAtualizacao;
     }
 
     private static async Task<IResult> DeactivateClinica(

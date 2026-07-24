@@ -77,9 +77,9 @@ public partial class ApiEndpointIntegrationTests
         return
         [
             Probe("Dashboard", "Visualizar", HttpMethod.Get, "/api/dashboard/summary", AllProfiles),
-            Probe("Clinicas", "Listar", HttpMethod.Get, "/api/platform/clinicas", [Perfil.SuperAdministradorId]),
+            Probe("Clinicas", "Listar", HttpMethod.Get, "/api/platform/clinicas", Administrators),
             Probe("Clinicas", "Cadastrar", HttpMethod.Post, "/api/platform/clinicas", [Perfil.SuperAdministradorId], BodyKind.EmptyJson),
-            Probe("Clinicas", "Alterar", HttpMethod.Put, "/api/platform/clinicas/999999", [Perfil.SuperAdministradorId], BodyKind.EmptyJson),
+            Probe("Clinicas", "Alterar propria", HttpMethod.Put, "/api/platform/clinicas/{clinic}", Administrators, BodyKind.EmptyJson),
             Probe("Clinicas", "Desativar", HttpMethod.Delete, "/api/platform/clinicas/999999", [Perfil.SuperAdministradorId]),
             Probe("Auditoria", "Visualizar", HttpMethod.Get, "/api/platform/auditoria", [Perfil.SuperAdministradorId]),
 
@@ -137,7 +137,9 @@ public partial class ApiEndpointIntegrationTests
     {
         var request = new HttpRequestMessage(
             probe.Method,
-            probe.Path.Replace("{self}", identity.User.Id.ToString(), StringComparison.Ordinal));
+            probe.Path
+                .Replace("{self}", identity.User.Id.ToString(), StringComparison.Ordinal)
+                .Replace("{clinic}", identity.User.ClinicaId.ToString(), StringComparison.Ordinal));
 
         if (probe.BodyKind == BodyKind.EmptyJson)
         {

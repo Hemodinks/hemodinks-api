@@ -167,6 +167,37 @@ public partial class UserCommandHandlerTests
     }
 
     [Fact]
+    public async Task CreateUser_WhenSuperAdministradorAssignsPacientePerfil_CreatesUser()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new CreateUserCommandHandler(
+            context,
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
+            NullLogger<CreateUserCommandHandler>.Instance);
+
+        var response = await handler.Handle(new CreateUserCommand
+        {
+            CurrentUser = new CurrentUserContext(
+                99,
+                Perfil.SuperAdministradorId,
+                "Super Administrador"),
+            Nome = "Paciente pelo Super",
+            Email = "paciente.super@email.com",
+            Telefone = "+5511777777777",
+            Cpf = "11144477735",
+            DataNascimento = new DateTime(1992, 8, 10),
+            PerfilId = Perfil.PacientesId
+        }, CancellationToken.None);
+
+        Assert.Equal(Perfil.PacientesId, response.PerfilId);
+        Assert.Equal(Perfil.PacientesId, (await context.Users.SingleAsync()).PerfilId);
+        Assert.Single(await context.Pacientes.ToListAsync());
+    }
+
+    [Fact]
     public async Task CreateUser_WhenPerfilDoesNotExist_ThrowsInvalidOperationException()
     {
         await using var context = TestDbContextFactory.Create();

@@ -18,8 +18,13 @@ internal static class UserProfileRules
         return perfilId == 0 ? Perfil.MedicosId : perfilId;
     }
 
-    public static void EnsureAssignablePerfilId(int perfilId)
+    public static void EnsureAssignablePerfilId(int perfilId, bool canAssignRestrictedProfiles = false)
     {
+        if (canAssignRestrictedProfiles)
+        {
+            return;
+        }
+
         if (perfilId == Perfil.SuperAdministradorId)
         {
             throw new UnauthorizedAccessException("Perfil SuperAdministrador somente pode ser atribuido pela plataforma");
