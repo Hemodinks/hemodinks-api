@@ -16,7 +16,49 @@ public static class SessionEndpointExtensions
             .RequireAuthorization();
 
         group.MapGet("/clinicas", ListClinicas);
+        group.MapPost("/renovar", RefreshSession);
         group.MapPost("/selecionar-clinica", SelectClinica);
+    }
+
+    private static async Task<IResult> RefreshSession(
+        ClaimsPrincipal principal,
+        AppDbContext context,
+        ClinicaContext clinicaContext,
+        IJwtTokenService jwtTokenService,
+        CancellationToken cancellationToken)
+    {
+        if (!TryGetGlobalUserId(principal, out var globalUserId)
+            || !int.TryParse(
+                principal.FindFirstValue(GlobalIdentityClaimTypes.UsuarioClinicaId),
+                out var membershipId)
+            || membershipId <= 0)
+        {
+            return Results.Unauthorized();
+        }
+
+        clinicaContext.SetPlatformScope();
+        var membership = await context.UsuariosClinicas
+            .AsNoTracking()
+            .Include(item => item.UsuarioGlobal)
+            .Include(item => item.Clinica)
+            .Include(item => item.Perfil)
+            .Include(item => item.User).ThenInclude(item => item.Perfil)
+            .Include(item => item.User).ThenInclude(item => item.Clinica)
+            .FirstOrDefaultAsync(item => item.Id == membershipId
+                && item.UsuarioGlobalId == globalUserId
+                && item.Ativo
+                && item.UsuarioGlobal.Ativo
+                && item.User.Ativo
+                && item.Clinica.Ativa,
+                cancellationToken);
+
+        if (membership == null)
+        {
+            return Results.Unauthorized();
+        }
+
+        return Results.Ok(new RefreshSessionResponse(
+            jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, membership.User)));
     }
 
     private static async Task<IResult> ListClinicas(
@@ -151,6 +193,8 @@ public static class SessionEndpointExtensions
     }
 
     public sealed record SelectClinicRequest(int ClinicaId);
+
+    public sealed record RefreshSessionResponse(string Token);
 
     public sealed record SessionClinicResponse(
         int ClinicaId,

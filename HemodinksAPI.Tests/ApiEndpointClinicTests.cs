@@ -58,6 +58,26 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task RefreshSession_WhenMembershipIsActive_ReturnsAUsableNewToken()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        var originalToken = client.DefaultRequestHeaders.Authorization?.Parameter;
+
+        var response = await client.PostAsJsonAsync("/api/session/renovar", new { });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        var refreshedToken = json.RootElement.GetProperty("token").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(refreshedToken));
+        Assert.NotEqual(originalToken, refreshedToken);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", refreshedToken);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/session/clinicas")).StatusCode);
+    }
+
+    [Fact]
     public async Task AuthenticatedSession_WhenClinicHeaderDiverges_KeepsTokenClinic()
     {
         using var factory = new HemodinksApiFactory();

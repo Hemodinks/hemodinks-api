@@ -130,7 +130,7 @@ jobs:
             --name "$api_name" \
             --resource-group "$resource_group" \
             --image "ghcr.io/hemodinks/hemodinks-api:sha-${{ github.sha }}" \
-            --set-env-vars Deployment__CommitSha="${{ github.sha }}" "${new_relic_env_vars[@]}"
+            --set-env-vars Deployment__CommitSha="${{ github.sha }}" JwtSettings__ExpirationMinutes=30 "${new_relic_env_vars[@]}"
 
   deploy-functions:
     name: Deploy Functions to Azure Container Apps

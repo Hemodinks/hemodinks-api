@@ -256,7 +256,7 @@ Variaveis ja declaradas no blueprint:
 | `Seed__UsersOnStartup` | `false` |
 | `JwtSettings__Issuer` | `HemodinksAPI` |
 | `JwtSettings__Audience` | `HemodinksAPI` |
-| `JwtSettings__ExpirationMinutes` | `60` |
+| `JwtSettings__ExpirationMinutes` | `30` |
 | `NEW_RELIC_APP_NAME` | `Hemodinks API` |
 | `PasswordReset__UseEmail` | `true` |
 | `AsyncQueues__Enabled` | `false` |

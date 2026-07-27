@@ -26,7 +26,7 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("JwtSettings__SecretKey", "0123456789abcdef0123456789abcdef");
         Environment.SetEnvironmentVariable("JwtSettings__Issuer", "HemodinksAPI");
         Environment.SetEnvironmentVariable("JwtSettings__Audience", "HemodinksAPI");
-        Environment.SetEnvironmentVariable("JwtSettings__ExpirationMinutes", "60");
+        Environment.SetEnvironmentVariable("JwtSettings__ExpirationMinutes", "30");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -41,7 +41,7 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
                 ["JwtSettings:SecretKey"] = "0123456789abcdef0123456789abcdef",
                 ["JwtSettings:Issuer"] = "HemodinksAPI",
                 ["JwtSettings:Audience"] = "HemodinksAPI",
-                ["JwtSettings:ExpirationMinutes"] = "60",
+                ["JwtSettings:ExpirationMinutes"] = "30",
                 ["ApiDocumentation:Enabled"] = "true",
                 ["Database:RunMigrationsOnStartup"] = "true",
                 ["Seed:CbhpmOnStartup"] = "true",

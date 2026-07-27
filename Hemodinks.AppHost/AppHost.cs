@@ -37,7 +37,7 @@ IResourceBuilder<ContainerResource> AddContainerizedApi(IDistributedApplicationB
             "JWT_SECRET_KEY"),
         JwtIssuer: GetOptionalConfiguration(builder.Configuration, "JWT_ISSUER", "HemodinksAPI"),
         JwtAudience: GetOptionalConfiguration(builder.Configuration, "JWT_AUDIENCE", "HemodinksAPI"),
-        JwtExpirationMinutes: GetOptionalConfiguration(builder.Configuration, "JWT_EXPIRATION_MINUTES", "60"),
+        JwtExpirationMinutes: GetOptionalConfiguration(builder.Configuration, "JWT_EXPIRATION_MINUTES", "30"),
         PasswordResetUseEmail: GetOptionalConfiguration(builder.Configuration, "PasswordReset__UseEmail", "true"),
         AsyncQueuesEnabled: GetOptionalConfiguration(builder.Configuration, "AsyncQueues__Enabled", "false"),
         AsyncQueuesPasswordResetEnabled: GetOptionalConfiguration(
