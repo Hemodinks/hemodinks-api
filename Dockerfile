@@ -3,6 +3,8 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 COPY ["nuget.config", "."]
+COPY ["Directory.Build.props", "."]
+COPY ["Directory.Packages.props", "."]
 COPY ["HemodinksAPI.Api/HemodinksAPI.Api.csproj", "HemodinksAPI.Api/"]
 COPY ["HemodinksAPI.Application/HemodinksAPI.Application.csproj", "HemodinksAPI.Application/"]
 COPY ["HemodinksAPI.Domain/HemodinksAPI.Domain.csproj", "HemodinksAPI.Domain/"]
