@@ -87,6 +87,27 @@ Seed__CbhpmOnStartup=false
 Seed__UsersOnStartup=false
 ```
 
+### New Relic APM na API
+
+O `Dockerfile` da API ja publica o agente .NET em `/app/newrelic` e configura
+os caminhos do profiler. Para ativar o APM no Azure Container Apps, crie no
+repositorio GitHub `Hemodinks/hemodinks-api` o secret de Actions:
+
+```text
+NEW_RELIC_LICENSE_KEY=<ingest license key da New Relic>
+```
+
+Use a chave de ingestao do agente, e nao uma `NEW_RELIC_API_KEY`. No proximo
+deploy para `main`, o workflow:
+
+- grava a chave como secret `new-relic-license-key` no Container App;
+- referencia o secret pela variavel `NEW_RELIC_LICENSE_KEY`;
+- habilita o profiler e o distributed tracing;
+- identifica a entidade como `Hemodinks API`.
+
+Se o secret do GitHub nao estiver configurado, o deploy continua sem alterar
+uma configuracao New Relic que ja exista no Container App.
+
 Se uploads de fotos e arquivos forem processados por Azure Functions, configure tambem na API:
 
 ```text
