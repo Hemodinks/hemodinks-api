@@ -37,8 +37,16 @@ public sealed class AtualizarAtendimentoCommandHandler(IAppDbContext db) : IRequ
 {
     public async Task<AtendimentoDto> Handle(AtualizarAtendimentoCommand request, CancellationToken ct)
     {
-        var item = await FinanceiroManagementQueries.FullAtendimento(db.AtendimentosCirurgicos)
-            .Include(x => x.Faturamentos).SingleOrDefaultAsync(x => x.Id == request.Id, ct)
+        var query = FinanceiroManagementQueries.FullAtendimento(db.AtendimentosCirurgicos)
+            .Include(x => x.Faturamentos).AsQueryable();
+        if (request.CurrentPerfilId == Perfil.MedicosId)
+        {
+            query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId
+                || x.MedicoAuxiliar1Id == request.CurrentUserId
+                || x.MedicoAuxiliar2Id == request.CurrentUserId);
+        }
+
+        var item = await query.SingleOrDefaultAsync(x => x.Id == request.Id, ct)
             ?? throw new KeyNotFoundException("Atendimento nao encontrado.");
         var doctors = new[] { request.MedicoResponsavelId, request.MedicoAuxiliar1Id ?? 0, request.MedicoAuxiliar2Id ?? 0 }.Where(x => x > 0).ToArray();
         if (doctors.Distinct().Count() != doctors.Length) throw new InvalidOperationException("Os medicos devem ser distintos.");
@@ -72,7 +80,15 @@ public sealed class ExcluirAtendimentoCommandHandler(IAppDbContext db) : IReques
 {
     public async Task Handle(ExcluirAtendimentoCommand request, CancellationToken ct)
     {
-        var item = await db.AtendimentosCirurgicos.Include(x => x.Faturamentos).SingleOrDefaultAsync(x => x.Id == request.Id, ct)
+        var query = db.AtendimentosCirurgicos.Include(x => x.Faturamentos).AsQueryable();
+        if (request.CurrentPerfilId == Perfil.MedicosId)
+        {
+            query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId
+                || x.MedicoAuxiliar1Id == request.CurrentUserId
+                || x.MedicoAuxiliar2Id == request.CurrentUserId);
+        }
+
+        var item = await query.SingleOrDefaultAsync(x => x.Id == request.Id, ct)
             ?? throw new KeyNotFoundException("Atendimento nao encontrado.");
         if (item.Faturamentos.Count > 0) throw new InvalidOperationException("Atendimento faturado nao pode ser excluido.");
         db.AtendimentosCirurgicos.Remove(item); await db.SaveChangesAsync(ct);

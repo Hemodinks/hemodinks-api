@@ -76,7 +76,7 @@ jobs:
     needs: publish
     runs-on: ubuntu-latest
     environment: production
-    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_API_NAME != '' && (vars.AZURE_CONTAINER_APP_API_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure)) }}
+    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_API_NAME != '' && (vars.AZURE_CONTAINER_APP_API_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
 
     steps:
       - name: Log in to Azure
@@ -119,7 +119,7 @@ jobs:
             new_relic_env_vars+=(
               "CORECLR_ENABLE_PROFILING=1"
               "NEW_RELIC_LICENSE_KEY=secretref:new-relic-license-key"
-              "NEW_RELIC_APP_NAME=Hemodinks API"
+              "NEW_RELIC_APP_NAME=Hemodinks API Production"
               "NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true"
             )
           else
@@ -130,14 +130,14 @@ jobs:
             --name "$api_name" \
             --resource-group "$resource_group" \
             --image "ghcr.io/hemodinks/hemodinks-api:sha-${{ github.sha }}" \
-            --set-env-vars Deployment__CommitSha="${{ github.sha }}" JwtSettings__ExpirationMinutes=30 "${new_relic_env_vars[@]}"
+            --set-env-vars Deployment__CommitSha="${{ github.sha }}" JwtSettings__ExpirationMinutes=30 Database__RunMigrationsOnStartup=false Database__RunMaintenanceOnStartup=false EventReminders__RunHostedProcessor=false "${new_relic_env_vars[@]}"
 
   deploy-functions:
     name: Deploy Functions to Azure Container Apps
     needs: publish
     runs-on: ubuntu-latest
     environment: production
-    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME != '' && (vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure)) }}
+    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME != '' && (vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
 
     steps:
       - name: Log in to Azure
@@ -176,7 +176,7 @@ jobs:
     name: Deploy Workers to Azure Function App
     runs-on: ubuntu-latest
     environment: production
-    if: ${{ vars.AZURE_FUNCTION_APP_WORKERS_NAME != '' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure)) }}
+    if: ${{ vars.AZURE_FUNCTION_APP_WORKERS_NAME != '' && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
 
     steps:
       - name: Checkout

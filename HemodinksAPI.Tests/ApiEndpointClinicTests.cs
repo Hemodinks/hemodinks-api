@@ -395,6 +395,36 @@ public partial class ApiEndpointIntegrationTests
 
         Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/users/")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await clinicClient.GetAsync("/api/pacientes/")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/atendimentos-cirurgicos/")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/faturamentos/")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/financeiro/relatorios/resumo")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/convenios-procedimentos-precos/")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await clinicClient.GetAsync("/api/pacientes/1/resumo-financeiro")).StatusCode);
+    }
+
+    [Fact]
+    public async Task ContractedModule_IsForbiddenWhenClinicSubscriptionIsSuspended()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>()
+                .SetPlatformScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var clinic = await db.Clinicas.SingleAsync(item => item.Id == Clinica.DefaultId);
+            clinic.AssinaturaStatus = ClinicaAssinaturaStatus.Suspensa;
+            await db.SaveChangesAsync();
+        }
+
+        var response = await client.GetAsync("/api/pacientes/");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains("inativa ou expirada", await response.Content.ReadAsStringAsync());
     }
 
     [Fact]

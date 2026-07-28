@@ -40,7 +40,12 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<PlatformAuditService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IEventReminderProcessor, EventReminderProcessor>();
-        services.AddHostedService<EventNotificationHostedService>();
+        var runEventReminderProcessor = configuration.GetValue<bool?>("EventReminders:RunHostedProcessor")
+            ?? !environment.IsProduction();
+        if (runEventReminderProcessor)
+        {
+            services.AddHostedService<EventNotificationHostedService>();
+        }
         services.AddApplicationLayer();
 
         return services;

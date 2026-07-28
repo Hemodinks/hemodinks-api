@@ -35,9 +35,18 @@ internal static class DatabaseStartupInitializer
             logger.LogInformation("Inicializacao do banco de dados concluida");
 
             await SeedReferenceDataAsync(app, scope.ServiceProvider, dbContext, logger);
-            await ProvisionSuperAdministratorsAsync(app.Configuration, dbContext, logger);
-            await SynchronizeGlobalIdentitiesAsync(dbContext, logger);
-            await SyncPatientRecordsAsync(dbContext, logger);
+            var runMaintenance = app.Configuration.GetValue<bool?>("Database:RunMaintenanceOnStartup")
+                ?? !app.Environment.IsProduction();
+            if (runMaintenance)
+            {
+                await ProvisionSuperAdministratorsAsync(app.Configuration, dbContext, logger);
+                await SynchronizeGlobalIdentitiesAsync(dbContext, logger);
+                await SyncPatientRecordsAsync(dbContext, logger);
+            }
+            else
+            {
+                logger.LogInformation("Manutencao e backfills de startup desabilitados");
+            }
         }
         catch (Exception ex)
         {

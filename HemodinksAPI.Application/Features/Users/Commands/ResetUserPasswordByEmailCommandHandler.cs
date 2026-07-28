@@ -1,7 +1,5 @@
 using HemodinksAPI.Application.Data;
-using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Services;
-using HemodinksAPI.Application.Utils;
 using MediatR;
 using Microsoft.Extensions.Options;
 
@@ -10,20 +8,17 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserPasswordByEmailCommand, RequestPasswordResetResponse>
 {
     private readonly IAppDbContext _context;
-    private readonly IPasswordHasher _passwordHasher;
     private readonly IPasswordResetNotificationSender _passwordResetNotificationSender;
     private readonly PasswordResetOptions _options;
     private readonly ILogger<ResetUserPasswordByEmailCommandHandler> _logger;
 
     public ResetUserPasswordByEmailCommandHandler(
         IAppDbContext context,
-        IPasswordHasher passwordHasher,
         IPasswordResetNotificationSender passwordResetNotificationSender,
         IOptions<PasswordResetOptions> options,
         ILogger<ResetUserPasswordByEmailCommandHandler> logger)
     {
         _context = context;
-        _passwordHasher = passwordHasher;
         _passwordResetNotificationSender = passwordResetNotificationSender;
         _options = options.Value;
         _logger = logger;
@@ -36,35 +31,13 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
 
         _logger.LogInformation("Solicitacao de reset de senha recebida para {Email}", email);
 
-        return _options.UseEmail
-            ? await HandleEmailPasswordResetAsync(email, request.RequestIp, now, cancellationToken)
-            : await HandleDefaultPasswordResetAsync(email, now, cancellationToken);
-    }
-
-    private async Task<RequestPasswordResetResponse> HandleDefaultPasswordResetAsync(
-        string email,
-        DateTime now,
-        CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("Reset de senha por email desabilitado. Aplicando senha padrao para {Email}", email);
-
-        var user = await PasswordCommandQueries.GetActiveUserByEmailAsync(_context, email, cancellationToken);
-        if (user == null)
+        if (!_options.UseEmail)
         {
-            throw new KeyNotFoundException("Usuario nao encontrado");
+            _logger.LogWarning("Solicitacao de reset ignorada porque o envio por email esta desabilitado");
+            return PasswordResetRules.CreateRequestResponse(now);
         }
 
-        PasswordCommandMutations.ApplyDefaultPassword(user, _passwordHasher, now);
-        await GlobalIdentityService.SynchronizePasswordAsync(_context, user.Id, user.Senha, cancellationToken);
-        await _context.SaveChangesAsync(cancellationToken);
-
-        return new RequestPasswordResetResponse
-        {
-            Id = user.Id,
-            PrecisaTrocarSenha = user.PrecisaTrocarSenha,
-            Message = "Senha resetada para a senha padrao",
-            Mode = PasswordResetModes.DefaultPassword
-        };
+        return await HandleEmailPasswordResetAsync(email, request.RequestIp, now, cancellationToken);
     }
 
     private async Task<RequestPasswordResetResponse> HandleEmailPasswordResetAsync(
@@ -111,25 +84,9 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
         catch (Exception ex)
         {
             _logger.LogError(ex, "Erro ao enviar email de reset de senha para usuario {UserId}", user.Id);
-            return await HandleFallbackDefaultPasswordResetAsync(user, now, cancellationToken);
+            await PasswordCommandMutations.InvalidateActiveTokensAsync(_context, user.Id, now, cancellationToken);
+            await _context.SaveChangesAsync(cancellationToken);
+            return PasswordResetRules.CreateRequestResponse(now);
         }
-    }
-
-    private async Task<RequestPasswordResetResponse> HandleFallbackDefaultPasswordResetAsync(
-        Domain.Models.User user,
-        DateTime now,
-        CancellationToken cancellationToken)
-    {
-        await PasswordCommandMutations.InvalidateActiveTokensAsync(_context, user.Id, now, cancellationToken);
-        PasswordCommandMutations.ApplyDefaultPassword(user, _passwordHasher, now);
-        await _context.SaveChangesAsync(cancellationToken);
-
-        return new RequestPasswordResetResponse
-        {
-            Id = user.Id,
-            PrecisaTrocarSenha = user.PrecisaTrocarSenha,
-            Message = "Nao foi possivel enviar o email de redefinicao agora. A senha padrao foi aplicada para voce entrar e trocar a seguir.",
-            Mode = PasswordResetModes.DefaultPassword
-        };
     }
 }

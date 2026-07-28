@@ -44,6 +44,7 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
                 ["JwtSettings:ExpirationMinutes"] = "30",
                 ["ApiDocumentation:Enabled"] = "true",
                 ["Database:RunMigrationsOnStartup"] = "true",
+                ["Database:RunMaintenanceOnStartup"] = "true",
                 ["Seed:CbhpmOnStartup"] = "true",
                 ["Seed:UsersOnStartup"] = "true",
                 ["Platform:SuperAdminEmails:0"] = "gmarcone@gmail.com",

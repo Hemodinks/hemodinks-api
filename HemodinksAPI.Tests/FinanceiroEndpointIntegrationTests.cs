@@ -310,6 +310,50 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task Medico_CannotUpdateOrDeleteAtendimentoAssignedToAnotherDoctor()
+    {
+        using var factory = new HemodinksApiFactory();
+        var seed = await SeedFinanceiroAsync(factory);
+        int atendimentoId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var atendimento = new AtendimentoCirurgico
+            {
+                ClinicaId = Clinica.DefaultId,
+                PacienteId = seed.PacienteId,
+                DataProcedimento = new DateTime(2026, 10, 10),
+                MedicoResponsavelId = seed.MedicoId,
+                Status = AtendimentoCirurgicoStatus.Planejado
+            };
+            db.AtendimentosCirurgicos.Add(atendimento);
+            await db.SaveChangesAsync();
+            atendimentoId = atendimento.Id;
+        }
+
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(
+            client,
+            Clinica.DefaultSlug,
+            "maria.silva@email.com",
+            HemodinksAPI.Domain.Utils.DefaultUserPassword.Value);
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/atendimentos-cirurgicos/{atendimentoId}", new
+        {
+            id = atendimentoId,
+            dataProcedimento = new DateTime(2026, 10, 11),
+            medicoResponsavelId = seed.MedicoId,
+            status = AtendimentoCirurgicoStatus.Realizado,
+            procedimentos = Array.Empty<object>()
+        });
+        Assert.Equal(HttpStatusCode.NotFound, updateResponse.StatusCode);
+        Assert.Equal(
+            HttpStatusCode.NotFound,
+            (await client.DeleteAsync($"/api/atendimentos-cirurgicos/{atendimentoId}")).StatusCode);
+    }
+
+    [Fact]
     public async Task FinanceiroAudit_ReturnsOnlyCurrentClinicHistory()
     {
         using var factory = new HemodinksApiFactory();

@@ -1,0 +1,100 @@
+name: Apply Production Migrations
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type APPLY-PRODUCTION to authorize the schema change
+        required: true
+        type: string
+      backup_pitr_confirmed:
+        description: Confirm that Azure SQL PITR/backup is available
+        required: true
+        default: false
+        type: boolean
+      target_migration:
+        description: Target migration name; leave empty to apply the latest
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-database-migrations
+  cancel-in-progress: false
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+
+jobs:
+  migrate:
+    name: Validate and apply migrations
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    if: ${{ inputs.confirmation == 'APPLY-PRODUCTION' && inputs.backup_pitr_confirmed }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore tools and dependencies
+        run: |
+          dotnet tool restore
+          dotnet restore ./HemodinksAPI.slnx
+
+      - name: Build
+        run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
+
+      - name: Validate migration chain
+        shell: pwsh
+        run: ./scripts/Test-Migrations.ps1 -NoBuild -Configuration Release
+
+      - name: Generate reviewed SQL artifact
+        run: |
+          mkdir -p artifacts
+          dotnet tool run dotnet-ef migrations script \
+            --idempotent \
+            --configuration Release \
+            --no-build \
+            --project ./HemodinksAPI.Infrastructure/HemodinksAPI.Infrastructure.csproj \
+            --startup-project ./HemodinksAPI.Api/HemodinksAPI.Api.csproj \
+            --output ./artifacts/hemodinks-production-migrations.sql
+
+      - name: Upload SQL artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hemodinks-production-migrations-${{ github.sha }}
+          path: artifacts/hemodinks-production-migrations.sql
+          if-no-files-found: error
+
+      - name: Apply migrations to Azure SQL
+        env:
+          AZURE_SQL_CONNECTION_STRING: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
+          TARGET_MIGRATION: ${{ inputs.target_migration }}
+        run: |
+          if [ -z "$AZURE_SQL_CONNECTION_STRING" ]; then
+            echo "::error::Configure AZURE_SQL_CONNECTION_STRING in the production environment secrets."
+            exit 2
+          fi
+
+          target="${TARGET_MIGRATION:-}"
+          if [ -n "$target" ]; then
+            target_args=("$target")
+          else
+            target_args=()
+          fi
+
+          dotnet tool run dotnet-ef database update "${target_args[@]}" \
+            --configuration Release \
+            --no-build \
+            --project ./HemodinksAPI.Infrastructure/HemodinksAPI.Infrastructure.csproj \
+            --startup-project ./HemodinksAPI.Api/HemodinksAPI.Api.csproj \
+            --connection "$AZURE_SQL_CONNECTION_STRING"

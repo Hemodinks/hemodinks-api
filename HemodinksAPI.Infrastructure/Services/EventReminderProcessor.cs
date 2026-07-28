@@ -7,6 +7,7 @@ namespace HemodinksAPI.Infrastructure.Services;
 public class EventReminderProcessor : IEventReminderProcessor
 {
     private const int BatchSize = 100;
+    private static readonly TimeSpan ProcessingLease = TimeSpan.FromMinutes(30);
 
     private readonly AppDbContext _context;
     private readonly INotificationService _notificationService;
@@ -25,17 +26,58 @@ public class EventReminderProcessor : IEventReminderProcessor
     public async Task<int> ProcessDueRemindersAsync(CancellationToken cancellationToken)
     {
         var now = DateTime.UtcNow;
-        var events = await _context.Events
-            .Include(e => e.User)
-            .Include(e => e.MedicalUser)
+        var dueEvents = _context.Events
             .Where(e => !e.IsCompleted
                 && e.NextReminderAt.HasValue
                 && e.NextReminderAt <= now
-                && (e.NotifyUser || e.NotifyMedicalProfile))
+                && (e.NotifyUser || e.NotifyMedicalProfile));
+
+        List<Event> events;
+        if (_context.Database.IsRelational())
+        {
+            var candidateIds = await dueEvents
+                .AsNoTracking()
+                .OrderBy(e => e.NextReminderAt)
+                .ThenBy(e => e.Id)
+                .Select(e => e.Id)
+                .Take(BatchSize)
+                .ToListAsync(cancellationToken);
+
+            events = [];
+            foreach (var eventId in candidateIds)
+            {
+                var claimed = await _context.Events
+                    .Where(e => e.Id == eventId
+                        && !e.IsCompleted
+                        && e.NextReminderAt.HasValue
+                        && e.NextReminderAt <= now
+                        && (e.NotifyUser || e.NotifyMedicalProfile))
+                    .ExecuteUpdateAsync(
+                        setters => setters.SetProperty(
+                            e => e.NextReminderAt,
+                            now.Add(ProcessingLease)),
+                        cancellationToken);
+                if (claimed == 0)
+                {
+                    continue;
+                }
+
+                events.Add(await _context.Events
+                    .Include(e => e.User)
+                    .Include(e => e.MedicalUser)
+                    .SingleAsync(e => e.Id == eventId, cancellationToken));
+            }
+        }
+        else
+        {
+            events = await dueEvents
+            .Include(e => e.User)
+            .Include(e => e.MedicalUser)
             .OrderBy(e => e.NextReminderAt)
             .ThenBy(e => e.Id)
             .Take(BatchSize)
             .ToListAsync(cancellationToken);
+        }
 
         var processedCount = 0;
 

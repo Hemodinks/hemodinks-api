@@ -82,7 +82,8 @@ AzureStorage__PatientFilesContainerName=patient-files
 Cors__AllowedOrigins__0=https://hemodinks.gestao-saude.tec.br
 Cors__AllowedOrigins__1=https://hemodinks-saude.vercel.app
 Frontend__ResetPasswordUrl=https://hemodinks.gestao-saude.tec.br/reset-password
-Database__RunMigrationsOnStartup=true
+Database__RunMigrationsOnStartup=false
+Database__RunMaintenanceOnStartup=false
 Seed__CbhpmOnStartup=false
 Seed__UsersOnStartup=false
 ```
@@ -154,7 +155,9 @@ Repita para `hemodinks-functions`.
 
 ### Deploy pelo GitHub Actions
 
-O workflow `Publish Containers` sempre publica as duas imagens no GHCR em push para `main`. O deploy no Azure so acontece quando as variaveis/secrets abaixo estiverem configuradas.
+O workflow `Publish Containers` sempre publica as duas imagens no GHCR em push para `main`.
+O deploy no Azure exige execução manual com `deploy_to_azure=true`, depois da aplicação
+controlada das migrations de produção.
 
 Repository variables:
 
@@ -197,7 +200,11 @@ O CI ja valida se existem mudancas de modelo pendentes sem migration. Para produ
 3. Revise comandos destrutivos como `DROP`, `DELETE`, `ALTER COLUMN` e SQL manual.
 4. Aplique no Azure SQL com backup/PITR confirmado.
 
-Enquanto a operacao ainda estiver simples, `Database__RunMigrationsOnStartup=true` pode ser usado com `max replicas = 1`. Quando o ambiente amadurecer, mude para `Database__RunMigrationsOnStartup=false` e aplique migrations por etapa controlada.
+Em producao, mantenha `Database__RunMigrationsOnStartup=false`. Use o workflow manual
+`Apply Production Migrations`, confirme backup/PITR e informe `APPLY-PRODUCTION`. O workflow
+valida a cadeia, guarda o SQL idempotente como artefato e aplica a migration usando o secret
+de ambiente `AZURE_SQL_CONNECTION_STRING`. Execute esse workflow antes de publicar uma imagem
+que dependa do novo schema.
 
 ### Seed CBHPM pontual
 
@@ -251,13 +258,15 @@ Variaveis ja declaradas no blueprint:
 | `ASPNETCORE_ENVIRONMENT` | `Production` |
 | `ASPNETCORE_URLS` | `http://0.0.0.0:10000` |
 | `CORECLR_ENABLE_PROFILING` | `1` |
-| `Database__RunMigrationsOnStartup` | `true` |
+| `Database__RunMigrationsOnStartup` | `false` |
+| `Database__RunMaintenanceOnStartup` | `false` |
+| `EventReminders__RunHostedProcessor` | `false` na API com mais de uma replica |
 | `Seed__CbhpmOnStartup` | `false` |
 | `Seed__UsersOnStartup` | `false` |
 | `JwtSettings__Issuer` | `HemodinksAPI` |
 | `JwtSettings__Audience` | `HemodinksAPI` |
 | `JwtSettings__ExpirationMinutes` | `30` |
-| `NEW_RELIC_APP_NAME` | `Hemodinks API` |
+| `NEW_RELIC_APP_NAME` | `Hemodinks API Production` |
 | `PasswordReset__UseEmail` | `true` |
 | `AsyncQueues__Enabled` | `false` |
 | `AsyncQueues__PasswordResetEnabled` | `true` |
@@ -314,7 +323,7 @@ PasswordResetEmailQueueName=password-reset-emails-confirmation
 Uso:
 
 - persistencia relacional da API
-- migrations automaticas no startup quando `Database__RunMigrationsOnStartup=true`
+- migrations aplicadas pelo workflow manual `Apply Production Migrations`
 - seed de perfis/usuarios/CBHPM conforme configuracao do ambiente
 
 Checklist:

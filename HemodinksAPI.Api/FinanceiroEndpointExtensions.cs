@@ -35,11 +35,19 @@ public static class FinanceiroEndpointExtensions
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
             return Results.Ok(await mediator.Send(new ObterAtendimentoQuery(id, user.Id, user.PerfilId), ct));
         }).RequireAuthorization("AtendimentoVisualizar");
-        atendimentos.MapPut("/{id:int}", async (int id, AtualizarAtendimentoCommand command, IMediator mediator, CancellationToken ct) =>
-            Results.Ok(await mediator.Send(command with { Id = id }, ct))).RequireAuthorization("AtendimentoGerenciar");
-        atendimentos.MapDelete("/{id:int}", async (int id, IMediator mediator, CancellationToken ct) =>
+        atendimentos.MapPut("/{id:int}", async (int id, AtualizarAtendimentoCommand command, ClaimsPrincipal principal,
+            IMediator mediator, CancellationToken ct) =>
         {
-            await mediator.Send(new ExcluirAtendimentoCommand(id), ct); return Results.NoContent();
+            var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
+            return Results.Ok(await mediator.Send(
+                command with { Id = id, CurrentUserId = user.Id, CurrentPerfilId = user.PerfilId },
+                ct));
+        }).RequireAuthorization("AtendimentoGerenciar");
+        atendimentos.MapDelete("/{id:int}", async (int id, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
+        {
+            var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
+            await mediator.Send(new ExcluirAtendimentoCommand(id, user.Id, user.PerfilId), ct);
+            return Results.NoContent();
         }).RequireAuthorization("AtendimentoGerenciar");
 
         var faturamentos = app.MapGroup("/api/faturamentos").WithTags("Faturamento").RequireAuthorization()

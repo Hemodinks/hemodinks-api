@@ -328,7 +328,9 @@ Entidades principais:
 - `IdempotencyRequests`
 - `CBHPMGeral`
 
-Migrations rodam no startup quando `Database__RunMigrationsOnStartup=true`.
+Em desenvolvimento, migrations podem rodar no startup com `Database__RunMigrationsOnStartup=true`.
+Em produção, mantenha essa opção desabilitada e use o workflow manual `Apply Production Migrations`
+antes de publicar a imagem que depende do novo schema.
 
 ## Documentacao interativa
 
