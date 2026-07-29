@@ -67,9 +67,22 @@ public sealed class AtualizarAtendimentoCommandHandler(IAppDbContext db) : IRequ
             {
                 if (p.Quantidade <= 0 || p.PesoPercentual < 0 || string.IsNullOrWhiteSpace(p.Descricao) && string.IsNullOrWhiteSpace(p.CbhpmCodigo))
                     throw new InvalidOperationException("Procedimento invalido.");
-                item.Procedimentos.Add(new AtendimentoProcedimento { ClinicaId = item.ClinicaId, CbhpmCodigo = p.CbhpmCodigo?.Trim(),
-                    Descricao = p.Descricao?.Trim() ?? p.CbhpmCodigo!.Trim(), Quantidade = p.Quantidade,
-                    PesoPercentual = p.PesoPercentual, Ordem = ++order });
+                var procedimento = await FinanceiroProcedimentoResolver.ResolveAsync(
+                    db, p, request.ConvenioId, request.DataProcedimento, ct);
+                if (string.IsNullOrWhiteSpace(procedimento.Descricao))
+                    throw new InvalidOperationException("Descricao obrigatoria para procedimento sem cadastro CBHPM.");
+                item.Procedimentos.Add(new AtendimentoProcedimento
+                {
+                    ClinicaId = item.ClinicaId,
+                    CbhpmCodigo = procedimento.Codigo,
+                    CbhpmPorte = procedimento.Porte,
+                    Descricao = procedimento.Descricao,
+                    Quantidade = p.Quantidade,
+                    PesoPercentual = p.PesoPercentual,
+                    ValorReferencia = procedimento.ValorReferencia,
+                    ValorNegociado = procedimento.ValorNegociado,
+                    Ordem = ++order
+                });
             }
         }
         await db.SaveChangesAsync(ct); return FinanceiroMapper.ToDto(item);

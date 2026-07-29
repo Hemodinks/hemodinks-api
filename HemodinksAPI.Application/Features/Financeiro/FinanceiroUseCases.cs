@@ -59,23 +59,17 @@ public sealed class CriarAtendimentoCommandHandler(IAppDbContext db, IClinicaCon
         {
             if (input.Quantidade <= 0 || input.PesoPercentual < 0)
                 throw new InvalidOperationException("Quantidade e peso do procedimento sao invalidos.");
-            var code = input.CbhpmCodigo?.Trim();
-            var reference = code == null ? null : await db.CbhpmGeral.AsNoTracking().SingleOrDefaultAsync(x => x.Codigo == code, ct);
             int? convenioId = convenio?.Id > 0 ? convenio.Id : null;
-            var negotiated = code == null || convenioId == null ? null : await db.ConvenioProcedimentoPrecos.AsNoTracking()
-                .Where(x => x.ConvenioId == convenioId && x.CbhpmCodigo == code && x.Ativo
-                    && x.VigenciaInicio <= request.DataProcedimento
-                    && (x.VigenciaFinal == null || x.VigenciaFinal >= request.DataProcedimento))
-                .OrderByDescending(x => x.VigenciaInicio).FirstOrDefaultAsync(ct);
-            var description = reference?.Procedimento ?? input.Descricao?.Trim();
-            if (string.IsNullOrWhiteSpace(description))
+            var procedimento = await FinanceiroProcedimentoResolver.ResolveAsync(
+                db, input, convenioId, request.DataProcedimento, ct);
+            if (string.IsNullOrWhiteSpace(procedimento.Descricao))
                 throw new InvalidOperationException("Descricao obrigatoria para procedimento sem cadastro CBHPM.");
             atendimento.Procedimentos.Add(new AtendimentoProcedimento
             {
-                ClinicaId = clinicaId, CbhpmCodigo = reference?.Codigo ?? code,
-                CbhpmPorte = reference?.Porte ?? input.CbhpmPorte?.Trim().ToUpperInvariant(),
-                Descricao = description, Quantidade = input.Quantidade, PesoPercentual = input.PesoPercentual,
-                ValorReferencia = reference?.ValorReferencia, ValorNegociado = negotiated?.ValorNegociado,
+                ClinicaId = clinicaId, CbhpmCodigo = procedimento.Codigo,
+                CbhpmPorte = procedimento.Porte,
+                Descricao = procedimento.Descricao, Quantidade = input.Quantidade, PesoPercentual = input.PesoPercentual,
+                ValorReferencia = procedimento.ValorReferencia, ValorNegociado = procedimento.ValorNegociado,
                 Ordem = ++order
             });
         }

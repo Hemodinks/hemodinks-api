@@ -16,6 +16,78 @@ namespace HemodinksAPI.Tests;
 public partial class ApiEndpointIntegrationTests
 {
     [Fact]
+    public async Task CriarEAtualizarAtendimento_ComCodigoCbhpmSemPontuacao_UsaValorOficialDoBackend()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+        var seed = await SeedFinanceiroAsync(factory);
+        var codigoOficial = $"1.01.01.{Random.Shared.Next(10, 99)}-{Random.Shared.Next(0, 9)}";
+        var codigoNormalizado = new string(codigoOficial.Where(char.IsDigit).ToArray());
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.CbhpmGeral.Add(new CbhpmGeral
+            {
+                Codigo = codigoOficial,
+                Procedimento = "Procedimento oficial CBHPM",
+                Porte = "2B",
+                ValorReferencia = 123.45m
+            });
+            await db.SaveChangesAsync();
+        }
+
+        var createResponse = await client.PostAsJsonAsync("/api/atendimentos-cirurgicos/", new
+        {
+            pacienteId = seed.PacienteId,
+            dataProcedimento = new DateTime(2026, 7, 10),
+            convenioId = seed.ConvenioId,
+            medicoResponsavelId = seed.MedicoId,
+            status = AtendimentoCirurgicoStatus.Planejado,
+            procedimentos = new[]
+            {
+                new
+                {
+                    cbhpmCodigo = codigoNormalizado,
+                    descricao = "Descricao manipulada pelo cliente",
+                    quantidade = 1m,
+                    pesoPercentual = 100m
+                }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        using var createJson = await ReadJsonAsync(createResponse);
+        var atendimentoId = createJson.RootElement.GetProperty("id").GetInt32();
+        AssertProcedimentoOficial(createJson.RootElement.GetProperty("procedimentos")[0], codigoNormalizado);
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/atendimentos-cirurgicos/{atendimentoId}", new
+        {
+            id = atendimentoId,
+            dataProcedimento = new DateTime(2026, 7, 11),
+            convenioId = seed.ConvenioId,
+            medicoResponsavelId = seed.MedicoId,
+            status = AtendimentoCirurgicoStatus.Realizado,
+            procedimentos = new[]
+            {
+                new
+                {
+                    cbhpmCodigo = codigoNormalizado,
+                    descricao = "Outra descricao manipulada",
+                    quantidade = 1m,
+                    pesoPercentual = 100m
+                }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+        using var updateJson = await ReadJsonAsync(updateResponse);
+        AssertProcedimentoOficial(updateJson.RootElement.GetProperty("procedimentos")[0], codigoNormalizado);
+    }
+
+    [Fact]
     public async Task CriarAtendimento_ComCatalogosManuaisNaSegundaClinica_AtribuiClinicaAtual()
     {
         using var factory = new HemodinksApiFactory();
@@ -398,6 +470,14 @@ public partial class ApiEndpointIntegrationTests
 
     private sealed record FinanceiroSeed(int PacienteId, int MedicoId, int ConvenioId,
         int OpmeFornecedorId, string OpmeFornecedor, string CbhpmCodigo);
+
+    private static void AssertProcedimentoOficial(JsonElement procedimento, string codigoNormalizado)
+    {
+        Assert.Equal(codigoNormalizado, procedimento.GetProperty("cbhpmCodigo").GetString());
+        Assert.Equal("Procedimento oficial CBHPM", procedimento.GetProperty("descricao").GetString());
+        Assert.Equal("2B", procedimento.GetProperty("cbhpmPorte").GetString());
+        Assert.Equal(123.45m, procedimento.GetProperty("valorReferencia").GetDecimal());
+    }
 
     private sealed class TestingFinancialFileStorage : IPatientFileStorage
     {
