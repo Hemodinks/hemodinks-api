@@ -137,6 +137,41 @@ public partial class UserCommandHandlerTests
     }
 
     [Fact]
+    public async Task UpdateUser_WhenCpfIsEmpty_ClearsExistingCpf()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var hasher = new PasswordHasher();
+        var user = CreateUser(
+            id: 26,
+            email: "limpa.cpf@email.com",
+            passwordHash: hasher.HashPassword("Senha@123"),
+            perfilId: Perfil.AdministradorId);
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var handler = new UpdateUserCommandHandler(
+            context,
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            NullLogger<UpdateUserCommandHandler>.Instance);
+
+        var response = await handler.Handle(new UpdateUserCommand
+        {
+            Id = user.Id,
+            Nome = user.Nome,
+            Email = user.Email,
+            Telefone = user.Telefone,
+            Cpf = "",
+            DataNascimento = user.DataNascimento,
+            Ativo = true,
+            PerfilId = Perfil.AdministradorId
+        }, CancellationToken.None);
+
+        Assert.Null(response.Cpf);
+        Assert.Null((await context.Users.SingleAsync()).Cpf);
+    }
+
+    [Fact]
     public async Task UpdateUser_WhenDoctorUpdatesAnotherUser_ThrowsUnauthorizedAccessException()
     {
         await using var context = TestDbContextFactory.Create();
