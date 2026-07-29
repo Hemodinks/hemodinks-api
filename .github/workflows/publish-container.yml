@@ -90,6 +90,8 @@ jobs:
         run: az extension add --name containerapp --upgrade
 
       - name: Update API image
+        env:
+          NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
         run: |
           api_name="${{ vars.AZURE_CONTAINER_APP_API_NAME }}"
           resource_group="${{ vars.AZURE_CONTAINER_APP_API_RESOURCE_GROUP || vars.AZURE_RESOURCE_GROUP }}"
@@ -105,11 +107,30 @@ jobs:
           fi
 
           echo "Deploying API Container App '$api_name' in Resource Group '$resource_group'."
+
+          new_relic_env_vars=()
+          if [ -n "$NEW_RELIC_LICENSE_KEY" ]; then
+            az containerapp secret set \
+              --name "$api_name" \
+              --resource-group "$resource_group" \
+              --secrets "new-relic-license-key=$NEW_RELIC_LICENSE_KEY" \
+              --output none
+
+            new_relic_env_vars+=(
+              "CORECLR_ENABLE_PROFILING=1"
+              "NEW_RELIC_LICENSE_KEY=secretref:new-relic-license-key"
+              "NEW_RELIC_APP_NAME=Hemodinks API"
+              "NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true"
+            )
+          else
+            echo "::notice::New Relic APM configuration was not changed because the NEW_RELIC_LICENSE_KEY secret is not configured."
+          fi
+
           az containerapp update \
             --name "$api_name" \
             --resource-group "$resource_group" \
             --image "ghcr.io/hemodinks/hemodinks-api:sha-${{ github.sha }}" \
-            --set-env-vars Deployment__CommitSha="${{ github.sha }}"
+            --set-env-vars Deployment__CommitSha="${{ github.sha }}" "${new_relic_env_vars[@]}"
 
   deploy-functions:
     name: Deploy Functions to Azure Container Apps
