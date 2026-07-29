@@ -87,6 +87,57 @@ public partial class UserCommandHandlerTests
     }
 
     [Fact]
+    public async Task CreateUser_WhenCpfIsEmpty_StoresNull()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new CreateUserCommandHandler(
+            context,
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
+            NullLogger<CreateUserCommandHandler>.Instance);
+
+        var response = await handler.Handle(new CreateUserCommand
+        {
+            Nome = "Usuario Com Cpf Vazio",
+            Email = "cpf.vazio@email.com",
+            Telefone = "+5511999999999",
+            Cpf = "",
+            PerfilId = Perfil.AdministradorId
+        }, CancellationToken.None);
+
+        var storedUser = await context.Users.SingleAsync();
+        Assert.Null(storedUser.Cpf);
+        Assert.Null(response.Cpf);
+    }
+
+    [Fact]
+    public async Task CreateUser_WhenCpfDigitsAreInvalid_DoesNotRejectCpf()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new CreateUserCommandHandler(
+            context,
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
+            NullLogger<CreateUserCommandHandler>.Instance);
+
+        var response = await handler.Handle(new CreateUserCommand
+        {
+            Nome = "Usuario Com Cpf Legado",
+            Email = "cpf.legado@email.com",
+            Telefone = "+5511999999999",
+            Cpf = "900.000.000-01",
+            PerfilId = Perfil.AdministradorId
+        }, CancellationToken.None);
+
+        Assert.Equal("90000000001", response.Cpf);
+        Assert.Equal("90000000001", (await context.Users.SingleAsync()).Cpf);
+    }
+
+    [Fact]
     public async Task CreateUser_WhenMedicalProfileHasNoCrm_ThrowsInvalidOperationException()
     {
         await using var context = TestDbContextFactory.Create();

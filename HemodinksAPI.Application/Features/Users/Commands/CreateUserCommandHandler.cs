@@ -77,7 +77,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 throw new InvalidOperationException("Email ja cadastrado");
             }
 
-            var cpf = UserProfileRules.NormalizeAndValidateCpf(request.Cpf);
+            var cpf = UserProfileRules.NormalizeCpf(request.Cpf);
             if (cpf != null)
             {
                 var cpfAlreadyExists = await _context.Users

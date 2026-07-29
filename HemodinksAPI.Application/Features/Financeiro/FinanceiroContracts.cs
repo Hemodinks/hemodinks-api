@@ -52,7 +52,8 @@ public record AtendimentoDto(int Id, int PacienteId, string Paciente, DateTime D
     int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
     string? Diagnostico, string? TratamentoMedico, string? NumeroAutorizacao,
     decimal? ValorGlosa, string? MotivoGlosa,
-    AtendimentoCirurgicoStatus Status, List<AtendimentoProcedimentoDto> Procedimentos);
+    AtendimentoCirurgicoStatus Status, DateTime DataCadastro, DateTime? DataAtualizacao,
+    List<AtendimentoProcedimentoDto> Procedimentos);
 public record FaturamentoItemDto(int Id, int? AtendimentoProcedimentoId, string? Codigo, string Descricao,
     decimal Quantidade, decimal PesoPercentual, decimal ValorUnitario, decimal ValorApresentado,
     decimal ValorGlosado, decimal ValorAprovado, FaturamentoItemStatus Status, int Ordem);
@@ -64,14 +65,16 @@ public record GlosaDto(int Id, int? FaturamentoItemId, string? CodigoMotivo, str
 public record FaturamentoDto(int Id, int AtendimentoCirurgicoId, int PacienteId, string Paciente, int? ConvenioId,
     string? NumeroGuia, string? NumeroLote, DateTime Competencia, DateTime? DataEnvio, DateTime? DataRetorno,
     decimal ValorApresentado, decimal ValorGlosado, decimal ValorGlosaRecuperada, decimal ValorReconhecido,
-    FaturamentoStatus Status, string? Observacao, byte[] RowVersion, List<FaturamentoItemDto> Itens, List<GlosaDto> Glosas);
+    FaturamentoStatus Status, string? Observacao, DateTime DataCadastro, DateTime? DataAtualizacao,
+    byte[] RowVersion, List<FaturamentoItemDto> Itens, List<GlosaDto> Glosas);
 public record RecebimentoDto(int Id, DateTime DataRecebimento, decimal ValorRecebido,
     FormaRecebimento FormaRecebimento, string? ReferenciaBancaria, string? DocumentoComprovante,
     bool Estornado, DateTime? DataEstorno, string? MotivoEstorno);
 public record ContaReceberDto(int Id, int FaturamentoId, int PacienteId, string Paciente, int? ConvenioId,
     string NumeroDocumento, string Descricao, DateTime Competencia, DateTime DataEmissao, DateTime DataVencimento,
     decimal ValorOriginal, decimal ValorAjustado, decimal ValorRecebido, decimal SaldoAberto,
-    ContaReceberStatus Status, string? Observacao, byte[] RowVersion, List<RecebimentoDto> Recebimentos);
+    ContaReceberStatus Status, string? Observacao, DateTime DataCadastro, DateTime? DataAtualizacao,
+    byte[] RowVersion, List<RecebimentoDto> Recebimentos);
 public record ConvenioProcedimentoPrecoDto(int Id, int ConvenioId, string CbhpmCodigo, decimal ValorNegociado,
     decimal PercentualPrincipal, decimal PercentualAuxiliar1, decimal PercentualAuxiliar2,
     DateTime VigenciaInicio, DateTime? VigenciaFinal, bool Ativo);

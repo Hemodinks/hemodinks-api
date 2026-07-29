@@ -289,7 +289,9 @@ public sealed class PesquisarContasReceberQueryHandler(IAppDbContext db) : IRequ
         if (request.MedicoId.HasValue) query = query.Where(x => x.Faturamento.AtendimentoCirurgico.MedicoResponsavelId == request.MedicoId
             || x.Faturamento.AtendimentoCirurgico.MedicoAuxiliar1Id == request.MedicoId || x.Faturamento.AtendimentoCirurgico.MedicoAuxiliar2Id == request.MedicoId);
         if (request.PacienteId.HasValue) query = query.Where(x => x.PacienteId == request.PacienteId);
-        var count = await query.CountAsync(ct); var items = await query.OrderBy(x => x.DataVencimento).Skip((request.Page - 1) * request.PageSize).Take(request.PageSize).ToListAsync(ct);
+        var count = await query.CountAsync(ct); var items = await query
+            .OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro).ThenByDescending(x => x.Id)
+            .Skip((request.Page - 1) * request.PageSize).Take(request.PageSize).ToListAsync(ct);
         return new(items.Select(FinanceiroMapper.ToDto).ToList(), request.Page, request.PageSize, count);
     }
 }
@@ -305,7 +307,9 @@ public sealed class PesquisarFaturamentosQueryHandler(IAppDbContext db) : IReque
         if (request.CompetenciaInicio.HasValue) query = query.Where(x => x.Competencia >= request.CompetenciaInicio);
         if (request.CompetenciaFim.HasValue) query = query.Where(x => x.Competencia <= request.CompetenciaFim);
         if (request.ConvenioId.HasValue) query = query.Where(x => x.ConvenioId == request.ConvenioId);
-        var count = await query.CountAsync(ct); var items = await query.OrderByDescending(x => x.Competencia).Skip((request.Page - 1) * request.PageSize).Take(request.PageSize).ToListAsync(ct);
+        var count = await query.CountAsync(ct); var items = await query
+            .OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro).ThenByDescending(x => x.Id)
+            .Skip((request.Page - 1) * request.PageSize).Take(request.PageSize).ToListAsync(ct);
         return new(items.Select(FinanceiroMapper.ToDto).ToList(), request.Page, request.PageSize, count);
     }
 }

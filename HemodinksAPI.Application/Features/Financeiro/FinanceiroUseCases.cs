@@ -94,7 +94,8 @@ public sealed class ListarAtendimentosQueryHandler(IAppDbContext db) : IRequestH
         if (request.CurrentPerfilId == Perfil.MedicosId)
             query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId || x.MedicoAuxiliar1Id == request.CurrentUserId || x.MedicoAuxiliar2Id == request.CurrentUserId);
         if (request.PacienteId.HasValue) query = query.Where(x => x.PacienteId == request.PacienteId);
-        return (await query.OrderByDescending(x => x.DataProcedimento).ToListAsync(ct)).Select(FinanceiroMapper.ToDto).ToList();
+        return (await query.OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro)
+            .ThenByDescending(x => x.Id).ToListAsync(ct)).Select(FinanceiroMapper.ToDto).ToList();
     }
 }
 
@@ -151,7 +152,9 @@ public sealed class CriarFaturamentoCommandHandler(IAppDbContext db, IClinicaCon
 public sealed class ListarFaturamentosQueryHandler(IAppDbContext db) : IRequestHandler<ListarFaturamentosQuery, List<FaturamentoDto>>
 {
     public async Task<List<FaturamentoDto>> Handle(ListarFaturamentosQuery request, CancellationToken ct) =>
-        (await ApplyScope(Full(db.Faturamentos.AsNoTracking()), request).OrderByDescending(x => x.Competencia).ToListAsync(ct)).Select(FinanceiroMapper.ToDto).ToList();
+        (await ApplyScope(Full(db.Faturamentos.AsNoTracking()), request)
+            .OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro)
+            .ThenByDescending(x => x.Id).ToListAsync(ct)).Select(FinanceiroMapper.ToDto).ToList();
     private static IQueryable<Faturamento> ApplyScope(IQueryable<Faturamento> query, ListarFaturamentosQuery request) =>
         request.CurrentPerfilId == Perfil.MedicosId
             ? query.Where(x => x.AtendimentoCirurgico.MedicoResponsavelId == request.CurrentUserId
@@ -306,7 +309,9 @@ public sealed class ListarContasReceberQueryHandler(IAppDbContext db) : IRequest
 {
     public async Task<List<ContaReceberDto>> Handle(ListarContasReceberQuery request, CancellationToken ct)
     {
-        var accounts = await db.ContasReceber.Include(x => x.Paciente).Include(x => x.Recebimentos).OrderBy(x => x.DataVencimento).ToListAsync(ct);
+        var accounts = await db.ContasReceber.Include(x => x.Paciente).Include(x => x.Recebimentos)
+            .OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro)
+            .ThenByDescending(x => x.Id).ToListAsync(ct);
         var changed = false;
         foreach (var account in accounts)
         {

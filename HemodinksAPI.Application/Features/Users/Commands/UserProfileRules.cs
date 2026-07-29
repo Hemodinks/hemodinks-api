@@ -41,18 +41,8 @@ internal static class UserProfileRules
         return user.Perfil?.Nome ?? string.Empty;
     }
 
-    public static string? NormalizeAndValidateCpf(string? cpf)
+    public static string? NormalizeCpf(string? cpf)
     {
-        if (string.IsNullOrWhiteSpace(cpf))
-        {
-            return null;
-        }
-
-        if (!CpfUtils.IsValid(cpf))
-        {
-            throw new InvalidOperationException("CPF invalido");
-        }
-
         return CpfUtils.Normalize(cpf);
     }
 
