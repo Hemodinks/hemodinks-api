@@ -22,8 +22,15 @@ public class DashboardSummaryQueryHandlerTests
         {
             User = patientUser,
             NomePaciente = patientUser.Nome,
-            StatusPago = true,
+            StatusPago = false,
         });
+        context.ContasReceber.AddRange(
+            CreateAccount("ABERTO", ContaReceberStatus.Aberto),
+            CreateAccount("PARCIAL", ContaReceberStatus.ParcialmenteRecebido),
+            CreateAccount("VENCIDO", ContaReceberStatus.Vencido),
+            CreateAccount("RECEBIDO", ContaReceberStatus.Recebido),
+            CreateAccount("CANCELADO", ContaReceberStatus.Cancelado),
+            CreateAccount("PREVISTO", ContaReceberStatus.Previsto));
         await context.SaveChangesAsync();
 
         var handler = new GetDashboardSummaryQueryHandler(
@@ -40,6 +47,7 @@ public class DashboardSummaryQueryHandlerTests
         Assert.Equal(2, result.ActiveUsersCount);
         Assert.Equal(1, result.PacientesCount);
         Assert.Equal(1, result.ActivePatientsCount);
+        Assert.Equal(3, result.PendingPaymentsCount);
     }
 
     private static User CreateUser(string nome, string email, int perfilId, bool ativo)
@@ -55,6 +63,19 @@ public class DashboardSummaryQueryHandlerTests
             Ativo = ativo,
             PrecisaTrocarSenha = false,
             PerfilId = perfilId,
+        };
+    }
+
+    private static ContaReceber CreateAccount(string documento, ContaReceberStatus status)
+    {
+        return new ContaReceber
+        {
+            NumeroDocumento = documento,
+            Descricao = $"Titulo {documento}",
+            Competencia = new DateTime(2026, 7, 1),
+            DataEmissao = new DateTime(2026, 7, 1),
+            DataVencimento = new DateTime(2026, 7, 31),
+            Status = status
         };
     }
 }
