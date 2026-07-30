@@ -40,6 +40,23 @@ public partial class ApiEndpointIntegrationTests
         Assert.Equal("Healthy", json.RootElement.GetProperty("status").GetString());
     }
 
+    [Theory]
+    [InlineData("/readyz", true)]
+    [InlineData("/livez", false)]
+    public async Task DeploymentHealthEndpoints_ReturnExpectedChecks(string path, bool includesDatabase)
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        var checks = json.RootElement.GetProperty("checks");
+        Assert.Equal(includesDatabase, checks.TryGetProperty("database", out _));
+        Assert.True(checks.TryGetProperty("self", out _));
+    }
+
     [Fact]
     public async Task AgendaEndpoint_WithoutToken_ReturnsUnauthorized()
     {

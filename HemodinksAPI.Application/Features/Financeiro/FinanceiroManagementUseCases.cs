@@ -39,7 +39,10 @@ public sealed class AtualizarAtendimentoCommandHandler(IAppDbContext db) : IRequ
     public async Task<AtendimentoDto> Handle(AtualizarAtendimentoCommand request, CancellationToken ct)
     {
         var query = FinanceiroManagementQueries.FullAtendimento(db.AtendimentosCirurgicos)
-            .Include(x => x.Faturamentos).ThenInclude(x => x.Glosas).AsQueryable();
+            .Include(x => x.Faturamentos).ThenInclude(x => x.Itens)
+            .Include(x => x.Faturamentos).ThenInclude(x => x.Glosas).ThenInclude(x => x.Recursos)
+            .Include(x => x.Faturamentos).ThenInclude(x => x.ContasReceber).ThenInclude(x => x.Recebimentos)
+            .AsQueryable();
         if (request.CurrentPerfilId == Perfil.MedicosId)
         {
             query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId
@@ -96,6 +99,7 @@ public sealed class AtualizarAtendimentoCommandHandler(IAppDbContext db) : IRequ
                 db.Glosas.Remove(glosaAtendimento);
             }
             FinanceiroCalculations.Recalculate(faturamento);
+            FinanceiroCalculations.ReconcileAccountsWithRecognizedValue(faturamento, DateTime.UtcNow);
             faturamento.DataAtualizacao = DateTime.UtcNow;
         }
         if (item.Faturamentos.Count == 0 && request.Procedimentos.Count > 0)

@@ -63,7 +63,7 @@ public partial class PacienteCommandHandlerTests
     }
 
     [Fact]
-    public async Task CreatePaciente_WithoutCpfTelefone_GeneratesTechnicalProfileData()
+    public async Task CreatePaciente_WithoutCpfEmailTelefoneAndBirth_AcceptsOptionalData()
     {
         await using var context = TestDbContextFactory.Create();
         var doctor = new User
@@ -96,7 +96,6 @@ public partial class PacienteCommandHandlerTests
         var response = await handler.Handle(new CreatePacienteCommand
         {
             NomePaciente = "Paciente Sem Contato",
-            DataNascimento = new DateTime(1990, 1, 1),
             HospitalId = 1,
             MedicoUserId = doctor.Id,
             Medico = doctor.Nome,
@@ -110,6 +109,7 @@ public partial class PacienteCommandHandlerTests
         var storedUser = await context.Users.SingleAsync(user => user.PerfilId == Perfil.PacientesId);
 
         Assert.Null(storedUser.Cpf);
+        Assert.Null(storedUser.DataNascimento);
         Assert.Empty(storedUser.Telefone);
         Assert.StartsWith("paciente-", storedUser.Email);
         Assert.EndsWith("@hemodinks.local", storedUser.Email);

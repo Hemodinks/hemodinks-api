@@ -12,16 +12,11 @@ on:
         required: true
         default: false
         type: boolean
-      target_migration:
-        description: Target migration name; leave empty to apply the latest
-        required: false
-        type: string
-
 permissions:
   contents: read
 
 concurrency:
-  group: production-database-migrations
+  group: production-container-publish
   cancel-in-progress: false
 
 env:
@@ -53,13 +48,24 @@ jobs:
       - name: Build
         run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
 
+      - name: Run automated tests
+        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --verbosity normal
+
       - name: Validate migration chain
         shell: pwsh
         run: ./scripts/Test-Migrations.ps1 -NoBuild -Configuration Release
 
-      - name: Generate reviewed SQL artifact
+      - name: Generate reviewed SQL artifact and Linux bundle
         run: |
           mkdir -p artifacts
+          dotnet tool run dotnet-ef migrations bundle \
+            --self-contained \
+            --target-runtime linux-x64 \
+            --configuration Release \
+            --no-build \
+            --project ./HemodinksAPI.Infrastructure/HemodinksAPI.Infrastructure.csproj \
+            --startup-project ./HemodinksAPI.Api/HemodinksAPI.Api.csproj \
+            --output ./artifacts/hemodinks-efbundle
           dotnet tool run dotnet-ef migrations script \
             --idempotent \
             --configuration Release \
@@ -72,29 +78,18 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: hemodinks-production-migrations-${{ github.sha }}
-          path: artifacts/hemodinks-production-migrations.sql
+          path: |
+            artifacts/hemodinks-efbundle
+            artifacts/hemodinks-production-migrations.sql
           if-no-files-found: error
 
       - name: Apply migrations to Azure SQL
         env:
-          AZURE_SQL_CONNECTION_STRING: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
-          TARGET_MIGRATION: ${{ inputs.target_migration }}
+          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
         run: |
-          if [ -z "$AZURE_SQL_CONNECTION_STRING" ]; then
+          if [ -z "$ConnectionStrings__DefaultConnection" ]; then
             echo "::error::Configure AZURE_SQL_CONNECTION_STRING in the production environment secrets."
             exit 2
           fi
-
-          target="${TARGET_MIGRATION:-}"
-          if [ -n "$target" ]; then
-            target_args=("$target")
-          else
-            target_args=()
-          fi
-
-          dotnet tool run dotnet-ef database update "${target_args[@]}" \
-            --configuration Release \
-            --no-build \
-            --project ./HemodinksAPI.Infrastructure/HemodinksAPI.Infrastructure.csproj \
-            --startup-project ./HemodinksAPI.Api/HemodinksAPI.Api.csproj \
-            --connection "$AZURE_SQL_CONNECTION_STRING"
+          chmod +x ./artifacts/hemodinks-efbundle
+          ./artifacts/hemodinks-efbundle

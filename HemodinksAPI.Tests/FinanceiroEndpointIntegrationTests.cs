@@ -16,6 +16,142 @@ namespace HemodinksAPI.Tests;
 public partial class ApiEndpointIntegrationTests
 {
     [Fact]
+    public async Task GlosaDoAtendimento_PropagaParaFaturamentoPopupEFinanceiro()
+    {
+        var fileStorage = new TestingFinancialFileStorage();
+        using var factory = new HemodinksApiFactory(services =>
+        {
+            services.RemoveAll<IPatientFileStorage>();
+            services.AddSingleton<IPatientFileStorage>(fileStorage);
+        });
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+        var seed = await SeedFinanceiroAsync(factory);
+
+        var atendimentoResponse = await client.PostAsJsonAsync("/api/atendimentos-cirurgicos/", new
+        {
+            pacienteId = seed.PacienteId,
+            dataProcedimento = new DateTime(2026, 7, 10),
+            convenioId = seed.ConvenioId,
+            medicoResponsavelId = seed.MedicoId,
+            observacao = "Conferir documentacao antes do faturamento.",
+            valorGlosa = 200m,
+            motivoGlosa = "Divergencia contratual",
+            status = AtendimentoCirurgicoStatus.Realizado,
+            procedimentos = new[]
+            {
+                new
+                {
+                    cbhpmCodigo = seed.CbhpmCodigo,
+                    descricao = "Procedimento teste",
+                    quantidade = 1m,
+                    pesoPercentual = 100m
+                }
+            }
+        });
+
+        Assert.Equal(HttpStatusCode.Created, atendimentoResponse.StatusCode);
+        using var atendimentoJson = await ReadJsonAsync(atendimentoResponse);
+        var atendimentoId = atendimentoJson.RootElement.GetProperty("id").GetInt32();
+        Assert.Equal("Conferir documentacao antes do faturamento.",
+            atendimentoJson.RootElement.GetProperty("observacao").GetString());
+
+        using var attachment = new MultipartFormDataContent();
+        attachment.Add(
+            new ByteArrayContent(Encoding.UTF8.GetBytes("laudo"))
+            {
+                Headers = { ContentType = new("application/pdf") }
+            },
+            "arquivo",
+            "laudo-atendimento.pdf");
+        var uploadResponse = await client.PostAsync(
+            $"/api/atendimentos-cirurgicos/{atendimentoId}/arquivos",
+            attachment);
+
+        Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
+        using var uploadJson = await ReadJsonAsync(uploadResponse);
+        var arquivoId = uploadJson.RootElement.GetProperty("id").GetInt32();
+        Assert.Equal("laudo-atendimento.pdf", uploadJson.RootElement.GetProperty("nomeOriginal").GetString());
+        Assert.Equal("laudo-atendimento.pdf", fileStorage.LastSavedName);
+        var downloadResponse = await client.GetAsync(
+            $"/api/atendimentos-cirurgicos/{atendimentoId}/arquivos/{arquivoId}/download");
+        Assert.Equal(HttpStatusCode.OK, downloadResponse.StatusCode);
+        Assert.Equal("application/pdf", downloadResponse.Content.Headers.ContentType?.MediaType);
+
+        var faturamentoResponse = await client.PostAsJsonAsync("/api/faturamentos/", new
+        {
+            atendimentoCirurgicoId = atendimentoId,
+            numeroGuia = "GUIA-GLOSA",
+            competencia = new DateTime(2026, 7, 1)
+        });
+
+        Assert.Equal(HttpStatusCode.Created, faturamentoResponse.StatusCode);
+        using var faturamentoJson = await ReadJsonAsync(faturamentoResponse);
+        var faturamentoId = faturamentoJson.RootElement.GetProperty("id").GetInt32();
+        var faturamentoVersion = faturamentoJson.RootElement.GetProperty("rowVersion").GetBytesFromBase64();
+        Assert.Equal(200m, faturamentoJson.RootElement.GetProperty("valorGlosado").GetDecimal());
+        Assert.Equal(800m, faturamentoJson.RootElement.GetProperty("valorReconhecido").GetDecimal());
+        Assert.Equal("Divergencia contratual",
+            faturamentoJson.RootElement.GetProperty("glosas")[0].GetProperty("descricaoMotivo").GetString());
+
+        var readyResponse = await client.PutAsJsonAsync($"/api/faturamentos/{faturamentoId}/status", new
+        {
+            id = faturamentoId,
+            status = FaturamentoStatus.ProntoParaEnvio,
+            rowVersion = faturamentoVersion
+        });
+        Assert.Equal(HttpStatusCode.OK, readyResponse.StatusCode);
+
+        var contaResponse = await client.PostAsJsonAsync($"/api/faturamentos/{faturamentoId}/contas-receber", new
+        {
+            faturamentoId,
+            numeroDocumento = "TIT-GLOSA",
+            descricao = "Honorarios com glosa antecipada",
+            dataEmissao = new DateTime(2026, 7, 12),
+            dataVencimento = new DateTime(2026, 8, 12)
+        });
+
+        Assert.Equal(HttpStatusCode.OK, contaResponse.StatusCode);
+        using var contaJson = await ReadJsonAsync(contaResponse);
+        var contaId = contaJson.RootElement.GetProperty("id").GetInt32();
+        Assert.Equal(1000m, contaJson.RootElement.GetProperty("valorOriginal").GetDecimal());
+        Assert.Equal(800m, contaJson.RootElement.GetProperty("valorAjustado").GetDecimal());
+        Assert.Equal(800m, contaJson.RootElement.GetProperty("saldoAberto").GetDecimal());
+
+        var atualizarAtendimento = await client.PutAsJsonAsync(
+            $"/api/atendimentos-cirurgicos/{atendimentoId}",
+            new
+            {
+                id = atendimentoId,
+                dataProcedimento = new DateTime(2026, 7, 10),
+                convenioId = seed.ConvenioId,
+                medicoResponsavelId = seed.MedicoId,
+                observacao = "Glosa revisada antes do fechamento.",
+                valorGlosa = 300m,
+                motivoGlosa = "Divergencia revisada",
+                status = AtendimentoCirurgicoStatus.Realizado,
+                procedimentos = Array.Empty<object>()
+            });
+
+        Assert.Equal(HttpStatusCode.OK, atualizarAtendimento.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var faturamentoAtualizado = await db.Faturamentos
+            .Include(x => x.Glosas)
+            .Include(x => x.ContasReceber)
+            .SingleAsync(x => x.Id == faturamentoId);
+        var contaAtualizada = faturamentoAtualizado.ContasReceber.Single(x => x.Id == contaId);
+
+        Assert.Equal(300m, faturamentoAtualizado.ValorGlosado);
+        Assert.Equal(700m, faturamentoAtualizado.ValorReconhecido);
+        Assert.Equal("Divergencia revisada", faturamentoAtualizado.Glosas.Single().DescricaoMotivo);
+        Assert.Equal(700m, contaAtualizada.ValorAjustado);
+        Assert.Equal(700m, contaAtualizada.SaldoAberto);
+    }
+
+    [Fact]
     public async Task CriarEAtualizarAtendimento_ComCodigoCbhpmSemPontuacao_UsaValorOficialDoBackend()
     {
         using var factory = new HemodinksApiFactory();

@@ -21,8 +21,7 @@ internal static class DatabaseStartupInitializer
         {
             logger.LogInformation("Iniciando migracao do banco de dados");
 
-            var runMigrations = app.Configuration.GetValue<bool?>("Database:RunMigrationsOnStartup")
-                ?? !app.Environment.IsProduction();
+            var runMigrations = ShouldRunMigrations(app.Environment, app.Configuration);
             var isRelational = dbContext.Database.IsRelational();
             var pendingMigrations = isRelational
                 ? (await dbContext.Database.GetPendingMigrationsAsync()).ToList()
@@ -36,7 +35,7 @@ internal static class DatabaseStartupInitializer
 
             await SeedReferenceDataAsync(app, scope.ServiceProvider, dbContext, logger);
             var runMaintenance = app.Configuration.GetValue<bool?>("Database:RunMaintenanceOnStartup")
-                ?? !app.Environment.IsProduction();
+                ?? app.Environment.IsDevelopment();
             if (runMaintenance)
             {
                 await ProvisionSuperAdministratorsAsync(app.Configuration, dbContext, logger);
@@ -53,6 +52,19 @@ internal static class DatabaseStartupInitializer
             logger.LogError(ex, "Erro ao processar migracao ou seed do banco de dados");
             throw;
         }
+    }
+
+    internal static bool ShouldRunMigrations(
+        IHostEnvironment environment,
+        IConfiguration configuration)
+    {
+        if (environment.IsProduction())
+        {
+            return false;
+        }
+
+        return configuration.GetValue<bool?>("Database:RunMigrationsOnStartup")
+            ?? environment.IsDevelopment();
     }
 
     private static async Task SynchronizeGlobalIdentitiesAsync(AppDbContext dbContext, ILogger logger)
@@ -188,7 +200,7 @@ internal static class DatabaseStartupInitializer
         ILogger logger)
     {
         var seedCbhpm = app.Configuration.GetValue<bool?>("Seed:CbhpmOnStartup")
-            ?? !app.Environment.IsProduction();
+            ?? app.Environment.IsDevelopment();
 
         if (seedCbhpm)
         {
@@ -197,7 +209,7 @@ internal static class DatabaseStartupInitializer
         }
 
         var seedUsers = app.Configuration.GetValue<bool?>("Seed:UsersOnStartup")
-            ?? !app.Environment.IsProduction();
+            ?? app.Environment.IsDevelopment();
 
         if (seedUsers && !await dbContext.Users.AnyAsync())
         {

@@ -18,6 +18,9 @@ public static class Extensions
 {
     private const string HealthEndpointPath = "/health";
     private const string AlivenessEndpointPath = "/alive";
+    private const string ApiHealthEndpointPath = "/healthz";
+    private const string ApiReadinessEndpointPath = "/readyz";
+    private const string ApiLivenessEndpointPath = "/livez";
     private const string DefaultOtlpEndpointKey = "OTEL_EXPORTER_OTLP_ENDPOINT";
     private const string ExternalOtlpEndpointKey = "OTEL_EXPORTER_OTLP_EXTERNAL_ENDPOINT";
     private const string ExternalOtlpHeadersKey = "OTEL_EXPORTER_OTLP_EXTERNAL_HEADERS";
@@ -89,6 +92,9 @@ public static class Extensions
                         tracing.Filter = context =>
                             !context.Request.Path.StartsWithSegments(HealthEndpointPath)
                             && !context.Request.Path.StartsWithSegments(AlivenessEndpointPath)
+                            && !context.Request.Path.StartsWithSegments(ApiHealthEndpointPath)
+                            && !context.Request.Path.StartsWithSegments(ApiReadinessEndpointPath)
+                            && !context.Request.Path.StartsWithSegments(ApiLivenessEndpointPath)
                     )
                     .AddHttpClientInstrumentation();
 

@@ -97,7 +97,9 @@ app.UseSerilogRequestLogging(options =>
     options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms [request_id: {TraceIdentifier}, trace_id: {TraceId}, span_id: {SpanId}]";
     options.GetLevel = (httpContext, _, exception) =>
     {
-        if (httpContext.Request.Path.StartsWithSegments("/healthz"))
+        if (httpContext.Request.Path.StartsWithSegments("/healthz")
+            || httpContext.Request.Path.StartsWithSegments("/readyz")
+            || httpContext.Request.Path.StartsWithSegments("/livez"))
         {
             return LogEventLevel.Verbose;
         }

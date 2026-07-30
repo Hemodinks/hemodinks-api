@@ -282,12 +282,15 @@ public sealed class GerarContaReceberCommandHandler(IAppDbContext db, IClinicaCo
         if (f.Status is FaturamentoStatus.Rascunho or FaturamentoStatus.Cancelado)
             throw new InvalidOperationException("O faturamento precisa estar pronto para gerar conta.");
         var original = request.ValorOriginal ?? f.ValorApresentado;
-        var adjusted = request.ValorAjustado ?? (f.DataRetorno.HasValue ? f.ValorReconhecido : original);
+        var availableAdjusted = f.DataRetorno.HasValue || f.ValorGlosado > 0
+            ? f.ValorReconhecido
+            : f.ValorApresentado;
+        var adjusted = request.ValorAjustado ?? availableAdjusted;
         if (original < 0 || adjusted < 0) throw new InvalidOperationException("Valores da conta sao invalidos.");
         var existingTotals = await db.ContasReceber.Where(x => x.FaturamentoId == f.Id && x.Status != ContaReceberStatus.Cancelado)
             .Select(x => new { x.ValorOriginal, x.ValorAjustado }).ToListAsync(ct);
         if (existingTotals.Sum(x => x.ValorOriginal) + original > f.ValorApresentado
-            || existingTotals.Sum(x => x.ValorAjustado) + adjusted > (f.DataRetorno.HasValue ? f.ValorReconhecido : f.ValorApresentado))
+            || existingTotals.Sum(x => x.ValorAjustado) + adjusted > availableAdjusted)
             throw new InvalidOperationException("A soma dos titulos excede o valor disponivel do faturamento.");
         var account = new ContaReceber { ClinicaId = tenant.GetRequiredClinicaId(), Faturamento = f,
             ConvenioId = f.ConvenioId, Paciente = f.AtendimentoCirurgico.Paciente, NumeroDocumento = document,
