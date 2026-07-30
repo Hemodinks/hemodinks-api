@@ -111,7 +111,7 @@ $container | Add-Member -MemberType NoteProperty -Name env -Value $environmentVa
 $container | Add-Member -MemberType NoteProperty -Name probes -Value @(
     @{
         type = "Startup"
-        httpGet = @{ path = "/livez"; port = $targetPort; scheme = "HTTP" }
+        httpGet = @{ path = "/healthz"; port = $targetPort; scheme = "HTTP" }
         initialDelaySeconds = 1
         periodSeconds = 3
         timeoutSeconds = 2
@@ -120,7 +120,7 @@ $container | Add-Member -MemberType NoteProperty -Name probes -Value @(
     },
     @{
         type = "Liveness"
-        httpGet = @{ path = "/livez"; port = $targetPort; scheme = "HTTP" }
+        httpGet = @{ path = "/healthz"; port = $targetPort; scheme = "HTTP" }
         initialDelaySeconds = 10
         periodSeconds = 10
         timeoutSeconds = 2

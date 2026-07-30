@@ -64,8 +64,9 @@ O bootstrap:
 - valida subscription, Resource Group e nome exatos antes de alterar;
 - muda para multiple revisions;
 - reforca `Database__RunMigrationsOnStartup=false`;
-- configura probes HTTP de startup/liveness em `/livez` e readiness em
-  `/healthz`, usando o target port atual;
+- configura inicialmente probes HTTP compatíveis em `/healthz`, usando o target
+  port atual; no primeiro rollout, o pipeline substitui startup/liveness por
+  `/livez` e mantém readiness em `/healthz`;
 - preserva imagem, env vars/secretrefs e recursos do container;
 - nao envia a configuracao de escala;
 - espera a nova revisao ficar `Healthy`/`Running`, aplica `blue` e direciona 100%.

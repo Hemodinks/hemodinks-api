@@ -267,17 +267,84 @@ jobs:
           suffix="sha-${short_sha}"
           candidate_revision="${API_NAME}--${suffix}"
 
-          az containerapp revision copy \
+          active_revision_json="$(az containerapp revision show \
             --name "$API_NAME" \
             --resource-group "$API_RESOURCE_GROUP" \
-            --from-revision "$previous_revision" \
-            --image "$API_IMAGE" \
-            --revision-suffix "$suffix" \
-            --set-env-vars \
-              Deployment__CommitSha="$GITHUB_SHA" \
-              Database__RunMigrationsOnStartup=false \
-              Database__RunMaintenanceOnStartup=false \
-              EventReminders__RunHostedProcessor=false \
+            --revision "$previous_revision" \
+            --output json)"
+          target_port="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.targetPort -o tsv)"
+          app_id="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query id -o tsv)"
+          if ! [[ "$target_port" =~ ^[0-9]+$ ]] || [ -z "$app_id" ]; then
+            echo "::error::The target port or Container App resource ID could not be resolved."
+            exit 6
+          fi
+
+          containers="$(jq \
+            --arg image "$API_IMAGE" \
+            --arg commit "$GITHUB_SHA" \
+            --argjson port "$target_port" '
+              .properties.template.containers
+              | .[0].image = $image
+              | .[0].env = (
+                  (.[0].env // [])
+                  | map(select(
+                      .name != "Deployment__CommitSha"
+                      and .name != "Database__RunMigrationsOnStartup"
+                      and .name != "Database__RunMaintenanceOnStartup"
+                      and .name != "EventReminders__RunHostedProcessor"
+                    ))
+                  + [
+                      {name: "Deployment__CommitSha", value: $commit},
+                      {name: "Database__RunMigrationsOnStartup", value: "false"},
+                      {name: "Database__RunMaintenanceOnStartup", value: "false"},
+                      {name: "EventReminders__RunHostedProcessor", value: "false"}
+                    ]
+                )
+              | .[0].probes = [
+                  {
+                    type: "Startup",
+                    httpGet: {path: "/livez", port: $port, scheme: "HTTP"},
+                    initialDelaySeconds: 1,
+                    periodSeconds: 3,
+                    timeoutSeconds: 2,
+                    failureThreshold: 30,
+                    successThreshold: 1
+                  },
+                  {
+                    type: "Liveness",
+                    httpGet: {path: "/livez", port: $port, scheme: "HTTP"},
+                    initialDelaySeconds: 10,
+                    periodSeconds: 10,
+                    timeoutSeconds: 2,
+                    failureThreshold: 3,
+                    successThreshold: 1
+                  },
+                  {
+                    type: "Readiness",
+                    httpGet: {path: "/healthz", port: $port, scheme: "HTTP"},
+                    initialDelaySeconds: 3,
+                    periodSeconds: 5,
+                    timeoutSeconds: 3,
+                    failureThreshold: 6,
+                    successThreshold: 1
+                  }
+                ]
+            ' <<<"$active_revision_json")"
+          patch_body="$(jq -n \
+            --arg suffix "$suffix" \
+            --argjson containers "$containers" '
+              {properties: {template: {revisionSuffix: $suffix, containers: $containers}}}
+            ')"
+          az rest \
+            --method patch \
+            --uri "https://management.azure.com${app_id}?api-version=2025-07-01" \
+            --body "$patch_body" \
             --output none
 
           actual_revision="$(az containerapp show \
@@ -286,7 +353,7 @@ jobs:
             --query properties.latestRevisionName -o tsv)"
           if [ "$actual_revision" != "$candidate_revision" ]; then
             echo "::error::Expected revision '$candidate_revision', got '$actual_revision'."
-            exit 6
+            exit 7
           fi
 
           az containerapp revision label add \
