@@ -9,7 +9,8 @@ namespace HemodinksAPI.Application.Features.Financeiro;
 internal static class FinanceiroManagementQueries
 {
     public static IQueryable<AtendimentoCirurgico> FullAtendimento(IQueryable<AtendimentoCirurgico> query) =>
-        query.Include(x => x.Paciente).Include(x => x.OpmeFornecedor).Include(x => x.Procedimentos);
+        query.Include(x => x.Paciente).Include(x => x.OpmeFornecedor).Include(x => x.Procedimentos)
+            .Include(x => x.Arquivos);
 
     public static IQueryable<ContaReceber> FullConta(IQueryable<ContaReceber> query) =>
         query.Include(x => x.Paciente).Include(x => x.Recebimentos);
@@ -38,7 +39,7 @@ public sealed class AtualizarAtendimentoCommandHandler(IAppDbContext db) : IRequ
     public async Task<AtendimentoDto> Handle(AtualizarAtendimentoCommand request, CancellationToken ct)
     {
         var query = FinanceiroManagementQueries.FullAtendimento(db.AtendimentosCirurgicos)
-            .Include(x => x.Faturamentos).AsQueryable();
+            .Include(x => x.Faturamentos).ThenInclude(x => x.Glosas).AsQueryable();
         if (request.CurrentPerfilId == Perfil.MedicosId)
         {
             query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId
@@ -52,6 +53,9 @@ public sealed class AtualizarAtendimentoCommandHandler(IAppDbContext db) : IRequ
         if (doctors.Distinct().Count() != doctors.Length) throw new InvalidOperationException("Os medicos devem ser distintos.");
         if (request.ValorGlosa < 0 || request.ValorGlosa > 0 && string.IsNullOrWhiteSpace(request.MotivoGlosa))
             throw new InvalidOperationException("Informe um valor de glosa valido e o respectivo motivo.");
+        var previousGlosa = item.ValorGlosa;
+        var previousMotivoGlosa = item.MotivoGlosa;
+        var previousDataProcedimento = item.DataProcedimento;
         item.DataProcedimento = request.DataProcedimento; item.HospitalId = request.HospitalId; item.ConvenioId = request.ConvenioId;
         item.OpmeFornecedorId = request.OpmeFornecedorId;
         item.MedicoResponsavelId = request.MedicoResponsavelId; item.MedicoAuxiliar1Id = request.MedicoAuxiliar1Id;
@@ -59,7 +63,41 @@ public sealed class AtualizarAtendimentoCommandHandler(IAppDbContext db) : IRequ
         item.TratamentoMedico = request.TratamentoMedico?.Trim(); item.NumeroAutorizacao = request.NumeroAutorizacao?.Trim();
         item.ValorGlosa = request.ValorGlosa > 0 ? request.ValorGlosa : null;
         item.MotivoGlosa = request.ValorGlosa > 0 ? request.MotivoGlosa?.Trim() : null;
+        item.Observacao = request.Observacao?.Trim();
         item.Status = request.Status; item.DataAtualizacao = DateTime.UtcNow;
+        foreach (var faturamento in item.Faturamentos)
+        {
+            var glosaAtendimento = faturamento.Glosas.FirstOrDefault(glosa =>
+                glosa.FaturamentoItemId == null
+                && (glosa.Observacao == "Glosa informada no atendimento"
+                    || glosa.Observacao == null
+                    && glosa.ValorGlosado == previousGlosa
+                    && glosa.DescricaoMotivo == previousMotivoGlosa
+                    && glosa.DataGlosa == previousDataProcedimento));
+            var requestedGlosa = request.ValorGlosa ?? 0m;
+            if (requestedGlosa > faturamento.ValorApresentado)
+                throw new InvalidOperationException("A glosa informada no atendimento excede o valor apresentado.");
+            if (requestedGlosa > 0)
+            {
+                glosaAtendimento ??= new Glosa
+                {
+                    ClinicaId = faturamento.ClinicaId,
+                    Status = GlosaStatus.Aberta,
+                    Observacao = "Glosa informada no atendimento"
+                };
+                if (glosaAtendimento.Id == 0 && !faturamento.Glosas.Contains(glosaAtendimento))
+                    faturamento.Glosas.Add(glosaAtendimento);
+                glosaAtendimento.DescricaoMotivo = request.MotivoGlosa!.Trim();
+                glosaAtendimento.ValorGlosado = requestedGlosa;
+                glosaAtendimento.DataGlosa = request.DataProcedimento;
+            }
+            else if (glosaAtendimento != null)
+            {
+                db.Glosas.Remove(glosaAtendimento);
+            }
+            FinanceiroCalculations.Recalculate(faturamento);
+            faturamento.DataAtualizacao = DateTime.UtcNow;
+        }
         if (item.Faturamentos.Count == 0 && request.Procedimentos.Count > 0)
         {
             db.AtendimentoProcedimentos.RemoveRange(item.Procedimentos); item.Procedimentos.Clear(); var order = 0;

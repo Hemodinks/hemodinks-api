@@ -12,7 +12,7 @@ public record ObterAtendimentoQuery(int Id, int CurrentUserId, int CurrentPerfil
 public record AtualizarAtendimentoCommand(int Id, DateTime DataProcedimento, int? HospitalId, int? ConvenioId,
     int? OpmeFornecedorId, int MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id, string? Diagnostico,
     string? TratamentoMedico, string? NumeroAutorizacao, AtendimentoCirurgicoStatus Status,
-    decimal? ValorGlosa, string? MotivoGlosa, List<AtendimentoProcedimentoInput> Procedimentos,
+    decimal? ValorGlosa, string? MotivoGlosa, string? Observacao, List<AtendimentoProcedimentoInput> Procedimentos,
     int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<AtendimentoDto>;
 public record ExcluirAtendimentoCommand(int Id, int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest;
 public record ObterFaturamentoQuery(int Id, int CurrentUserId, int CurrentPerfilId) : IRequest<FaturamentoDto>;

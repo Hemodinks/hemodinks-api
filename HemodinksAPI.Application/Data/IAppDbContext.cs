@@ -23,6 +23,7 @@ public interface IAppDbContext
 
     DbSet<AtendimentoCirurgico> AtendimentosCirurgicos { get; }
     DbSet<AtendimentoProcedimento> AtendimentoProcedimentos { get; }
+    DbSet<AtendimentoArquivo> AtendimentoArquivos { get; }
     DbSet<Faturamento> Faturamentos { get; }
     DbSet<FaturamentoItem> FaturamentoItens { get; }
     DbSet<Glosa> Glosas { get; }

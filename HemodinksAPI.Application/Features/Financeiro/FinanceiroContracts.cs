@@ -11,7 +11,7 @@ public record CriarAtendimentoCommand(
     string? Hospital, string? Convenio, string? OpmeFornecedor,
     int MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
     string? Diagnostico, string? TratamentoMedico, string? NumeroAutorizacao,
-    decimal? ValorGlosa, string? MotivoGlosa,
+    decimal? ValorGlosa, string? MotivoGlosa, string? Observacao,
     AtendimentoCirurgicoStatus Status, List<AtendimentoProcedimentoInput> Procedimentos) : IRequest<AtendimentoDto>
 {
     public int CurrentUserId { get; init; }
@@ -47,13 +47,15 @@ public record ListarConvenioProcedimentoPrecosQuery(int? ConvenioId = null, stri
 
 public record AtendimentoProcedimentoDto(int Id, string? CbhpmCodigo, string? CbhpmPorte, string Descricao,
     decimal Quantidade, decimal PesoPercentual, decimal? ValorReferencia, decimal? ValorNegociado, int Ordem);
+public record AtendimentoArquivoDto(int Id, string NomeOriginal, string ContentType, long TamanhoBytes,
+    string Url, DateTime DataUpload);
 public record AtendimentoDto(int Id, int PacienteId, string Paciente, DateTime DataProcedimento, int? HospitalId,
     int? ConvenioId, int? OpmeFornecedorId, string? OpmeFornecedor, int MedicoResponsavelId,
     int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
     string? Diagnostico, string? TratamentoMedico, string? NumeroAutorizacao,
-    decimal? ValorGlosa, string? MotivoGlosa,
+    decimal? ValorGlosa, string? MotivoGlosa, string? Observacao,
     AtendimentoCirurgicoStatus Status, DateTime DataCadastro, DateTime? DataAtualizacao,
-    List<AtendimentoProcedimentoDto> Procedimentos);
+    List<AtendimentoProcedimentoDto> Procedimentos, List<AtendimentoArquivoDto> Arquivos);
 public record FaturamentoItemDto(int Id, int? AtendimentoProcedimentoId, string? Codigo, string Descricao,
     decimal Quantidade, decimal PesoPercentual, decimal ValorUnitario, decimal ValorApresentado,
     decimal ValorGlosado, decimal ValorAprovado, FaturamentoItemStatus Status, int Ordem);

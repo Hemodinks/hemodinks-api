@@ -51,6 +51,7 @@ public sealed class CriarAtendimentoCommandHandler(IAppDbContext db, IClinicaCon
             TratamentoMedico = request.TratamentoMedico?.Trim(), NumeroAutorizacao = request.NumeroAutorizacao?.Trim(),
             ValorGlosa = request.ValorGlosa > 0 ? request.ValorGlosa : null,
             MotivoGlosa = request.ValorGlosa > 0 ? request.MotivoGlosa?.Trim() : null,
+            Observacao = request.Observacao?.Trim(),
             Status = request.Status
         };
 
@@ -84,7 +85,7 @@ public sealed class ListarAtendimentosQueryHandler(IAppDbContext db) : IRequestH
     public async Task<List<AtendimentoDto>> Handle(ListarAtendimentosQuery request, CancellationToken ct)
     {
         var query = db.AtendimentosCirurgicos.AsNoTracking().Include(x => x.Paciente)
-            .Include(x => x.OpmeFornecedor).Include(x => x.Procedimentos).AsQueryable();
+            .Include(x => x.OpmeFornecedor).Include(x => x.Procedimentos).Include(x => x.Arquivos).AsQueryable();
         if (request.CurrentPerfilId == Perfil.MedicosId)
             query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId || x.MedicoAuxiliar1Id == request.CurrentUserId || x.MedicoAuxiliar2Id == request.CurrentUserId);
         if (request.PacienteId.HasValue) query = query.Where(x => x.PacienteId == request.PacienteId);
@@ -133,7 +134,8 @@ public sealed class CriarFaturamentoCommandHandler(IAppDbContext db, IClinicaCon
                 DescricaoMotivo = atendimento.MotivoGlosa!,
                 ValorGlosado = requestedGlosa,
                 DataGlosa = atendimento.DataProcedimento,
-                Status = GlosaStatus.Aberta
+                Status = GlosaStatus.Aberta,
+                Observacao = "Glosa informada no atendimento"
             });
         }
         FinanceiroCalculations.Recalculate(faturamento);

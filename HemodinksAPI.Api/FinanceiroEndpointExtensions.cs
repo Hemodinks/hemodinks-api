@@ -43,10 +43,78 @@ public static class FinanceiroEndpointExtensions
                 command with { Id = id, CurrentUserId = user.Id, CurrentPerfilId = user.PerfilId },
                 ct));
         }).RequireAuthorization("AtendimentoGerenciar");
-        atendimentos.MapDelete("/{id:int}", async (int id, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
+        atendimentos.MapDelete("/{id:int}", async (int id, ClaimsPrincipal principal, IMediator mediator,
+            IPatientFileStorage storage, AppDbContext db, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
+            var fileUrls = await db.AtendimentoArquivos.AsNoTracking()
+                .Where(x => x.AtendimentoCirurgicoId == id).Select(x => x.Url).ToListAsync(ct);
             await mediator.Send(new ExcluirAtendimentoCommand(id, user.Id, user.PerfilId), ct);
+            foreach (var fileUrl in fileUrls)
+                await storage.DeleteAsync(fileUrl, ct);
+            return Results.NoContent();
+        }).RequireAuthorization("AtendimentoGerenciar");
+        atendimentos.MapPost("/{id:int}/arquivos", async (int id, IFormFile arquivo,
+            ClaimsPrincipal principal, IPatientFileStorage storage, AppDbContext db, CancellationToken ct) =>
+        {
+            var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
+            var atendimento = await db.AtendimentosCirurgicos.SingleOrDefaultAsync(x => x.Id == id, ct)
+                ?? throw new KeyNotFoundException("Atendimento nao encontrado.");
+            if (user.PerfilId == Perfil.MedicosId
+                && atendimento.MedicoResponsavelId != user.Id
+                && atendimento.MedicoAuxiliar1Id != user.Id
+                && atendimento.MedicoAuxiliar2Id != user.Id)
+                throw new UnauthorizedAccessException("Sem permissao para anexar arquivos ao atendimento.");
+            var stored = await storage.SaveAsync(arquivo, ct);
+            var entity = new AtendimentoArquivo
+            {
+                ClinicaId = atendimento.ClinicaId,
+                AtendimentoCirurgicoId = atendimento.Id,
+                NomeOriginal = stored.OriginalName,
+                ContentType = stored.ContentType,
+                TamanhoBytes = stored.SizeBytes,
+                Url = stored.Url,
+                DataUpload = DateTime.UtcNow
+            };
+            db.AtendimentoArquivos.Add(entity);
+            atendimento.DataAtualizacao = DateTime.UtcNow;
+            await db.SaveChangesAsync(ct);
+            return Results.Ok(new AtendimentoArquivoDto(entity.Id, entity.NomeOriginal, entity.ContentType,
+                entity.TamanhoBytes, entity.Url, entity.DataUpload));
+        }).DisableAntiforgery().RequireAuthorization("AtendimentoGerenciar");
+        atendimentos.MapGet("/{id:int}/arquivos/{arquivoId:int}/download", async (int id, int arquivoId,
+            ClaimsPrincipal principal, IPatientFileStorage storage, AppDbContext db, CancellationToken ct) =>
+        {
+            var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
+            var entity = await db.AtendimentoArquivos.AsNoTracking()
+                .Include(x => x.AtendimentoCirurgico)
+                .SingleOrDefaultAsync(x => x.Id == arquivoId && x.AtendimentoCirurgicoId == id, ct)
+                ?? throw new KeyNotFoundException("Arquivo nao encontrado.");
+            if (user.PerfilId == Perfil.MedicosId
+                && entity.AtendimentoCirurgico.MedicoResponsavelId != user.Id
+                && entity.AtendimentoCirurgico.MedicoAuxiliar1Id != user.Id
+                && entity.AtendimentoCirurgico.MedicoAuxiliar2Id != user.Id)
+                throw new UnauthorizedAccessException("Sem permissao para baixar este arquivo.");
+            var stored = await storage.GetAsync(entity.Url, ct)
+                ?? throw new KeyNotFoundException("Arquivo nao encontrado.");
+            return Results.Stream(stored.Content, entity.ContentType, entity.NomeOriginal);
+        }).RequireAuthorization("AtendimentoVisualizar");
+        atendimentos.MapDelete("/{id:int}/arquivos/{arquivoId:int}", async (int id, int arquivoId,
+            ClaimsPrincipal principal, IPatientFileStorage storage, AppDbContext db, CancellationToken ct) =>
+        {
+            var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
+            var entity = await db.AtendimentoArquivos.Include(x => x.AtendimentoCirurgico)
+                .SingleOrDefaultAsync(x => x.Id == arquivoId && x.AtendimentoCirurgicoId == id, ct)
+                ?? throw new KeyNotFoundException("Arquivo nao encontrado.");
+            if (user.PerfilId == Perfil.MedicosId
+                && entity.AtendimentoCirurgico.MedicoResponsavelId != user.Id
+                && entity.AtendimentoCirurgico.MedicoAuxiliar1Id != user.Id
+                && entity.AtendimentoCirurgico.MedicoAuxiliar2Id != user.Id)
+                throw new UnauthorizedAccessException("Sem permissao para excluir este arquivo.");
+            var url = entity.Url;
+            db.AtendimentoArquivos.Remove(entity);
+            await db.SaveChangesAsync(ct);
+            await storage.DeleteAsync(url, ct);
             return Results.NoContent();
         }).RequireAuthorization("AtendimentoGerenciar");
 

@@ -13,7 +13,7 @@ public class CreatePacienteCommand : IRequest<PacienteDto>
     public string? Email { get; set; }
     public string? Telefone { get; set; }
     public string? FotoPerfil { get; set; }
-    public DateTime DataNascimento { get; set; }
+    public DateTime? DataNascimento { get; set; }
     public int? HospitalId { get; set; }
     public string? Hospital { get; set; }
     public int? MedicoUserId { get; set; }
@@ -51,7 +51,7 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
     public string? Email { get; set; }
     public string? Telefone { get; set; }
     public string? FotoPerfil { get; set; }
-    public DateTime DataNascimento { get; set; }
+    public DateTime? DataNascimento { get; set; }
     public int? HospitalId { get; set; }
     public string? Hospital { get; set; }
     public int? MedicoUserId { get; set; }
