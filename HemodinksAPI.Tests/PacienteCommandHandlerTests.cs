@@ -61,12 +61,14 @@ public partial class PacienteCommandHandlerTests
         await context.SaveChangesAsync();
 
         var hasher = new PasswordHasher();
+        var invitationSender = new RecordingPasswordResetNotificationSender();
         var handler = new CreatePacienteCommandHandler(
             context,
             CreateCbhpmCache(context),
             hasher,
             new FakeProfilePhotoStorage(),
-            NullLogger<CreatePacienteCommandHandler>.Instance);
+            NullLogger<CreatePacienteCommandHandler>.Instance,
+            invitationSender);
 
         var response = await handler.Handle(new CreatePacienteCommand
         {
@@ -109,8 +111,11 @@ public partial class PacienteCommandHandlerTests
         Assert.Equal("Diagnostico clinico de teste", storedPaciente.Diagnostico);
         Assert.Equal("Tratamento clinico de teste", storedPaciente.TratamentoMedico);
         Assert.Equal("52998224725", storedUser.Cpf);
-        Assert.NotNull(response.SenhaTemporaria);
-        Assert.True(hasher.VerifyPassword(response.SenhaTemporaria, storedUser.Senha));
+        Assert.True(response.ConvitePrimeiroAcessoEnviado);
+        Assert.Single(invitationSender.Notifications);
+        Assert.Equal(storedUser.Email, invitationSender.Notifications[0].Email);
+        Assert.NotEmpty(await context.PasswordResetTokens.ToListAsync());
+        Assert.False(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
         Assert.Equal(1, storedPaciente.HospitalId);
         Assert.Equal("Santa Clara - Mater Dei", storedPaciente.Hospital);
         Assert.Equal(doctor.Id, storedPaciente.MedicoUserId);

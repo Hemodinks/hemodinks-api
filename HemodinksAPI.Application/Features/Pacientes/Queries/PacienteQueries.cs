@@ -39,7 +39,7 @@ public class PacienteDto
     public string? FotoPerfil { get; set; }
     public DateTime? DataNascimento { get; set; }
     public bool Ativo { get; set; }
-    public string? SenhaTemporaria { get; set; }
+    public bool ConvitePrimeiroAcessoEnviado { get; set; }
     public int ArquivosCount { get; set; }
     public int ObservacoesNaoLidasCount { get; set; }
     public PacienteFaturamentoDto? Faturamento { get; set; }

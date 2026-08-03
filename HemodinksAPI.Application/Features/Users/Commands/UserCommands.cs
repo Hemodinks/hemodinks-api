@@ -43,7 +43,7 @@ public class CreateUserResponse
     public bool PrecisaTrocarSenha { get; set; }
     public int PerfilId { get; set; }
     public string PerfilNome { get; set; } = null!;
-    public string? SenhaTemporaria { get; set; }
+    public bool ConvitePrimeiroAcessoEnviado { get; set; }
 }
 
 /// <summary>

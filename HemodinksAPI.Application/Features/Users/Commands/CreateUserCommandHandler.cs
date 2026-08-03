@@ -25,6 +25,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
     private readonly LicencaOptions _licencaOptions;
     private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<CreateUserCommandHandler> _logger;
+    private readonly IPasswordResetNotificationSender? _passwordResetNotificationSender;
 
     public CreateUserCommandHandler(
         IAppDbContext context,
@@ -32,7 +33,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
         IProfilePhotoStorage profilePhotoStorage,
         IUserPatientSyncService userPatientSyncService,
         IOptions<LicencaOptions> licencaOptions,
-        ILogger<CreateUserCommandHandler> logger)
+        ILogger<CreateUserCommandHandler> logger,
+        IPasswordResetNotificationSender? passwordResetNotificationSender = null)
         : this(
             context,
             passwordHasher,
@@ -40,7 +42,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
             userPatientSyncService,
             licencaOptions,
             ClinicaContextFactory.CreateDefaultResolved(),
-            logger)
+            logger,
+            passwordResetNotificationSender)
     {
     }
 
@@ -51,7 +54,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
         IUserPatientSyncService userPatientSyncService,
         IOptions<LicencaOptions> licencaOptions,
         IClinicaContext clinicaContext,
-        ILogger<CreateUserCommandHandler> logger)
+        ILogger<CreateUserCommandHandler> logger,
+        IPasswordResetNotificationSender? passwordResetNotificationSender = null)
     {
         _context = context;
         _passwordHasher = passwordHasher;
@@ -60,6 +64,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
         _licencaOptions = licencaOptions.Value;
         _clinicaContext = clinicaContext;
         _logger = logger;
+        _passwordResetNotificationSender = passwordResetNotificationSender;
     }
 
     public async Task<CreateUserResponse> Handle(CreateUserCommand request, CancellationToken cancellationToken)
@@ -145,6 +150,12 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
 
             await _userPatientSyncService.EnsurePacienteForUserAsync(user, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
+            var invitationSent = await FirstAccessInvitation.TrySendAsync(
+                _context,
+                _passwordResetNotificationSender,
+                user,
+                _logger,
+                cancellationToken);
 
             _logger.LogInformation("Usuario criado com sucesso. ID: {UserId}", user.Id);
 
@@ -165,7 +176,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 PrecisaTrocarSenha = user.PrecisaTrocarSenha,
                 PerfilId = user.PerfilId,
                 PerfilNome = perfil.Nome,
-                SenhaTemporaria = temporaryPassword
+                ConvitePrimeiroAcessoEnviado = invitationSent
             };
         }
         catch (Exception ex)

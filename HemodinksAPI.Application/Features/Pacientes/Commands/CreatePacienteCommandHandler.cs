@@ -2,6 +2,8 @@ using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
+using HemodinksAPI.Application.Features.Users.Commands;
+using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Application.Utils;
@@ -19,20 +21,23 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
     private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<CreatePacienteCommandHandler> _logger;
+    private readonly IPasswordResetNotificationSender? _passwordResetNotificationSender;
 
     public CreatePacienteCommandHandler(
         IAppDbContext context,
         ICbhpmCache cbhpmCache,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
-        ILogger<CreatePacienteCommandHandler> logger)
+        ILogger<CreatePacienteCommandHandler> logger,
+        IPasswordResetNotificationSender? passwordResetNotificationSender = null)
         : this(
             context,
             cbhpmCache,
             passwordHasher,
             profilePhotoStorage,
             ClinicaContextFactory.CreateDefaultResolved(),
-            logger)
+            logger,
+            passwordResetNotificationSender)
     {
     }
 
@@ -42,7 +47,8 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
         IClinicaContext clinicaContext,
-        ILogger<CreatePacienteCommandHandler> logger)
+        ILogger<CreatePacienteCommandHandler> logger,
+        IPasswordResetNotificationSender? passwordResetNotificationSender = null)
     {
         _context = context;
         _cbhpmCache = cbhpmCache;
@@ -50,6 +56,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
         _profilePhotoStorage = profilePhotoStorage;
         _clinicaContext = clinicaContext;
         _logger = logger;
+        _passwordResetNotificationSender = passwordResetNotificationSender;
     }
 
     public async Task<PacienteDto> Handle(CreatePacienteCommand request, CancellationToken cancellationToken)
@@ -142,8 +149,14 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             _context.Pacientes.Add(paciente);
             await _context.SaveChangesAsync(cancellationToken);
 
+            var invitationSent = await FirstAccessInvitation.TrySendAsync(
+                _context,
+                _passwordResetNotificationSender,
+                user,
+                _logger,
+                cancellationToken);
             var response = PacienteMapper.ToDto(paciente);
-            response.SenhaTemporaria = temporaryPassword;
+            response.ConvitePrimeiroAcessoEnviado = invitationSent;
             return response;
         }
         catch (Exception ex)
