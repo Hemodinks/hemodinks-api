@@ -1,16 +1,9 @@
 using System.Net;
-using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using HemodinksAPI.Api;
-using HemodinksAPI.Application.Async;
-using HemodinksAPI.Application.Services;
-using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Data;
-using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Tests;
 
@@ -45,6 +38,23 @@ public partial class ApiEndpointIntegrationTests
 
         using var json = await ReadJsonAsync(response);
         Assert.Equal("Healthy", json.RootElement.GetProperty("status").GetString());
+    }
+
+    [Theory]
+    [InlineData("/readyz", true)]
+    [InlineData("/livez", false)]
+    public async Task DeploymentHealthEndpoints_ReturnExpectedChecks(string path, bool includesDatabase)
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        var checks = json.RootElement.GetProperty("checks");
+        Assert.Equal(includesDatabase, checks.TryGetProperty("database", out _));
+        Assert.True(checks.TryGetProperty("self", out _));
     }
 
     [Fact]
@@ -135,6 +145,7 @@ public partial class ApiEndpointIntegrationTests
 
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>().SetPlatformScope();
         Assert.Equal(1, dbContext.Events.Count(item => item.Title == "Evento idempotente"));
         Assert.Equal(1, dbContext.IdempotencyRequests.Count(item => item.Operation == "events.create"));
     }

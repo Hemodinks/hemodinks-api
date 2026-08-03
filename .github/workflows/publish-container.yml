@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
     inputs:
       deploy_to_azure:
-        description: Deploy the published images to Azure Container Apps
+        description: Deploy the published SHA images to Production
         required: false
         type: boolean
         default: false
@@ -20,12 +20,58 @@ permissions:
   id-token: write
 
 concurrency:
-  group: publish-container-${{ github.ref }}
-  cancel-in-progress: true
+  group: production-container-publish
+  cancel-in-progress: false
+
+env:
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_NOLOGO: true
+  API_NAME: hemodinks-api-prod
+  API_RESOURCE_GROUP: rg-hemodinks-prod
+  API_IMAGE: ghcr.io/hemodinks/hemodinks-api:sha-${{ github.sha }}
 
 jobs:
+  validate:
+    name: Restore, build, test and audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore local tools
+        run: dotnet tool restore
+
+      - name: Restore
+        run: dotnet restore ./HemodinksAPI.slnx
+
+      - name: Build
+        run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
+
+      - name: Run automated tests
+        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
+
+      - name: Audit migrations and pending model changes
+        shell: pwsh
+        run: ./scripts/Test-Migrations.ps1 -NoBuild -Configuration Release
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deployment-test-results-${{ github.sha }}
+          path: TestResults/*.trx
+          if-no-files-found: ignore
+
   publish:
-    name: Build and publish ${{ matrix.service }} image
+    name: Build and publish ${{ matrix.service }} SHA image
+    needs: validate
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -52,31 +98,123 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ matrix.image }}
-          tags: |
-            type=ref,event=branch
-            type=ref,event=tag
-            type=sha,prefix=sha-,format=long
-
-      - name: Build and push
+      - name: Build and push immutable image
         uses: docker/build-push-action@v6
         with:
           context: .
           file: ${{ matrix.dockerfile }}
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ matrix.image }}:sha-${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+  prepare-migrations:
+    name: Build migration bundle and audited SQL
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore tools and dependencies
+        run: |
+          dotnet tool restore
+          dotnet restore ./HemodinksAPI.slnx
+
+      - name: Build migration projects
+        run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
+
+      - name: Generate Linux migration bundle and idempotent SQL
+        run: |
+          mkdir -p artifacts
+          dotnet tool run dotnet-ef migrations bundle \
+            --self-contained \
+            --target-runtime linux-x64 \
+            --configuration Release \
+            --no-build \
+            --project ./HemodinksAPI.Infrastructure/HemodinksAPI.Infrastructure.csproj \
+            --startup-project ./HemodinksAPI.Api/HemodinksAPI.Api.csproj \
+            --output ./artifacts/hemodinks-efbundle
+          dotnet tool run dotnet-ef migrations script \
+            --idempotent \
+            --configuration Release \
+            --no-build \
+            --project ./HemodinksAPI.Infrastructure/HemodinksAPI.Infrastructure.csproj \
+            --startup-project ./HemodinksAPI.Api/HemodinksAPI.Api.csproj \
+            --output ./artifacts/hemodinks-production-migrations.sql
+          chmod +x ./artifacts/hemodinks-efbundle
+
+      - name: Upload migration artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: production-migrations-${{ github.sha }}
+          path: |
+            artifacts/hemodinks-efbundle
+            artifacts/hemodinks-production-migrations.sql
+          if-no-files-found: error
+          retention-days: 30
+
+  migrate-production:
+    name: Approve and migrate Production once
+    needs:
+      - publish
+      - prepare-migrations
+    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+
+    steps:
+      - name: Download reviewed migration bundle
+        uses: actions/download-artifact@v4
+        with:
+          name: production-migrations-${{ github.sha }}
+          path: artifacts
+
+      - name: Verify migration secret
+        env:
+          CONNECTION_CONFIGURED: ${{ secrets.AZURE_SQL_CONNECTION_STRING != '' }}
+        run: |
+          if [ "$CONNECTION_CONFIGURED" != "true" ]; then
+            echo "::error::Configure AZURE_SQL_CONNECTION_STRING in the production Environment."
+            exit 2
+          fi
+
+      - name: Apply migration bundle
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
+        run: |
+          chmod +x ./artifacts/hemodinks-efbundle
+          ./artifacts/hemodinks-efbundle
+
+      - name: Migration summary
+        if: always()
+        env:
+          MIGRATION_STATUS: ${{ job.status }}
+        run: |
+          {
+            echo "## Production migration"
+            echo ""
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Bundle: \`production-migrations-${GITHUB_SHA}\`"
+            echo "- Result: **${MIGRATION_STATUS}**"
+            echo "- Executed once by job: \`${GITHUB_JOB}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-api:
-    name: Deploy API to Azure Container Apps
-    needs: publish
+    name: Approve and switch API Blue/Green
+    needs: migrate-production
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     environment: production
-    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_API_NAME != '' && (vars.AZURE_CONTAINER_APP_API_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure)) }}
 
     steps:
       - name: Log in to Azure
@@ -89,55 +227,269 @@ jobs:
       - name: Install Container Apps extension
         run: az extension add --name containerapp --upgrade
 
-      - name: Update API image
+      - name: Validate exact Production target
+        run: |
+          az group show --name "$API_RESOURCE_GROUP" --output none
+          actual_name="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query name -o tsv)"
+          mode="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.configuration.activeRevisionsMode -o tsv)"
+          if [ "$actual_name" != "hemodinks-api-prod" ]; then
+            echo "::error::The Azure resource does not match hemodinks-api-prod."
+            exit 3
+          fi
+          if [ "${mode,,}" != "multiple" ]; then
+            echo "::error::Run scripts/Bootstrap-ProductionBlueGreen.ps1 manually before deploying."
+            exit 4
+          fi
+
+      - name: Create candidate revision with zero traffic
+        id: candidate
         env:
           NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
         run: |
-          api_name="${{ vars.AZURE_CONTAINER_APP_API_NAME }}"
-          resource_group="${{ vars.AZURE_CONTAINER_APP_API_RESOURCE_GROUP || vars.AZURE_RESOURCE_GROUP }}"
-
-          if ! az containerapp show --name "$api_name" --resource-group "$resource_group" >/dev/null 2>&1; then
-            echo "Container App '$api_name' not found in Resource Group '$resource_group'. Searching current subscription..."
-            resource_group="$(az containerapp list --query "[?name=='$api_name'].resourceGroup | [0]" -o tsv 2>/dev/null || true)"
-          fi
-
-          if [ -z "$resource_group" ] || [ "$resource_group" = "None" ]; then
-            echo "::error::Container App '$api_name' was not found. Update AZURE_RESOURCE_GROUP or grant the deployment identity access to the new Resource Group."
-            exit 3
-          fi
-
-          echo "Deploying API Container App '$api_name' in Resource Group '$resource_group'."
-
-          new_relic_env_vars=()
+          set -euo pipefail
+          new_relic_enabled=false
           if [ -n "$NEW_RELIC_LICENSE_KEY" ]; then
             az containerapp secret set \
-              --name "$api_name" \
-              --resource-group "$resource_group" \
+              --name "$API_NAME" \
+              --resource-group "$API_RESOURCE_GROUP" \
               --secrets "new-relic-license-key=$NEW_RELIC_LICENSE_KEY" \
               --output none
-
-            new_relic_env_vars+=(
-              "CORECLR_ENABLE_PROFILING=1"
-              "NEW_RELIC_LICENSE_KEY=secretref:new-relic-license-key"
-              "NEW_RELIC_APP_NAME=Hemodinks API"
-              "NEW_RELIC_DISTRIBUTED_TRACING_ENABLED=true"
-            )
+            new_relic_enabled=true
           else
-            echo "::notice::New Relic APM configuration was not changed because the NEW_RELIC_LICENSE_KEY secret is not configured."
+            echo "::notice::New Relic APM configuration was not changed because NEW_RELIC_LICENSE_KEY is not configured."
           fi
 
-          az containerapp update \
-            --name "$api_name" \
-            --resource-group "$resource_group" \
-            --image "ghcr.io/hemodinks/hemodinks-api:sha-${{ github.sha }}" \
-            --set-env-vars Deployment__CommitSha="${{ github.sha }}" "${new_relic_env_vars[@]}"
+          traffic_json="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.traffic -o json)"
+          active_label="$(jq -r '[.[] | select(.weight == 100 and (.label == "blue" or .label == "green"))][0].label // empty' <<<"$traffic_json")"
+          previous_revision="$(jq -r --arg label "$active_label" '[.[] | select(.label == $label)][0].revisionName // empty' <<<"$traffic_json")"
+          if [ -z "$active_label" ] || [ -z "$previous_revision" ]; then
+            echo "::error::No 100% blue/green labeled Production revision was found. Run the bootstrap/recovery procedure."
+            exit 5
+          fi
+
+          if [ "$active_label" = "blue" ]; then candidate_label="green"; else candidate_label="blue"; fi
+          short_sha="${GITHUB_SHA:0:10}"
+          suffix="sha-${short_sha}"
+          candidate_revision="${API_NAME}--${suffix}"
+
+          active_revision_json="$(az containerapp revision show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --revision "$previous_revision" \
+            --output json)"
+          target_port="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.targetPort -o tsv)"
+          app_id="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query id -o tsv)"
+          if ! [[ "$target_port" =~ ^[0-9]+$ ]] || [ -z "$app_id" ]; then
+            echo "::error::The target port or Container App resource ID could not be resolved."
+            exit 6
+          fi
+
+          containers="$(jq \
+            --arg image "$API_IMAGE" \
+            --arg commit "$GITHUB_SHA" \
+            --arg new_relic_enabled "$new_relic_enabled" \
+            --argjson port "$target_port" '
+              .properties.template.containers
+              | .[0].image = $image
+              | .[0].env = (
+                  (.[0].env // [])
+                  | map(select(
+                      .name != "Deployment__CommitSha"
+                      and .name != "Database__RunMigrationsOnStartup"
+                      and .name != "Database__RunMaintenanceOnStartup"
+                      and .name != "EventReminders__RunHostedProcessor"
+                      and ($new_relic_enabled != "true" or (
+                        .name != "CORECLR_ENABLE_PROFILING"
+                        and .name != "NEW_RELIC_LICENSE_KEY"
+                        and .name != "NEW_RELIC_APP_NAME"
+                        and .name != "NEW_RELIC_DISTRIBUTED_TRACING_ENABLED"
+                      ))
+                    ))
+                  + [
+                      {name: "Deployment__CommitSha", value: $commit},
+                      {name: "Database__RunMigrationsOnStartup", value: "false"},
+                      {name: "Database__RunMaintenanceOnStartup", value: "false"},
+                      {name: "EventReminders__RunHostedProcessor", value: "false"}
+                    ]
+                  + (if $new_relic_enabled == "true" then [
+                      {name: "CORECLR_ENABLE_PROFILING", value: "1"},
+                      {name: "NEW_RELIC_LICENSE_KEY", secretRef: "new-relic-license-key"},
+                      {name: "NEW_RELIC_APP_NAME", value: "Hemodinks API"},
+                      {name: "NEW_RELIC_DISTRIBUTED_TRACING_ENABLED", value: "true"}
+                    ] else [] end)
+                )
+              | .[0].probes = [
+                  {
+                    type: "Startup",
+                    httpGet: {path: "/livez", port: $port, scheme: "HTTP"},
+                    initialDelaySeconds: 1,
+                    periodSeconds: 3,
+                    timeoutSeconds: 2,
+                    failureThreshold: 30,
+                    successThreshold: 1
+                  },
+                  {
+                    type: "Liveness",
+                    httpGet: {path: "/livez", port: $port, scheme: "HTTP"},
+                    initialDelaySeconds: 10,
+                    periodSeconds: 10,
+                    timeoutSeconds: 2,
+                    failureThreshold: 3,
+                    successThreshold: 1
+                  },
+                  {
+                    type: "Readiness",
+                    httpGet: {path: "/healthz", port: $port, scheme: "HTTP"},
+                    initialDelaySeconds: 3,
+                    periodSeconds: 5,
+                    timeoutSeconds: 3,
+                    failureThreshold: 6,
+                    successThreshold: 1
+                  }
+                ]
+            ' <<<"$active_revision_json")"
+          patch_body="$(jq -n \
+            --arg suffix "$suffix" \
+            --argjson containers "$containers" '
+              {properties: {template: {revisionSuffix: $suffix, containers: $containers}}}
+            ')"
+          az rest \
+            --method patch \
+            --uri "https://management.azure.com${app_id}?api-version=2025-07-01" \
+            --body "$patch_body" \
+            --output none
+
+          actual_revision="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.latestRevisionName -o tsv)"
+          if [ "$actual_revision" != "$candidate_revision" ]; then
+            echo "::error::Expected revision '$candidate_revision', got '$actual_revision'."
+            exit 7
+          fi
+
+          az containerapp revision label add \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --revision "$candidate_revision" \
+            --label "$candidate_label" \
+            --yes \
+            --output none
+          az containerapp ingress traffic set \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --label-weight "$active_label=100" "$candidate_label=0" \
+            --output none
+
+          app_fqdn="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.fqdn -o tsv)"
+          domain="${app_fqdn#*.}"
+          candidate_fqdn="${API_NAME}---${candidate_label}.${domain}"
+
+          {
+            echo "active_label=$active_label"
+            echo "candidate_label=$candidate_label"
+            echo "previous_revision=$previous_revision"
+            echo "candidate_revision=$candidate_revision"
+            echo "candidate_fqdn=$candidate_fqdn"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Warm up and smoke test candidate
+        id: smoke
+        env:
+          CANDIDATE_REVISION: ${{ steps.candidate.outputs.candidate_revision }}
+          CANDIDATE_FQDN: ${{ steps.candidate.outputs.candidate_fqdn }}
+        run: |
+          set -euo pipefail
+          ready=false
+          for attempt in $(seq 1 30); do
+            state="$(az containerapp revision show \
+              --name "$API_NAME" \
+              --resource-group "$API_RESOURCE_GROUP" \
+              --revision "$CANDIDATE_REVISION" \
+              --query '[properties.healthState,properties.runningState,properties.provisioningState]' -o tsv || true)"
+            live_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+              --connect-timeout 10 --max-time 20 "https://${CANDIDATE_FQDN}/livez" || true)"
+            ready_status="$(curl --silent --show-error --output /tmp/readiness.json --write-out '%{http_code}' \
+              --connect-timeout 10 --max-time 30 "https://${CANDIDATE_FQDN}/healthz" || true)"
+            commit="$(jq -r '.deployment.commitSha // empty' /tmp/readiness.json 2>/dev/null || true)"
+            if [[ "$state" == *"Healthy"* && "$state" == *"Running"* && "$live_status" = "200" && "$ready_status" = "200" && "$commit" = "$GITHUB_SHA" ]]; then
+              ready=true
+              break
+            fi
+            echo "Candidate warm-up attempt ${attempt}/30 (live=${live_status}, ready=${ready_status})."
+            sleep $(( attempt < 6 ? attempt * 2 : 12 ))
+          done
+          rm -f /tmp/readiness.json
+          if [ "$ready" != "true" ]; then
+            echo "::error::Candidate failed readiness, database, or commit smoke validation. Production traffic was not changed."
+            exit 7
+          fi
+          echo "result=passed" >> "$GITHUB_OUTPUT"
+
+      - name: Atomically switch Production traffic
+        env:
+          ACTIVE_LABEL: ${{ steps.candidate.outputs.active_label }}
+          CANDIDATE_LABEL: ${{ steps.candidate.outputs.candidate_label }}
+        run: |
+          az containerapp ingress traffic set \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --label-weight "$ACTIVE_LABEL=0" "$CANDIDATE_LABEL=100" \
+            --output none
+
+      - name: Deployment summary
+        if: always()
+        env:
+          PREVIOUS_REVISION: ${{ steps.candidate.outputs.previous_revision }}
+          CANDIDATE_REVISION: ${{ steps.candidate.outputs.candidate_revision }}
+          ACTIVE_LABEL: ${{ steps.candidate.outputs.candidate_label }}
+          SMOKE_RESULT: ${{ steps.smoke.outputs.result || 'failed/not-run' }}
+          DEPLOYMENT_RESULT: ${{ job.status }}
+        run: |
+          final_traffic="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.traffic -o json 2>/dev/null | jq -c '.' || echo unavailable)"
+          {
+            echo "## Production API Blue/Green"
+            echo ""
+            echo "- Commit: \`${GITHUB_SHA}\`"
+            echo "- Image: \`${API_IMAGE}\`"
+            echo "- Previous revision: \`${PREVIOUS_REVISION:-unavailable}\`"
+            echo "- New revision: \`${CANDIDATE_REVISION:-unavailable}\`"
+            echo "- Active label after success: \`${ACTIVE_LABEL:-unchanged}\`"
+            echo "- Migration: **passed**"
+            echo "- Smoke test: **${SMOKE_RESULT}**"
+            echo "- Deployment: **${DEPLOYMENT_RESULT}**"
+            echo "- Final traffic: \`${final_traffic}\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-functions:
     name: Deploy Functions to Azure Container Apps
-    needs: publish
+    needs:
+      - publish
+      - migrate-production
     runs-on: ubuntu-latest
     environment: production
-    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME != '' && (vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure)) }}
+    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME != '' && (vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
 
     steps:
       - name: Log in to Azure
@@ -154,18 +506,10 @@ jobs:
         run: |
           functions_name="${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME }}"
           resource_group="${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP || vars.AZURE_RESOURCE_GROUP }}"
-
           if ! az containerapp show --name "$functions_name" --resource-group "$resource_group" >/dev/null 2>&1; then
-            echo "Container App '$functions_name' not found in Resource Group '$resource_group'. Searching current subscription..."
-            resource_group="$(az containerapp list --query "[?name=='$functions_name'].resourceGroup | [0]" -o tsv 2>/dev/null || true)"
-          fi
-
-          if [ -z "$resource_group" ] || [ "$resource_group" = "None" ]; then
-            echo "::error::Container App '$functions_name' was not found. Update AZURE_RESOURCE_GROUP or grant the deployment identity access to the new Resource Group."
+            echo "::error::Workers Container App '$functions_name' was not found in '$resource_group'."
             exit 3
           fi
-
-          echo "Deploying Functions Container App '$functions_name' in Resource Group '$resource_group'."
           az containerapp update \
             --name "$functions_name" \
             --resource-group "$resource_group" \
@@ -174,9 +518,10 @@ jobs:
 
   deploy-function-app:
     name: Deploy Workers to Azure Function App
+    needs: migrate-production
     runs-on: ubuntu-latest
     environment: production
-    if: ${{ vars.AZURE_FUNCTION_APP_WORKERS_NAME != '' && ((github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure)) }}
+    if: ${{ vars.AZURE_FUNCTION_APP_WORKERS_NAME != '' && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
 
     steps:
       - name: Checkout

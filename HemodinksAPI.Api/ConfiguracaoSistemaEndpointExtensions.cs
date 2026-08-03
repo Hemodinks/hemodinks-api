@@ -1,4 +1,3 @@
-using HemodinksAPI.Application.Features.ConfiguracoesSistema.Commands;
 using HemodinksAPI.Application.Features.ConfiguracoesSistema.Queries;
 using MediatR;
 
@@ -22,10 +21,6 @@ public static class ConfiguracaoSistemaEndpointExtensions
             .WithSummary("Consultar foto da empresa")
             .AllowAnonymous();
 
-        group.MapPut("/current", Update)
-            .WithName("UpdateConfiguracaoSistema")
-            .WithSummary("Atualizar configuracao do sistema")
-            .RequireAuthorization("Administrador");
     }
 
     private static Task<IResult> GetCurrent(
@@ -54,16 +49,4 @@ public static class ConfiguracaoSistemaEndpointExtensions
         }, logger, "Erro ao consultar foto da empresa", "Erro ao consultar foto da empresa");
     }
 
-    private static Task<IResult> Update(
-        UpdateConfiguracaoSistemaCommand command,
-        IMediator mediator,
-        ILogger<Program> logger,
-        CancellationToken cancellationToken)
-    {
-        return EndpointExecution.RunAsync(async () =>
-        {
-            var result = await mediator.Send(command, cancellationToken);
-            return Results.Ok(result);
-        }, logger, "Erro ao atualizar configuracao do sistema", "Erro ao atualizar configuracao do sistema");
-    }
 }

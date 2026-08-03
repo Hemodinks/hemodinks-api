@@ -40,4 +40,6 @@ public class Paciente : IClinicaOwnedEntity
     public ICollection<PacienteProcedimento> Procedimentos { get; set; } = new List<PacienteProcedimento>();
     public ICollection<PacienteArquivo> Arquivos { get; set; } = new List<PacienteArquivo>();
     public ICollection<Observacao> Observacoes { get; set; } = new List<Observacao>();
+    public ICollection<AtendimentoCirurgico> AtendimentosCirurgicos { get; set; } = new List<AtendimentoCirurgico>();
+    public ICollection<ContaReceber> ContasReceber { get; set; } = new List<ContaReceber>();
 }

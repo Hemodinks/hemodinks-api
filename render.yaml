@@ -17,7 +17,11 @@ services:
       - key: CORECLR_ENABLE_PROFILING
         value: "1"
       - key: Database__RunMigrationsOnStartup
-        value: "true"
+        value: "false"
+      - key: Database__RunMaintenanceOnStartup
+        value: "false"
+      - key: EventReminders__RunHostedProcessor
+        value: "false"
       - key: Seed__CbhpmOnStartup
         value: "false"
       - key: Seed__UsersOnStartup
@@ -31,11 +35,13 @@ services:
       - key: JwtSettings__Audience
         value: HemodinksAPI
       - key: JwtSettings__ExpirationMinutes
-        value: 60
+        value: 30
+      - key: Platform__SuperAdminEmails__0
+        sync: false
       - key: NEW_RELIC_LICENSE_KEY
         sync: false
       - key: NEW_RELIC_APP_NAME
-        value: Hemodinks API
+        value: Hemodinks API Production
       - key: PasswordReset__UseEmail
         value: "true"
       - key: Frontend__ResetPasswordUrl

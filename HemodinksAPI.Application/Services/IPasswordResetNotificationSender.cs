@@ -17,4 +17,5 @@ public sealed record PasswordResetNotification(
     string Email,
     string Nome,
     string Token,
-    DateTime ExpiresAt);
+    DateTime ExpiresAt,
+    int ClinicaId = 1);

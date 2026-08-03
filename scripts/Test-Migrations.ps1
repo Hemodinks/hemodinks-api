@@ -3,6 +3,7 @@ param(
     [string]$ProjectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path,
     [switch]$SkipEfCli,
     [switch]$NoBuild,
+    [switch]$FailOnDestructiveChanges,
     [string]$Configuration = "Debug"
 )
 
@@ -52,6 +53,13 @@ $report = foreach ($file in $migrationFiles) {
     $migrationName = [System.IO.Path]::GetFileNameWithoutExtension($file.Name)
     $hasUp = $content -match "protected\s+override\s+void\s+Up\s*\("
     $hasDown = $content -match "protected\s+override\s+void\s+Down\s*\("
+    $upMatch = [System.Text.RegularExpressions.Regex]::Match(
+        $content,
+        "protected\s+override\s+void\s+Up\s*\(MigrationBuilder\s+\w+\)\s*\{(?<body>[\s\S]*?)^\s*\}\s*(?:protected|$)",
+        [System.Text.RegularExpressions.RegexOptions]::Multiline)
+    $upBody = if ($upMatch.Success) { $upMatch.Groups["body"].Value } else { $content }
+    $hasDestructiveUp = $upBody -match "(?i)\b(DropTable|DropColumn|DeleteData)\s*\(" `
+        -or $upBody -match "(?i)\b(DROP\s+(TABLE|COLUMN)|TRUNCATE\s+TABLE|DELETE\s+FROM)\b"
 
     if (-not $hasUp) {
         throw "Migration sem Up(): $migrationName"
@@ -81,6 +89,7 @@ $report = foreach ($file in $migrationFiles) {
         HasDesigner              = $designerNames.Contains($migrationName)
         UsesRawSql               = $content.Contains("migrationBuilder.Sql(")
         RollbackMayDeleteData    = $rollbackMayDeleteData
+        HasDestructiveUp         = $hasDestructiveUp
         HasEmptyDown             = $downIsEmpty
     }
 }
@@ -88,6 +97,7 @@ $report = foreach ($file in $migrationFiles) {
 $manualMigrations = $report | Where-Object { -not $_.HasDesigner }
 $reviewMigrations = $report | Where-Object { $_.UsesRawSql -or $_.HasEmptyDown -or -not $_.HasDesigner }
 $rollbackSensitiveMigrations = $report | Where-Object { $_.RollbackMayDeleteData }
+$destructiveMigrations = $report | Where-Object { $_.HasDestructiveUp }
 
 Write-Output "Auditadas $($report.Count) migrations em $migrationsDir"
 Write-Output "Snapshot encontrado: $snapshotPath"
@@ -117,6 +127,20 @@ if (@($rollbackSensitiveMigrations).Count -gt 0) {
         Format-Table -AutoSize |
         Out-String |
         Write-Output
+}
+
+if (@($destructiveMigrations).Count -gt 0) {
+    $destructiveMigrations |
+        Select-Object Migration, HasDestructiveUp |
+        Format-Table -AutoSize |
+        Out-String |
+        Write-Warning
+
+    if ($FailOnDestructiveChanges) {
+        throw "Migration destrutiva detectada no Up(). Use expand/contract e mova a remocao para um deployment posterior."
+    }
+
+    Write-Warning "Migrations destrutivas detectadas no Up(); revise a cadeia historica e bloqueie novas ocorrencias antes de Producao."
 }
 
 if (-not $SkipEfCli) {

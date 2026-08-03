@@ -1,5 +1,7 @@
 # Hemodinks API
 
+Documentação de autorização: [matriz detalhada](docs/MATRIZ_PERFIS_PERMISSOES.md) e [relatório visual em PDF](docs/MATRIZ_PERFIS_PERMISSOES_VISUAL.pdf).
+
 API ASP.NET Core/.NET 10 para usuarios, pacientes, observacoes, agenda/notificacoes, faturamento medico, grupos medicos, licencas, configuracao do sistema, arquivos, exportacoes e consulta CBHPM.
 
 ## Stack
@@ -151,6 +153,10 @@ O login retorna um JWT usado em:
 Authorization: Bearer <token>
 ```
 
+O login tambem grava um refresh token rotativo em cookie `HttpOnly`. A sessao expira depois de 30 minutos sem requisicoes autenticadas, mas permanece ativa durante o uso continuo. O refresh, isoladamente, nao conta como atividade e nao consegue manter uma sessao ociosa viva.
+
+Clientes web devem usar `credentials: "include"` no login, refresh e logout. Ao se aproximar do vencimento do JWT (ou ao receber `401`), devem enviar um corpo JSON vazio (`{}`) para `POST /api/session/renovar`, armazenar o novo JWT e repetir a requisicao original. Interacoes locais que nao chamam a API podem ser registradas, com debounce, em `POST /api/session/atividade`. O logout tambem recebe `{}`.
+
 Perfis seedados:
 
 | Id | Perfil |
@@ -159,6 +165,7 @@ Perfis seedados:
 | 2 | Medicos |
 | 3 | Paciente |
 | 4 | Controller |
+| 5 | SuperAdministrador |
 
 Regras principais:
 
@@ -167,6 +174,8 @@ Regras principais:
 - Paciente acessa o proprio cadastro quando houver vinculo.
 - Controller acessa pacientes, faturamento e operacoes liberadas por policy, sem dashboard nem agenda no front atual.
 - Licencas controlam dashboard, pacientes e CBHPM para medicos.
+- A assinatura comercial pertence a `Clinica`; licencas individuais de medicos continuam existindo como uma segunda camada de compatibilidade e liberacao de features.
+- SuperAdministrador lista e provisiona clinicas pelos endpoints de plataforma. Para navegar, ele solicita um novo token tenant-scoped em `/api/session/selecionar-clinica`; headers nao alteram a clinica de uma sessao autenticada.
 
 Features atuais de licenca:
 
@@ -175,6 +184,30 @@ Features atuais de licenca:
 - `Cbhpm.Consultar`
 
 ## Endpoints principais
+
+### Plataforma multiclinica
+
+| Metodo | Rota | Auth | Descricao |
+| --- | --- | --- | --- |
+| `GET` | `/api/platform/clinicas` | superadmin | lista todas as clinicas |
+| `GET` | `/api/platform/clinicas/{id}` | superadmin | detalhe, assinatura e total de usuarios |
+| `POST` | `/api/platform/clinicas` | superadmin | provisiona clinica, administrador, identidade local do superadmin e catalogos iniciais |
+| `PUT` | `/api/platform/clinicas/{id}` | superadmin | atualiza nome, foto, cadastro, ativacao, plano e assinatura |
+| `DELETE` | `/api/platform/clinicas/{id}` | superadmin | desativa logicamente a clinica e preserva seus dados |
+| `GET` | `/api/platform/auditoria` | superadmin | consulta paginada da auditoria de plataforma |
+| `GET` | `/api/public/clinicas` | publico | lista minima das clinicas ativas para o seletor do login |
+| `GET` | `/api/public/clinicas/{slug}/foto` | publico | retorna a foto publica da clinica ativa |
+| `GET` | `/api/session/clinicas` | autenticado | lista associacoes ativas da identidade global |
+| `POST` | `/api/session/renovar` | refresh cookie | rotaciona o refresh token e emite um novo JWT se a sessao nao estiver inativa |
+| `POST` | `/api/session/atividade` | autenticado | registra atividade observada pelo frontend |
+| `POST` | `/api/session/sair` | refresh cookie/JWT | revoga a sessao e remove o cookie |
+| `POST` | `/api/session/selecionar-clinica` | autenticado | valida `UsuarioClinica` e emite novo JWT para a clinica |
+
+Configure os emails autorizados com `Platform__SuperAdminEmails__0`. No startup, o usuario correspondente e promovido e recebe uma associacao `UsuarioClinica` em cada clinica ativa. Administradores comuns permanecem restritos as associacoes explicitamente cadastradas.
+
+`UsuarioGlobal` guarda a credencial unica; `UsuarioClinica` liga essa identidade ao usuario local, clinica e perfil. O `ClinicaId` do JWT e o tenant efetivo. Consultas sem contexto resolvido falham fechadas; gravacoes com `ClinicaId` divergente e relacionamentos internos entre clinicas diferentes sao recusados antes do `SaveChanges`.
+
+O nome e a foto institucionais pertencem a `Clinica` e somente o SuperAdministrador pode altera-los pelo CRUD de plataforma. O antigo `PUT /api/configuracoes-sistema/current` nao e mais exposto.
 
 ### Auth e usuarios
 
@@ -302,7 +335,9 @@ Entidades principais:
 - `IdempotencyRequests`
 - `CBHPMGeral`
 
-Migrations rodam no startup quando `Database__RunMigrationsOnStartup=true`.
+Em desenvolvimento, migrations podem rodar no startup com `Database__RunMigrationsOnStartup=true`.
+Em produção, mantenha essa opção desabilitada e use o workflow manual `Apply Production Migrations`
+antes de publicar a imagem que depende do novo schema.
 
 ## Documentacao interativa
 

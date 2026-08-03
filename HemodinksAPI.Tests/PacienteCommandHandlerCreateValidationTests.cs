@@ -1,13 +1,8 @@
-using HemodinksAPI.Infrastructure.Data;
-using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.Pacientes.Commands;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HemodinksAPI.Tests;
@@ -68,7 +63,7 @@ public partial class PacienteCommandHandlerTests
     }
 
     [Fact]
-    public async Task CreatePaciente_WithoutCpfTelefone_GeneratesTechnicalProfileData()
+    public async Task CreatePaciente_WithoutCpfEmailTelefoneAndBirth_AcceptsOptionalData()
     {
         await using var context = TestDbContextFactory.Create();
         var doctor = new User
@@ -101,7 +96,6 @@ public partial class PacienteCommandHandlerTests
         var response = await handler.Handle(new CreatePacienteCommand
         {
             NomePaciente = "Paciente Sem Contato",
-            DataNascimento = new DateTime(1990, 1, 1),
             HospitalId = 1,
             MedicoUserId = doctor.Id,
             Medico = doctor.Nome,
@@ -115,6 +109,7 @@ public partial class PacienteCommandHandlerTests
         var storedUser = await context.Users.SingleAsync(user => user.PerfilId == Perfil.PacientesId);
 
         Assert.Null(storedUser.Cpf);
+        Assert.Null(storedUser.DataNascimento);
         Assert.Empty(storedUser.Telefone);
         Assert.StartsWith("paciente-", storedUser.Email);
         Assert.EndsWith("@hemodinks.local", storedUser.Email);

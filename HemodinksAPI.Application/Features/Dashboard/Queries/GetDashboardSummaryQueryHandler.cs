@@ -21,7 +21,7 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
 
     public async Task<DashboardSummaryDto> Handle(GetDashboardSummaryQuery request, CancellationToken cancellationToken)
     {
-        var usersSummary = request.CurrentPerfilId == Perfil.AdministradorId
+        var usersSummary = Perfil.IsAdministradorOuSuper(request.CurrentPerfilId)
             ? await _context.Users
                 .AsNoTracking()
                 .Where(user => user.PerfilId != Perfil.PacientesId)
@@ -35,6 +35,18 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
             : null;
 
         var patientSummary = await BuildPatientSummaryAsync(
+            request.CurrentPerfilId,
+            request.CurrentUserId,
+            cancellationToken);
+        var pendingPaymentsCount = await CountPendingPaymentsAsync(
+            request.CurrentPerfilId,
+            request.CurrentUserId,
+            cancellationToken);
+        var attendancesCount = await CountAttendancesAsync(
+            request.CurrentPerfilId,
+            request.CurrentUserId,
+            cancellationToken);
+        var billingsCount = await CountBillingsAsync(
             request.CurrentPerfilId,
             request.CurrentUserId,
             cancellationToken);
@@ -68,7 +80,9 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
             ActiveUsersCount = usersSummary?.ActiveUsersCount ?? 0,
             PacientesCount = patientSummary?.PacientesCount ?? 0,
             ActivePatientsCount = patientSummary?.ActivePatientsCount ?? 0,
-            PendingPaymentsCount = patientSummary?.PendingPaymentsCount ?? 0,
+            PendingPaymentsCount = pendingPaymentsCount,
+            AttendancesCount = attendancesCount,
+            BillingsCount = billingsCount,
             PatientFilesCount = patientSummary?.PatientFilesCount ?? 0,
             UpcomingEventsCount = upcomingEventsCount,
             UnreadObservationCount = unreadObservationCount,
@@ -93,9 +107,80 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
             {
                 PacientesCount = group.Count(),
                 ActivePatientsCount = group.Count(paciente => paciente.User.Ativo),
-                PendingPaymentsCount = group.Count(paciente => !paciente.StatusPago),
                 PatientFilesCount = group.Sum(paciente => paciente.Arquivos.Count)
             })
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private Task<int> CountPendingPaymentsAsync(
+        int perfilId,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var query = _context.ContasReceber
+            .AsNoTracking()
+            .Where(conta =>
+                conta.Status == ContaReceberStatus.Aberto
+                || conta.Status == ContaReceberStatus.ParcialmenteRecebido
+                || conta.Status == ContaReceberStatus.Vencido);
+
+        if (perfilId == Perfil.MedicosId)
+        {
+            query = query.Where(conta =>
+                conta.Faturamento.AtendimentoCirurgico.MedicoResponsavelId == userId
+                || conta.Faturamento.AtendimentoCirurgico.MedicoAuxiliar1Id == userId
+                || conta.Faturamento.AtendimentoCirurgico.MedicoAuxiliar2Id == userId);
+        }
+        else if (perfilId == Perfil.PacientesId)
+        {
+            query = query.Where(conta => conta.Paciente.UserId == userId);
+        }
+
+        return query.CountAsync(cancellationToken);
+    }
+
+    private Task<int> CountAttendancesAsync(
+        int perfilId,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var query = _context.AtendimentosCirurgicos.AsNoTracking();
+
+        if (perfilId == Perfil.MedicosId)
+        {
+            query = query.Where(atendimento =>
+                atendimento.MedicoResponsavelId == userId
+                || atendimento.MedicoAuxiliar1Id == userId
+                || atendimento.MedicoAuxiliar2Id == userId);
+        }
+        else if (perfilId == Perfil.PacientesId)
+        {
+            query = query.Where(atendimento => atendimento.Paciente.UserId == userId);
+        }
+
+        return query.CountAsync(cancellationToken);
+    }
+
+    private Task<int> CountBillingsAsync(
+        int perfilId,
+        int userId,
+        CancellationToken cancellationToken)
+    {
+        var query = _context.Faturamentos.AsNoTracking();
+
+        if (perfilId == Perfil.MedicosId)
+        {
+            query = query.Where(faturamento =>
+                faturamento.AtendimentoCirurgico.MedicoResponsavelId == userId
+                || faturamento.AtendimentoCirurgico.MedicoAuxiliar1Id == userId
+                || faturamento.AtendimentoCirurgico.MedicoAuxiliar2Id == userId);
+        }
+        else if (perfilId == Perfil.PacientesId)
+        {
+            query = query.Where(faturamento =>
+                faturamento.AtendimentoCirurgico.Paciente.UserId == userId);
+        }
+
+        return query.CountAsync(cancellationToken);
     }
 }

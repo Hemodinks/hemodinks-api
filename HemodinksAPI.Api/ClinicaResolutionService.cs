@@ -24,11 +24,8 @@ public sealed class ClinicaResolutionService
         var user = httpContext.User;
         if (user.Identity?.IsAuthenticated == true)
         {
-            var resolvedFromClaims = await ResolveFromAuthenticatedUserAsync(user, cancellationToken);
-            if (resolvedFromClaims != null)
-            {
-                return resolvedFromClaims;
-            }
+            // Fail-closed: uma requisicao autenticada nunca troca de clinica por header/subdominio.
+            return await ResolveFromAuthenticatedUserAsync(user, cancellationToken);
         }
 
         var resolvedFromHeader = await ResolveFromHeadersAsync(httpContext.Request, cancellationToken);
@@ -37,17 +34,21 @@ public sealed class ClinicaResolutionService
             return resolvedFromHeader;
         }
 
-        var subdomainSlug = TryExtractSubdomainSlug(httpContext.Request.Host.Host);
-        if (!string.IsNullOrWhiteSpace(subdomainSlug))
+        var resolvedFromSubdomain = await ResolveFromSubdomainAsync(httpContext.Request.Host.Host, cancellationToken);
+        if (resolvedFromSubdomain != null)
         {
-            var resolvedFromSubdomain = await ResolveBySlugAsync(subdomainSlug, cancellationToken);
-            if (resolvedFromSubdomain != null)
-            {
-                return resolvedFromSubdomain;
-            }
+            return resolvedFromSubdomain;
         }
 
         return await ResolveSingleActiveClinicaAsync(cancellationToken);
+    }
+
+    private Task<ResolvedClinica?> ResolveFromSubdomainAsync(string? host, CancellationToken cancellationToken)
+    {
+        var subdomainSlug = TryExtractSubdomainSlug(host);
+        return string.IsNullOrWhiteSpace(subdomainSlug)
+            ? Task.FromResult<ResolvedClinica?>(null)
+            : ResolveBySlugAsync(subdomainSlug, cancellationToken);
     }
 
     private async Task<ResolvedClinica?> ResolveFromAuthenticatedUserAsync(

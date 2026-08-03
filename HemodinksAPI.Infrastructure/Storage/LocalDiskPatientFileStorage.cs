@@ -96,4 +96,18 @@ public class LocalDiskPatientFileStorage : IPatientFileStorage
 
         return Task.CompletedTask;
     }
+
+    public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
+    {
+        var relativePath = LocalStoragePathHelper.TryGetRelativePath(_localOptions, StorageFolder, fileUrl);
+        if (relativePath == null)
+        {
+            return Task.FromResult<StoredPatientFileContent?>(null);
+        }
+
+        var physicalPath = LocalStoragePathHelper.GetPhysicalPath(_localOptions, StorageFolder, relativePath);
+        return Task.FromResult<StoredPatientFileContent?>(File.Exists(physicalPath)
+            ? new StoredPatientFileContent(File.OpenRead(physicalPath))
+            : null);
+    }
 }

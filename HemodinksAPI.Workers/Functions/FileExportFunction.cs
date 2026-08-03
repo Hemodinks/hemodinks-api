@@ -45,7 +45,7 @@ public class FileExportFunction
             : "application/pdf";
 
         var containerName = _configuration["ExportsContainerName"] ?? "exports";
-        var blobName = $"{job.Resource}/{job.JobId:N}.{job.Format.ToLowerInvariant()}";
+        var blobName = $"clinica-{job.ClinicaId}/{job.Resource}/{job.JobId:N}.{job.Format.ToLowerInvariant()}";
         var containerClient = new BlobContainerClient(GetStorageConnectionString(), containerName);
         await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob, cancellationToken: cancellationToken);
 
@@ -193,6 +193,7 @@ public class FileExportFunction
             $"Formato: {job.Format}",
             $"Solicitante: {job.RequestedByUserId}",
             $"Perfil: {job.RequestedByPerfilId}",
+            $"Clinica: {job.ClinicaId}",
             $"Solicitado em UTC: {job.RequestedAt:O}",
             $"Filtros: {filters}"
         ];

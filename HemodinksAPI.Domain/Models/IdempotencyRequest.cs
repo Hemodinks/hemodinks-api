@@ -1,8 +1,12 @@
 namespace HemodinksAPI.Domain.Models;
 
-public class IdempotencyRequest
+public class IdempotencyRequest : IClinicaOwnedEntity
 {
     public int Id { get; set; }
+
+    public int ClinicaId { get; set; }
+
+    public Clinica Clinica { get; set; } = null!;
 
     public string Operation { get; set; } = null!;
 

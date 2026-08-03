@@ -1,5 +1,3 @@
-using HemodinksAPI.Application.Storage;
-
 namespace HemodinksAPI.Infrastructure.Storage;
 
 public class FunctionBackedPatientFileStorage : IPatientFileStorage
@@ -39,5 +37,10 @@ public class FunctionBackedPatientFileStorage : IPatientFileStorage
     public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
     {
         return _fallbackStorage.DeleteAsync(fileUrl, cancellationToken);
+    }
+
+    public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
+    {
+        return _fallbackStorage.GetAsync(fileUrl, cancellationToken);
     }
 }

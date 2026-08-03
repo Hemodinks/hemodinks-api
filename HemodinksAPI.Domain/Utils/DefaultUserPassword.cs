@@ -1,9 +1,9 @@
 namespace HemodinksAPI.Domain.Utils;
 
 /// <summary>
-/// Senha inicial aplicada aos usuários cadastrados pelo sistema.
+/// Compatibilidade para cenários de teste antigos. O valor é aleatório por processo.
 /// </summary>
 public static class DefaultUserPassword
 {
-    public const string Value = "Senha@123";
+    public static string Value { get; } = TemporaryPasswordGenerator.Generate();
 }

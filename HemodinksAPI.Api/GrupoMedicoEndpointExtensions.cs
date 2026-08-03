@@ -10,14 +10,14 @@ public static partial class GrupoMedicoEndpointExtensions
 
         group.MapGet("/", GetAll)
             .WithSummary("Listar grupos medicos")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("GrupoMedicoGerenciar");
 
         group.MapGet("/medicos", GetScopedMedicalUsers)
             .WithSummary("Listar medicos disponiveis conforme o escopo do usuario");
 
         group.MapGet("/{id}", GetById)
             .WithSummary("Buscar grupo medico por ID")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("GrupoMedicoGerenciar");
 
         group.MapPost("/", Create)
             .WithSummary("Criar grupo medico")
@@ -25,10 +25,10 @@ public static partial class GrupoMedicoEndpointExtensions
 
         group.MapPut("/{id}", Update)
             .WithSummary("Atualizar grupo medico")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("GrupoMedicoGerenciar");
 
         group.MapDelete("/{id}", Delete)
             .WithSummary("Excluir grupo medico")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("GrupoMedicoGerenciar");
     }
 }

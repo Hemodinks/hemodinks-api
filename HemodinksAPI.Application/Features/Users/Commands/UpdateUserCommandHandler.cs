@@ -65,27 +65,48 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
 
             var effectivePerfilId = request.PerfilId;
             var effectiveAtivo = request.Ativo;
+            var effectiveEmail = request.Email;
+            var effectiveCpf = request.Cpf;
+            var effectiveCrm = request.Crm;
+            var effectiveCrmUf = request.CrmUf;
 
             if (request.CurrentUser != null && !UserCommandAccess.CanUpdateUser(request.CurrentUser, request.Id))
             {
                 throw new UnauthorizedAccessException("Sem permissao para atualizar usuario");
             }
 
+            if (user.PerfilId == Perfil.SuperAdministradorId
+                && request.CurrentUser?.IsSuperAdministrador != true)
+            {
+                throw new UnauthorizedAccessException("Somente outro SuperAdministrador pode alterar este cadastro");
+            }
+
             if (request.CurrentUser != null && !request.CurrentUser.IsAdministrador)
             {
-                effectivePerfilId = Perfil.MedicosId;
-                effectiveAtivo = true;
+                effectivePerfilId = user.PerfilId;
+                effectiveAtivo = user.Ativo;
+
+                if (request.CurrentUser.IsPaciente)
+                {
+                    // O e-mail pertence à identidade global e exige um fluxo próprio para
+                    // ser alterado em todas as clínicas. CPF, perfil, status e dados médicos
+                    // também não fazem parte da edição pessoal do paciente.
+                    effectiveEmail = user.Email;
+                    effectiveCpf = user.Cpf;
+                    effectiveCrm = user.Crm;
+                    effectiveCrmUf = user.CrmUf;
+                }
             }
 
             var emailAlreadyExists = await _context.Users
-                .AnyAsync(u => u.Id != request.Id && u.Email == request.Email, cancellationToken);
+                .AnyAsync(u => u.Id != request.Id && u.Email == effectiveEmail, cancellationToken);
 
             if (emailAlreadyExists)
             {
                 throw new InvalidOperationException("Email ja cadastrado");
             }
 
-            var cpf = UserProfileRules.NormalizeCpf(request.Cpf);
+            var cpf = UserProfileRules.NormalizeCpf(effectiveCpf);
             if (cpf != null)
             {
                 var cpfAlreadyExists = await _context.Users
@@ -98,7 +119,18 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             }
 
             var perfilId = UserProfileRules.NormalizePerfilId(effectivePerfilId);
-            UserProfileRules.EnsureAssignablePerfilId(perfilId);
+            var canAssignRestrictedProfiles = request.CurrentUser?.IsSuperAdministrador == true;
+            if (perfilId == Perfil.PacientesId && !canAssignRestrictedProfiles)
+            {
+                if (user.PerfilId != Perfil.PacientesId)
+                {
+                    throw new InvalidOperationException("Perfil Pacientes desativado para cadastro de usuarios");
+                }
+            }
+            else
+            {
+                UserProfileRules.EnsureAssignablePerfilId(perfilId, canAssignRestrictedProfiles);
+            }
             var perfil = await _context.Perfis
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == perfilId, cancellationToken);
@@ -108,11 +140,11 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 throw new InvalidOperationException("Perfil invalido");
             }
 
-            var medicalRegistration = UserProfileRules.NormalizeAndValidateMedicalRegistration(request.Crm, request.CrmUf, perfilId);
+            var medicalRegistration = UserProfileRules.NormalizeAndValidateMedicalRegistration(effectiveCrm, effectiveCrmUf, perfilId);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, user.FotoPerfil, cancellationToken);
 
             user.Nome = request.Nome;
-            user.Email = request.Email;
+            user.Email = effectiveEmail;
             user.Telefone = request.Telefone;
             user.Cpf = cpf;
             user.Crm = medicalRegistration.Crm;

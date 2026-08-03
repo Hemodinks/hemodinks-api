@@ -34,6 +34,34 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Start SQL Server for relational tests
+        shell: bash
+        run: |
+          test_password="Test_${GITHUB_RUN_ID}_Aa!"
+          docker run --detach --name hemodinks-test-sqlserver \
+            --env ACCEPT_EULA=Y \
+            --env MSSQL_PID=Developer \
+            --env MSSQL_SA_PASSWORD="$test_password" \
+            --publish 1433:1433 \
+            mcr.microsoft.com/mssql/server:2022-latest
+
+          for attempt in {1..30}; do
+            if docker exec hemodinks-test-sqlserver \
+              /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$test_password" -C -Q "SELECT 1" \
+              > /dev/null 2>&1; then
+              break
+            fi
+
+            if [ "$attempt" -eq 30 ]; then
+              docker logs hemodinks-test-sqlserver
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          echo "HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING=Server=localhost,1433;User ID=sa;Password=$test_password;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=True" >> "$GITHUB_ENV"
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:

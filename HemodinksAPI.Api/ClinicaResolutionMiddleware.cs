@@ -1,4 +1,8 @@
 using HemodinksAPI.Application.Tenancy;
+using System.Security.Claims;
+using HemodinksAPI.Application.Authentication;
+using HemodinksAPI.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
 
@@ -15,6 +19,7 @@ public sealed class ClinicaResolutionMiddleware
         HttpContext httpContext,
         ClinicaContext clinicaContext,
         ClinicaResolutionService clinicaResolutionService,
+        AppDbContext dbContext,
         ILogger<ClinicaResolutionMiddleware> logger)
     {
         if (!ShouldResolveClinica(httpContext.Request.Path))
@@ -41,6 +46,15 @@ public sealed class ClinicaResolutionMiddleware
         }
 
         clinicaContext.SetCurrent(resolvedClinica.Id, resolvedClinica.Slug);
+        if (!await ValidateActiveMembershipAsync(httpContext.User, resolvedClinica, dbContext, httpContext.RequestAborted))
+        {
+            httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await httpContext.Response.WriteAsJsonAsync(new
+            {
+                message = "A sessao nao possui associacao ativa com a clinica selecionada. Selecione a clinica novamente."
+            }, httpContext.RequestAborted);
+            return;
+        }
         httpContext.Response.Headers["X-Clinica-Slug"] = resolvedClinica.Slug;
 
         await _next(httpContext);
@@ -48,6 +62,43 @@ public sealed class ClinicaResolutionMiddleware
 
     private static bool ShouldResolveClinica(PathString path)
     {
-        return path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase);
+        return path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase)
+            && !path.StartsWithSegments("/api/public/clinicas", StringComparison.OrdinalIgnoreCase)
+            && !path.StartsWithSegments("/api/session/renovar", StringComparison.OrdinalIgnoreCase)
+            && !path.StartsWithSegments("/api/session/sair", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static async Task<bool> ValidateActiveMembershipAsync(
+        ClaimsPrincipal principal,
+        ResolvedClinica clinica,
+        AppDbContext context,
+        CancellationToken cancellationToken)
+    {
+        if (principal.Identity?.IsAuthenticated != true)
+        {
+            return true;
+        }
+
+        var userIdValue = principal.FindFirstValue(ClaimTypes.NameIdentifier);
+        var membershipIdValue = principal.FindFirstValue(GlobalIdentityClaimTypes.UsuarioClinicaId);
+        var globalUserIdValue = principal.FindFirstValue(GlobalIdentityClaimTypes.UsuarioGlobalId);
+        if (!int.TryParse(userIdValue, out var userId)
+            || !int.TryParse(membershipIdValue, out var membershipId)
+            || !int.TryParse(globalUserIdValue, out var globalUserId))
+        {
+            return false;
+        }
+
+        return await context.UsuariosClinicas
+            .AsNoTracking()
+            .AnyAsync(item => item.Id == membershipId
+                && item.UsuarioGlobalId == globalUserId
+                && item.UserId == userId
+                && item.ClinicaId == clinica.Id
+                && item.Ativo
+                && item.UsuarioGlobal.Ativo
+                && item.User.Ativo
+                && item.Clinica.Ativa,
+                cancellationToken);
     }
 }
