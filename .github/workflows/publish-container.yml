@@ -249,8 +249,22 @@ jobs:
 
       - name: Create candidate revision with zero traffic
         id: candidate
+        env:
+          NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
         run: |
           set -euo pipefail
+          new_relic_enabled=false
+          if [ -n "$NEW_RELIC_LICENSE_KEY" ]; then
+            az containerapp secret set \
+              --name "$API_NAME" \
+              --resource-group "$API_RESOURCE_GROUP" \
+              --secrets "new-relic-license-key=$NEW_RELIC_LICENSE_KEY" \
+              --output none
+            new_relic_enabled=true
+          else
+            echo "::notice::New Relic APM configuration was not changed because NEW_RELIC_LICENSE_KEY is not configured."
+          fi
+
           traffic_json="$(az containerapp show \
             --name "$API_NAME" \
             --resource-group "$API_RESOURCE_GROUP" \
@@ -288,6 +302,7 @@ jobs:
           containers="$(jq \
             --arg image "$API_IMAGE" \
             --arg commit "$GITHUB_SHA" \
+            --arg new_relic_enabled "$new_relic_enabled" \
             --argjson port "$target_port" '
               .properties.template.containers
               | .[0].image = $image
@@ -298,6 +313,12 @@ jobs:
                       and .name != "Database__RunMigrationsOnStartup"
                       and .name != "Database__RunMaintenanceOnStartup"
                       and .name != "EventReminders__RunHostedProcessor"
+                      and ($new_relic_enabled != "true" or (
+                        .name != "CORECLR_ENABLE_PROFILING"
+                        and .name != "NEW_RELIC_LICENSE_KEY"
+                        and .name != "NEW_RELIC_APP_NAME"
+                        and .name != "NEW_RELIC_DISTRIBUTED_TRACING_ENABLED"
+                      ))
                     ))
                   + [
                       {name: "Deployment__CommitSha", value: $commit},
@@ -305,6 +326,12 @@ jobs:
                       {name: "Database__RunMaintenanceOnStartup", value: "false"},
                       {name: "EventReminders__RunHostedProcessor", value: "false"}
                     ]
+                  + (if $new_relic_enabled == "true" then [
+                      {name: "CORECLR_ENABLE_PROFILING", value: "1"},
+                      {name: "NEW_RELIC_LICENSE_KEY", secretRef: "new-relic-license-key"},
+                      {name: "NEW_RELIC_APP_NAME", value: "Hemodinks API"},
+                      {name: "NEW_RELIC_DISTRIBUTED_TRACING_ENABLED", value: "true"}
+                    ] else [] end)
                 )
               | .[0].probes = [
                   {
