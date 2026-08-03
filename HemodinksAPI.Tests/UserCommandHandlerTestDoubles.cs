@@ -83,12 +83,16 @@ public partial class UserCommandHandlerTests
             _token = token;
         }
 
-        public string GenerateToken(User user)
+        public string GenerateToken(User user, Guid? sessionId = null)
         {
             return _token;
         }
 
-        public string GenerateToken(UsuarioGlobal usuarioGlobal, UsuarioClinica usuarioClinica, User user)
+        public string GenerateToken(
+            UsuarioGlobal usuarioGlobal,
+            UsuarioClinica usuarioClinica,
+            User user,
+            Guid? sessionId = null)
         {
             return _token;
         }

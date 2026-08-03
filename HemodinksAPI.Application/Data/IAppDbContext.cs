@@ -11,6 +11,8 @@ public interface IAppDbContext
 
     DbSet<UsuarioClinica> UsuariosClinicas { get; }
 
+    DbSet<AuthenticationSession> AuthenticationSessions { get; }
+
     DbSet<AuditoriaPlataforma> AuditoriasPlataforma { get; }
 
     DbSet<User> Users { get; }

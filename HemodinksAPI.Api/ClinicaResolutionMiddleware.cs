@@ -63,7 +63,9 @@ public sealed class ClinicaResolutionMiddleware
     private static bool ShouldResolveClinica(PathString path)
     {
         return path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase)
-            && !path.StartsWithSegments("/api/public/clinicas", StringComparison.OrdinalIgnoreCase);
+            && !path.StartsWithSegments("/api/public/clinicas", StringComparison.OrdinalIgnoreCase)
+            && !path.StartsWithSegments("/api/session/renovar", StringComparison.OrdinalIgnoreCase)
+            && !path.StartsWithSegments("/api/session/sair", StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<bool> ValidateActiveMembershipAsync(

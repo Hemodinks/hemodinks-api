@@ -39,7 +39,8 @@ public static partial class ApiServiceCollectionExtensions
             {
                 policy.WithOrigins(allowedOrigins)
                     .AllowAnyHeader()
-                    .AllowAnyMethod();
+                    .AllowAnyMethod()
+                    .AllowCredentials();
             });
         });
 

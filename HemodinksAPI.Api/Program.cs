@@ -127,6 +127,7 @@ app.UseHttpsRedirection();
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<AuthenticationSessionMiddleware>();
 app.UseMiddleware<ClinicaResolutionMiddleware>();
 app.UseMiddleware<ClinicaModuleAccessMiddleware>();
 app.UseAuthorization();

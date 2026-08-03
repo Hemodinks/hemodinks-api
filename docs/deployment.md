@@ -266,6 +266,9 @@ Variaveis ja declaradas no blueprint:
 | `JwtSettings__Issuer` | `HemodinksAPI` |
 | `JwtSettings__Audience` | `HemodinksAPI` |
 | `JwtSettings__ExpirationMinutes` | `30` |
+| `AuthenticationSession__IdleTimeoutMinutes` | `30` |
+| `AuthenticationSession__RefreshCookieName` | `hemodinks_refresh` |
+| `AuthenticationSession__RefreshCookieLifetimeDays` | `30` |
 | `NEW_RELIC_APP_NAME` | `Hemodinks API Production` |
 | `PasswordReset__UseEmail` | `true` |
 | `AsyncQueues__Enabled` | `false` |

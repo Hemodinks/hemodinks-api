@@ -21,7 +21,7 @@ public class JwtTokenService : IJwtTokenService
         _logger = logger;
     }
 
-    public string GenerateToken(User user)
+    public string GenerateToken(User user, Guid? sessionId = null)
     {
         var legacyIdentity = new UsuarioGlobal
         {
@@ -41,10 +41,14 @@ public class JwtTokenService : IJwtTokenService
             Ativo = user.Ativo
         };
 
-        return GenerateToken(legacyIdentity, legacyMembership, user);
+        return GenerateToken(legacyIdentity, legacyMembership, user, sessionId);
     }
 
-    public string GenerateToken(UsuarioGlobal usuarioGlobal, UsuarioClinica usuarioClinica, User user)
+    public string GenerateToken(
+        UsuarioGlobal usuarioGlobal,
+        UsuarioClinica usuarioClinica,
+        User user,
+        Guid? sessionId = null)
     {
         try
         {
@@ -67,6 +71,11 @@ public class JwtTokenService : IJwtTokenService
                 new Claim(ClinicaClaimTypes.ClinicaSlug, user.Clinica?.Slug ?? Clinica.DefaultSlug),
                 new Claim("precisaTrocarSenha", user.PrecisaTrocarSenha.ToString().ToLowerInvariant()),
             };
+
+            if (sessionId.HasValue)
+            {
+                claims.Add(new Claim(AuthenticationSessionClaimTypes.SessionId, sessionId.Value.ToString("D")));
+            }
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {

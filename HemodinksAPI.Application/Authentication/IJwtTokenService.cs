@@ -7,7 +7,11 @@ namespace HemodinksAPI.Application.Authentication;
 /// </summary>
 public interface IJwtTokenService
 {
-    string GenerateToken(User user);
+    string GenerateToken(User user, Guid? sessionId = null);
 
-    string GenerateToken(UsuarioGlobal usuarioGlobal, UsuarioClinica usuarioClinica, User user);
+    string GenerateToken(
+        UsuarioGlobal usuarioGlobal,
+        UsuarioClinica usuarioClinica,
+        User user,
+        Guid? sessionId = null);
 }

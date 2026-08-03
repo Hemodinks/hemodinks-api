@@ -65,6 +65,9 @@ public partial class ApiEndpointIntegrationTests
         await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
         var originalToken = client.DefaultRequestHeaders.Authorization?.Parameter;
 
+        // O refresh cookie deve ser suficiente mesmo quando o access token ja nao esta disponivel.
+        client.DefaultRequestHeaders.Authorization = null;
+
         var response = await client.PostAsJsonAsync("/api/session/renovar", new { });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -75,6 +78,99 @@ public partial class ApiEndpointIntegrationTests
 
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", refreshedToken);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/session/clinicas")).StatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshSession_WhenSessionWasIdleForThirtyMinutes_ReturnsUnauthorized()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var session = await context.AuthenticationSessions.SingleAsync();
+            session.LastActivityAt = DateTime.UtcNow.AddMinutes(-31);
+            await context.SaveChangesAsync();
+        }
+
+        client.DefaultRequestHeaders.Authorization = null;
+        var response = await client.PostAsJsonAsync("/api/session/renovar", new { });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.NotNull((await verificationContext.AuthenticationSessions.SingleAsync()).RevokedAt);
+    }
+
+    [Fact]
+    public async Task AuthenticatedRequest_UpdatesSessionLastActivity()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var staleActivity = DateTime.UtcNow.AddMinutes(-20);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var session = await context.AuthenticationSessions.SingleAsync();
+            session.LastActivityAt = staleActivity;
+            await context.SaveChangesAsync();
+        }
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/session/clinicas")).StatusCode);
+
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var updatedActivity = (await verificationContext.AuthenticationSessions
+            .AsNoTracking()
+            .SingleAsync()).LastActivityAt;
+        Assert.True(updatedActivity > staleActivity.AddMinutes(19));
+    }
+
+    [Fact]
+    public async Task RefreshSession_DoesNotCountAsUserActivity()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var staleActivity = DateTime.UtcNow.AddMinutes(-20);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var session = await context.AuthenticationSessions.SingleAsync();
+            session.LastActivityAt = staleActivity;
+            await context.SaveChangesAsync();
+        }
+
+        client.DefaultRequestHeaders.Authorization = null;
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/session/renovar", new { })).StatusCode);
+
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var activityAfterRefresh = (await verificationContext.AuthenticationSessions
+            .AsNoTracking()
+            .SingleAsync()).LastActivityAt;
+        Assert.Equal(staleActivity, activityAfterRefresh);
+    }
+
+    [Fact]
+    public async Task Logout_RevokesSessionAndPreventsRefresh()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/api/session/sair", new { })).StatusCode);
+        client.DefaultRequestHeaders.Authorization = null;
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/session/renovar", new { })).StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.NotNull((await context.AuthenticationSessions.SingleAsync()).RevokedAt);
     }
 
     [Fact]

@@ -24,13 +24,30 @@ public static partial class UserEndpointExtensions
 
     private static Task<IResult> AuthenticateUser(
         AuthenticateUserCommand command,
+        HttpContext httpContext,
         IMediator mediator,
+        AuthenticationSessionService sessionService,
+        AuthenticationSessionCookie sessionCookie,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
         return EndpointExecution.RunAsync(async () =>
         {
             var result = await mediator.Send(command, cancellationToken);
+            var session = await sessionService.StartAsync(
+                result.UsuarioGlobalId,
+                result.Id,
+                result.ClinicaId,
+                httpContext.Connection.RemoteIpAddress?.ToString(),
+                httpContext.Request.Headers.UserAgent.ToString(),
+                cancellationToken);
+            if (session == null)
+            {
+                return Results.Unauthorized();
+            }
+
+            result.Token = session.AccessToken;
+            sessionCookie.Write(httpContext, session);
             return Results.Ok(result);
         }, logger, "Falha na autenticacao", "Erro ao autenticar usuario", new EndpointErrorOptions
         {

@@ -24,6 +24,8 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<UsuarioClinica> UsuariosClinicas { get; set; } = null!;
 
+    public DbSet<AuthenticationSession> AuthenticationSessions { get; set; } = null!;
+
     public DbSet<AuditoriaPlataforma> AuditoriasPlataforma { get; set; } = null!;
 
     /// <summary>
