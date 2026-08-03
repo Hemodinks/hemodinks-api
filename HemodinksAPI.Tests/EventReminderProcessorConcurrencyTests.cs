@@ -15,7 +15,7 @@ public sealed class EventReminderProcessorConcurrencyTests
     public async Task ProcessDueReminders_ClaimsEventBeforeSendingAcrossReplicas()
     {
         var databaseName = $"HemodinksReminderLease_{Guid.NewGuid():N}";
-        var connectionString = $"Server=(localdb)\\mssqllocaldb;Database={databaseName};Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
+        var connectionString = SqlServerTestConnection.Create(databaseName);
         var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(connectionString).Options;
         var firstTenant = ClinicaContextFactory.CreateDefaultResolved();
         var secondTenant = ClinicaContextFactory.CreateDefaultResolved();

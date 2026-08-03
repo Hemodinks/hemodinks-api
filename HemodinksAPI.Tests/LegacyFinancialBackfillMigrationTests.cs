@@ -14,7 +14,7 @@ public sealed class LegacyFinancialBackfillMigrationTests
     public async Task Migration_backfills_valid_legacy_values_and_audits_invalid_originals()
     {
         var databaseName = $"HemodinksLegacyBackfill_{Guid.NewGuid():N}";
-        var connectionString = $"Server=(localdb)\\mssqllocaldb;Database={databaseName};Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True";
+        var connectionString = SqlServerTestConnection.Create(databaseName);
         var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(connectionString).Options;
         var tenant = ClinicaContextFactory.CreateDefaultResolved();
 
