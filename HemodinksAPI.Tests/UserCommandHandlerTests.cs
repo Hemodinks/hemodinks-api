@@ -2,7 +2,6 @@ using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 using HemodinksAPI.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -53,7 +52,8 @@ public partial class UserCommandHandlerTests
         Assert.Equal("12345", response.Crm);
         Assert.Equal("PE", response.CrmUf);
         Assert.Equal("Médicos", response.PerfilNome);
-        Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+        Assert.NotNull(response.SenhaTemporaria);
+        Assert.True(hasher.VerifyPassword(response.SenhaTemporaria, storedUser.Senha));
         Assert.NotNull(await context.Licencas.SingleOrDefaultAsync(item => item.UserId == storedUser.Id));
     }
 

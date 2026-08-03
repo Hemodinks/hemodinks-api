@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
 /// <summary>
-/// Handler para resetar a senha do usuario para a senha padrao.
+/// Handler para gerar uma senha temporária única para o usuário.
 /// </summary>
 public class ResetUserPasswordCommandHandler : IRequestHandler<ResetUserPasswordCommand, ResetUserPasswordResponse>
 {
@@ -39,7 +39,10 @@ public class ResetUserPasswordCommandHandler : IRequestHandler<ResetUserPassword
                 throw new KeyNotFoundException("Usuario nao encontrado");
             }
 
-            PasswordCommandMutations.ApplyDefaultPassword(user, _passwordHasher, DateTime.UtcNow);
+            var temporaryPassword = PasswordCommandMutations.ApplyTemporaryPassword(
+                user,
+                _passwordHasher,
+                DateTime.UtcNow);
             await GlobalIdentityService.SynchronizePasswordAsync(_context, user.Id, user.Senha, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
 
@@ -47,7 +50,8 @@ public class ResetUserPasswordCommandHandler : IRequestHandler<ResetUserPassword
             {
                 Id = user.Id,
                 PrecisaTrocarSenha = user.PrecisaTrocarSenha,
-                Message = "Senha resetada para a senha padrao"
+                Message = "Senha temporária gerada. Ela deve ser alterada no próximo acesso.",
+                SenhaTemporaria = temporaryPassword
             };
         }
         catch (Exception ex)

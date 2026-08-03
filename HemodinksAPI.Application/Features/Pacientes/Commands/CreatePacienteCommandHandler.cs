@@ -84,6 +84,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             var procedimentos = await PacienteRules.ResolveProcedimentosAsync(_cbhpmCache, request.Procedimentos,
                 request.CbhpmCodigo, request.Procedimento, request.CbhpmPorte, cancellationToken);
             var procedimentoPrincipal = procedimentos.FirstOrDefault();
+            var temporaryPassword = TemporaryPasswordGenerator.Generate();
             var user = new User
             {
                 ClinicaId = clinicaId,
@@ -92,7 +93,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 Telefone = telefone,
                 Cpf = cpf,
                 FotoPerfil = fotoPerfil,
-                Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
+                Senha = _passwordHasher.HashPassword(temporaryPassword),
                 DataCadastro = DateTime.UtcNow,
                 DataNascimento = request.DataNascimento,
                 Ativo = request.Ativo,
@@ -141,7 +142,9 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             _context.Pacientes.Add(paciente);
             await _context.SaveChangesAsync(cancellationToken);
 
-            return PacienteMapper.ToDto(paciente);
+            var response = PacienteMapper.ToDto(paciente);
+            response.SenhaTemporaria = temporaryPassword;
+            return response;
         }
         catch (Exception ex)
         {

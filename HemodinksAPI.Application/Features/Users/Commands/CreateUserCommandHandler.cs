@@ -104,6 +104,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
 
             var medicalRegistration = UserProfileRules.NormalizeAndValidateMedicalRegistration(request.Crm, request.CrmUf, perfilId);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, null, cancellationToken);
+            var temporaryPassword = TemporaryPasswordGenerator.Generate();
 
             var user = new User
             {
@@ -115,7 +116,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 Crm = medicalRegistration.Crm,
                 CrmUf = medicalRegistration.CrmUf,
                 FotoPerfil = fotoPerfil,
-                Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
+                Senha = _passwordHasher.HashPassword(temporaryPassword),
                 DataNascimento = request.DataNascimento,
                 DataCadastro = DateTime.UtcNow,
                 Ativo = true,
@@ -163,7 +164,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 Ativo = user.Ativo,
                 PrecisaTrocarSenha = user.PrecisaTrocarSenha,
                 PerfilId = user.PerfilId,
-                PerfilNome = perfil.Nome
+                PerfilNome = perfil.Nome,
+                SenhaTemporaria = temporaryPassword
             };
         }
         catch (Exception ex)

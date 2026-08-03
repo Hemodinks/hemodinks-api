@@ -1,4 +1,3 @@
-using HemodinksAPI.Domain.Utils;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -37,10 +36,6 @@ internal static class PasswordResetRules
             throw new InvalidOperationException("A nova senha deve ter pelo menos 8 caracteres");
         }
 
-        if (password == DefaultUserPassword.Value)
-        {
-            throw new InvalidOperationException("A nova senha nao pode ser a senha padrao");
-        }
     }
 
     public static RequestPasswordResetResponse CreateRequestResponse(DateTime now)

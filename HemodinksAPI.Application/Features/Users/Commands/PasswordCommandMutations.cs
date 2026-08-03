@@ -8,14 +8,16 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 
 internal static class PasswordCommandMutations
 {
-    public static void ApplyDefaultPassword(
+    public static string ApplyTemporaryPassword(
         User user,
         IPasswordHasher passwordHasher,
         DateTime now)
     {
-        user.Senha = passwordHasher.HashPassword(DefaultUserPassword.Value);
+        var temporaryPassword = TemporaryPasswordGenerator.Generate();
+        user.Senha = passwordHasher.HashPassword(temporaryPassword);
         user.PrecisaTrocarSenha = true;
         user.DataAtualizacao = now;
+        return temporaryPassword;
     }
 
     public static void ApplyNewPassword(

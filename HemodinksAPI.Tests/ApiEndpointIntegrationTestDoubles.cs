@@ -19,8 +19,9 @@ public partial class ApiEndpointIntegrationTests
         HttpClient client,
         string? clinicaSlug = null,
         string email = "gmarcone@gmail.com",
-        string senha = DefaultUserPassword.Value)
+        string? senha = null)
     {
+        senha ??= DefaultUserPassword.Value;
         var response = await PostAsJsonWithClinicHeaderAsync(client, clinicaSlug, "/api/users/authenticate", new
         {
             Email = email,
@@ -76,7 +77,7 @@ public partial class ApiEndpointIntegrationTests
         const string clinicaSlug = "clinica-beta";
         const string adminEmail = "gmarcone@gmail.com";
         // A credencial pertence a identidade global, nao a cada clinica.
-        const string adminPassword = DefaultUserPassword.Value;
+        var adminPassword = DefaultUserPassword.Value;
         const string adminName = "George Beta";
         const string doctorName = "Dra. Beta";
 

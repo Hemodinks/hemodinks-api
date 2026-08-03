@@ -43,6 +43,7 @@ public class CreateUserResponse
     public bool PrecisaTrocarSenha { get; set; }
     public int PerfilId { get; set; }
     public string PerfilNome { get; set; } = null!;
+    public string? SenhaTemporaria { get; set; }
 }
 
 /// <summary>
@@ -200,4 +201,5 @@ public class ResetUserPasswordResponse
     public int Id { get; set; }
     public bool PrecisaTrocarSenha { get; set; }
     public string Message { get; set; } = null!;
+    public string? SenhaTemporaria { get; set; }
 }

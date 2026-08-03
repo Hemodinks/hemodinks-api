@@ -1,7 +1,6 @@
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -90,10 +89,17 @@ public partial class UserCommandHandlerTests
     }
 
     [Fact]
-    public async Task ChangePassword_WhenNewPasswordIsDefault_ThrowsInvalidOperationException()
+    public async Task ChangePassword_WhenNewPasswordIsTooShort_ThrowsInvalidOperationException()
     {
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
+        var user = CreateUser(
+            id: 1,
+            email: "senha.curta@email.com",
+            passwordHash: hasher.HashPassword("SenhaAtual@123"),
+            precisaTrocarSenha: true);
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
         var handler = new ChangePasswordCommandHandler(
             context,
             hasher,
@@ -102,8 +108,8 @@ public partial class UserCommandHandlerTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new ChangePasswordCommand
         {
             UserId = 1,
-            SenhaAtual = "Senha@123",
-            NovaSenha = DefaultUserPassword.Value
+            SenhaAtual = "SenhaAtual@123",
+            NovaSenha = "curta"
         }, CancellationToken.None));
     }
 
@@ -134,7 +140,7 @@ public partial class UserCommandHandlerTests
     }
 
     [Fact]
-    public async Task ResetUserPassword_WhenUserExists_SetsDefaultPasswordAndRequiresPasswordChange()
+    public async Task ResetUserPassword_WhenUserExists_SetsTemporaryPasswordAndRequiresPasswordChange()
     {
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
@@ -160,7 +166,8 @@ public partial class UserCommandHandlerTests
         Assert.Equal(user.Id, response.Id);
         Assert.True(response.PrecisaTrocarSenha);
         Assert.True(storedUser.PrecisaTrocarSenha);
-        Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+        Assert.NotNull(response.SenhaTemporaria);
+        Assert.True(hasher.VerifyPassword(response.SenhaTemporaria, storedUser.Senha));
         Assert.False(hasher.VerifyPassword("SenhaAntiga@123", storedUser.Senha));
     }
 

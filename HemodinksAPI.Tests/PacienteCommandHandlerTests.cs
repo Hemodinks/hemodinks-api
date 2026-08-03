@@ -109,7 +109,8 @@ public partial class PacienteCommandHandlerTests
         Assert.Equal("Diagnostico clinico de teste", storedPaciente.Diagnostico);
         Assert.Equal("Tratamento clinico de teste", storedPaciente.TratamentoMedico);
         Assert.Equal("52998224725", storedUser.Cpf);
-        Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+        Assert.NotNull(response.SenhaTemporaria);
+        Assert.True(hasher.VerifyPassword(response.SenhaTemporaria, storedUser.Senha));
         Assert.Equal(1, storedPaciente.HospitalId);
         Assert.Equal("Santa Clara - Mater Dei", storedPaciente.Hospital);
         Assert.Equal(doctor.Id, storedPaciente.MedicoUserId);
