@@ -106,85 +106,89 @@ public static partial class ClinicaPlatformEndpointExtensions
             throw new InvalidOperationException("LimiteUsuarios deve ser maior que zero");
         }
 
-        if (await context.Clinicas.AnyAsync(item => item.Slug == slug, cancellationToken))
+        var strategy = context.Database.CreateExecutionStrategy();
+        return await strategy.ExecuteAsync(async () =>
         {
-            return Results.Conflict(new { message = "Slug da clinica ja cadastrado" });
-        }
+            if (await context.Clinicas.AnyAsync(item => item.Slug == slug, cancellationToken))
+            {
+                return (IResult)Results.Conflict(new { message = "Slug da clinica ja cadastrado" });
+            }
 
-        await using var transaction = context.Database.IsRelational()
-            ? await context.Database.BeginTransactionAsync(cancellationToken)
-            : null;
-        var now = DateTime.UtcNow;
-        var plano = NormalizePlano(request.Plano);
-        var clinica = new Clinica
-        {
-            Nome = nome,
-            Slug = slug,
-            Ativa = true,
-            Plano = plano,
-            ModulosLiberados = NormalizeModulos(plano, request.ModulosLiberados),
-            AssinaturaStatus = NormalizeOptional(request.AssinaturaStatus, "Trial", 30),
-            TrialAte = plano == ClinicaPlanos.Trial ? request.TrialAte ?? now.AddDays(14) : null,
-            AssinaturaValidaAte = plano == ClinicaPlanos.Trial ? null : request.AssinaturaValidaAte,
-            LimiteUsuarios = request.LimiteUsuarios,
-            DataCadastro = now
-        };
+            await using var transaction = context.Database.IsRelational()
+                ? await context.Database.BeginTransactionAsync(cancellationToken)
+                : null;
+            var now = DateTime.UtcNow;
+            var plano = NormalizePlano(request.Plano);
+            var clinica = new Clinica
+            {
+                Nome = nome,
+                Slug = slug,
+                Ativa = true,
+                Plano = plano,
+                ModulosLiberados = NormalizeModulos(plano, request.ModulosLiberados),
+                AssinaturaStatus = NormalizeOptional(request.AssinaturaStatus, "Trial", 30),
+                TrialAte = plano == ClinicaPlanos.Trial ? request.TrialAte ?? now.AddDays(14) : null,
+                AssinaturaValidaAte = plano == ClinicaPlanos.Trial ? null : request.AssinaturaValidaAte,
+                LimiteUsuarios = request.LimiteUsuarios,
+                DataCadastro = now
+            };
 
-        context.Clinicas.Add(clinica);
-        await context.SaveChangesAsync(cancellationToken);
-        if (!string.IsNullOrWhiteSpace(request.FotoClinica))
-        {
-            clinica.FotoClinica = await photoStorage.SaveAsync(request.FotoClinica, null, cancellationToken);
-        }
+            context.Clinicas.Add(clinica);
+            await context.SaveChangesAsync(cancellationToken);
+            if (!string.IsNullOrWhiteSpace(request.FotoClinica))
+            {
+                clinica.FotoClinica = await photoStorage.SaveAsync(request.FotoClinica, null, cancellationToken);
+            }
 
-        clinicaContext.SetPlatformScope();
-        var admin = new User
-        {
-            ClinicaId = clinica.Id,
-            Nome = adminNome,
-            Email = adminEmail,
-            Telefone = NormalizeOptional(request.AdministradorTelefone, $"+550{clinica.Id:00000000000}", 20),
-            Senha = passwordHasher.HashPassword(adminPassword),
-            DataCadastro = now,
-            Ativo = true,
-            PrecisaTrocarSenha = true,
-            PerfilId = Perfil.AdministradorId
-        };
+            clinicaContext.SetPlatformScope();
+            var admin = new User
+            {
+                ClinicaId = clinica.Id,
+                Nome = adminNome,
+                Email = adminEmail,
+                Telefone = NormalizeOptional(request.AdministradorTelefone, $"+550{clinica.Id:00000000000}", 20),
+                Senha = passwordHasher.HashPassword(adminPassword),
+                DataCadastro = now,
+                Ativo = true,
+                PrecisaTrocarSenha = true,
+                PerfilId = Perfil.AdministradorId
+            };
 
-        context.Users.Add(admin);
-        context.ConfiguracoesSistema.Add(new ConfiguracaoSistema
-        {
-            ClinicaId = clinica.Id,
-            NomeEmpresa = clinica.Nome,
-            FotoEmpresa = clinica.FotoClinica
+            context.Users.Add(admin);
+            context.ConfiguracoesSistema.Add(new ConfiguracaoSistema
+            {
+                ClinicaId = clinica.Id,
+                NomeEmpresa = clinica.Nome,
+                FotoEmpresa = clinica.FotoClinica
+            });
+
+            var platformShadowUser = await AddPlatformShadowUserAsync(principal, clinica.Id, context, cancellationToken);
+            await CloneClinicReferenceDataAsync(clinica.Id, context, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+            await GlobalIdentityService.EnsureForUserAsync(context, admin, cancellationToken, clinicaPadrao: true);
+            if (platformShadowUser != null)
+            {
+                await GlobalIdentityService.EnsureForUserAsync(context, platformShadowUser, cancellationToken);
+            }
+
+            await auditService.RecordAsync(
+                httpContext,
+                "clinic.create",
+                "clinic",
+                clinica.Id.ToString(),
+                clinica.Id,
+                new { clinica.Nome, clinica.Slug, admin.Email },
+                true,
+                cancellationToken);
+
+            if (transaction != null)
+            {
+                await transaction.CommitAsync(cancellationToken);
+            }
+
+            var userCount = await context.Users.CountAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
+            return (IResult)Results.Created($"/api/platform/clinicas/{clinica.Id}", ToResponse(clinica, userCount));
         });
-
-        var platformShadowUser = await AddPlatformShadowUserAsync(principal, clinica.Id, context, cancellationToken);
-        await CloneClinicReferenceDataAsync(clinica.Id, context, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
-        await GlobalIdentityService.EnsureForUserAsync(context, admin, cancellationToken, clinicaPadrao: true);
-        if (platformShadowUser != null)
-        {
-            await GlobalIdentityService.EnsureForUserAsync(context, platformShadowUser, cancellationToken);
-        }
-
-        await auditService.RecordAsync(
-            httpContext,
-            "clinic.create",
-            "clinic",
-            clinica.Id.ToString(),
-            clinica.Id,
-            new { clinica.Nome, clinica.Slug, admin.Email },
-            true,
-            cancellationToken);
-
-        if (transaction != null)
-        {
-            await transaction.CommitAsync(cancellationToken);
-        }
-
-        var userCount = await context.Users.CountAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
-        return Results.Created($"/api/platform/clinicas/{clinica.Id}", ToResponse(clinica, userCount));
     }
 
     private static async Task<IResult> UpdateClinica(
