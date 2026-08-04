@@ -301,6 +301,39 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task SuperAdministrador_CanAddTeamWhenEditingExistingClinic()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        var teamEmail = $"equipe-{Guid.NewGuid():N}@example.com";
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/platform/clinicas/{Clinica.DefaultId}", new
+        {
+            novaEquipe = new
+            {
+                nome = "Equipe da Clinica Existente",
+                email = teamEmail,
+                senha = "EquipeExistente@123",
+                modoIdentificacao = "Selecao"
+            }
+        });
+
+        updateResponse.EnsureSuccessStatusCode();
+        var teamsResponse = await client.GetAsync("/api/equipes/");
+        teamsResponse.EnsureSuccessStatusCode();
+        using var teamsJson = await ReadJsonAsync(teamsResponse);
+        Assert.Contains(teamsJson.RootElement.EnumerateArray(), item =>
+            item.GetProperty("email").GetString() == teamEmail
+            && item.GetProperty("modoIdentificacao").GetString() == "Selecao");
+
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
+            item.Acao == "team.create" && item.ClinicaId == Clinica.DefaultId && item.Sucesso));
+    }
+
+    [Fact]
     public async Task PartialClinicPlan_ExposesAndEnforcesOnlyContractedModules()
     {
         using var factory = new HemodinksApiFactory();

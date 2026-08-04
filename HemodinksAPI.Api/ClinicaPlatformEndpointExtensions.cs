@@ -272,10 +272,30 @@ public static partial class ClinicaPlatformEndpointExtensions
         UpdateClinicaRequest request,
         HttpContext httpContext,
         AppDbContext context,
+        IPasswordHasher passwordHasher,
         IProfilePhotoStorage photoStorage,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
+        var equipeNome = request.NovaEquipe == null
+            ? null
+            : RequireText(request.NovaEquipe.Nome, "Nome da equipe obrigatorio", 120);
+        var equipeEmail = request.NovaEquipe == null
+            ? null
+            : GlobalIdentityService.NormalizeEmail(RequireText(request.NovaEquipe.Email, "Email da equipe obrigatorio", 255));
+        var equipePassword = request.NovaEquipe == null
+            ? null
+            : RequireText(request.NovaEquipe.Senha, "Senha da equipe obrigatoria", 200);
+        var equipeModo = request.NovaEquipe == null
+            ? null
+            : EquipeAuthenticationRules.NormalizeModo(request.NovaEquipe.ModoIdentificacao);
+
+        if (equipeEmail != null
+            && (!MailAddress.TryCreate(equipeEmail, out _) || equipePassword!.Length < 8))
+        {
+            throw new InvalidOperationException("Nova equipe deve possuir email valido e senha com ao menos 8 caracteres");
+        }
+
         var clinica = await context.Clinicas.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
         if (clinica == null)
         {
@@ -335,6 +355,23 @@ public static partial class ClinicaPlatformEndpointExtensions
 
             clinica.LimiteUsuarios = request.LimiteUsuarios;
         }
+
+        if (equipeEmail != null
+            && await context.UsuariosGlobais.AnyAsync(item => item.Email == equipeEmail, cancellationToken))
+        {
+            return Results.Conflict(new { message = "Email coletivo ja utilizado por outra identidade" });
+        }
+
+        if (request.NovaEquipe != null && clinica.LimiteUsuarios.HasValue)
+        {
+            var currentUserCount = await context.Users
+                .IgnoreQueryFilters()
+                .CountAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
+            if (currentUserCount >= clinica.LimiteUsuarios.Value)
+            {
+                return Results.Conflict(new { message = "Limite de usuarios da clinica atingido" });
+            }
+        }
         if (request.FotoClinica != null)
         {
             clinica.FotoClinica = await photoStorage.SaveAsync(
@@ -354,7 +391,40 @@ public static partial class ClinicaPlatformEndpointExtensions
             legacySettings.DataAtualizacao = clinica.DataAtualizacao;
         }
 
+        User? equipeLogin = null;
+        Equipe? novaEquipe = null;
+        if (request.NovaEquipe != null)
+        {
+            equipeLogin = new User
+            {
+                ClinicaId = clinica.Id,
+                Nome = equipeNome!,
+                Email = equipeEmail!,
+                Telefone = NormalizeOptional(request.NovaEquipe.Telefone, $"+558{DateTime.UtcNow.Ticks % 10_000_000_000:D10}", 20),
+                Senha = passwordHasher.HashPassword(equipePassword!),
+                DataCadastro = DateTime.UtcNow,
+                Ativo = true,
+                PrecisaTrocarSenha = false,
+                PerfilId = Perfil.EquipeId
+            };
+            novaEquipe = new Equipe
+            {
+                ClinicaId = clinica.Id,
+                Nome = equipeNome!,
+                UsuarioLogin = equipeLogin,
+                ModoIdentificacao = equipeModo!,
+                Ativa = true,
+                DataCadastro = DateTime.UtcNow
+            };
+            context.Users.Add(equipeLogin);
+            context.Equipes.Add(novaEquipe);
+        }
+
         await context.SaveChangesAsync(cancellationToken);
+        if (equipeLogin != null)
+        {
+            await GlobalIdentityService.EnsureForUserAsync(context, equipeLogin, cancellationToken);
+        }
         await auditService.RecordAsync(
             httpContext,
             "clinic.update",
@@ -364,6 +434,18 @@ public static partial class ClinicaPlatformEndpointExtensions
             new { clinica.Nome, clinica.Slug, clinica.Ativa, clinica.Plano, clinica.AssinaturaStatus },
             true,
             cancellationToken);
+        if (novaEquipe != null)
+        {
+            await auditService.RecordAsync(
+                httpContext,
+                "team.create",
+                "team",
+                novaEquipe.Id.ToString(),
+                clinica.Id,
+                new { novaEquipe.Nome, novaEquipe.ModoIdentificacao, novaEquipe.UsuarioLoginId },
+                true,
+                cancellationToken);
+        }
         return Results.Ok(ToResponse(clinica, null));
     }
 
@@ -647,7 +729,8 @@ public sealed record UpdateClinicaRequest(
     DateTime? TrialAte,
     DateTime? AssinaturaValidaAte,
     int? LimiteUsuarios,
-    string? FotoClinica);
+    string? FotoClinica,
+    CreateEquipeInicialRequest? NovaEquipe);
 
 public sealed record ClinicaPlatformResponse(
     int Id,
