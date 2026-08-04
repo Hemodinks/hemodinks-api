@@ -95,7 +95,13 @@ public partial class UserCommandHandlerTests
             return _token;
         }
 
-        public string GenerateToken(UsuarioGlobal usuarioGlobal, UsuarioClinica usuarioClinica, User user)
+        public string GenerateToken(
+            UsuarioGlobal usuarioGlobal,
+            UsuarioClinica usuarioClinica,
+            User user,
+            Equipe? equipe = null,
+            EquipeOperador? operador = null,
+            bool identificacaoConfiavel = false)
         {
             return _token;
         }

@@ -33,7 +33,7 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
             var procedimento = canUseAdminFilters ? PacienteQueryOrdering.TrimOptional(request.Procedimento) : null;
 
             var query = _context.Pacientes.AsNoTracking();
-            query = PacienteAccess.ApplyScope(_context, query, request.CurrentPerfilId, request.CurrentUserId);
+            query = PacienteAccess.ApplyScope(_context, query, request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId);
             query = PacienteFilters.ApplyFilters(query, search, digits, medico, convenio, procedimento);
 
             var totalItems = await query.CountAsync(cancellationToken);

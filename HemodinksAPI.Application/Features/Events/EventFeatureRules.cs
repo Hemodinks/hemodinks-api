@@ -8,7 +8,7 @@ namespace HemodinksAPI.Application.Features.Events;
 
 internal static class EventFeatureRules
 {
-    public static IQueryable<Event> ApplyScope(IQueryable<Event> query, CurrentUserContext currentUser)
+    public static IQueryable<Event> ApplyScope(IAppDbContext context, IQueryable<Event> query, CurrentUserContext currentUser)
     {
         if (currentUser.IsAdministrador)
         {
@@ -21,6 +21,15 @@ internal static class EventFeatureRules
                 ev.UserId == currentUser.Id
                 || ev.MedicalUserId == currentUser.Id
                 || (ev.NotifyMedicalProfile && ev.MedicalUserId == null));
+        }
+
+        if (currentUser.IsEquipe && currentUser.EquipeId.HasValue)
+        {
+            var memberUserIds = context.EquipeMembros.AsNoTracking()
+                .Where(member => member.EquipeId == currentUser.EquipeId && member.Ativo)
+                .Select(member => member.UserId);
+            return query.Where(ev => ev.UserId == currentUser.Id
+                || (ev.MedicalUserId.HasValue && memberUserIds.Contains(ev.MedicalUserId.Value)));
         }
 
         return query.Where(ev => ev.UserId == currentUser.Id);
@@ -66,6 +75,14 @@ internal static class EventFeatureRules
 
     public static HashSet<int> BuildAllowedNotificationRecipientUserIds(IAppDbContext context, CurrentUserContext currentUser)
     {
+        if (currentUser.IsEquipe && currentUser.EquipeId.HasValue)
+        {
+            return context.EquipeMembros.AsNoTracking()
+                .Where(member => member.EquipeId == currentUser.EquipeId && member.Ativo && member.User.Ativo)
+                .Select(member => member.UserId)
+                .ToHashSet();
+        }
+
         if (currentUser.IsAdministrador || currentUser.IsController)
         {
             return context.Users

@@ -65,7 +65,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!await PacienteCommandAccess.CanEditPacienteAsync(_context, paciente, request.CurrentPerfilId, request.CurrentUserId, cancellationToken))
+            if (!await PacienteCommandAccess.CanEditPacienteAsync(_context, paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId, cancellationToken))
             {
                 throw new UnauthorizedAccessException("Sem permissao para atualizar paciente");
             }
@@ -85,6 +85,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 request.CurrentPerfilId,
                 request.CurrentUserId,
                 request.CurrentUserName,
+                request.CurrentEquipeId,
                 request.MedicoUserId,
                 request.Medico,
                 cancellationToken);
@@ -92,6 +93,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 _context,
                 request.CurrentPerfilId,
                 request.CurrentUserId,
+                request.CurrentEquipeId,
                 request.MedicoAuxiliar1UserId,
                 request.MedicoAuxiliar1,
                 cancellationToken);
@@ -99,6 +101,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 _context,
                 request.CurrentPerfilId,
                 request.CurrentUserId,
+                request.CurrentEquipeId,
                 request.MedicoAuxiliar2UserId,
                 request.MedicoAuxiliar2,
                 cancellationToken);

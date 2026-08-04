@@ -75,6 +75,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 request.CurrentPerfilId,
                 request.CurrentUserId,
                 request.CurrentUserName,
+                request.CurrentEquipeId,
                 request.MedicoUserId,
                 request.Medico,
                 cancellationToken);
@@ -82,6 +83,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 _context,
                 request.CurrentPerfilId,
                 request.CurrentUserId,
+                request.CurrentEquipeId,
                 request.MedicoAuxiliar1UserId,
                 request.MedicoAuxiliar1,
                 cancellationToken);
@@ -89,6 +91,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 _context,
                 request.CurrentPerfilId,
                 request.CurrentUserId,
+                request.CurrentEquipeId,
                 request.MedicoAuxiliar2UserId,
                 request.MedicoAuxiliar2,
                 cancellationToken);

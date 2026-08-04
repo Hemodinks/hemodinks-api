@@ -29,9 +29,11 @@ public class GetAllFaturamentosMedicosQueryHandler : IRequestHandler<GetAllFatur
                 : new string(search.Where(char.IsDigit).ToArray());
 
             var query = FaturamentoMedicoScope.ApplyScope(
+                _context,
                 _context.Pacientes.AsNoTracking(),
                 request.CurrentPerfilId,
-                request.CurrentUserId);
+                request.CurrentUserId,
+                request.CurrentEquipeId);
 
             query = FaturamentoMedicoFilters.ApplyFilters(
                 query,

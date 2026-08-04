@@ -15,7 +15,9 @@ internal static class FaturamentoMedicoFilters
         DateTime? competenciaInicio,
         DateTime? competenciaFinal)
     {
-        var canUseGlobalFilters = Perfil.IsAdministradorOuSuper(currentPerfilId) || currentPerfilId == Perfil.ControllerId;
+        var canUseGlobalFilters = Perfil.IsAdministradorOuSuper(currentPerfilId)
+            || currentPerfilId == Perfil.ControllerId
+            || currentPerfilId == Perfil.EquipeId;
         var normalizedMedico = canUseGlobalFilters ? TrimOptional(medico) : null;
         var normalizedConvenio = TrimOptional(convenio);
         var normalizedProcedimento = TrimOptional(procedimento);

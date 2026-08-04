@@ -37,6 +37,8 @@ public class UserArquivoDto
 
 public class GetAllUsersQuery : IRequest<PagedResult<UserDto>>
 {
+    public CurrentUserContext? CurrentUser { get; set; }
+
     public int Page { get; set; } = 1;
 
     public int PageSize { get; set; } = 10;

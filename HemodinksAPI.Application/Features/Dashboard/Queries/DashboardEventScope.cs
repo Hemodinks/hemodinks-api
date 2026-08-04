@@ -11,13 +11,14 @@ internal static class DashboardEventScope
         ILogger logger,
         int perfilId,
         int userId,
+        int? equipeId,
         CancellationToken cancellationToken)
     {
         try
         {
             var now = DateTime.UtcNow;
 
-            return await ApplyEventScope(context.Events.AsNoTracking(), perfilId, userId)
+            return await ApplyEventScope(context, context.Events.AsNoTracking(), perfilId, userId, equipeId)
                 .CountAsync(ev => !ev.IsCompleted
                     && ev.End >= now
                     && ev.Start <= now.AddDays(2), cancellationToken);
@@ -34,6 +35,7 @@ internal static class DashboardEventScope
         ILogger logger,
         int perfilId,
         int userId,
+        int? equipeId,
         int limit,
         CancellationToken cancellationToken)
     {
@@ -41,7 +43,7 @@ internal static class DashboardEventScope
         {
             var now = DateTime.UtcNow;
 
-            var upcomingEvents = await ApplyEventScope(context.Events.AsNoTracking(), perfilId, userId)
+            var upcomingEvents = await ApplyEventScope(context, context.Events.AsNoTracking(), perfilId, userId, equipeId)
                 .Where(ev => !ev.IsCompleted
                     && ev.End >= now
                     && ev.Start <= now.AddDays(2))
@@ -82,7 +84,12 @@ internal static class DashboardEventScope
         }
     }
 
-    private static IQueryable<Event> ApplyEventScope(IQueryable<Event> query, int perfilId, int userId)
+    private static IQueryable<Event> ApplyEventScope(
+        IAppDbContext context,
+        IQueryable<Event> query,
+        int perfilId,
+        int userId,
+        int? equipeId)
     {
         if (Perfil.IsAdministradorOuSuper(perfilId))
         {
@@ -95,6 +102,15 @@ internal static class DashboardEventScope
                 ev.UserId == userId
                 || ev.MedicalUserId == userId
                 || (ev.NotifyMedicalProfile && ev.MedicalUserId == null));
+        }
+
+        if (perfilId == Perfil.EquipeId && equipeId.HasValue)
+        {
+            var memberUserIds = context.EquipeMembros.AsNoTracking()
+                .Where(member => member.EquipeId == equipeId && member.Ativo)
+                .Select(member => member.UserId);
+            return query.Where(ev => ev.UserId == userId
+                || (ev.MedicalUserId.HasValue && memberUserIds.Contains(ev.MedicalUserId.Value)));
         }
 
         return query.Where(ev => ev.UserId == userId);

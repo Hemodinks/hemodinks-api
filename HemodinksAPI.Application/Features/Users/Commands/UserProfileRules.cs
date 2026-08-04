@@ -29,6 +29,11 @@ internal static class UserProfileRules
         {
             throw new InvalidOperationException("Perfil Pacientes desativado para cadastro de usuarios");
         }
+
+        if (perfilId == Perfil.EquipeId)
+        {
+            throw new InvalidOperationException("Perfil Equipe deve ser criado pelo gerenciamento de equipes");
+        }
     }
 
     public static string GetPerfilNome(User user)

@@ -98,6 +98,7 @@ app.UseAuthentication();
 app.UseMiddleware<ClinicaResolutionMiddleware>();
 app.UseMiddleware<ClinicaModuleAccessMiddleware>();
 app.UseAuthorization();
+app.UseMiddleware<EquipeMutationAuditMiddleware>();
 
 app.MapDefaultEndpoints();
 app.MapApiEndpoints();

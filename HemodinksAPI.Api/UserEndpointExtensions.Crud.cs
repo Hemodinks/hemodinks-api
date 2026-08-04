@@ -44,6 +44,7 @@ public static partial class UserEndpointExtensions
         int? profileId,
         string? sortBy,
         string? sortDirection,
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
@@ -52,6 +53,7 @@ public static partial class UserEndpointExtensions
         {
             var result = await mediator.Send(new GetAllUsersQuery
             {
+                CurrentUser = GetRequiredCurrentUser(claimsPrincipal),
                 Page = page.GetValueOrDefault(1),
                 PageSize = pageSize.GetValueOrDefault(10),
                 Search = search,

@@ -33,6 +33,14 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedRe
             var query = _context.Users
                 .AsNoTracking()
                 .Where(user => user.PerfilId != Perfil.PacientesId);
+            if (request.CurrentUser?.IsEquipe == true)
+            {
+                var equipeId = request.CurrentUser.EquipeId
+                    ?? throw new UnauthorizedAccessException("Equipe ausente na sessao");
+                query = query.Where(user => _context.EquipeMembros.Any(membro => membro.EquipeId == equipeId
+                    && membro.UserId == user.Id
+                    && membro.Ativo));
+            }
             query = ApplyFilters(query, request.ProfileId, search, digits);
 
             var totalItems = await query.CountAsync(cancellationToken);

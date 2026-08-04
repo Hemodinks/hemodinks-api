@@ -44,7 +44,13 @@ public class JwtTokenService : IJwtTokenService
         return GenerateToken(legacyIdentity, legacyMembership, user);
     }
 
-    public string GenerateToken(UsuarioGlobal usuarioGlobal, UsuarioClinica usuarioClinica, User user)
+    public string GenerateToken(
+        UsuarioGlobal usuarioGlobal,
+        UsuarioClinica usuarioClinica,
+        User user,
+        Equipe? equipe = null,
+        EquipeOperador? operador = null,
+        bool identificacaoConfiavel = false)
     {
         try
         {
@@ -66,6 +72,20 @@ public class JwtTokenService : IJwtTokenService
                 new Claim(ClinicaClaimTypes.ClinicaSlug, user.Clinica?.Slug ?? Clinica.DefaultSlug),
                 new Claim("precisaTrocarSenha", user.PrecisaTrocarSenha.ToString().ToLowerInvariant()),
             };
+
+            if (equipe != null)
+            {
+                claims.Add(new Claim(GlobalIdentityClaimTypes.EquipeId, equipe.Id.ToString()));
+                claims.Add(new Claim(GlobalIdentityClaimTypes.EquipeVersaoSessao, equipe.VersaoSessao.ToString()));
+                claims.Add(new Claim(GlobalIdentityClaimTypes.IdentificacaoConfiavel, identificacaoConfiavel.ToString().ToLowerInvariant()));
+            }
+
+            if (operador != null)
+            {
+                claims.Add(new Claim(GlobalIdentityClaimTypes.EquipeOperadorId, operador.Id.ToString()));
+                claims.Add(new Claim(GlobalIdentityClaimTypes.OperadorVersaoSessao, operador.VersaoSessao.ToString()));
+                claims.Add(new Claim("precisaTrocarPin", operador.PrecisaTrocarPin.ToString().ToLowerInvariant()));
+            }
 
             var tokenDescriptor = new SecurityTokenDescriptor
             {

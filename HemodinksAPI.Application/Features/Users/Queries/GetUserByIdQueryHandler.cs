@@ -21,7 +21,7 @@ public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, UserDto
         {
             _logger.LogInformation("Buscando usuario por ID: {UserId}", request.Id);
 
-            UserQueryAccess.EnsureCanAccessUser(request.CurrentUser, request.Id);
+            await UserQueryAccess.EnsureCanAccessUserAsync(_context, request.CurrentUser, request.Id, cancellationToken);
 
             var user = await _context.Users
                 .AsNoTracking()

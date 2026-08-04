@@ -57,6 +57,7 @@ public class GetDashboardSummaryQuery : IRequest<DashboardSummaryDto>
     public int CurrentUserId { get; set; }
 
     public int CurrentPerfilId { get; set; }
+    public int? CurrentEquipeId { get; set; }
 }
 
 public class GetDashboardNotificationsQuery : IRequest<IReadOnlyList<DashboardNotificationDto>>
@@ -64,6 +65,7 @@ public class GetDashboardNotificationsQuery : IRequest<IReadOnlyList<DashboardNo
     public int CurrentUserId { get; set; }
 
     public int CurrentPerfilId { get; set; }
+    public int? CurrentEquipeId { get; set; }
 
     public int Limit { get; set; } = 20;
 }

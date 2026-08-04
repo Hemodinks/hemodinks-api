@@ -13,6 +13,14 @@ public interface IAppDbContext
 
     DbSet<AuditoriaPlataforma> AuditoriasPlataforma { get; }
 
+    DbSet<Equipe> Equipes { get; }
+
+    DbSet<EquipeMembro> EquipeMembros { get; }
+
+    DbSet<EquipeOperador> EquipeOperadores { get; }
+
+    DbSet<EquipeLoginDesafio> EquipeLoginDesafios { get; }
+
     DbSet<User> Users { get; }
 
     DbSet<Perfil> Perfis { get; }

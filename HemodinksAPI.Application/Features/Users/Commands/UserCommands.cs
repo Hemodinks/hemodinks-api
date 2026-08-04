@@ -64,17 +64,29 @@ public class AuthenticateUserResponse
     public string ClinicaSlug { get; set; } = null!;
     public string Nome { get; set; } = null!;
     public string Email { get; set; } = null!;
-    public string Token { get; set; } = null!;
+    public string? Token { get; set; }
     public string? Cpf { get; set; }
     public string? Crm { get; set; }
     public string? CrmUf { get; set; }
     public string? FotoPerfil { get; set; }
     public bool PrecisaTrocarSenha { get; set; }
+    public bool PrecisaTrocarPin { get; set; }
     public int PerfilId { get; set; }
     public string PerfilNome { get; set; } = null!;
     public IReadOnlyList<string> ModulosLiberados { get; set; } = [];
     public LicencaDto? Licenca { get; set; }
+    public EquipeLoginChallengeDto? EquipeDesafio { get; set; }
 }
+
+public sealed record EquipeLoginChallengeDto(
+    string Token,
+    int EquipeId,
+    string EquipeNome,
+    string ModoIdentificacao,
+    DateTime ExpiraEm,
+    IReadOnlyList<EquipeOperadorLoginDto> Operadores);
+
+public sealed record EquipeOperadorLoginDto(int Id, string Nome, bool ExigePin);
 
 /// <summary>
 /// DTO para atualização de usuário

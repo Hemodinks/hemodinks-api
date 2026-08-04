@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Tenancy;
 using System.Security.Claims;
 using HemodinksAPI.Application.Authentication;
+using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
@@ -55,6 +56,18 @@ public sealed class ClinicaResolutionMiddleware
             }, httpContext.RequestAborted);
             return;
         }
+
+        if (httpContext.User.Identity?.IsAuthenticated == true
+            && string.Equals(httpContext.User.FindFirstValue("precisaTrocarPin"), "true", StringComparison.OrdinalIgnoreCase)
+            && !httpContext.Request.Path.StartsWithSegments("/api/equipe-auth/pin", StringComparison.OrdinalIgnoreCase))
+        {
+            httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
+            await httpContext.Response.WriteAsJsonAsync(new
+            {
+                message = "Troque o PIN temporario antes de continuar."
+            }, httpContext.RequestAborted);
+            return;
+        }
         httpContext.Response.Headers["X-Clinica-Slug"] = resolvedClinica.Slug;
 
         await _next(httpContext);
@@ -87,7 +100,7 @@ public sealed class ClinicaResolutionMiddleware
             return false;
         }
 
-        return await context.UsuariosClinicas
+        var hasActiveMembership = await context.UsuariosClinicas
             .AsNoTracking()
             .AnyAsync(item => item.Id == membershipId
                 && item.UsuarioGlobalId == globalUserId
@@ -98,5 +111,50 @@ public sealed class ClinicaResolutionMiddleware
                 && item.User.Ativo
                 && item.Clinica.Ativa,
                 cancellationToken);
+
+        if (!hasActiveMembership || principal.FindFirstValue("perfilId") != Perfil.EquipeId.ToString())
+        {
+            return hasActiveMembership;
+        }
+
+        if (!int.TryParse(principal.FindFirstValue(GlobalIdentityClaimTypes.EquipeId), out var equipeId)
+            || !int.TryParse(principal.FindFirstValue(GlobalIdentityClaimTypes.EquipeVersaoSessao), out var equipeVersao))
+        {
+            return false;
+        }
+
+        var equipe = await context.Equipes
+            .AsNoTracking()
+            .Where(item => item.Id == equipeId
+                && item.ClinicaId == clinica.Id
+                && item.UsuarioLoginId == userId
+                && item.Ativa
+                && item.VersaoSessao == equipeVersao)
+            .Select(item => new { item.Id, item.ModoIdentificacao })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (equipe == null)
+        {
+            return false;
+        }
+
+        var operadorClaim = principal.FindFirstValue(GlobalIdentityClaimTypes.EquipeOperadorId);
+        if (!int.TryParse(operadorClaim, out var operadorId))
+        {
+            return equipe.ModoIdentificacao.Equals(EquipeModosIdentificacao.Nenhuma, StringComparison.OrdinalIgnoreCase);
+        }
+
+        return int.TryParse(principal.FindFirstValue(GlobalIdentityClaimTypes.OperadorVersaoSessao), out var operadorVersao)
+            && await context.EquipeOperadores
+                .AsNoTracking()
+                .AnyAsync(item => item.Id == operadorId
+                    && item.EquipeId == equipe.Id
+                    && item.ClinicaId == clinica.Id
+                    && item.Ativo
+                    && item.User.Ativo
+                    && item.VersaoSessao == operadorVersao
+                    && context.EquipeMembros.Any(membro => membro.EquipeId == equipe.Id
+                        && membro.UserId == item.UserId
+                        && membro.Ativo),
+                    cancellationToken);
     }
 }

@@ -26,6 +26,14 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<AuditoriaPlataforma> AuditoriasPlataforma { get; set; } = null!;
 
+    public DbSet<Equipe> Equipes { get; set; } = null!;
+
+    public DbSet<EquipeMembro> EquipeMembros { get; set; } = null!;
+
+    public DbSet<EquipeOperador> EquipeOperadores { get; set; } = null!;
+
+    public DbSet<EquipeLoginDesafio> EquipeLoginDesafios { get; set; } = null!;
+
     /// <summary>
     /// DbSet de usuários
     /// </summary>

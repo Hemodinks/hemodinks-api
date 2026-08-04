@@ -21,14 +21,17 @@ public static partial class GrupoMedicoEndpointExtensions
 
         group.MapPost("/", Create)
             .WithSummary("Criar grupo medico")
-            .RequireAuthorization("GrupoMedicoCadastrar");
+            .RequireAuthorization("GrupoMedicoCadastrar")
+            .RequireAuthorization("EquipeOperacaoSensivel");
 
         group.MapPut("/{id}", Update)
             .WithSummary("Atualizar grupo medico")
-            .RequireAuthorization("GrupoMedicoGerenciar");
+            .RequireAuthorization("GrupoMedicoGerenciar")
+            .RequireAuthorization("EquipeOperacaoSensivel");
 
         group.MapDelete("/{id}", Delete)
             .WithSummary("Excluir grupo medico")
-            .RequireAuthorization("GrupoMedicoGerenciar");
+            .RequireAuthorization("GrupoMedicoGerenciar")
+            .RequireAuthorization("EquipeOperacaoSensivel");
     }
 }

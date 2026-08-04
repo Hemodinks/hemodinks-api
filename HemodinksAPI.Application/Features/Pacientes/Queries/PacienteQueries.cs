@@ -113,6 +113,8 @@ public class GetAllPacientesQuery : IRequest<PagedResult<PacienteDto>>
 
     public int CurrentPerfilId { get; set; }
 
+    public int? CurrentEquipeId { get; set; }
+
     public string? SortBy { get; set; }
 
     public string? SortDirection { get; set; }
@@ -126,10 +128,13 @@ public class GetPacienteByIdQuery : IRequest<PacienteDto?>
 
     public int CurrentPerfilId { get; set; }
 
-    public GetPacienteByIdQuery(int id, int currentUserId, int currentPerfilId)
+    public int? CurrentEquipeId { get; set; }
+
+    public GetPacienteByIdQuery(int id, int currentUserId, int currentPerfilId, int? currentEquipeId = null)
     {
         Id = id;
         CurrentUserId = currentUserId;
         CurrentPerfilId = currentPerfilId;
+        CurrentEquipeId = currentEquipeId;
     }
 }

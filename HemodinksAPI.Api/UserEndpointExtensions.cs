@@ -22,13 +22,14 @@ public static partial class UserEndpointExtensions
         group.MapPost("/authenticate", AuthenticateUser)
             .WithName("AuthenticateUser")
             .WithSummary("Autenticar usuario")
-            .WithDescription("Autentica um usuario e retorna um token JWT");
+            .WithDescription("Autentica um usuario e retorna um token JWT")
+            .RequireRateLimiting("Login");
 
         group.MapGet("/", GetAllUsers)
             .WithName("GetAllUsers")
             .WithSummary("Listar todos os usuarios")
             .WithDescription("Retorna uma lista de todos os usuarios cadastrados")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("UsuariosVisualizar");
 
         group.MapGet("/{id}", GetUserById)
             .WithName("GetUserById")

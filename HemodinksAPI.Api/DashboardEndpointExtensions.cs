@@ -42,7 +42,8 @@ public static class DashboardEndpointExtensions
             return Results.Ok(await mediator.Send(new GetDashboardSummaryQuery
             {
                 CurrentUserId = currentUser.Id,
-                CurrentPerfilId = currentUser.PerfilId
+                CurrentPerfilId = currentUser.PerfilId,
+                CurrentEquipeId = currentUser.EquipeId
             }, cancellationToken));
         }, logger, "Erro ao buscar resumo do dashboard", "Erro ao buscar resumo do dashboard");
     }
@@ -63,7 +64,8 @@ public static class DashboardEndpointExtensions
             return Results.Ok(await mediator.Send(new GetDashboardNotificationsQuery
             {
                 CurrentUserId = currentUser.Id,
-                CurrentPerfilId = currentUser.PerfilId
+                CurrentPerfilId = currentUser.PerfilId,
+                CurrentEquipeId = currentUser.EquipeId
             }, cancellationToken));
         }, logger, "Erro ao buscar notificacoes do dashboard", "Erro ao buscar notificacoes do dashboard");
     }

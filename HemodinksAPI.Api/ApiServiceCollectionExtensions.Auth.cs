@@ -85,32 +85,43 @@ public static partial class ApiServiceCollectionExtensions
         options.AddPolicy("SuperAdministrador", policy =>
             policy.RequireClaim("perfilId", Perfil.SuperAdministradorId.ToString()));
 
+        options.AddPolicy("Equipe", policy =>
+            policy.RequireClaim("perfilId", Perfil.EquipeId.ToString()));
+
+        options.AddPolicy("UsuariosVisualizar", policy =>
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.EquipeId.ToString()));
+
+        options.AddPolicy("EquipeOperacaoSensivel", policy =>
+            policy.RequireAssertion(context =>
+                context.User.FindFirst("perfilId")?.Value != Perfil.EquipeId.ToString()
+                || context.User.FindFirst(GlobalIdentityClaimTypes.IdentificacaoConfiavel)?.Value == "true"));
+
         options.AddPolicy("GrupoMedicoCadastrar", policy =>
-            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString()));
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString(), Perfil.EquipeId.ToString()));
 
         options.AddPolicy("GrupoMedicoGerenciar", policy =>
-            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString()));
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString(), Perfil.EquipeId.ToString()));
 
         options.AddPolicy("PacienteCadastrar", policy =>
-            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString(), Perfil.MedicosId.ToString()));
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString(), Perfil.MedicosId.ToString(), Perfil.EquipeId.ToString()));
 
         options.AddPolicy("PacienteArquivosGerenciar", policy =>
-            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.ControllerId.ToString()));
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.ControllerId.ToString(), Perfil.EquipeId.ToString()));
 
         options.AddPolicy("PacienteEditar", policy =>
-            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.ControllerId.ToString()));
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.ControllerId.ToString(), Perfil.EquipeId.ToString()));
 
         options.AddPolicy("PacienteObservacaoGerenciar", policy =>
-            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.ControllerId.ToString()));
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.ControllerId.ToString(), Perfil.EquipeId.ToString()));
 
         options.AddPolicy("FaturamentoMedicoVisualizar", policy =>
-            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.ControllerId.ToString()));
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.ControllerId.ToString(), Perfil.EquipeId.ToString()));
 
         options.AddPolicy(LicencaPolicies.DashboardVisualizar, policy =>
             policy.Requirements.Add(new LicencaFeatureRequirement(LicencaFeatures.DashboardVisualizar)));
 
         options.AddPolicy(LicencaPolicies.PacientesVisualizar, policy =>
-            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.PacientesId.ToString(), Perfil.ControllerId.ToString()));
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.PacientesId.ToString(), Perfil.ControllerId.ToString(), Perfil.EquipeId.ToString()));
 
         options.AddPolicy(LicencaPolicies.PacientesGerenciar, policy =>
             policy.Requirements.Add(new LicencaFeatureRequirement(LicencaFeatures.PacientesGerenciar)));

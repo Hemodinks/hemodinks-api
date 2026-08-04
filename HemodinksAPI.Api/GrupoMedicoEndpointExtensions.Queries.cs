@@ -12,19 +12,22 @@ public static partial class GrupoMedicoEndpointExtensions
         string? search,
         string? sortBy,
         string? sortDirection,
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
         return EndpointExecution.RunAsync(async () =>
         {
+            var currentUser = GetRequiredCurrentUser(claimsPrincipal);
             var result = await mediator.Send(new GetAllGruposMedicosQuery
             {
                 Page = page.GetValueOrDefault(1),
                 PageSize = pageSize.GetValueOrDefault(10),
                 Search = search,
                 SortBy = sortBy,
-                SortDirection = sortDirection
+                SortDirection = sortDirection,
+                CurrentEquipeId = currentUser.EquipeId
             }, cancellationToken);
 
             return Results.Ok(result);
@@ -44,6 +47,7 @@ public static partial class GrupoMedicoEndpointExtensions
             {
                 CurrentPerfilId = currentUser.PerfilId,
                 CurrentUserId = currentUser.Id
+                ,CurrentEquipeId = currentUser.EquipeId
             }, cancellationToken);
 
             return Results.Ok(result);
@@ -52,13 +56,15 @@ public static partial class GrupoMedicoEndpointExtensions
 
     private static Task<IResult> GetById(
         int id,
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
         return EndpointExecution.RunAsync(async () =>
         {
-            var result = await mediator.Send(new GetGrupoMedicoByIdQuery(id), cancellationToken);
+            var currentUser = GetRequiredCurrentUser(claimsPrincipal);
+            var result = await mediator.Send(new GetGrupoMedicoByIdQuery(id) { CurrentEquipeId = currentUser.EquipeId }, cancellationToken);
             return result == null ? Results.NotFound() : Results.Ok(result);
         }, logger, "Erro ao buscar grupo medico", "Erro ao buscar grupo medico");
     }

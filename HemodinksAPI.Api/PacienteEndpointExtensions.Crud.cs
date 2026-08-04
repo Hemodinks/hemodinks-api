@@ -35,7 +35,8 @@ public static partial class PacienteEndpointExtensions
                 SortBy = sortBy,
                 SortDirection = sortDirection,
                 CurrentUserId = currentUser.Id,
-                CurrentPerfilId = currentUser.PerfilId
+                CurrentPerfilId = currentUser.PerfilId,
+                CurrentEquipeId = currentUser.EquipeId
             }, cancellationToken);
 
             return Results.Ok(result);
@@ -53,7 +54,7 @@ public static partial class PacienteEndpointExtensions
         {
             var currentUser = GetRequiredCurrentUser(claimsPrincipal);
             var result = await mediator.Send(
-                new GetPacienteByIdQuery(id, currentUser.Id, currentUser.PerfilId),
+                new GetPacienteByIdQuery(id, currentUser.Id, currentUser.PerfilId, currentUser.EquipeId),
                 cancellationToken);
 
             return result == null ? Results.NotFound() : Results.Ok(result);

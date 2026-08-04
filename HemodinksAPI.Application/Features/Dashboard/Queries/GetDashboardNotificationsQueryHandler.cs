@@ -28,6 +28,7 @@ public class GetDashboardNotificationsQueryHandler : IRequestHandler<GetDashboar
             _logger,
             request.CurrentPerfilId,
             request.CurrentUserId,
+            request.CurrentEquipeId,
             limit,
             cancellationToken);
         var observationNotifications = await GetObservationNotificationsAsync(request, limit, cancellationToken);
@@ -51,7 +52,8 @@ public class GetDashboardNotificationsQueryHandler : IRequestHandler<GetDashboar
             _context,
             _context.Pacientes.AsNoTracking().AsQueryable(),
             request.CurrentPerfilId,
-            request.CurrentUserId);
+            request.CurrentUserId,
+            request.CurrentEquipeId);
 
         var pendingPatients = await patientQuery
             .Where(paciente => !paciente.StatusPago)

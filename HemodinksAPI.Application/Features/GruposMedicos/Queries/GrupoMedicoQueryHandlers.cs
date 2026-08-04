@@ -27,6 +27,16 @@ public class GetAllGruposMedicosQueryHandler : IRequestHandler<GetAllGruposMedic
             .ThenInclude(member => member.User)
             .AsQueryable();
 
+        List<int>? equipeMemberIds = null;
+        if (request.CurrentEquipeId.HasValue)
+        {
+            equipeMemberIds = await _context.EquipeMembros.AsNoTracking()
+                .Where(member => member.EquipeId == request.CurrentEquipeId.Value && member.Ativo)
+                .Select(member => member.UserId)
+                .ToListAsync(cancellationToken);
+            query = query.Where(group => group.Membros.Any(member => equipeMemberIds.Contains(member.UserId)));
+        }
+
         if (!string.IsNullOrWhiteSpace(search))
         {
             query = query.Where(group =>
@@ -40,7 +50,7 @@ public class GetAllGruposMedicosQueryHandler : IRequestHandler<GetAllGruposMedic
         var items = await query
             .Skip((page - 1) * pageSize)
             .Take(pageSize)
-            .Select(ToDtoExpression())
+            .Select(ToDtoExpression(equipeMemberIds))
             .ToListAsync(cancellationToken);
 
         return new PagedResult<GrupoMedicoDto>
@@ -75,7 +85,7 @@ public class GetAllGruposMedicosQueryHandler : IRequestHandler<GetAllGruposMedic
         };
     }
 
-    internal static System.Linq.Expressions.Expression<Func<GrupoMedico, GrupoMedicoDto>> ToDtoExpression()
+    internal static System.Linq.Expressions.Expression<Func<GrupoMedico, GrupoMedicoDto>> ToDtoExpression(IReadOnlyCollection<int>? allowedMemberIds = null)
     {
         return group => new GrupoMedicoDto
         {
@@ -84,8 +94,9 @@ public class GetAllGruposMedicosQueryHandler : IRequestHandler<GetAllGruposMedic
             Ativo = group.Ativo,
             DataCadastro = group.DataCadastro,
             DataAtualizacao = group.DataAtualizacao,
-            MembrosCount = group.Membros.Count,
+            MembrosCount = group.Membros.Count(member => allowedMemberIds == null || allowedMemberIds.Contains(member.UserId)),
             Membros = group.Membros
+                .Where(member => allowedMemberIds == null || allowedMemberIds.Contains(member.UserId))
                 .OrderBy(member => member.User.Nome)
                 .Select(member => new GrupoMedicoMembroDto
                 {
@@ -109,10 +120,13 @@ public class GetGrupoMedicoByIdQueryHandler : IRequestHandler<GetGrupoMedicoById
 
     public Task<GrupoMedicoDto?> Handle(GetGrupoMedicoByIdQuery request, CancellationToken cancellationToken)
     {
+        var memberIds = request.CurrentEquipeId.HasValue
+            ? _context.EquipeMembros.AsNoTracking().Where(member => member.EquipeId == request.CurrentEquipeId && member.Ativo).Select(member => member.UserId).ToList()
+            : null;
         return _context.GruposMedicos
             .AsNoTracking()
-            .Where(group => group.Id == request.Id)
-            .Select(GetAllGruposMedicosQueryHandler.ToDtoExpression())
+            .Where(group => group.Id == request.Id && (memberIds == null || group.Membros.Any(member => memberIds.Contains(member.UserId))))
+            .Select(GetAllGruposMedicosQueryHandler.ToDtoExpression(memberIds))
             .FirstOrDefaultAsync(cancellationToken)!;
     }
 }
@@ -128,7 +142,7 @@ public class GetScopedMedicalUsersQueryHandler : IRequestHandler<GetScopedMedica
 
     public Task<List<MedicalUserOptionDto>> Handle(GetScopedMedicalUsersQuery request, CancellationToken cancellationToken)
     {
-        return MedicalGroupScope.BuildScopedMedicalUsersQuery(_context, request.CurrentPerfilId, request.CurrentUserId)
+        return MedicalGroupScope.BuildScopedMedicalUsersQuery(_context, request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId)
             .OrderBy(user => user.Nome)
             .ThenBy(user => user.Id)
             .Select(user => new MedicalUserOptionDto
