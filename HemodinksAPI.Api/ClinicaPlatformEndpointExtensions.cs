@@ -37,6 +37,12 @@ public static partial class ClinicaPlatformEndpointExtensions
         group.MapPost("/", CreateClinica);
         group.MapPut("/{id:int}", UpdateClinica);
         group.MapDelete("/{id:int}", DeactivateClinica);
+        group.MapGet("/{id:int}/equipes", ListClinicTeams);
+        group.MapGet("/{id:int}/equipes/usuarios", ListClinicTeamUsers);
+        group.MapPut("/{id:int}/equipes/{teamId:int}", UpdateClinicTeam);
+        group.MapPost("/{id:int}/equipes/{teamId:int}/membros", AddClinicTeamMember);
+        group.MapDelete("/{id:int}/equipes/{teamId:int}/membros/{userId:int}", RemoveClinicTeamMember);
+        group.MapPost("/{id:int}/equipes/{teamId:int}/operadores/{operatorId:int}/pin", ResetClinicTeamOperatorPin);
 
         app.MapGet("/api/platform/auditoria", ListPlatformAudit)
             .WithTags("Plataforma - Auditoria")

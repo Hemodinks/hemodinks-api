@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using HemodinksAPI.Api;
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Async;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Domain.Models;
@@ -304,6 +305,15 @@ public partial class ApiEndpointIntegrationTests
     public async Task SuperAdministrador_CanAddTeamWhenEditingExistingClinic()
     {
         using var factory = new HemodinksApiFactory();
+        var beta = await SeedClinicaBetaAsync(factory);
+        using (var seedScope = factory.Services.CreateScope())
+        {
+            var seedContext = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            seedScope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>().SetPlatformScope();
+            var betaDoctor = await seedContext.Users.SingleAsync(item =>
+                item.ClinicaId == beta.Id && item.Email == "dra.beta@hemodinks.com");
+            await GlobalIdentityService.EnsureForUserAsync(seedContext, betaDoctor, CancellationToken.None);
+        }
         using var client = factory.CreateClient();
         await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
         var teamEmail = $"equipe-{Guid.NewGuid():N}@example.com";
@@ -320,17 +330,66 @@ public partial class ApiEndpointIntegrationTests
         });
 
         updateResponse.EnsureSuccessStatusCode();
-        var teamsResponse = await client.GetAsync("/api/equipes/");
+        var teamsResponse = await client.GetAsync($"/api/platform/clinicas/{Clinica.DefaultId}/equipes");
         teamsResponse.EnsureSuccessStatusCode();
         using var teamsJson = await ReadJsonAsync(teamsResponse);
-        Assert.Contains(teamsJson.RootElement.EnumerateArray(), item =>
-            item.GetProperty("email").GetString() == teamEmail
-            && item.GetProperty("modoIdentificacao").GetString() == "Selecao");
+        var team = teamsJson.RootElement.EnumerateArray().Single(item =>
+            item.GetProperty("email").GetString() == teamEmail);
+        var teamId = team.GetProperty("id").GetInt32();
+        Assert.Equal("Selecao", team.GetProperty("modoIdentificacao").GetString());
+
+        var usersResponse = await client.GetAsync($"/api/platform/clinicas/{Clinica.DefaultId}/equipes/usuarios");
+        usersResponse.EnsureSuccessStatusCode();
+        using var usersJson = await ReadJsonAsync(usersResponse);
+        var candidates = usersJson.RootElement.EnumerateArray().ToArray();
+        Assert.All(candidates, item => Assert.Contains(item.GetProperty("perfilId").GetInt32(), new[] { Perfil.MedicosId, Perfil.ControllerId }));
+        var importedCandidate = candidates.Single(item => item.GetProperty("email").GetString() == "dra.beta@hemodinks.com");
+        Assert.False(importedCandidate.GetProperty("cadastradoNaClinica").GetBoolean());
+        var localCandidate = candidates.First(item => item.GetProperty("cadastradoNaClinica").GetBoolean());
+        var selectedGlobalIds = new[]
+        {
+            importedCandidate.GetProperty("usuarioGlobalId").GetInt32(),
+            localCandidate.GetProperty("usuarioGlobalId").GetInt32()
+        };
+
+        var modeResponse = await client.PutAsJsonAsync(
+            $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}",
+            new { modoIdentificacao = "Pin" });
+        Assert.Equal(HttpStatusCode.NoContent, modeResponse.StatusCode);
+
+        var addMemberResponse = await client.PostAsJsonAsync(
+            $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}/membros",
+            new { usuarioGlobalIds = selectedGlobalIds, gerarPin = true });
+        addMemberResponse.EnsureSuccessStatusCode();
+        using var addMemberJson = await ReadJsonAsync(addMemberResponse);
+        var associations = addMemberJson.RootElement.GetProperty("associados").EnumerateArray().ToArray();
+        Assert.Equal(2, associations.Length);
+        Assert.All(associations, item => Assert.Equal(6, item.GetProperty("pinTemporario").GetString()!.Length));
+        var importedAssociation = associations.Single(item => item.GetProperty("importado").GetBoolean());
+        var operatorId = importedAssociation.GetProperty("operadorId").GetInt32();
+        var importedUserId = importedAssociation.GetProperty("userId").GetInt32();
+
+        var resetPinResponse = await client.PostAsJsonAsync(
+            $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}/operadores/{operatorId}/pin",
+            new { });
+        resetPinResponse.EnsureSuccessStatusCode();
+        using var resetPinJson = await ReadJsonAsync(resetPinResponse);
+        Assert.Equal(6, resetPinJson.RootElement.GetProperty("pinTemporario").GetString()!.Length);
+
+        var removeMemberResponse = await client.DeleteAsync(
+            $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}/membros/{importedUserId}");
+        Assert.Equal(HttpStatusCode.NoContent, removeMemberResponse.StatusCode);
 
         using var scope = factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var importedUser = await context.Users.IgnoreQueryFilters().SingleAsync(item => item.Id == importedUserId);
+        Assert.Equal(Clinica.DefaultId, importedUser.ClinicaId);
+        Assert.Equal(Perfil.EquipeId, importedUser.PerfilId);
+        Assert.Equal("dra.beta@hemodinks.com", importedUser.Email);
         Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
             item.Acao == "team.create" && item.ClinicaId == Clinica.DefaultId && item.Sucesso));
+        Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
+            item.Acao == "team.member.add" && item.ClinicaId == Clinica.DefaultId && item.Sucesso));
     }
 
     [Fact]
