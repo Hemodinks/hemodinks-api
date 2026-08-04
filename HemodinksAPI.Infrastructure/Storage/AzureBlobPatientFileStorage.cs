@@ -116,6 +116,34 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
         return containerClient;
     }
 
+    public async Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
+    {
+        var blobName = GetBlobNameFromUrl(fileUrl);
+
+        if (string.IsNullOrWhiteSpace(blobName))
+        {
+            return null;
+        }
+
+        try
+        {
+            var containerClient = await GetContainerClientAsync(cancellationToken, createIfMissing: false);
+            var blobClient = containerClient.GetBlobClient(blobName);
+
+            if (!(await blobClient.ExistsAsync(cancellationToken)).Value)
+            {
+                return null;
+            }
+
+            var response = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
+            return new StoredPatientFileContent(response.Value.Content);
+        }
+        catch (Azure.RequestFailedException ex) when (ex.Status == StatusCodes.Status404NotFound)
+        {
+            return null;
+        }
+    }
+
     private string BuildPublicUrl(BlobClient blobClient, string blobName)
     {
         if (string.IsNullOrWhiteSpace(_options.PublicBaseUrl))

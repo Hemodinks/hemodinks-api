@@ -66,15 +66,34 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 .Include(u => u.Clinica)
                 .FirstOrDefaultAsync(u => u.Email == request.Email && u.Ativo, cancellationToken);
 
-            if (user == null || !_passwordHasher.VerifyPassword(request.Senha, user.Senha))
+            var globalAuthentication = user == null
+                ? null
+                : await GlobalIdentityService.AuthenticateAsync(
+                    _context,
+                    _passwordHasher,
+                    user,
+                    request.Senha,
+                    cancellationToken);
+
+            if (user == null || globalAuthentication == null)
             {
                 _logger.LogWarning("Falha na autenticacao para: {Email}", request.Email);
                 throw new UnauthorizedAccessException("Email ou senha invalidos");
             }
 
-            var token = _jwtTokenService.GenerateToken(user);
+            var token = _jwtTokenService.GenerateToken(
+                globalAuthentication.UsuarioGlobal,
+                globalAuthentication.UsuarioClinica,
+                user);
             var licenca = await _licencaService.GetCurrentAsync(
-                new CurrentUserContext(user.Id, user.PerfilId, user.Nome),
+                new CurrentUserContext(
+                    user.Id,
+                    user.PerfilId,
+                    user.Nome,
+                    user.ClinicaId,
+                    user.Clinica.Slug,
+                    globalAuthentication.UsuarioGlobal.Id,
+                    globalAuthentication.UsuarioClinica.Id),
                 cancellationToken);
 
             _logger.LogInformation("Usuario autenticado com sucesso: {Email}", request.Email);
@@ -82,10 +101,11 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
             return new AuthenticateUserResponse
             {
                 Id = user.Id,
+                UsuarioGlobalId = globalAuthentication.UsuarioGlobal.Id,
                 ClinicaId = currentClinicaId,
                 ClinicaSlug = user.Clinica.Slug,
                 Nome = user.Nome,
-                Email = user.Email,
+                Email = globalAuthentication.UsuarioGlobal.Email,
                 Token = token,
                 Cpf = user.Cpf,
                 Crm = user.Crm,
@@ -94,6 +114,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 PrecisaTrocarSenha = user.PrecisaTrocarSenha,
                 PerfilId = user.PerfilId,
                 PerfilNome = UserProfileRules.GetPerfilNome(user),
+                ModulosLiberados = ClinicaModulos.GetEffective(user.Clinica.Plano, user.Clinica.ModulosLiberados),
                 Licenca = licenca
             };
         }

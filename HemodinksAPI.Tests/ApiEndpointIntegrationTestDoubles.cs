@@ -1,4 +1,3 @@
-using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -20,8 +19,9 @@ public partial class ApiEndpointIntegrationTests
         HttpClient client,
         string? clinicaSlug = null,
         string email = "gmarcone@gmail.com",
-        string senha = DefaultUserPassword.Value)
+        string? senha = null)
     {
+        senha ??= DefaultUserPassword.Value;
         var response = await PostAsJsonWithClinicHeaderAsync(client, clinicaSlug, "/api/users/authenticate", new
         {
             Email = email,
@@ -76,12 +76,14 @@ public partial class ApiEndpointIntegrationTests
         const int clinicaId = 2;
         const string clinicaSlug = "clinica-beta";
         const string adminEmail = "gmarcone@gmail.com";
-        const string adminPassword = "ClinicaBeta@123";
+        // A credencial pertence a identidade global, nao a cada clinica.
+        var adminPassword = DefaultUserPassword.Value;
         const string adminName = "George Beta";
         const string doctorName = "Dra. Beta";
 
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>().SetPlatformScope();
 
         if (await dbContext.Clinicas.AnyAsync(item => item.Id == clinicaId))
         {

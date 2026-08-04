@@ -62,6 +62,7 @@ public sealed class RequestIdempotencyService
 
         var record = new IdempotencyRequest
         {
+            ClinicaId = _clinicaContext.GetRequiredClinicaId(),
             Operation = operation,
             Scope = normalizedScope,
             IdempotencyKey = key,

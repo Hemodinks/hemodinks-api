@@ -3,12 +3,9 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using HemodinksAPI.Api;
-using HemodinksAPI.Application.Async;
-using HemodinksAPI.Application.Services;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Data;
-using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 
@@ -58,6 +55,165 @@ public partial class ApiEndpointIntegrationTests
         Assert.Equal(beta.Id, json.RootElement.GetProperty("clinicaId").GetInt32());
         Assert.Equal(beta.Slug, json.RootElement.GetProperty("clinicaSlug").GetString());
         Assert.False(string.IsNullOrWhiteSpace(json.RootElement.GetProperty("token").GetString()));
+    }
+
+    [Fact]
+    public async Task RefreshSession_WhenMembershipIsActive_ReturnsAUsableNewToken()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        var originalToken = client.DefaultRequestHeaders.Authorization?.Parameter;
+
+        // O refresh cookie deve ser suficiente mesmo quando o access token ja nao esta disponivel.
+        client.DefaultRequestHeaders.Authorization = null;
+
+        var response = await client.PostAsJsonAsync("/api/session/renovar", new { });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        var refreshedToken = json.RootElement.GetProperty("token").GetString();
+        Assert.False(string.IsNullOrWhiteSpace(refreshedToken));
+        Assert.NotEqual(originalToken, refreshedToken);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", refreshedToken);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/session/clinicas")).StatusCode);
+    }
+
+    [Fact]
+    public async Task RefreshSession_WhenSessionWasIdleForThirtyMinutes_ReturnsUnauthorized()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var session = await context.AuthenticationSessions.SingleAsync();
+            session.LastActivityAt = DateTime.UtcNow.AddMinutes(-31);
+            await context.SaveChangesAsync();
+        }
+
+        client.DefaultRequestHeaders.Authorization = null;
+        var response = await client.PostAsJsonAsync("/api/session/renovar", new { });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.NotNull((await verificationContext.AuthenticationSessions.SingleAsync()).RevokedAt);
+    }
+
+    [Fact]
+    public async Task AuthenticatedRequest_UpdatesSessionLastActivity()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var staleActivity = DateTime.UtcNow.AddMinutes(-20);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var session = await context.AuthenticationSessions.SingleAsync();
+            session.LastActivityAt = staleActivity;
+            await context.SaveChangesAsync();
+        }
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/session/clinicas")).StatusCode);
+
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var updatedActivity = (await verificationContext.AuthenticationSessions
+            .AsNoTracking()
+            .SingleAsync()).LastActivityAt;
+        Assert.True(updatedActivity > staleActivity.AddMinutes(19));
+    }
+
+    [Fact]
+    public async Task RefreshSession_DoesNotCountAsUserActivity()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var staleActivity = DateTime.UtcNow.AddMinutes(-20);
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var session = await context.AuthenticationSessions.SingleAsync();
+            session.LastActivityAt = staleActivity;
+            await context.SaveChangesAsync();
+        }
+
+        client.DefaultRequestHeaders.Authorization = null;
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/session/renovar", new { })).StatusCode);
+
+        using var verificationScope = factory.Services.CreateScope();
+        var verificationContext = verificationScope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var activityAfterRefresh = (await verificationContext.AuthenticationSessions
+            .AsNoTracking()
+            .SingleAsync()).LastActivityAt;
+        Assert.Equal(staleActivity, activityAfterRefresh);
+    }
+
+    [Fact]
+    public async Task Logout_RevokesSessionAndPreventsRefresh()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        Assert.Equal(HttpStatusCode.NoContent, (await client.PostAsJsonAsync("/api/session/sair", new { })).StatusCode);
+        client.DefaultRequestHeaders.Authorization = null;
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/session/renovar", new { })).StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.NotNull((await context.AuthenticationSessions.SingleAsync()).RevokedAt);
+    }
+
+    [Fact]
+    public async Task AuthenticatedSession_WhenClinicHeaderDiverges_KeepsTokenClinic()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/");
+        request.Headers.Add(ClinicaResolutionService.ClinicaSlugHeaderName, beta.Slug);
+        var response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        var names = json.RootElement.GetProperty("items").EnumerateArray()
+            .Select(item => item.GetProperty("nome").GetString())
+            .ToList();
+        Assert.Contains("George Marcone Morais dos Santos", names);
+        Assert.DoesNotContain(beta.AdminName, names);
+    }
+
+    [Fact]
+    public async Task SelectClinic_WhenMembershipDoesNotExist_ReturnsForbiddenAndAuditsDenial()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var response = await client.PostAsJsonAsync("/api/session/selecionar-clinica", new
+        {
+            clinicaId = beta.Id
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
+            item.Acao == "session.clinic.switch.denied"
+            && item.EntidadeId == beta.Id.ToString()
+            && !item.Sucesso));
     }
 
     [Fact]
@@ -121,8 +277,364 @@ public partial class ApiEndpointIntegrationTests
 
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>().SetPlatformScope();
         Assert.Equal(2, dbContext.Events.Count(item => item.Title == "Evento multi-clinica"));
         Assert.Equal(2, dbContext.IdempotencyRequests.Count(item => item.Operation == "events.create"));
+    }
+
+    [Fact]
+    public async Task SuperAdministrador_CanProvisionListAndNavigateNewClinic()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var slug = $"clinica-{Guid.NewGuid():N}";
+        var createResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica Provisionada",
+            slug,
+            administradorNome = "Administradora Local",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123",
+            fotoClinica = "data:image/png;base64,Zm90by1kYS1jbGluaWNh",
+            plano = "Completa",
+            assinaturaStatus = "Ativa",
+            limiteUsuarios = 25
+        });
+
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        var publicListResponse = await client.GetAsync("/api/public/clinicas");
+        Assert.Equal(HttpStatusCode.OK, publicListResponse.StatusCode);
+        using (var publicListJson = await ReadJsonAsync(publicListResponse))
+        {
+            var publicClinic = publicListJson.RootElement.EnumerateArray()
+                .Single(item => item.GetProperty("slug").GetString() == slug);
+            Assert.NotEqual(JsonValueKind.Null, publicClinic.GetProperty("fotoUrl").ValueKind);
+        }
+
+        var publicPhotoResponse = await client.GetAsync($"/api/public/clinicas/{slug}/foto");
+        Assert.Equal(HttpStatusCode.OK, publicPhotoResponse.StatusCode);
+        Assert.Equal("foto-da-clinica", await publicPhotoResponse.Content.ReadAsStringAsync());
+
+        var listResponse = await client.GetAsync("/api/platform/clinicas");
+        Assert.Equal(HttpStatusCode.OK, listResponse.StatusCode);
+        using (var listJson = await ReadJsonAsync(listResponse))
+        {
+            Assert.Contains(listJson.RootElement.EnumerateArray(), item => item.GetProperty("slug").GetString() == slug);
+        }
+
+        var clinicsResponse = await client.GetAsync("/api/session/clinicas");
+        clinicsResponse.EnsureSuccessStatusCode();
+        using var clinicsJson = await ReadJsonAsync(clinicsResponse);
+        var targetClinic = clinicsJson.RootElement.EnumerateArray()
+            .Single(item => item.GetProperty("slug").GetString() == slug);
+        var targetClinicId = targetClinic.GetProperty("clinicaId").GetInt32();
+
+        var switchResponse = await client.PostAsJsonAsync("/api/session/selecionar-clinica", new
+        {
+            clinicaId = targetClinicId
+        });
+        switchResponse.EnsureSuccessStatusCode();
+        using var switchJson = await ReadJsonAsync(switchResponse);
+        var switchedToken = switchJson.RootElement.GetProperty("token").GetString();
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", switchedToken);
+
+        var scopedResponse = await client.GetAsync("/api/users/");
+
+        Assert.Equal(HttpStatusCode.OK, scopedResponse.StatusCode);
+        using var scopedJson = await ReadJsonAsync(scopedResponse);
+        Assert.Equal(2, scopedJson.RootElement.GetProperty("items").GetArrayLength());
+
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
+            item.Acao == "clinic.create" && item.ClinicaId == targetClinicId && item.Sucesso));
+        Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
+            item.Acao == "session.clinic.switch" && item.ClinicaId == targetClinicId && item.Sucesso));
+    }
+
+    [Fact]
+    public async Task SuperAdministrador_CanUpdateClinicDifferentFromCurrentClinic()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var slug = $"clinica-{Guid.NewGuid():N}";
+        var createResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica antes da edicao",
+            slug,
+            administradorNome = "Administradora Local",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123",
+            plano = "Completa",
+            assinaturaStatus = "Ativa"
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+
+        using var createJson = await ReadJsonAsync(createResponse);
+        var targetClinicId = createJson.RootElement.GetProperty("id").GetInt32();
+        var updateResponse = await client.PutAsJsonAsync($"/api/platform/clinicas/{targetClinicId}", new
+        {
+            nome = "Clinica depois da edicao"
+        });
+
+        Assert.Equal(HttpStatusCode.OK, updateResponse.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var clinicContext = scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>();
+        clinicContext.SetPlatformScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var settings = await context.ConfiguracoesSistema
+            .IgnoreQueryFilters()
+            .SingleAsync(item => item.ClinicaId == targetClinicId);
+        Assert.Equal("Clinica depois da edicao", settings.NomeEmpresa);
+    }
+
+    [Fact]
+    public async Task PlatformClinics_WhenPlanIsInvalid_ReturnsBadRequest()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var response = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica Plano Invalido",
+            slug = $"clinica-{Guid.NewGuid():N}",
+            administradorNome = "Administradora Local",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123",
+            plano = "Profissional"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("Trial, Parcial ou Completa", await response.Content.ReadAsStringAsync());
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/platform/clinicas/{Clinica.DefaultId}", new
+        {
+            plano = "Profissional"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
+        Assert.Contains("Trial, Parcial ou Completa", await updateResponse.Content.ReadAsStringAsync());
+
+        var partialWithoutModulesResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica Parcial Sem Modulos",
+            slug = $"clinica-{Guid.NewGuid():N}",
+            administradorNome = "Administradora Local",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123",
+            plano = "Parcial"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, partialWithoutModulesResponse.StatusCode);
+        Assert.Contains("ao menos um modulo", await partialWithoutModulesResponse.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task PartialClinicPlan_ExposesAndEnforcesOnlyContractedModules()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var platformClient = factory.CreateClient();
+        await AuthenticateAsync(platformClient, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var slug = $"clinica-{Guid.NewGuid():N}";
+        var adminEmail = $"admin-{Guid.NewGuid():N}@example.com";
+        const string adminPassword = "AdminLocal@123";
+        var createResponse = await platformClient.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica Parcial",
+            slug,
+            administradorNome = "Administradora Parcial",
+            administradorEmail = adminEmail,
+            administradorSenha = adminPassword,
+            plano = "Parcial",
+            modulosLiberados = new[] { ClinicaModulos.Pacientes },
+            assinaturaStatus = "Ativa",
+            assinaturaValidaAte = DateTime.UtcNow.AddYears(1)
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        using (var createJson = await ReadJsonAsync(createResponse))
+        {
+            var clinicId = createJson.RootElement.GetProperty("id").GetInt32();
+            var switchResponse = await platformClient.PostAsJsonAsync("/api/session/selecionar-clinica", new
+            {
+                clinicaId = clinicId
+            });
+            switchResponse.EnsureSuccessStatusCode();
+            using var switchJson = await ReadJsonAsync(switchResponse);
+            platformClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+                "Bearer",
+                switchJson.RootElement.GetProperty("token").GetString());
+            Assert.Equal(HttpStatusCode.Forbidden, (await platformClient.GetAsync("/api/users/")).StatusCode);
+        }
+
+        using var clinicClient = factory.CreateClient();
+        var authResponse = await PostAsJsonWithClinicHeaderAsync(
+            clinicClient,
+            slug,
+            "/api/users/authenticate",
+            new { Email = adminEmail, Senha = adminPassword });
+        authResponse.EnsureSuccessStatusCode();
+        using var authJson = await ReadJsonAsync(authResponse);
+        var modules = authJson.RootElement.GetProperty("modulosLiberados").EnumerateArray().ToList();
+        Assert.Single(modules);
+        Assert.Equal(ClinicaModulos.Pacientes, modules[0].GetString());
+        clinicClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            authJson.RootElement.GetProperty("token").GetString());
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/users/")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await clinicClient.GetAsync("/api/pacientes/")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/atendimentos-cirurgicos/")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/faturamentos/")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/financeiro/relatorios/resumo")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/convenios-procedimentos-precos/")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await clinicClient.GetAsync("/api/pacientes/1/resumo-financeiro")).StatusCode);
+    }
+
+    [Fact]
+    public async Task ContractedModule_IsForbiddenWhenClinicSubscriptionIsSuspended()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>()
+                .SetPlatformScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var clinic = await db.Clinicas.SingleAsync(item => item.Id == Clinica.DefaultId);
+            clinic.AssinaturaStatus = ClinicaAssinaturaStatus.Suspensa;
+            await db.SaveChangesAsync();
+        }
+
+        var response = await client.GetAsync("/api/pacientes/");
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Contains("inativa ou expirada", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task PlatformClinics_WhenUserIsCommonAdministrator_ReturnsOnlyOwnClinic()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+        await AuthenticateAsync(client, beta.Slug, beta.AdminEmail, beta.AdminPassword);
+
+        var response = await client.GetAsync("/api/platform/clinicas");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        var items = json.RootElement.EnumerateArray().ToList();
+        Assert.Single(items);
+        Assert.Equal(beta.Id, items[0].GetProperty("id").GetInt32());
+        Assert.Equal(beta.Slug, items[0].GetProperty("slug").GetString());
+
+        Assert.Equal(
+            HttpStatusCode.Forbidden,
+            (await client.GetAsync($"/api/platform/clinicas/{Clinica.DefaultId}")).StatusCode);
+        Assert.Equal(
+            HttpStatusCode.OK,
+            (await client.GetAsync($"/api/platform/clinicas/{beta.Id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task ClinicScopedEndpoints_DoNotExposeRecordsFromAnotherClinic()
+    {
+        const string marker = "TENANT-A-ONLY-MARKER";
+        using var factory = new HemodinksApiFactory();
+        var beta = await SeedClinicaBetaAsync(factory);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>().SetPlatformScope();
+            var admin = new User
+            {
+                ClinicaId = Clinica.DefaultId,
+                Nome = marker,
+                Email = $"{Guid.NewGuid():N}@example.com",
+                Telefone = "+5511999999901",
+                Senha = "hash",
+                PerfilId = Perfil.AdministradorId,
+                Ativo = true
+            };
+            var patientUser = new User
+            {
+                ClinicaId = Clinica.DefaultId,
+                Nome = marker,
+                Email = $"{Guid.NewGuid():N}@example.com",
+                Telefone = "+5511999999902",
+                Senha = "hash",
+                PerfilId = Perfil.PacientesId,
+                Ativo = true
+            };
+            var patient = new Paciente
+            {
+                ClinicaId = Clinica.DefaultId,
+                User = patientUser,
+                NomePaciente = marker
+            };
+
+            context.Users.Add(admin);
+            context.Pacientes.Add(patient);
+            context.FaturamentosMedicos.Add(new FaturamentoMedico
+            {
+                ClinicaId = Clinica.DefaultId,
+                Paciente = patient,
+                Observacoes = marker
+            });
+            context.Events.Add(new Event
+            {
+                ClinicaId = Clinica.DefaultId,
+                User = admin,
+                Title = marker,
+                Start = DateTime.UtcNow.AddDays(1),
+                End = DateTime.UtcNow.AddDays(1).AddHours(1)
+            });
+            context.GruposMedicos.Add(new GrupoMedico { ClinicaId = Clinica.DefaultId, Nome = marker });
+            context.Hospitais.Add(new Hospital { ClinicaId = Clinica.DefaultId, Nome = marker });
+            context.Convenios.Add(new Convenio { ClinicaId = Clinica.DefaultId, DescricaoConvenio = marker });
+            context.OPME.Add(new Opme { ClinicaId = Clinica.DefaultId, Fornecedor = marker });
+            await context.SaveChangesAsync();
+        }
+
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, beta.Slug, beta.AdminEmail, beta.AdminPassword);
+
+        var scopedUrls = new[]
+        {
+            "/api/users/",
+            "/api/pacientes/",
+            "/api/faturamentos-medicos/",
+            "/api/events/",
+            "/api/grupos-medicos/",
+            "/api/hospitais/",
+            "/api/convenios/",
+            "/api/opme/",
+            "/api/dashboard/summary",
+            "/api/dashboard/notifications"
+        };
+
+        foreach (var url in scopedUrls)
+        {
+            var response = await client.GetAsync(url);
+            Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+            var content = await response.Content.ReadAsStringAsync();
+            Assert.False(
+                content.Contains(marker, StringComparison.Ordinal),
+                $"A rota {url} expos dados de outra clinica: {content}");
+        }
     }
 
 }

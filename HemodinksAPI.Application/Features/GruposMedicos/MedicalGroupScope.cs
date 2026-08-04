@@ -21,7 +21,7 @@ internal static class MedicalGroupScope
             query = query.Where(user => user.Ativo);
         }
 
-        if (currentPerfilId == Perfil.AdministradorId || currentPerfilId == Perfil.ControllerId)
+        if (Perfil.IsAdministradorOuSuper(currentPerfilId) || currentPerfilId == Perfil.ControllerId)
         {
             return query;
         }

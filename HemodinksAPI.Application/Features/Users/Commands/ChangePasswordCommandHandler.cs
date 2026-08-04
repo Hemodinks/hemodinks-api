@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Utils;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -41,17 +42,23 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
                 throw new KeyNotFoundException("Usuario nao encontrado");
             }
 
-            if (!_passwordHasher.VerifyPassword(request.SenhaAtual, user.Senha))
+            var membership = await GlobalIdentityService.EnsureForUserAsync(_context, user, cancellationToken);
+            var globalCredential = membership.Ativo && membership.UsuarioGlobal.Ativo
+                ? membership.UsuarioGlobal.Senha
+                : null;
+
+            if (globalCredential == null || !_passwordHasher.VerifyPassword(request.SenhaAtual, globalCredential))
             {
                 throw new InvalidOperationException("Senha atual invalida");
             }
 
-            if (_passwordHasher.VerifyPassword(request.NovaSenha, user.Senha))
+            if (_passwordHasher.VerifyPassword(request.NovaSenha, globalCredential))
             {
                 throw new InvalidOperationException("A nova senha nao pode ser igual a senha atual");
             }
 
             PasswordCommandMutations.ApplyNewPassword(user, _passwordHasher, request.NovaSenha, requirePasswordChange: false, DateTime.UtcNow);
+            await GlobalIdentityService.SynchronizePasswordAsync(_context, user.Id, user.Senha, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
 
             return new ChangePasswordResponse

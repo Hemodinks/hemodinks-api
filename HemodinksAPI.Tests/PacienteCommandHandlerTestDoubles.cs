@@ -1,12 +1,7 @@
 using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Application.Features.Cbhpm;
-using HemodinksAPI.Application.Features.Pacientes.Commands;
-using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Storage;
-using HemodinksAPI.Domain.Utils;
-using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -54,6 +49,12 @@ public partial class PacienteCommandHandlerTests
         public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
+        }
+
+        public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<StoredPatientFileContent?>(
+                new StoredPatientFileContent(new MemoryStream("conteudo"u8.ToArray())));
         }
     }
 }

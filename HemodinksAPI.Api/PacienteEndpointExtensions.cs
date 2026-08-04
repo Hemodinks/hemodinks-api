@@ -41,6 +41,11 @@ public static partial class PacienteEndpointExtensions
             .DisableAntiforgery()
             .RequireAuthorization("PacienteArquivosGerenciar");
 
+        group.MapGet("/{id}/arquivos/{arquivoId}/download", DownloadArquivo)
+            .WithName("DownloadPacienteArquivo")
+            .WithSummary("Baixar arquivo do paciente")
+            .RequireAuthorization(LicencaPolicies.PacientesVisualizar);
+
         group.MapDelete("/{id}/arquivos/{arquivoId}", DeleteArquivo)
             .WithName("DeletePacienteArquivo")
             .WithSummary("Excluir arquivo do paciente")

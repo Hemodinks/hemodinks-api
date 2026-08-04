@@ -12,7 +12,7 @@ internal static class PacienteAccess
         int perfilId,
         int userId)
     {
-        if (perfilId == Perfil.AdministradorId || perfilId == Perfil.ControllerId)
+        if (Perfil.IsAdministradorOuSuper(perfilId) || perfilId == Perfil.ControllerId)
         {
             return query;
         }

@@ -24,6 +24,7 @@ public class AzureQueuePasswordResetNotificationSender : IPasswordResetNotificat
         CancellationToken cancellationToken)
     {
         var message = new PasswordResetEmailQueueMessage(
+            notification.ClinicaId,
             notification.Email,
             notification.Nome,
             notification.Token,

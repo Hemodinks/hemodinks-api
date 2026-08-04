@@ -22,7 +22,8 @@ public class UserSeederTests
         {
             Assert.True(user.Ativo);
             Assert.True(user.PrecisaTrocarSenha);
-            Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, user.Senha));
+            Assert.False(hasher.VerifyPassword(DefaultUserPassword.Value, user.Senha));
+            Assert.False(string.IsNullOrWhiteSpace(user.Senha));
         });
 
         Assert.Contains(users, user =>

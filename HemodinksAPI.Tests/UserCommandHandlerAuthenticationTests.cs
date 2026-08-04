@@ -1,17 +1,11 @@
-using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Application.Services;
-using HemodinksAPI.Application.Storage;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 using HemodinksAPI.Infrastructure.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Tests;
 
@@ -201,6 +195,59 @@ public partial class UserCommandHandlerTests
             Ativo = true,
             PerfilId = Perfil.MedicosId
         }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task UpdateUser_WhenPatientUpdatesOwnProfile_ChangesOnlyPersonalFields()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var hasher = new PasswordHasher();
+        var user = CreateUser(
+            id: 26,
+            email: "paciente.original@email.com",
+            passwordHash: hasher.HashPassword("Senha@123"));
+        user.Nome = "Paciente Original";
+        user.Telefone = "+5511999999999";
+        user.Cpf = "52998224725";
+        user.PerfilId = Perfil.PacientesId;
+        user.Ativo = true;
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+
+        var handler = new UpdateUserCommandHandler(
+            context,
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            NullLogger<UpdateUserCommandHandler>.Instance);
+
+        var response = await handler.Handle(new UpdateUserCommand
+        {
+            Id = user.Id,
+            CurrentUser = new CurrentUserContext(user.Id, Perfil.PacientesId, user.Nome),
+            Nome = "Paciente Atualizado",
+            Email = "email-nao-autorizado@email.com",
+            Telefone = "+5511888888888",
+            Cpf = "15350946056",
+            Crm = "99999",
+            CrmUf = "SP",
+            FotoPerfil = "data:image/jpeg;base64,editada",
+            DataNascimento = new DateTime(1992, 8, 3),
+            Ativo = false,
+            PerfilId = Perfil.AdministradorId
+        }, CancellationToken.None);
+
+        var storedUser = await context.Users.SingleAsync(item => item.Id == user.Id);
+        Assert.Equal("Paciente Atualizado", storedUser.Nome);
+        Assert.Equal("+5511888888888", storedUser.Telefone);
+        Assert.Equal(new DateTime(1992, 8, 3), storedUser.DataNascimento);
+        Assert.Equal("https://storage.example/1.png", storedUser.FotoPerfil);
+        Assert.Equal("paciente.original@email.com", storedUser.Email);
+        Assert.Equal("52998224725", storedUser.Cpf);
+        Assert.Equal(Perfil.PacientesId, storedUser.PerfilId);
+        Assert.True(storedUser.Ativo);
+        Assert.Null(storedUser.Crm);
+        Assert.Null(storedUser.CrmUf);
+        Assert.Equal(Perfil.PacientesId, response.PerfilId);
     }
 
     [Fact]

@@ -14,6 +14,10 @@ public class DashboardSummaryDto
 
     public int PendingPaymentsCount { get; set; }
 
+    public int AttendancesCount { get; set; }
+
+    public int BillingsCount { get; set; }
+
     public int PatientFilesCount { get; set; }
 
     public int UpcomingEventsCount { get; set; }

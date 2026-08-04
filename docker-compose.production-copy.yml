@@ -1,0 +1,12 @@
+services:
+  api:
+    environment:
+      ConnectionStrings__DefaultConnection: "Server=sqlserver;Database=HemodinksProdAnon_20260728;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=true;Encrypt=false"
+      Database__RunMigrationsOnStartup: "false"
+      Database__RunMaintenanceOnStartup: "false"
+      Seed__CbhpmOnStartup: "false"
+      Seed__UsersOnStartup: "false"
+      EventReminders__RunHostedProcessor: "false"
+      PasswordReset__UseEmail: "false"
+      PasswordReset__ExposeTokenInResponse: "true"
+      AsyncQueues__Enabled: "false"

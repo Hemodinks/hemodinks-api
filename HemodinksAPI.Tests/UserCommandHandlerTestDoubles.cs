@@ -1,16 +1,9 @@
 using HemodinksAPI.Application.Authentication;
-using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Licencas;
-using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Storage;
-using HemodinksAPI.Domain.Utils;
-using HemodinksAPI.Infrastructure.Utils;
-using HemodinksAPI.Infrastructure.Services;
 using Microsoft.AspNetCore.Http;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Tests;
@@ -90,7 +83,16 @@ public partial class UserCommandHandlerTests
             _token = token;
         }
 
-        public string GenerateToken(User user)
+        public string GenerateToken(User user, Guid? sessionId = null)
+        {
+            return _token;
+        }
+
+        public string GenerateToken(
+            UsuarioGlobal usuarioGlobal,
+            UsuarioClinica usuarioClinica,
+            User user,
+            Guid? sessionId = null)
         {
             return _token;
         }
@@ -110,6 +112,12 @@ public partial class UserCommandHandlerTests
         public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
+        }
+
+        public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<StoredPatientFileContent?>(
+                new StoredPatientFileContent(new MemoryStream("conteudo"u8.ToArray())));
         }
     }
 

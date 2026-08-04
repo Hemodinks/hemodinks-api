@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Tenancy;
+using HemodinksAPI.Application.Authentication;
 
 namespace HemodinksAPI.Application.Authorization;
 
@@ -9,9 +10,13 @@ public sealed record CurrentUserContext(
     int PerfilId,
     string Nome,
     int ClinicaId = Clinica.DefaultId,
-    string ClinicaSlug = Clinica.DefaultSlug)
+    string ClinicaSlug = Clinica.DefaultSlug,
+    int UsuarioGlobalId = 0,
+    int UsuarioClinicaId = 0)
 {
-    public bool IsAdministrador => PerfilId == Perfil.AdministradorId;
+    public bool IsAdministrador => Perfil.IsAdministradorOuSuper(PerfilId);
+
+    public bool IsSuperAdministrador => PerfilId == Perfil.SuperAdministradorId;
 
     public bool IsMedico => PerfilId == Perfil.MedicosId;
 
@@ -29,6 +34,8 @@ public static class CurrentUserContextExtensions
         var nome = claimsPrincipal.FindFirst(ClaimTypes.Name)?.Value ?? string.Empty;
         var clinicaIdClaim = claimsPrincipal.FindFirst(ClinicaClaimTypes.ClinicaId)?.Value;
         var clinicaSlug = claimsPrincipal.FindFirst(ClinicaClaimTypes.ClinicaSlug)?.Value ?? Clinica.DefaultSlug;
+        var usuarioGlobalIdClaim = claimsPrincipal.FindFirst(GlobalIdentityClaimTypes.UsuarioGlobalId)?.Value;
+        var usuarioClinicaIdClaim = claimsPrincipal.FindFirst(GlobalIdentityClaimTypes.UsuarioClinicaId)?.Value;
 
         if (!int.TryParse(userIdClaim, out var userId) || !int.TryParse(perfilIdClaim, out var perfilId))
         {
@@ -39,6 +46,16 @@ public static class CurrentUserContextExtensions
             ? parsedClinicaId
             : Clinica.DefaultId;
 
-        return new CurrentUserContext(userId, perfilId, nome, clinicaId, clinicaSlug);
+        _ = int.TryParse(usuarioGlobalIdClaim, out var usuarioGlobalId);
+        _ = int.TryParse(usuarioClinicaIdClaim, out var usuarioClinicaId);
+
+        return new CurrentUserContext(
+            userId,
+            perfilId,
+            nome,
+            clinicaId,
+            clinicaSlug,
+            usuarioGlobalId,
+            usuarioClinicaId);
     }
 }

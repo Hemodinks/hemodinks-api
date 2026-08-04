@@ -29,7 +29,7 @@ public class DeletePacienteCommandHandler : IRequestHandler<DeletePacienteComman
     {
         try
         {
-            if (request.CurrentPerfilId != Perfil.AdministradorId)
+            if (!Perfil.IsAdministradorOuSuper(request.CurrentPerfilId))
             {
                 throw new UnauthorizedAccessException("Sem permissao para excluir paciente");
             }

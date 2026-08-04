@@ -1,5 +1,3 @@
-using HemodinksAPI.Application.Services;
-
 namespace HemodinksAPI.Infrastructure.PasswordReset;
 
 public interface IPasswordResetNotificationTransport

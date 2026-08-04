@@ -1,0 +1,190 @@
+name: Roll back Production API
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmation:
+        description: Type ROLLBACK-PRODUCTION
+        required: true
+        type: string
+      target_revision:
+        description: Ready revision name; leave empty to select the newest previous ready revision
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-container-publish
+  cancel-in-progress: false
+
+env:
+  API_NAME: hemodinks-api-prod
+  API_RESOURCE_GROUP: rg-hemodinks-prod
+
+jobs:
+  rollback:
+    name: Approve and roll back Production traffic
+    if: ${{ inputs.confirmation == 'ROLLBACK-PRODUCTION' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    environment: production
+
+    steps:
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install Container Apps extension
+        run: az extension add --name containerapp --upgrade
+
+      - name: Validate target and select revision
+        id: target
+        env:
+          REQUESTED_REVISION: ${{ inputs.target_revision }}
+        run: |
+          set -euo pipefail
+          actual_name="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query name -o tsv)"
+          mode="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.configuration.activeRevisionsMode -o tsv)"
+          if [ "$actual_name" != "hemodinks-api-prod" ] || [ "${mode,,}" != "multiple" ]; then
+            echo "::error::Rollback is restricted to bootstrapped hemodinks-api-prod."
+            exit 3
+          fi
+
+          traffic="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.traffic -o json)"
+          current_label="$(jq -r '[.[] | select(.weight == 100 and (.label == "blue" or .label == "green"))][0].label // empty' <<<"$traffic")"
+          current_revision="$(jq -r --arg label "$current_label" '[.[] | select(.label == $label)][0].revisionName // empty' <<<"$traffic")"
+          if [ -z "$current_label" ] || [ -z "$current_revision" ]; then
+            echo "::error::Current labeled Production revision could not be identified."
+            exit 4
+          fi
+
+          revisions="$(az containerapp revision list \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --output json)"
+          echo "$revisions" | jq -r '.[] | select(.properties.active == true and .properties.healthState == "Healthy" and .properties.runningState == "Running") | [.name, .properties.createdTime] | @tsv'
+
+          if [ -n "$REQUESTED_REVISION" ]; then
+            target_revision="$REQUESTED_REVISION"
+          else
+            target_revision="$(jq -r --arg current "$current_revision" '
+              [.[] |
+                select(
+                  .name != $current and
+                  .properties.active == true and
+                  .properties.healthState == "Healthy" and
+                  .properties.runningState == "Running"
+                )
+              ] |
+              sort_by(.properties.createdTime) |
+              reverse |
+              .[0].name // empty
+            ' <<<"$revisions")"
+          fi
+
+          valid="$(jq -r --arg target "$target_revision" '
+            any(.[]; .name == $target and .properties.active == true and .properties.healthState == "Healthy" and .properties.runningState == "Running")
+          ' <<<"$revisions")"
+          if [ -z "$target_revision" ] || [ "$valid" != "true" ] || [ "$target_revision" = "$current_revision" ]; then
+            echo "::error::Target must be a different active, Healthy and Running revision."
+            exit 5
+          fi
+
+          if [ "$current_label" = "blue" ]; then target_label="green"; else target_label="blue"; fi
+          app_fqdn="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.fqdn -o tsv)"
+          target_fqdn="${API_NAME}---${target_label}.${app_fqdn#*.}"
+
+          {
+            echo "current_label=$current_label"
+            echo "current_revision=$current_revision"
+            echo "target_label=$target_label"
+            echo "target_revision=$target_revision"
+            echo "target_fqdn=$target_fqdn"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Label and smoke test rollback target
+        id: smoke
+        env:
+          TARGET_LABEL: ${{ steps.target.outputs.target_label }}
+          TARGET_REVISION: ${{ steps.target.outputs.target_revision }}
+          TARGET_FQDN: ${{ steps.target.outputs.target_fqdn }}
+        run: |
+          set -euo pipefail
+          az containerapp revision label add \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --revision "$TARGET_REVISION" \
+            --label "$TARGET_LABEL" \
+            --yes \
+            --output none
+
+          passed=false
+          for attempt in $(seq 1 10); do
+            live="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+              --connect-timeout 10 --max-time 20 "https://${TARGET_FQDN}/livez" || true)"
+            ready="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
+              --connect-timeout 10 --max-time 30 "https://${TARGET_FQDN}/healthz" || true)"
+            if [ "$live" = "200" ] && [ "$ready" = "200" ]; then passed=true; break; fi
+            echo "Rollback smoke attempt ${attempt}/10 (live=${live}, ready=${ready})."
+            sleep $((attempt * 2))
+          done
+          if [ "$passed" != "true" ]; then
+            echo "::error::Rollback target failed smoke tests. Production traffic was not changed."
+            exit 6
+          fi
+          echo "result=passed" >> "$GITHUB_OUTPUT"
+
+      - name: Switch traffic back
+        env:
+          CURRENT_LABEL: ${{ steps.target.outputs.current_label }}
+          TARGET_LABEL: ${{ steps.target.outputs.target_label }}
+        run: |
+          az containerapp ingress traffic set \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --label-weight "$CURRENT_LABEL=0" "$TARGET_LABEL=100" \
+            --output none
+
+      - name: Rollback summary
+        if: always()
+        env:
+          CURRENT_REVISION: ${{ steps.target.outputs.current_revision }}
+          TARGET_REVISION: ${{ steps.target.outputs.target_revision }}
+          TARGET_LABEL: ${{ steps.target.outputs.target_label }}
+          SMOKE_RESULT: ${{ steps.smoke.outputs.result || 'failed/not-run' }}
+          ROLLBACK_RESULT: ${{ job.status }}
+        run: |
+          final_traffic="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.traffic -o json 2>/dev/null | jq -c '.' || echo unavailable)"
+          {
+            echo "## Production API rollback"
+            echo ""
+            echo "- From revision: \`${CURRENT_REVISION:-unavailable}\`"
+            echo "- Target revision: \`${TARGET_REVISION:-unavailable}\`"
+            echo "- Active label after success: \`${TARGET_LABEL:-unchanged}\`"
+            echo "- Smoke test: **${SMOKE_RESULT}**"
+            echo "- Result: **${ROLLBACK_RESULT}**"
+            echo "- Final traffic: \`${final_traffic}\`"
+            echo ""
+            echo "> No migration was reverted. A traffic rollback cannot repair an incompatible or destructive schema migration."
+          } >> "$GITHUB_STEP_SUMMARY"

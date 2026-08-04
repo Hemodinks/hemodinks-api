@@ -11,6 +11,7 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 /// </summary>
 public partial class CreateUserCommand : IRequest<CreateUserResponse>
 {
+    public CurrentUserContext? CurrentUser { get; set; }
     public string Nome { get; set; } = null!;
     public string Email { get; set; } = null!;
     public string Telefone { get; set; } = null!;
@@ -42,6 +43,7 @@ public class CreateUserResponse
     public bool PrecisaTrocarSenha { get; set; }
     public int PerfilId { get; set; }
     public string PerfilNome { get; set; } = null!;
+    public bool ConvitePrimeiroAcessoEnviado { get; set; }
 }
 
 /// <summary>
@@ -59,6 +61,7 @@ public partial class AuthenticateUserCommand : IRequest<AuthenticateUserResponse
 public class AuthenticateUserResponse
 {
     public int Id { get; set; }
+    public int UsuarioGlobalId { get; set; }
     public int ClinicaId { get; set; }
     public string ClinicaSlug { get; set; } = null!;
     public string Nome { get; set; } = null!;
@@ -71,6 +74,7 @@ public class AuthenticateUserResponse
     public bool PrecisaTrocarSenha { get; set; }
     public int PerfilId { get; set; }
     public string PerfilNome { get; set; } = null!;
+    public IReadOnlyList<string> ModulosLiberados { get; set; } = [];
     public LicencaDto? Licenca { get; set; }
 }
 
@@ -197,4 +201,5 @@ public class ResetUserPasswordResponse
     public int Id { get; set; }
     public bool PrecisaTrocarSenha { get; set; }
     public string Message { get; set; } = null!;
+    public string? SenhaTemporaria { get; set; }
 }

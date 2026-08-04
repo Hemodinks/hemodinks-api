@@ -1,14 +1,10 @@
-using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Application.Services;
-using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 using HemodinksAPI.Infrastructure.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -18,17 +14,19 @@ namespace HemodinksAPI.Tests;
 public partial class UserCommandHandlerTests
 {
     [Fact]
-    public async Task CreateUser_WhenEmailIsNew_CreatesActiveUserWithDefaultPassword()
+    public async Task CreateUser_WhenEmailIsNew_SendsFirstAccessInvitation()
     {
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
+        var invitationSender = new RecordingPasswordResetNotificationSender();
         var handler = new CreateUserCommandHandler(
             context,
             hasher,
             new FakeProfilePhotoStorage(),
             new UserPatientSyncService(context),
             Options.Create(new LicencaOptions()),
-            NullLogger<CreateUserCommandHandler>.Instance);
+            NullLogger<CreateUserCommandHandler>.Instance,
+            invitationSender);
 
         var response = await handler.Handle(new CreateUserCommand
         {
@@ -57,7 +55,11 @@ public partial class UserCommandHandlerTests
         Assert.Equal("12345", response.Crm);
         Assert.Equal("PE", response.CrmUf);
         Assert.Equal("Médicos", response.PerfilNome);
-        Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+        Assert.True(response.ConvitePrimeiroAcessoEnviado);
+        Assert.Single(invitationSender.Notifications);
+        Assert.Equal(storedUser.Email, invitationSender.Notifications[0].Email);
+        Assert.NotEmpty(await context.PasswordResetTokens.ToListAsync());
+        Assert.False(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
         Assert.NotNull(await context.Licencas.SingleOrDefaultAsync(item => item.UserId == storedUser.Id));
     }
 
@@ -215,6 +217,37 @@ public partial class UserCommandHandlerTests
             DataNascimento = new DateTime(1992, 8, 10),
             PerfilId = Perfil.PacientesId
         }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateUser_WhenSuperAdministradorAssignsPacientePerfil_CreatesUser()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new CreateUserCommandHandler(
+            context,
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
+            NullLogger<CreateUserCommandHandler>.Instance);
+
+        var response = await handler.Handle(new CreateUserCommand
+        {
+            CurrentUser = new CurrentUserContext(
+                99,
+                Perfil.SuperAdministradorId,
+                "Super Administrador"),
+            Nome = "Paciente pelo Super",
+            Email = "paciente.super@email.com",
+            Telefone = "+5511777777777",
+            Cpf = "11144477735",
+            DataNascimento = new DateTime(1992, 8, 10),
+            PerfilId = Perfil.PacientesId
+        }, CancellationToken.None);
+
+        Assert.Equal(Perfil.PacientesId, response.PerfilId);
+        Assert.Equal(Perfil.PacientesId, (await context.Users.SingleAsync()).PerfilId);
+        Assert.Single(await context.Pacientes.ToListAsync());
     }
 
     [Fact]
