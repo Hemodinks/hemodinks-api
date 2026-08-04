@@ -27,4 +27,3 @@ public class ContaReceber : IClinicaOwnedEntity
     public byte[] RowVersion { get; set; } = [];
     public ICollection<Recebimento> Recebimentos { get; set; } = new List<Recebimento>();
 }
-

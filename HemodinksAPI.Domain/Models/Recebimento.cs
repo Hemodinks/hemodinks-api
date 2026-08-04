@@ -22,4 +22,3 @@ public class Recebimento : IClinicaOwnedEntity
     public User? UsuarioEstorno { get; set; }
     public string? MotivoEstorno { get; set; }
 }
-

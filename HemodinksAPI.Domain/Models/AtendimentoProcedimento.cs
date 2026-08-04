@@ -17,4 +17,3 @@ public class AtendimentoProcedimento : IClinicaOwnedEntity
     public int Ordem { get; set; } = 1;
     public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
 }
-

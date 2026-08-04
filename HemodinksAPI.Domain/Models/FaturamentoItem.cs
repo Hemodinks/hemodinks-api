@@ -24,4 +24,3 @@ public class FaturamentoItem : IClinicaOwnedEntity
     public DateTime? DataAtualizacao { get; set; }
     public ICollection<Glosa> Glosas { get; set; } = new List<Glosa>();
 }
-

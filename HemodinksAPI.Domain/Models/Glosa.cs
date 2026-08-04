@@ -19,4 +19,3 @@ public class Glosa : IClinicaOwnedEntity
     public DateTime? DataAtualizacao { get; set; }
     public ICollection<RecursoGlosa> Recursos { get; set; } = new List<RecursoGlosa>();
 }
-

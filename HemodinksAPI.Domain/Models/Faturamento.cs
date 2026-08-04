@@ -27,4 +27,3 @@ public class Faturamento : IClinicaOwnedEntity
     public ICollection<Glosa> Glosas { get; set; } = new List<Glosa>();
     public ICollection<ContaReceber> ContasReceber { get; set; } = new List<ContaReceber>();
 }
-
