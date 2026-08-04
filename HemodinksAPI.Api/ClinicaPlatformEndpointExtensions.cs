@@ -95,15 +95,40 @@ public static partial class ClinicaPlatformEndpointExtensions
         var adminNome = RequireText(request.AdministradorNome, "Nome do administrador obrigatorio", 255);
         var adminEmail = RequireText(request.AdministradorEmail, "Email do administrador obrigatorio", 255).ToLowerInvariant();
         var adminPassword = RequireText(request.AdministradorSenha, "Senha do administrador obrigatoria", 200);
+        var equipeNome = request.EquipeInicial == null
+            ? null
+            : RequireText(request.EquipeInicial.Nome, "Nome da equipe obrigatorio", 120);
+        var equipeEmail = request.EquipeInicial == null
+            ? null
+            : GlobalIdentityService.NormalizeEmail(RequireText(request.EquipeInicial.Email, "Email da equipe obrigatorio", 255));
+        var equipePassword = request.EquipeInicial == null
+            ? null
+            : RequireText(request.EquipeInicial.Senha, "Senha da equipe obrigatoria", 200);
+        var equipeModo = request.EquipeInicial == null
+            ? null
+            : EquipeAuthenticationRules.NormalizeModo(request.EquipeInicial.ModoIdentificacao);
 
         if (!MailAddress.TryCreate(adminEmail, out _) || adminPassword.Length < 8)
         {
             throw new InvalidOperationException("Email invalido ou senha com menos de 8 caracteres");
         }
 
+        if (equipeEmail != null
+            && (!MailAddress.TryCreate(equipeEmail, out _)
+                || equipePassword!.Length < 8
+                || equipeEmail.Equals(adminEmail, StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException("Equipe inicial deve possuir email diferente do administrador e senha com ao menos 8 caracteres");
+        }
+
         if (request.LimiteUsuarios is <= 0)
         {
             throw new InvalidOperationException("LimiteUsuarios deve ser maior que zero");
+        }
+
+        if (request.EquipeInicial != null && request.LimiteUsuarios is < 2)
+        {
+            throw new InvalidOperationException("LimiteUsuarios deve permitir o administrador e a equipe inicial");
         }
 
         var strategy = context.Database.CreateExecutionStrategy();
@@ -112,6 +137,12 @@ public static partial class ClinicaPlatformEndpointExtensions
             if (await context.Clinicas.AnyAsync(item => item.Slug == slug, cancellationToken))
             {
                 return (IResult)Results.Conflict(new { message = "Slug da clinica ja cadastrado" });
+            }
+
+            if (equipeEmail != null
+                && await context.UsuariosGlobais.AnyAsync(item => item.Email == equipeEmail, cancellationToken))
+            {
+                return (IResult)Results.Conflict(new { message = "Email coletivo ja utilizado por outra identidade" });
             }
 
             await using var transaction = context.Database.IsRelational()
@@ -155,6 +186,34 @@ public static partial class ClinicaPlatformEndpointExtensions
             };
 
             context.Users.Add(admin);
+            User? equipeLogin = null;
+            Equipe? equipeInicial = null;
+            if (request.EquipeInicial != null)
+            {
+                equipeLogin = new User
+                {
+                    ClinicaId = clinica.Id,
+                    Nome = equipeNome!,
+                    Email = equipeEmail!,
+                    Telefone = NormalizeOptional(request.EquipeInicial.Telefone, $"+558{DateTime.UtcNow.Ticks % 10_000_000_000:D10}", 20),
+                    Senha = passwordHasher.HashPassword(equipePassword!),
+                    DataCadastro = now,
+                    Ativo = true,
+                    PrecisaTrocarSenha = false,
+                    PerfilId = Perfil.EquipeId
+                };
+                equipeInicial = new Equipe
+                {
+                    ClinicaId = clinica.Id,
+                    Nome = equipeNome!,
+                    UsuarioLogin = equipeLogin,
+                    ModoIdentificacao = equipeModo!,
+                    Ativa = true,
+                    DataCadastro = now
+                };
+                context.Users.Add(equipeLogin);
+                context.Equipes.Add(equipeInicial);
+            }
             context.ConfiguracoesSistema.Add(new ConfiguracaoSistema
             {
                 ClinicaId = clinica.Id,
@@ -166,6 +225,10 @@ public static partial class ClinicaPlatformEndpointExtensions
             await CloneClinicReferenceDataAsync(clinica.Id, context, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
             await GlobalIdentityService.EnsureForUserAsync(context, admin, cancellationToken, clinicaPadrao: true);
+            if (equipeLogin != null)
+            {
+                await GlobalIdentityService.EnsureForUserAsync(context, equipeLogin, cancellationToken);
+            }
             if (platformShadowUser != null)
             {
                 await GlobalIdentityService.EnsureForUserAsync(context, platformShadowUser, cancellationToken);
@@ -180,6 +243,19 @@ public static partial class ClinicaPlatformEndpointExtensions
                 new { clinica.Nome, clinica.Slug, admin.Email },
                 true,
                 cancellationToken);
+
+            if (equipeInicial != null)
+            {
+                await auditService.RecordAsync(
+                    httpContext,
+                    "team.create",
+                    "team",
+                    equipeInicial.Id.ToString(),
+                    clinica.Id,
+                    new { equipeInicial.Nome, equipeInicial.ModoIdentificacao, equipeInicial.UsuarioLoginId },
+                    true,
+                    cancellationToken);
+            }
 
             if (transaction != null)
             {
@@ -551,7 +627,15 @@ public sealed record CreateClinicaRequest(
     DateTime? TrialAte,
     DateTime? AssinaturaValidaAte,
     int? LimiteUsuarios,
-    string? FotoClinica);
+    string? FotoClinica,
+    CreateEquipeInicialRequest? EquipeInicial);
+
+public sealed record CreateEquipeInicialRequest(
+    string Nome,
+    string Email,
+    string Senha,
+    string? Telefone,
+    string? ModoIdentificacao);
 
 public sealed record UpdateClinicaRequest(
     string? Nome,

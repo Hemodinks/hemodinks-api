@@ -187,7 +187,14 @@ public partial class ApiEndpointIntegrationTests
             fotoClinica = "data:image/png;base64,Zm90by1kYS1jbGluaWNh",
             plano = "Completa",
             assinaturaStatus = "Ativa",
-            limiteUsuarios = 25
+            limiteUsuarios = 25,
+            equipeInicial = new
+            {
+                nome = "Equipe Inicial",
+                email = $"equipe-{Guid.NewGuid():N}@example.com",
+                senha = "EquipeInicial@123",
+                modoIdentificacao = "Pin"
+            }
         });
 
         Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
@@ -232,12 +239,21 @@ public partial class ApiEndpointIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, scopedResponse.StatusCode);
         using var scopedJson = await ReadJsonAsync(scopedResponse);
-        Assert.Equal(2, scopedJson.RootElement.GetProperty("items").GetArrayLength());
+        Assert.Equal(3, scopedJson.RootElement.GetProperty("items").GetArrayLength());
+
+        var teamsResponse = await client.GetAsync("/api/equipes/");
+        teamsResponse.EnsureSuccessStatusCode();
+        using var teamsJson = await ReadJsonAsync(teamsResponse);
+        var initialTeam = Assert.Single(teamsJson.RootElement.EnumerateArray());
+        Assert.Equal("Equipe Inicial", initialTeam.GetProperty("nome").GetString());
+        Assert.Equal("Pin", initialTeam.GetProperty("modoIdentificacao").GetString());
 
         using var scope = factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
             item.Acao == "clinic.create" && item.ClinicaId == targetClinicId && item.Sucesso));
+        Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
+            item.Acao == "team.create" && item.ClinicaId == targetClinicId && item.Sucesso));
         Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
             item.Acao == "session.clinic.switch" && item.ClinicaId == targetClinicId && item.Sucesso));
     }
