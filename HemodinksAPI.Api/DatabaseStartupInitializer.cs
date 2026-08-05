@@ -53,8 +53,27 @@ internal static class DatabaseStartupInitializer
             .OrderBy(item => item.Id)
             .ToListAsync();
 
+        var linkedUserIds = await dbContext.UsuariosClinicas
+            .IgnoreQueryFilters()
+            .Select(item => item.UserId)
+            .ToHashSetAsync();
+        var teamLoginUserIds = await dbContext.Equipes
+            .IgnoreQueryFilters()
+            .Select(item => item.UsuarioLoginId)
+            .ToHashSetAsync();
+
         foreach (var user in users)
         {
+            // Operadores criados dentro de uma equipe compartilham a conta coletiva e
+            // não representam identidades globais independentes. Vinculá-los pelo mesmo
+            // e-mail produziria mais de uma associação global para a mesma clínica.
+            if (user.PerfilId == Perfil.EquipeId
+                && !linkedUserIds.Contains(user.Id)
+                && !teamLoginUserIds.Contains(user.Id))
+            {
+                continue;
+            }
+
             var membership = await GlobalIdentityService.EnsureForUserAsync(dbContext, user, CancellationToken.None);
             membership.PerfilId = user.PerfilId;
             membership.Ativo = user.Ativo;

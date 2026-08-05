@@ -342,7 +342,7 @@ public partial class ApiEndpointIntegrationTests
         usersResponse.EnsureSuccessStatusCode();
         using var usersJson = await ReadJsonAsync(usersResponse);
         var candidates = usersJson.RootElement.EnumerateArray().ToArray();
-        Assert.All(candidates, item => Assert.Contains(item.GetProperty("perfilId").GetInt32(), new[] { Perfil.MedicosId, Perfil.ControllerId }));
+        Assert.All(candidates, item => Assert.Contains(item.GetProperty("perfilId").GetInt32(), new[] { Perfil.MedicosId, Perfil.ControllerId, Perfil.EquipeId }));
         var importedCandidate = candidates.Single(item => item.GetProperty("email").GetString() == "dra.beta@hemodinks.com");
         Assert.False(importedCandidate.GetProperty("cadastradoNaClinica").GetBoolean());
         var localCandidate = candidates.First(item => item.GetProperty("cadastradoNaClinica").GetBoolean());
@@ -359,15 +359,66 @@ public partial class ApiEndpointIntegrationTests
 
         var addMemberResponse = await client.PostAsJsonAsync(
             $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}/membros",
-            new { usuarioGlobalIds = selectedGlobalIds, gerarPin = true });
+            new
+            {
+                usuarioGlobalIds = selectedGlobalIds,
+                novosUsuarios = new[] { new { nome = "Raquel Fernandes", telefone = (string?)null } },
+                gerarPin = true
+            });
         addMemberResponse.EnsureSuccessStatusCode();
         using var addMemberJson = await ReadJsonAsync(addMemberResponse);
         var associations = addMemberJson.RootElement.GetProperty("associados").EnumerateArray().ToArray();
-        Assert.Equal(2, associations.Length);
+        Assert.Equal(3, associations.Length);
         Assert.All(associations, item => Assert.Equal(6, item.GetProperty("pinTemporario").GetString()!.Length));
-        var importedAssociation = associations.Single(item => item.GetProperty("importado").GetBoolean());
+        var importedAssociation = associations.Single(item => item.GetProperty("nome").GetString() == beta.DoctorName);
+        var createdAssociation = associations.Single(item => item.GetProperty("nome").GetString() == "Raquel Fernandes");
         var operatorId = importedAssociation.GetProperty("operadorId").GetInt32();
         var importedUserId = importedAssociation.GetProperty("userId").GetInt32();
+        var createdUserId = createdAssociation.GetProperty("userId").GetInt32();
+
+        var candidatesAfterCreationResponse = await client.GetAsync($"/api/platform/clinicas/{Clinica.DefaultId}/equipes/usuarios");
+        candidatesAfterCreationResponse.EnsureSuccessStatusCode();
+        using var candidatesAfterCreationJson = await ReadJsonAsync(candidatesAfterCreationResponse);
+        var createdCandidate = candidatesAfterCreationJson.RootElement.EnumerateArray().Single(item =>
+            item.GetProperty("userIdNaClinica").GetInt32() == createdUserId);
+        Assert.Equal(Perfil.EquipeId, createdCandidate.GetProperty("perfilId").GetInt32());
+        Assert.Equal(JsonValueKind.Null, createdCandidate.GetProperty("usuarioGlobalId").ValueKind);
+
+        var reassociateLocalUserResponse = await client.PostAsJsonAsync(
+            $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}/membros",
+            new
+            {
+                usuarioGlobalIds = Array.Empty<int>(),
+                userIds = new[] { createdUserId },
+                novosUsuarios = Array.Empty<object>(),
+                gerarPin = false
+            });
+        reassociateLocalUserResponse.EnsureSuccessStatusCode();
+
+        var editCreatedUserResponse = await client.PutAsJsonAsync($"/api/users/{createdUserId}", new
+        {
+            nome = "Raquel Fernandes de Lima",
+            email = teamEmail,
+            telefone = "",
+            ativo = true,
+            perfilId = Perfil.EquipeId
+        });
+        editCreatedUserResponse.EnsureSuccessStatusCode();
+        using var editCreatedUserJson = await ReadJsonAsync(editCreatedUserResponse);
+        Assert.Equal(Perfil.EquipeId, editCreatedUserJson.RootElement.GetProperty("perfilId").GetInt32());
+        Assert.Equal(string.Empty, editCreatedUserJson.RootElement.GetProperty("telefone").GetString());
+
+        using var teamClient = factory.CreateClient();
+        teamClient.DefaultRequestHeaders.Add("X-Clinica-Slug", Clinica.DefaultSlug);
+        var teamLoginResponse = await teamClient.PostAsJsonAsync("/api/users/authenticate", new
+        {
+            email = teamEmail,
+            senha = "EquipeExistente@123"
+        });
+        teamLoginResponse.EnsureSuccessStatusCode();
+        using var teamLoginJson = await ReadJsonAsync(teamLoginResponse);
+        var teamOperators = teamLoginJson.RootElement.GetProperty("equipeDesafio").GetProperty("operadores").EnumerateArray();
+        Assert.Contains(teamOperators, item => item.GetProperty("nome").GetString() == "Raquel Fernandes de Lima");
 
         var resetPinResponse = await client.PostAsJsonAsync(
             $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}/operadores/{operatorId}/pin",
@@ -386,6 +437,17 @@ public partial class ApiEndpointIntegrationTests
         Assert.Equal(Clinica.DefaultId, importedUser.ClinicaId);
         Assert.Equal(Perfil.EquipeId, importedUser.PerfilId);
         Assert.Equal("dra.beta@hemodinks.com", importedUser.Email);
+        var createdUser = await context.Users.IgnoreQueryFilters().SingleAsync(item => item.Id == createdUserId);
+        Assert.Equal(Clinica.DefaultId, createdUser.ClinicaId);
+        Assert.Equal(Perfil.EquipeId, createdUser.PerfilId);
+        Assert.Equal(teamEmail, createdUser.Email);
+        Assert.Equal(string.Empty, createdUser.Telefone);
+        var teamLoginUser = await context.Equipes.IgnoreQueryFilters()
+            .Where(item => item.Id == teamId)
+            .Select(item => item.UsuarioLogin)
+            .SingleAsync();
+        Assert.Equal(teamLoginUser.Senha, createdUser.Senha);
+        Assert.False(await context.UsuariosClinicas.IgnoreQueryFilters().AnyAsync(item => item.UserId == createdUserId));
         Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
             item.Acao == "team.create" && item.ClinicaId == Clinica.DefaultId && item.Sucesso));
         Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>

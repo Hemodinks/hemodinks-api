@@ -64,7 +64,10 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
             var user = await _context.Users
                 .Include(u => u.Perfil)
                 .Include(u => u.Clinica)
-                .FirstOrDefaultAsync(u => u.Email == request.Email && u.Ativo, cancellationToken);
+                .Where(u => u.Email == request.Email && u.Ativo)
+                .OrderByDescending(u => _context.Equipes.Any(equipe => equipe.UsuarioLoginId == u.Id && equipe.Ativa))
+                .ThenBy(u => u.Id)
+                .FirstOrDefaultAsync(cancellationToken);
 
             var globalAuthentication = user == null
                 ? null

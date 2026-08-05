@@ -62,7 +62,8 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .HasDefaultValue(Perfil.MedicosId);
 
         entity.HasIndex(e => new { e.ClinicaId, e.Email })
-            .IsUnique();
+            .IsUnique()
+            .HasFilter($"[PerfilId] <> {Perfil.EquipeId}");
 
         entity.HasIndex(e => e.Telefone);
 

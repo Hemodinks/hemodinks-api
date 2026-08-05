@@ -62,7 +62,10 @@ public static partial class ClinicaPlatformEndpointExtensions
             .Where(item => item.Ativo
                 && item.UsuarioGlobal.Ativo
                 && item.User.Ativo
-                && (item.PerfilId == Perfil.MedicosId || item.PerfilId == Perfil.ControllerId))
+                && !context.Equipes.IgnoreQueryFilters().Any(team => team.UsuarioLoginId == item.UserId)
+                && (item.PerfilId == Perfil.MedicosId
+                    || item.PerfilId == Perfil.ControllerId
+                    || item.PerfilId == Perfil.EquipeId))
             .Select(item => new
             {
                 item.UsuarioGlobalId,
@@ -95,8 +98,29 @@ public static partial class ClinicaPlatformEndpointExtensions
                 item.PerfilNome,
                 item.OrigemClinica,
                 targetUsers.ContainsKey(item.UsuarioGlobalId)))
-            .OrderBy(item => item.Nome)
             .ToList();
+
+        var localTeamUsers = await context.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .Where(item => item.ClinicaId == id
+                && item.Ativo
+                && item.PerfilId == Perfil.EquipeId
+                && !context.UsuariosClinicas.IgnoreQueryFilters().Any(link => link.UserId == item.Id)
+                && !context.Equipes.IgnoreQueryFilters().Any(team => team.UsuarioLoginId == item.Id))
+            .Select(item => new ClinicTeamUserResponse(
+                null,
+                item.Id,
+                item.Nome,
+                item.Email,
+                item.PerfilId,
+                item.Perfil.Nome,
+                item.Clinica.Nome,
+                true))
+            .ToListAsync(cancellationToken);
+
+        candidates.AddRange(localTeamUsers);
+        candidates = candidates.OrderBy(item => item.Nome).ToList();
 
         return Results.Ok(candidates);
     }
@@ -137,12 +161,21 @@ public static partial class ClinicaPlatformEndpointExtensions
         CancellationToken cancellationToken)
     {
         var globalUserIds = request.UsuarioGlobalIds?.Distinct().ToArray() ?? [];
-        if (globalUserIds.Length == 0 || globalUserIds.Length > 100)
+        var localUserIds = request.UserIds?.Distinct().ToArray() ?? [];
+        var newUsers = request.NovosUsuarios?
+            .Select(item => new CreateClinicTeamUserRequest(
+                RequireText(item.Nome, "Nome do funcionario invalido", 255),
+                string.IsNullOrWhiteSpace(item.Telefone)
+                    ? null
+                    : RequireText(item.Telefone, "Telefone do funcionario invalido", 20)))
+            .ToArray() ?? [];
+        var selectionCount = globalUserIds.Length + localUserIds.Length + newUsers.Length;
+        if (selectionCount == 0 || selectionCount > 100)
         {
             return Results.BadRequest(new { message = "Selecione entre 1 e 100 funcionarios" });
         }
-
         var team = await context.Equipes.IgnoreQueryFilters()
+            .Include(item => item.UsuarioLogin)
             .FirstOrDefaultAsync(item => item.Id == teamId && item.ClinicaId == id && item.Ativa, cancellationToken);
         if (team == null) return Results.NotFound();
         if (request.GerarPin && !team.ModoIdentificacao.Equals(EquipeModosIdentificacao.Pin, StringComparison.OrdinalIgnoreCase))
@@ -158,14 +191,29 @@ public static partial class ClinicaPlatformEndpointExtensions
                 && item.Ativo
                 && item.UsuarioGlobal.Ativo
                 && item.User.Ativo
-                && (item.PerfilId == Perfil.MedicosId || item.PerfilId == Perfil.ControllerId))
+                && !context.Equipes.IgnoreQueryFilters().Any(team => team.UsuarioLoginId == item.UserId)
+                && (item.PerfilId == Perfil.MedicosId
+                    || item.PerfilId == Perfil.ControllerId
+                    || item.PerfilId == Perfil.EquipeId))
             .ToListAsync(cancellationToken);
         var sources = sourceMemberships
             .GroupBy(item => item.UsuarioGlobalId)
             .ToDictionary(group => group.Key, group => group.First());
         if (sources.Count != globalUserIds.Length)
         {
-            return Results.BadRequest(new { message = "A selecao deve conter apenas medicos e controllers ativos" });
+            return Results.BadRequest(new { message = "A selecao deve conter apenas medicos, controllers ou usuarios de equipe ativos" });
+        }
+
+        var localUsers = await context.Users.IgnoreQueryFilters()
+            .Where(item => localUserIds.Contains(item.Id)
+                && item.ClinicaId == id
+                && item.Ativo
+                && item.PerfilId == Perfil.EquipeId
+                && !context.Equipes.IgnoreQueryFilters().Any(team => team.UsuarioLoginId == item.Id))
+            .ToDictionaryAsync(item => item.Id, cancellationToken);
+        if (localUsers.Count != localUserIds.Length)
+        {
+            return Results.BadRequest(new { message = "Os usuarios locais selecionados devem possuir perfil Equipe e estar ativos nesta clinica" });
         }
 
         var targetMemberships = await context.UsuariosClinicas
@@ -173,7 +221,7 @@ public static partial class ClinicaPlatformEndpointExtensions
             .Include(item => item.User)
             .Where(item => item.ClinicaId == id && globalUserIds.Contains(item.UsuarioGlobalId))
             .ToDictionaryAsync(item => item.UsuarioGlobalId, cancellationToken);
-        var importCount = globalUserIds.Count(globalUserId => !targetMemberships.ContainsKey(globalUserId));
+        var importCount = globalUserIds.Count(globalUserId => !targetMemberships.ContainsKey(globalUserId)) + newUsers.Length;
         var clinicLimit = await context.Clinicas.AsNoTracking()
             .Where(item => item.Id == id)
             .Select(item => item.LimiteUsuarios)
@@ -188,7 +236,10 @@ public static partial class ClinicaPlatformEndpointExtensions
             }
         }
 
-        var targetUserIds = targetMemberships.Values.Select(item => item.UserId).ToArray();
+        var targetUserIds = targetMemberships.Values.Select(item => item.UserId)
+            .Concat(localUserIds)
+            .Distinct()
+            .ToArray();
         var existingMembers = await context.EquipeMembros.IgnoreQueryFilters()
             .Where(item => item.ClinicaId == id && item.EquipeId == teamId && targetUserIds.Contains(item.UserId))
             .ToDictionaryAsync(item => item.UserId, cancellationToken);
@@ -283,6 +334,87 @@ public static partial class ClinicaPlatformEndpointExtensions
             associations.Add((user, op, temporaryPin, imported));
         }
 
+        foreach (var localUserId in localUserIds)
+        {
+            var user = localUsers[localUserId];
+            EquipeMembro member;
+            if (existingMembers.TryGetValue(user.Id, out var existingMember))
+            {
+                member = existingMember;
+                member.Ativo = true;
+                member.DataAtualizacao = DateTime.UtcNow;
+            }
+            else
+            {
+                member = new EquipeMembro { ClinicaId = id, EquipeId = teamId, User = user };
+                context.EquipeMembros.Add(member);
+            }
+
+            EquipeOperador op;
+            if (existingOperators.TryGetValue(user.Id, out var existingOperator))
+            {
+                op = existingOperator;
+            }
+            else
+            {
+                op = new EquipeOperador { ClinicaId = id, EquipeId = teamId, User = user };
+                context.EquipeOperadores.Add(op);
+            }
+            op.Ativo = true;
+            op.VersaoSessao++;
+
+            string? temporaryPin = null;
+            if (request.GerarPin)
+            {
+                temporaryPin = EquipeAuthenticationRules.GeneratePin();
+                op.PinHash = passwordHasher.HashPassword(temporaryPin);
+                op.PrecisaTrocarPin = true;
+                op.DataUltimaTroca = DateTime.UtcNow;
+            }
+            associations.Add((user, op, temporaryPin, false));
+        }
+
+        foreach (var newUserRequest in newUsers)
+        {
+            var user = new User
+            {
+                ClinicaId = id,
+                Nome = newUserRequest.Nome,
+                Email = team.UsuarioLogin.Email,
+                Telefone = newUserRequest.Telefone ?? string.Empty,
+                Senha = team.UsuarioLogin.Senha,
+                DataCadastro = DateTime.UtcNow,
+                Ativo = true,
+                PrecisaTrocarSenha = false,
+                PerfilId = Perfil.EquipeId
+            };
+            context.Users.Add(user);
+            context.EquipeMembros.Add(new EquipeMembro
+            {
+                ClinicaId = id,
+                EquipeId = teamId,
+                User = user
+            });
+            var op = new EquipeOperador
+            {
+                ClinicaId = id,
+                EquipeId = teamId,
+                User = user,
+                Ativo = true
+            };
+            context.EquipeOperadores.Add(op);
+
+            string? temporaryPin = null;
+            if (request.GerarPin)
+            {
+                temporaryPin = EquipeAuthenticationRules.GeneratePin();
+                op.PinHash = passwordHasher.HashPassword(temporaryPin);
+                op.PrecisaTrocarPin = true;
+                op.DataUltimaTroca = DateTime.UtcNow;
+            }
+            associations.Add((user, op, temporaryPin, true));
+        }
+
         team.VersaoSessao++;
         await context.SaveChangesAsync(cancellationToken);
         foreach (var association in associations)
@@ -371,7 +503,7 @@ public static partial class ClinicaPlatformEndpointExtensions
 }
 
 public sealed record ClinicTeamUserResponse(
-    int UsuarioGlobalId,
+    int? UsuarioGlobalId,
     int? UserIdNaClinica,
     string Nome,
     string Email,
@@ -380,4 +512,10 @@ public sealed record ClinicTeamUserResponse(
     string OrigemClinica,
     bool CadastradoNaClinica);
 
-public sealed record AssociateClinicTeamMembersRequest(IReadOnlyList<int>? UsuarioGlobalIds, bool GerarPin);
+public sealed record AssociateClinicTeamMembersRequest(
+    IReadOnlyList<int>? UsuarioGlobalIds,
+    IReadOnlyList<int>? UserIds,
+    IReadOnlyList<CreateClinicTeamUserRequest>? NovosUsuarios,
+    bool GerarPin);
+
+public sealed record CreateClinicTeamUserRequest(string Nome, string? Telefone);
