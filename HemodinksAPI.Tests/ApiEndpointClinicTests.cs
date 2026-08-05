@@ -530,10 +530,31 @@ public partial class ApiEndpointIntegrationTests
         teamClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
             "Bearer",
             identificationJson.RootElement.GetProperty("token").GetString());
-        var sensitiveResponse = await teamClient.PostAsJsonAsync("/api/events/", new { });
+        var recipientsResponse = await teamClient.GetAsync("/api/events/notification-recipients");
+        recipientsResponse.EnsureSuccessStatusCode();
+        using var recipientsJson = await ReadJsonAsync(recipientsResponse);
+        Assert.Equal(
+            "Todos os membros ativos desta equipe",
+            recipientsJson.RootElement.GetProperty("allRecipientsLabel").GetString());
 
-        Assert.NotEqual(HttpStatusCode.Forbidden, sensitiveResponse.StatusCode);
-        Assert.NotEqual(HttpStatusCode.Unauthorized, sensitiveResponse.StatusCode);
+        var teamEventTitle = $"Evento privado da equipe {Guid.NewGuid():N}";
+        var sensitiveResponse = await teamClient.PostAsJsonAsync("/api/events/", new
+        {
+            title = teamEventTitle,
+            start = DateTime.UtcNow.AddDays(1),
+            end = DateTime.UtcNow.AddDays(1).AddHours(1),
+            notifyMedicalProfile = false,
+            notifyUser = false
+        });
+        sensitiveResponse.EnsureSuccessStatusCode();
+
+        var teamEventsResponse = await teamClient.GetAsync("/api/events/");
+        teamEventsResponse.EnsureSuccessStatusCode();
+        Assert.Contains(teamEventTitle, await teamEventsResponse.Content.ReadAsStringAsync(), StringComparison.Ordinal);
+
+        var outsiderEventsResponse = await platformClient.GetAsync("/api/events/");
+        outsiderEventsResponse.EnsureSuccessStatusCode();
+        Assert.DoesNotContain(teamEventTitle, await outsiderEventsResponse.Content.ReadAsStringAsync(), StringComparison.Ordinal);
     }
 
     [Fact]

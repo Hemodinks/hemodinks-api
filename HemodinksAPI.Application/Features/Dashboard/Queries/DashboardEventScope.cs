@@ -91,9 +91,23 @@ internal static class DashboardEventScope
         int userId,
         int? equipeId)
     {
+        var teamLoginUserIds = context.Equipes.AsNoTracking()
+            .Where(team => team.Ativa)
+            .Select(team => team.UsuarioLoginId);
+
+        var currentUserTeamLoginIds = context.EquipeMembros.AsNoTracking()
+            .Where(member => member.UserId == userId && member.Ativo && member.Equipe.Ativa)
+            .Select(member => member.Equipe.UsuarioLoginId);
+
+        if (perfilId == Perfil.EquipeId)
+        {
+            return query.Where(ev => ev.UserId == userId);
+        }
+
         if (Perfil.IsAdministradorOuSuper(perfilId))
         {
-            return query;
+            return query.Where(ev => !teamLoginUserIds.Contains(ev.UserId)
+                || currentUserTeamLoginIds.Contains(ev.UserId));
         }
 
         if (perfilId == Perfil.MedicosId)
@@ -101,18 +115,11 @@ internal static class DashboardEventScope
             return query.Where(ev =>
                 ev.UserId == userId
                 || ev.MedicalUserId == userId
-                || (ev.NotifyMedicalProfile && ev.MedicalUserId == null));
+                || (ev.NotifyMedicalProfile && ev.MedicalUserId == null && !teamLoginUserIds.Contains(ev.UserId))
+                || currentUserTeamLoginIds.Contains(ev.UserId));
         }
 
-        if (perfilId == Perfil.EquipeId && equipeId.HasValue)
-        {
-            var memberUserIds = context.EquipeMembros.AsNoTracking()
-                .Where(member => member.EquipeId == equipeId && member.Ativo)
-                .Select(member => member.UserId);
-            return query.Where(ev => ev.UserId == userId
-                || (ev.MedicalUserId.HasValue && memberUserIds.Contains(ev.MedicalUserId.Value)));
-        }
-
-        return query.Where(ev => ev.UserId == userId);
+        return query.Where(ev => ev.UserId == userId
+            || currentUserTeamLoginIds.Contains(ev.UserId));
     }
 }
