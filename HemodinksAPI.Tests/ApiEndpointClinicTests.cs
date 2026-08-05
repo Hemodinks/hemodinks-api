@@ -455,6 +455,88 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task TeamWithoutNominalPin_CanReachSensitiveOperations()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var platformClient = factory.CreateClient();
+        await AuthenticateAsync(platformClient, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        var teamEmail = $"equipe-sem-pin-{Guid.NewGuid():N}@example.com";
+
+        var createTeamResponse = await platformClient.PutAsJsonAsync($"/api/platform/clinicas/{Clinica.DefaultId}", new
+        {
+            novaEquipe = new
+            {
+                nome = "Equipe sem PIN nominal",
+                email = teamEmail,
+                senha = "EquipeSemPin@123",
+                modoIdentificacao = "Nenhuma"
+            }
+        });
+        createTeamResponse.EnsureSuccessStatusCode();
+
+        var teamsResponse = await platformClient.GetAsync($"/api/platform/clinicas/{Clinica.DefaultId}/equipes");
+        teamsResponse.EnsureSuccessStatusCode();
+        using var teamsJson = await ReadJsonAsync(teamsResponse);
+        var teamId = teamsJson.RootElement.EnumerateArray()
+            .Single(item => item.GetProperty("email").GetString() == teamEmail)
+            .GetProperty("id").GetInt32();
+
+        var candidatesResponse = await platformClient.GetAsync($"/api/platform/clinicas/{Clinica.DefaultId}/equipes/usuarios");
+        candidatesResponse.EnsureSuccessStatusCode();
+        using var candidatesJson = await ReadJsonAsync(candidatesResponse);
+        var doctorGlobalId = candidatesJson.RootElement.EnumerateArray()
+            .First(item => item.GetProperty("perfilId").GetInt32() == Perfil.MedicosId
+                && item.GetProperty("usuarioGlobalId").ValueKind == JsonValueKind.Number)
+            .GetProperty("usuarioGlobalId").GetInt32();
+
+        (await platformClient.PutAsJsonAsync(
+            $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}",
+            new { modoIdentificacao = "Pin" })).EnsureSuccessStatusCode();
+        var associationResponse = await platformClient.PostAsJsonAsync(
+            $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}/membros",
+            new
+            {
+                usuarioGlobalIds = new[] { doctorGlobalId },
+                novosUsuarios = Array.Empty<object>(),
+                gerarPin = true
+            });
+        associationResponse.EnsureSuccessStatusCode();
+        using var associationJson = await ReadJsonAsync(associationResponse);
+        var operatorId = associationJson.RootElement.GetProperty("associados")[0].GetProperty("operadorId").GetInt32();
+
+        (await platformClient.PutAsJsonAsync(
+            $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}",
+            new { modoIdentificacao = "Selecao" })).EnsureSuccessStatusCode();
+
+        using var teamClient = factory.CreateClient();
+        teamClient.DefaultRequestHeaders.Add("X-Clinica-Slug", Clinica.DefaultSlug);
+        var teamLoginResponse = await teamClient.PostAsJsonAsync("/api/users/authenticate", new
+        {
+            email = teamEmail,
+            senha = "EquipeSemPin@123"
+        });
+        teamLoginResponse.EnsureSuccessStatusCode();
+        using var teamLoginJson = await ReadJsonAsync(teamLoginResponse);
+        var challengeToken = teamLoginJson.RootElement.GetProperty("equipeDesafio").GetProperty("token").GetString();
+        var identificationResponse = await teamClient.PostAsJsonAsync("/api/equipe-auth/identificar", new
+        {
+            token = challengeToken,
+            operadorId = operatorId,
+            pin = (string?)null
+        });
+        identificationResponse.EnsureSuccessStatusCode();
+        using var identificationJson = await ReadJsonAsync(identificationResponse);
+        Assert.False(identificationJson.RootElement.GetProperty("precisaTrocarPin").GetBoolean());
+        teamClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            identificationJson.RootElement.GetProperty("token").GetString());
+        var sensitiveResponse = await teamClient.PostAsJsonAsync("/api/events/", new { });
+
+        Assert.NotEqual(HttpStatusCode.Forbidden, sensitiveResponse.StatusCode);
+        Assert.NotEqual(HttpStatusCode.Unauthorized, sensitiveResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task PartialClinicPlan_ExposesAndEnforcesOnlyContractedModules()
     {
         using var factory = new HemodinksApiFactory();

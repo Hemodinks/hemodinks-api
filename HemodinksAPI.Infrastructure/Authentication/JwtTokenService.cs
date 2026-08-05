@@ -82,9 +82,13 @@ public class JwtTokenService : IJwtTokenService
 
             if (operador != null)
             {
+                var precisaTrocarPin = equipe?.ModoIdentificacao.Equals(
+                    EquipeModosIdentificacao.Pin,
+                    StringComparison.OrdinalIgnoreCase) == true
+                    && operador.PrecisaTrocarPin;
                 claims.Add(new Claim(GlobalIdentityClaimTypes.EquipeOperadorId, operador.Id.ToString()));
                 claims.Add(new Claim(GlobalIdentityClaimTypes.OperadorVersaoSessao, operador.VersaoSessao.ToString()));
-                claims.Add(new Claim("precisaTrocarPin", operador.PrecisaTrocarPin.ToString().ToLowerInvariant()));
+                claims.Add(new Claim("precisaTrocarPin", precisaTrocarPin.ToString().ToLowerInvariant()));
             }
 
             var tokenDescriptor = new SecurityTokenDescriptor

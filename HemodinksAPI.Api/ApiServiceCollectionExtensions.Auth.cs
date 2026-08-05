@@ -94,7 +94,7 @@ public static partial class ApiServiceCollectionExtensions
         options.AddPolicy("EquipeOperacaoSensivel", policy =>
             policy.RequireAssertion(context =>
                 context.User.FindFirst("perfilId")?.Value != Perfil.EquipeId.ToString()
-                || context.User.FindFirst(GlobalIdentityClaimTypes.IdentificacaoConfiavel)?.Value == "true"));
+                || context.User.FindFirst(GlobalIdentityClaimTypes.EquipeId) != null));
 
         options.AddPolicy("GrupoMedicoCadastrar", policy =>
             policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString()));

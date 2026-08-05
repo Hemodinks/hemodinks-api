@@ -339,7 +339,7 @@ public static class EquipeEndpointExtensions
             Email = membership.UsuarioGlobal.Email,
             Token = token,
             PrecisaTrocarSenha = loginUser.PrecisaTrocarSenha,
-            PrecisaTrocarPin = operador.PrecisaTrocarPin,
+            PrecisaTrocarPin = exigePin && operador.PrecisaTrocarPin,
             PerfilId = Perfil.EquipeId,
             PerfilNome = "Equipe",
             ModulosLiberados = ClinicaModulos.GetEffective(loginUser.Clinica.Plano, loginUser.Clinica.ModulosLiberados),
