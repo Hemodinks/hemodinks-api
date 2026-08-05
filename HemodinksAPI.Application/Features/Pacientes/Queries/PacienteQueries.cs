@@ -107,7 +107,15 @@ public class GetAllPacientesQuery : IRequest<PagedResult<PacienteDto>>
 
     public string? Convenio { get; set; }
 
+    public string? MedicoUserIds { get; set; }
+
+    public string? ConvenioIds { get; set; }
+
     public string? Procedimento { get; set; }
+
+    public DateTime? DataInicio { get; set; }
+
+    public DateTime? DataFinal { get; set; }
 
     public int CurrentUserId { get; set; }
 

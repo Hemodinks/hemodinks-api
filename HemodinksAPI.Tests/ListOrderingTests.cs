@@ -118,6 +118,51 @@ public class ListOrderingTests
     }
 
     [Fact]
+    public async Task GetAllPacientes_FiltersMultipleDoctorsConveniosAndInclusiveProcedureDates()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var firstDoctor = CreateUser("Dra. Ana", "ana.filtro@hemodinks.com", "39053344705", DateTime.UtcNow, null);
+        var secondDoctor = CreateUser("Dr. Bruno", "bruno.filtro@hemodinks.com", "98765432100", DateTime.UtcNow, null);
+        var outsideDoctor = CreateUser("Dra. Carla", "carla.filtro@hemodinks.com", "93541134780", DateTime.UtcNow, null);
+        var selectedConvenio = new Convenio { DescricaoConvenio = "Selecionado" };
+        var outsideConvenio = new Convenio { DescricaoConvenio = "Fora do filtro" };
+
+        Paciente CreatePaciente(string nome, string email, string cpf, DateTime data, User doctor, Convenio convenio) => new()
+        {
+            User = CreateUser(nome, email, cpf, DateTime.UtcNow, null, Perfil.PacientesId),
+            NomePaciente = nome,
+            Data = data,
+            MedicoUser = doctor,
+            Medico = doctor.Nome,
+            ConvenioReferencia = convenio,
+            Convenio = convenio.DescricaoConvenio,
+        };
+
+        context.Pacientes.AddRange(
+            CreatePaciente("Limite inicial", "inicio@hemodinks.com", "52998224725", new DateTime(2026, 6, 1, 0, 0, 0, DateTimeKind.Utc), firstDoctor, selectedConvenio),
+            CreatePaciente("Limite final", "fim@hemodinks.com", "11144477735", new DateTime(2026, 6, 30, 23, 59, 0, DateTimeKind.Utc), secondDoctor, selectedConvenio),
+            CreatePaciente("Médico de fora", "medico.fora@hemodinks.com", "86288366757", new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc), outsideDoctor, selectedConvenio),
+            CreatePaciente("Convênio de fora", "convenio.fora@hemodinks.com", "15350946056", new DateTime(2026, 6, 15, 12, 0, 0, DateTimeKind.Utc), firstDoctor, outsideConvenio),
+            CreatePaciente("Data de fora", "data.fora@hemodinks.com", "01400233007", new DateTime(2026, 7, 1, 0, 0, 0, DateTimeKind.Utc), firstDoctor, selectedConvenio));
+        await context.SaveChangesAsync();
+
+        var handler = new GetAllPacientesQueryHandler(context, NullLogger<GetAllPacientesQueryHandler>.Instance);
+        var result = await handler.Handle(new GetAllPacientesQuery
+        {
+            Page = 1,
+            PageSize = 10,
+            MedicoUserIds = $"{firstDoctor.Id},{secondDoctor.Id}",
+            ConvenioIds = selectedConvenio.IdConvenio.ToString(),
+            DataInicio = new DateTime(2026, 6, 1),
+            DataFinal = new DateTime(2026, 6, 30),
+            CurrentPerfilId = Perfil.AdministradorId,
+        }, CancellationToken.None);
+
+        Assert.Equal(2, result.TotalItems);
+        Assert.Equal(["Limite final", "Limite inicial"], result.Items.Select(paciente => paciente.NomePaciente));
+    }
+
+    [Fact]
     public async Task GetAllPacientes_WhenLoggedDoctor_ReturnsOnlyPatientsLinkedToDoctorUserId()
     {
         await using var context = TestDbContextFactory.Create();

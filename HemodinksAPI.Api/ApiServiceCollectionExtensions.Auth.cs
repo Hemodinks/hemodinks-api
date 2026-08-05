@@ -97,10 +97,10 @@ public static partial class ApiServiceCollectionExtensions
                 || context.User.FindFirst(GlobalIdentityClaimTypes.IdentificacaoConfiavel)?.Value == "true"));
 
         options.AddPolicy("GrupoMedicoCadastrar", policy =>
-            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString(), Perfil.EquipeId.ToString()));
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString()));
 
         options.AddPolicy("GrupoMedicoGerenciar", policy =>
-            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString(), Perfil.EquipeId.ToString()));
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString()));
 
         options.AddPolicy("PacienteCadastrar", policy =>
             policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString(), Perfil.MedicosId.ToString(), Perfil.EquipeId.ToString()));

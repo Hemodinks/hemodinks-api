@@ -10,7 +10,11 @@ internal static class PacienteFilters
         string digits,
         string? medico,
         string? convenio,
-        string? procedimento)
+        string? procedimento,
+        int[] medicoUserIds,
+        int[] convenioIds,
+        DateTime? dataInicio,
+        DateTime? dataFinal)
     {
         if (!string.IsNullOrWhiteSpace(search))
         {
@@ -66,6 +70,28 @@ internal static class PacienteFilters
             query = query.Where(p =>
                 (p.Procedimento != null && p.Procedimento.Contains(procedimento))
                 || p.Procedimentos.Any(item => item.Procedimento.Contains(procedimento)));
+        }
+
+        if (medicoUserIds.Length > 0)
+        {
+            query = query.Where(p => p.MedicoUserId.HasValue && medicoUserIds.Contains(p.MedicoUserId.Value));
+        }
+
+        if (convenioIds.Length > 0)
+        {
+            query = query.Where(p => p.ConvenioId.HasValue && convenioIds.Contains(p.ConvenioId.Value));
+        }
+
+        if (dataInicio.HasValue)
+        {
+            var inicio = dataInicio.Value.Date;
+            query = query.Where(p => p.Data.HasValue && p.Data.Value >= inicio);
+        }
+
+        if (dataFinal.HasValue)
+        {
+            var fimExclusivo = dataFinal.Value.Date.AddDays(1);
+            query = query.Where(p => p.Data.HasValue && p.Data.Value < fimExclusivo);
         }
 
         return query;

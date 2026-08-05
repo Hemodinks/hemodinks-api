@@ -76,6 +76,9 @@ public class GetAllGruposMedicosQueryHandler : IRequestHandler<GetAllGruposMedic
             "membros" => isDescending
                 ? query.OrderByDescending(group => group.Membros.Count).ThenBy(group => group.Nome).ThenBy(group => group.Id)
                 : query.OrderBy(group => group.Membros.Count).ThenBy(group => group.Nome).ThenBy(group => group.Id),
+            "nomesmembros" => isDescending
+                ? query.OrderByDescending(group => group.Membros.OrderBy(member => member.User.Nome).Select(member => member.User.Nome).FirstOrDefault()).ThenBy(group => group.Nome).ThenBy(group => group.Id)
+                : query.OrderBy(group => group.Membros.OrderBy(member => member.User.Nome).Select(member => member.User.Nome).FirstOrDefault()).ThenBy(group => group.Nome).ThenBy(group => group.Id),
             "ativo" => isDescending
                 ? query.OrderByDescending(group => group.Ativo).ThenBy(group => group.Nome).ThenBy(group => group.Id)
                 : query.OrderBy(group => group.Ativo).ThenBy(group => group.Nome).ThenBy(group => group.Id),
