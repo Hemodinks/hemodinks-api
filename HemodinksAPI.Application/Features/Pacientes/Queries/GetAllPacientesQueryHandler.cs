@@ -10,11 +10,16 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
 {
     private readonly IAppDbContext _context;
     private readonly ILogger<GetAllPacientesQueryHandler> _logger;
+    private readonly bool _supportsFullTextSearch;
 
-    public GetAllPacientesQueryHandler(IAppDbContext context, ILogger<GetAllPacientesQueryHandler> logger)
+    public GetAllPacientesQueryHandler(
+        IAppDbContext context,
+        ILogger<GetAllPacientesQueryHandler> logger,
+        IFullTextSearchCapability? fullTextSearchCapability = null)
     {
         _context = context;
         _logger = logger;
+        _supportsFullTextSearch = fullTextSearchCapability?.IsSupported == true;
     }
 
     public async Task<PagedResult<PacienteDto>> Handle(GetAllPacientesQuery request, CancellationToken cancellationToken)
@@ -46,7 +51,8 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                 medicoUserIds,
                 convenioIds,
                 request.DataInicio,
-                request.DataFinal);
+                request.DataFinal,
+                _supportsFullTextSearch);
 
             var totalItems = await query.CountAsync(cancellationToken);
             query = PacienteQueryOrdering.ApplyOrdering(query, request.SortBy, request.SortDirection);

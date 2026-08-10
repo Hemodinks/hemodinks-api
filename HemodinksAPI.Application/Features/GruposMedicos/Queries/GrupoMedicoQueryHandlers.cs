@@ -9,10 +9,14 @@ namespace HemodinksAPI.Application.Features.GruposMedicos.Queries;
 public class GetAllGruposMedicosQueryHandler : IRequestHandler<GetAllGruposMedicosQuery, PagedResult<GrupoMedicoDto>>
 {
     private readonly IAppDbContext _context;
+    private readonly bool _supportsFullTextSearch;
 
-    public GetAllGruposMedicosQueryHandler(IAppDbContext context)
+    public GetAllGruposMedicosQueryHandler(
+        IAppDbContext context,
+        IFullTextSearchCapability? fullTextSearchCapability = null)
     {
         _context = context;
+        _supportsFullTextSearch = fullTextSearchCapability?.IsSupported == true;
     }
 
     public async Task<PagedResult<GrupoMedicoDto>> Handle(GetAllGruposMedicosQuery request, CancellationToken cancellationToken)
@@ -39,9 +43,16 @@ public class GetAllGruposMedicosQueryHandler : IRequestHandler<GetAllGruposMedic
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            query = query.Where(group =>
-                group.Nome.Contains(search)
-                || group.Membros.Any(member => member.User.Nome.Contains(search) || member.User.Email.Contains(search)));
+            var condition = FullTextSearchTermBuilder.BuildPrefixCondition(search);
+            query = _supportsFullTextSearch && condition != null
+                ? query.Where(group =>
+                    EF.Functions.Contains(group.Nome, condition)
+                    || group.Membros.Any(member =>
+                        EF.Functions.Contains(member.User.Nome, condition)
+                        || member.User.Email.Contains(search)))
+                : query.Where(group =>
+                    group.Nome.Contains(search)
+                    || group.Membros.Any(member => member.User.Nome.Contains(search) || member.User.Email.Contains(search)));
         }
 
         var totalItems = await query.CountAsync(cancellationToken);

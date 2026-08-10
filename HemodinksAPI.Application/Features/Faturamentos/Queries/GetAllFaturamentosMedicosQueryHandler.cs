@@ -10,11 +10,16 @@ public class GetAllFaturamentosMedicosQueryHandler : IRequestHandler<GetAllFatur
 {
     private readonly IAppDbContext _context;
     private readonly ILogger<GetAllFaturamentosMedicosQueryHandler> _logger;
+    private readonly bool _supportsFullTextSearch;
 
-    public GetAllFaturamentosMedicosQueryHandler(IAppDbContext context, ILogger<GetAllFaturamentosMedicosQueryHandler> logger)
+    public GetAllFaturamentosMedicosQueryHandler(
+        IAppDbContext context,
+        ILogger<GetAllFaturamentosMedicosQueryHandler> logger,
+        IFullTextSearchCapability? fullTextSearchCapability = null)
     {
         _context = context;
         _logger = logger;
+        _supportsFullTextSearch = fullTextSearchCapability?.IsSupported == true;
     }
 
     public async Task<PagedResult<PacienteDto>> Handle(GetAllFaturamentosMedicosQuery request, CancellationToken cancellationToken)
@@ -44,7 +49,8 @@ public class GetAllFaturamentosMedicosQueryHandler : IRequestHandler<GetAllFatur
                 request.Convenio,
                 request.Procedimento,
                 request.CompetenciaInicio,
-                request.CompetenciaFinal);
+                request.CompetenciaFinal,
+                _supportsFullTextSearch);
 
             var totalItems = await query.CountAsync(cancellationToken);
 
