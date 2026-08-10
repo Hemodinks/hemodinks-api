@@ -38,12 +38,17 @@ jobs:
         shell: bash
         run: |
           test_password="Test_${GITHUB_RUN_ID}_Aa!"
+          docker build \
+            --file sqlserver/Dockerfile.fts \
+            --tag hemodinks-sqlserver:2022-fts-ci \
+            .
+
           docker run --detach --name hemodinks-test-sqlserver \
             --env ACCEPT_EULA=Y \
             --env MSSQL_PID=Developer \
             --env MSSQL_SA_PASSWORD="$test_password" \
             --publish 1433:1433 \
-            mcr.microsoft.com/mssql/server:2022-latest
+            hemodinks-sqlserver:2022-fts-ci
 
           for attempt in {1..30}; do
             if docker exec hemodinks-test-sqlserver \
