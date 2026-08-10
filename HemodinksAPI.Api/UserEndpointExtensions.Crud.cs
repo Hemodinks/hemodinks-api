@@ -10,12 +10,14 @@ public static partial class UserEndpointExtensions
 {
     private static Task<IResult> CreateUser(
         CreateUserCommand command,
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
         return EndpointExecution.RunAsync(async () =>
         {
+            command.CurrentUser = GetRequiredCurrentUser(claimsPrincipal);
             var result = await mediator.Send(command, cancellationToken);
             return Results.Created($"/api/users/{result.Id}", result);
         }, logger, "Erro ao criar usuario", "Erro ao criar usuario");
@@ -64,6 +66,23 @@ public static partial class UserEndpointExtensions
 
             return Results.Ok(result);
         }, logger, "Erro ao buscar usuarios", "Erro ao buscar usuarios");
+    }
+
+    private static Task<IResult> GetAvailableProfiles(
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        return EndpointExecution.RunAsync(async () =>
+        {
+            var result = await mediator.Send(new GetAvailableProfilesQuery
+            {
+                CurrentUser = GetRequiredCurrentUser(claimsPrincipal)
+            }, cancellationToken);
+
+            return Results.Ok(result);
+        }, logger, "Erro ao buscar perfis de usuarios", "Erro ao buscar perfis de usuarios");
     }
 
     private static Task<IResult> GetUserById(

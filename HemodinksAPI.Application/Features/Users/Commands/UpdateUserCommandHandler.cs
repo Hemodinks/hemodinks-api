@@ -130,7 +130,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             }
             else
             {
-                UserProfileRules.EnsureAssignablePerfilId(perfilId);
+                UserProfileRules.EnsureAssignablePerfilId(perfilId, request.CurrentUser);
             }
             var perfil = await _context.Perfis
                 .AsNoTracking()

@@ -81,7 +81,7 @@ services:
       - key: AzureStorage__PublicBaseUrl
         sync: false
       - key: AzureStorage__MaxBytes
-        value: 1048576
+        value: 2097152
       - key: AzureStorage__PatientFilesContainerName
         value: patient-files
       - key: AzureStorage__PatientFilesPublicBaseUrl

@@ -52,6 +52,13 @@ public class GetAllUsersQuery : IRequest<PagedResult<UserDto>>
     public string? SortDirection { get; set; }
 }
 
+public sealed class GetAvailableProfilesQuery : IRequest<IReadOnlyList<UserProfileOptionDto>>
+{
+    public CurrentUserContext CurrentUser { get; set; } = null!;
+}
+
+public sealed record UserProfileOptionDto(int Id, string Nome);
+
 public class GetUserByIdQuery : IRequest<UserDto?>
 {
     public int Id { get; set; }

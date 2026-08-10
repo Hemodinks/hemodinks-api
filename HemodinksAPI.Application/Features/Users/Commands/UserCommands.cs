@@ -11,6 +11,7 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 /// </summary>
 public partial class CreateUserCommand : IRequest<CreateUserResponse>
 {
+    public CurrentUserContext? CurrentUser { get; set; }
     public string Nome { get; set; } = null!;
     public string Email { get; set; } = null!;
     public string Telefone { get; set; } = null!;

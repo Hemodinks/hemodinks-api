@@ -90,7 +90,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
             }
 
             var perfilId = UserProfileRules.NormalizePerfilId(request.PerfilId);
-            UserProfileRules.EnsureAssignablePerfilId(perfilId);
+            UserProfileRules.EnsureAssignablePerfilId(perfilId, request.CurrentUser);
             var perfil = await _context.Perfis
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == perfilId, cancellationToken);

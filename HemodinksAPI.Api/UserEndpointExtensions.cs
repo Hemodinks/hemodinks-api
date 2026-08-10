@@ -31,6 +31,12 @@ public static partial class UserEndpointExtensions
             .WithDescription("Retorna uma lista de todos os usuarios cadastrados")
             .RequireAuthorization("UsuariosVisualizar");
 
+        group.MapGet("/perfis", GetAvailableProfiles)
+            .WithName("GetAvailableUserProfiles")
+            .WithSummary("Listar perfis disponiveis para cadastro de usuarios")
+            .WithDescription("Retorna somente os perfis que o usuario autenticado pode atribuir")
+            .RequireAuthorization("Administrador");
+
         group.MapGet("/{id}", GetUserById)
             .WithName("GetUserById")
             .WithSummary("Buscar usuario por ID")

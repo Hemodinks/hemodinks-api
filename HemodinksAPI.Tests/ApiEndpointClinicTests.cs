@@ -18,6 +18,41 @@ namespace HemodinksAPI.Tests;
 public partial class ApiEndpointIntegrationTests
 {
     [Fact]
+    public async Task AvailableProfiles_WhenCurrentUserIsSuperAdministrador_IncludesSuperAdministrador()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var response = await client.GetAsync("/api/users/perfis");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        var profileIds = json.RootElement.EnumerateArray()
+            .Select(item => item.GetProperty("id").GetInt32())
+            .ToList();
+        Assert.Contains(Perfil.SuperAdministradorId, profileIds);
+    }
+
+    [Fact]
+    public async Task AvailableProfiles_WhenCurrentUserIsAdministrador_HidesSuperAdministrador()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+        await AuthenticateAsync(client, beta.Slug, beta.AdminEmail, beta.AdminPassword);
+
+        var response = await client.GetAsync("/api/users/perfis");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        var profileIds = json.RootElement.EnumerateArray()
+            .Select(item => item.GetProperty("id").GetInt32())
+            .ToList();
+        Assert.DoesNotContain(Perfil.SuperAdministradorId, profileIds);
+    }
+
+    [Fact]
     public async Task AuthenticateUser_WhenMultipleClinicasAndNoHintIsProvided_ReturnsBadRequest()
     {
         using var factory = new HemodinksApiFactory();
