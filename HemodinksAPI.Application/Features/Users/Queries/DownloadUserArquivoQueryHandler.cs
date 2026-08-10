@@ -29,7 +29,7 @@ public sealed class DownloadUserArquivoQueryHandler
         DownloadUserArquivoQuery request,
         CancellationToken cancellationToken)
     {
-        UserQueryAccess.EnsureCanAccessUser(request.CurrentUser, request.UserId);
+        await UserQueryAccess.EnsureCanAccessUserAsync(_context, request.CurrentUser, request.UserId, cancellationToken);
 
         var arquivo = await _context.UserArquivos
             .AsNoTracking()

@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Common;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
@@ -23,6 +24,7 @@ public static partial class ApiServiceCollectionExtensions
             }));
 
         services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IFullTextSearchCapability, SqlServerFullTextSearchCapability>();
         services
             .AddHealthChecks()
             .AddCheck<DatabaseHealthCheck>(

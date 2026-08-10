@@ -31,7 +31,6 @@ internal static partial class PacienteRules
         }
 
         var resolvedItems = new List<ResolvedProcedimento>();
-        var seenKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var item in requestedItems)
         {
@@ -41,14 +40,7 @@ internal static partial class PacienteRules
                 continue;
             }
 
-            var key = resolved.Codigo != null
-                ? $"codigo:{resolved.Codigo}"
-                : $"livre:{resolved.Nome}|{resolved.Porte}";
-
-            if (seenKeys.Add(key))
-            {
-                resolvedItems.Add(resolved);
-            }
+            resolvedItems.Add(resolved);
         }
 
         return resolvedItems;

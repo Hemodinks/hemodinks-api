@@ -7,14 +7,27 @@ namespace HemodinksAPI.Application.Features.Users.Queries;
 
 internal static class UserQueryAccess
 {
-    public static void EnsureCanAccessUser(CurrentUserContext? currentUser, int requestedUserId)
+    public static async Task EnsureCanAccessUserAsync(
+        IAppDbContext context,
+        CurrentUserContext? currentUser,
+        int requestedUserId,
+        CancellationToken cancellationToken)
     {
-        if (currentUser != null
-            && !currentUser.IsAdministrador
-            && currentUser.Id != requestedUserId)
+        if (currentUser == null || currentUser.IsAdministrador || currentUser.Id == requestedUserId)
         {
-            throw new UnauthorizedAccessException("Sem permissao para acessar usuario");
+            return;
         }
+
+        if (currentUser.IsEquipe
+            && currentUser.EquipeId.HasValue
+            && await context.EquipeMembros.AsNoTracking().AnyAsync(item => item.EquipeId == currentUser.EquipeId
+                && item.UserId == requestedUserId
+                && item.Ativo, cancellationToken))
+        {
+            return;
+        }
+
+        throw new UnauthorizedAccessException("Sem permissao para acessar usuario");
     }
 
     public static async Task EnsureCanAccessProfilePhotoAsync(
@@ -24,6 +37,14 @@ internal static class UserQueryAccess
         CancellationToken cancellationToken)
     {
         if (currentUser.IsAdministrador || currentUser.Id == requestedUserId)
+        {
+            return;
+        }
+
+        if (currentUser.IsEquipe && currentUser.EquipeId.HasValue
+            && await context.EquipeMembros.AsNoTracking().AnyAsync(item => item.EquipeId == currentUser.EquipeId
+                && item.UserId == requestedUserId
+                && item.Ativo, cancellationToken))
         {
             return;
         }

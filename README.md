@@ -198,9 +198,6 @@ Features atuais de licenca:
 | `GET` | `/api/public/clinicas` | publico | lista minima das clinicas ativas para o seletor do login |
 | `GET` | `/api/public/clinicas/{slug}/foto` | publico | retorna a foto publica da clinica ativa |
 | `GET` | `/api/session/clinicas` | autenticado | lista associacoes ativas da identidade global |
-| `POST` | `/api/session/renovar` | refresh cookie | rotaciona o refresh token e emite um novo JWT se a sessao nao estiver inativa |
-| `POST` | `/api/session/atividade` | autenticado | registra atividade observada pelo frontend |
-| `POST` | `/api/session/sair` | refresh cookie/JWT | revoga a sessao e remove o cookie |
 | `POST` | `/api/session/selecionar-clinica` | autenticado | valida `UsuarioClinica` e emite novo JWT para a clinica |
 
 Configure os emails autorizados com `Platform__SuperAdminEmails__0`. No startup, o usuario correspondente e promovido e recebe uma associacao `UsuarioClinica` em cada clinica ativa. Administradores comuns permanecem restritos as associacoes explicitamente cadastradas.

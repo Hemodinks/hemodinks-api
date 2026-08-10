@@ -34,7 +34,7 @@ public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery,
                 .Include(p => p.Observacoes)
                 .Include(p => p.Arquivos);
 
-            query = PacienteAccess.ApplyScope(_context, query, request.CurrentPerfilId, request.CurrentUserId);
+            query = PacienteAccess.ApplyScope(_context, query, request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId);
 
             var paciente = await query
                 .Where(p => p.Id == request.Id)

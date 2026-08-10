@@ -23,7 +23,7 @@ internal static class LicencaFeatureRules
             return true;
         }
 
-        if (currentUser.IsController)
+        if (currentUser.IsController || currentUser.IsEquipe)
         {
             allowed = feature is LicencaFeatures.DashboardVisualizar
                 or LicencaFeatures.PacientesVisualizar

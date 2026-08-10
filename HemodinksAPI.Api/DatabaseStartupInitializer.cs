@@ -34,18 +34,9 @@ internal static class DatabaseStartupInitializer
             logger.LogInformation("Inicializacao do banco de dados concluida");
 
             await SeedReferenceDataAsync(app, scope.ServiceProvider, dbContext, logger);
-            var runMaintenance = app.Configuration.GetValue<bool?>("Database:RunMaintenanceOnStartup")
-                ?? app.Environment.IsDevelopment();
-            if (runMaintenance)
-            {
-                await ProvisionSuperAdministratorsAsync(app.Configuration, dbContext, logger);
-                await SynchronizeGlobalIdentitiesAsync(dbContext, logger);
-                await SyncPatientRecordsAsync(dbContext, logger);
-            }
-            else
-            {
-                logger.LogInformation("Manutencao e backfills de startup desabilitados");
-            }
+            await ProvisionSuperAdministratorsAsync(app.Configuration, dbContext, logger);
+            await SynchronizeGlobalIdentitiesAsync(dbContext, logger);
+            await SyncPatientRecordsAsync(dbContext, logger);
         }
         catch (Exception ex)
         {
@@ -58,13 +49,8 @@ internal static class DatabaseStartupInitializer
         IHostEnvironment environment,
         IConfiguration configuration)
     {
-        if (environment.IsProduction())
-        {
-            return false;
-        }
-
         return configuration.GetValue<bool?>("Database:RunMigrationsOnStartup")
-            ?? environment.IsDevelopment();
+            ?? !environment.IsProduction();
     }
 
     private static async Task SynchronizeGlobalIdentitiesAsync(AppDbContext dbContext, ILogger logger)
@@ -74,8 +60,27 @@ internal static class DatabaseStartupInitializer
             .OrderBy(item => item.Id)
             .ToListAsync();
 
+        var linkedUserIds = await dbContext.UsuariosClinicas
+            .IgnoreQueryFilters()
+            .Select(item => item.UserId)
+            .ToHashSetAsync();
+        var teamLoginUserIds = await dbContext.Equipes
+            .IgnoreQueryFilters()
+            .Select(item => item.UsuarioLoginId)
+            .ToHashSetAsync();
+
         foreach (var user in users)
         {
+            // Operadores criados dentro de uma equipe compartilham a conta coletiva e
+            // não representam identidades globais independentes. Vinculá-los pelo mesmo
+            // e-mail produziria mais de uma associação global para a mesma clínica.
+            if (user.PerfilId == Perfil.EquipeId
+                && !linkedUserIds.Contains(user.Id)
+                && !teamLoginUserIds.Contains(user.Id))
+            {
+                continue;
+            }
+
             var membership = await GlobalIdentityService.EnsureForUserAsync(dbContext, user, CancellationToken.None);
             membership.PerfilId = user.PerfilId;
             membership.Ativo = user.Ativo;

@@ -14,7 +14,53 @@ namespace HemodinksAPI.Tests;
 public partial class UserCommandHandlerTests
 {
     [Fact]
-    public async Task CreateUser_WhenEmailIsNew_SendsFirstAccessInvitation()
+    public async Task CreateUser_WhenSuperAdministradorAssignsSameProfile_AllowsAssignment()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new CreateUserCommandHandler(
+            context,
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
+            NullLogger<CreateUserCommandHandler>.Instance);
+
+        var response = await handler.Handle(new CreateUserCommand
+        {
+            CurrentUser = new CurrentUserContext(1, Perfil.SuperAdministradorId, "Super Admin"),
+            Nome = "Novo Super Admin",
+            Email = "novo.superadmin@email.com",
+            Telefone = "+5511999999999",
+            PerfilId = Perfil.SuperAdministradorId
+        }, CancellationToken.None);
+
+        Assert.Equal(Perfil.SuperAdministradorId, response.PerfilId);
+    }
+
+    [Fact]
+    public async Task CreateUser_WhenAdministradorAssignsSuperAdministrador_RejectsAssignment()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new CreateUserCommandHandler(
+            context,
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
+            NullLogger<CreateUserCommandHandler>.Instance);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new CreateUserCommand
+        {
+            CurrentUser = new CurrentUserContext(1, Perfil.AdministradorId, "Admin"),
+            Nome = "Super Admin Indevido",
+            Email = "superadmin.indevido@email.com",
+            Telefone = "+5511999999999",
+            PerfilId = Perfil.SuperAdministradorId
+        }, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateUser_WhenEmailIsNew_CreatesActiveUserWithDefaultPassword()
     {
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
@@ -217,37 +263,6 @@ public partial class UserCommandHandlerTests
             DataNascimento = new DateTime(1992, 8, 10),
             PerfilId = Perfil.PacientesId
         }, CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task CreateUser_WhenSuperAdministradorAssignsPacientePerfil_CreatesUser()
-    {
-        await using var context = TestDbContextFactory.Create();
-        var handler = new CreateUserCommandHandler(
-            context,
-            new PasswordHasher(),
-            new FakeProfilePhotoStorage(),
-            new UserPatientSyncService(context),
-            Options.Create(new LicencaOptions()),
-            NullLogger<CreateUserCommandHandler>.Instance);
-
-        var response = await handler.Handle(new CreateUserCommand
-        {
-            CurrentUser = new CurrentUserContext(
-                99,
-                Perfil.SuperAdministradorId,
-                "Super Administrador"),
-            Nome = "Paciente pelo Super",
-            Email = "paciente.super@email.com",
-            Telefone = "+5511777777777",
-            Cpf = "11144477735",
-            DataNascimento = new DateTime(1992, 8, 10),
-            PerfilId = Perfil.PacientesId
-        }, CancellationToken.None);
-
-        Assert.Equal(Perfil.PacientesId, response.PerfilId);
-        Assert.Equal(Perfil.PacientesId, (await context.Users.SingleAsync()).PerfilId);
-        Assert.Single(await context.Pacientes.ToListAsync());
     }
 
     [Fact]

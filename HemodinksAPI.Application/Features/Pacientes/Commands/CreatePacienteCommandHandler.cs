@@ -76,12 +76,31 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             var email = await PacienteRules.ResolveEmailAsync(_context, request.Email, cpf, null, cancellationToken);
             var telefone = PacienteRules.ResolveTelefone(request.Telefone);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, null, cancellationToken);
-            var medico = await PacienteRules.ResolveMedicoAsync(_context, request.CurrentPerfilId, request.CurrentUserId,
-                request.CurrentUserName, request.MedicoUserId, request.Medico, cancellationToken);
-            var medicoAuxiliar1 = await PacienteRules.ResolveOptionalMedicoAsync(_context, request.CurrentPerfilId,
-                request.CurrentUserId, request.MedicoAuxiliar1UserId, request.MedicoAuxiliar1, cancellationToken);
-            var medicoAuxiliar2 = await PacienteRules.ResolveOptionalMedicoAsync(_context, request.CurrentPerfilId,
-                request.CurrentUserId, request.MedicoAuxiliar2UserId, request.MedicoAuxiliar2, cancellationToken);
+            var medico = await PacienteRules.ResolveMedicoAsync(
+                _context,
+                request.CurrentPerfilId,
+                request.CurrentUserId,
+                request.CurrentUserName,
+                request.CurrentEquipeId,
+                request.MedicoUserId,
+                request.Medico,
+                cancellationToken);
+            var medicoAuxiliar1 = await PacienteRules.ResolveOptionalMedicoAsync(
+                _context,
+                request.CurrentPerfilId,
+                request.CurrentUserId,
+                request.CurrentEquipeId,
+                request.MedicoAuxiliar1UserId,
+                request.MedicoAuxiliar1,
+                cancellationToken);
+            var medicoAuxiliar2 = await PacienteRules.ResolveOptionalMedicoAsync(
+                _context,
+                request.CurrentPerfilId,
+                request.CurrentUserId,
+                request.CurrentEquipeId,
+                request.MedicoAuxiliar2UserId,
+                request.MedicoAuxiliar2,
+                cancellationToken);
             PacienteRules.ValidateDistinctMedicos(medico, medicoAuxiliar1, medicoAuxiliar2);
             var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
                 ? await PacienteRules.ResolveHospitalAsync(_context, request.HospitalId, request.Hospital, cancellationToken)

@@ -62,6 +62,7 @@ public static partial class UserEndpointExtensions
         int? profileId,
         string? sortBy,
         string? sortDirection,
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
@@ -70,6 +71,7 @@ public static partial class UserEndpointExtensions
         {
             var result = await mediator.Send(new GetAllUsersQuery
             {
+                CurrentUser = GetRequiredCurrentUser(claimsPrincipal),
                 Page = page.GetValueOrDefault(1),
                 PageSize = pageSize.GetValueOrDefault(10),
                 Search = search,
@@ -80,6 +82,23 @@ public static partial class UserEndpointExtensions
 
             return Results.Ok(result);
         }, logger, "Erro ao buscar usuarios", "Erro ao buscar usuarios");
+    }
+
+    private static Task<IResult> GetAvailableProfiles(
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        return EndpointExecution.RunAsync(async () =>
+        {
+            var result = await mediator.Send(new GetAvailableProfilesQuery
+            {
+                CurrentUser = GetRequiredCurrentUser(claimsPrincipal)
+            }, cancellationToken);
+
+            return Results.Ok(result);
+        }, logger, "Erro ao buscar perfis de usuarios", "Erro ao buscar perfis de usuarios");
     }
 
     private static Task<IResult> GetUserById(

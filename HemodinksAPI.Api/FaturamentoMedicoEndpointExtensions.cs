@@ -49,6 +49,7 @@ public static class FaturamentoMedicoEndpointExtensions
                 Procedimento = procedimento,
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId,
+                CurrentEquipeId = currentUser.EquipeId,
                 CompetenciaInicio = parsedCompetenciaInicio,
                 CompetenciaFinal = parsedCompetenciaFinal
             }, cancellationToken);

@@ -11,13 +11,14 @@ internal static class DashboardEventScope
         ILogger logger,
         int perfilId,
         int userId,
+        int? equipeId,
         CancellationToken cancellationToken)
     {
         try
         {
             var now = DateTime.UtcNow;
 
-            return await ApplyEventScope(context.Events.AsNoTracking(), perfilId, userId)
+            return await ApplyEventScope(context, context.Events.AsNoTracking(), perfilId, userId, equipeId)
                 .CountAsync(ev => !ev.IsCompleted
                     && ev.End >= now
                     && ev.Start <= now.AddDays(2), cancellationToken);
@@ -34,6 +35,7 @@ internal static class DashboardEventScope
         ILogger logger,
         int perfilId,
         int userId,
+        int? equipeId,
         int limit,
         CancellationToken cancellationToken)
     {
@@ -41,7 +43,7 @@ internal static class DashboardEventScope
         {
             var now = DateTime.UtcNow;
 
-            var upcomingEvents = await ApplyEventScope(context.Events.AsNoTracking(), perfilId, userId)
+            var upcomingEvents = await ApplyEventScope(context, context.Events.AsNoTracking(), perfilId, userId, equipeId)
                 .Where(ev => !ev.IsCompleted
                     && ev.End >= now
                     && ev.Start <= now.AddDays(2))
@@ -82,11 +84,30 @@ internal static class DashboardEventScope
         }
     }
 
-    private static IQueryable<Event> ApplyEventScope(IQueryable<Event> query, int perfilId, int userId)
+    private static IQueryable<Event> ApplyEventScope(
+        IAppDbContext context,
+        IQueryable<Event> query,
+        int perfilId,
+        int userId,
+        int? equipeId)
     {
+        var teamLoginUserIds = context.Equipes.AsNoTracking()
+            .Where(team => team.Ativa)
+            .Select(team => team.UsuarioLoginId);
+
+        var currentUserTeamLoginIds = context.EquipeMembros.AsNoTracking()
+            .Where(member => member.UserId == userId && member.Ativo && member.Equipe.Ativa)
+            .Select(member => member.Equipe.UsuarioLoginId);
+
+        if (perfilId == Perfil.EquipeId)
+        {
+            return query.Where(ev => ev.UserId == userId);
+        }
+
         if (Perfil.IsAdministradorOuSuper(perfilId))
         {
-            return query;
+            return query.Where(ev => !teamLoginUserIds.Contains(ev.UserId)
+                || currentUserTeamLoginIds.Contains(ev.UserId));
         }
 
         if (perfilId == Perfil.MedicosId)
@@ -94,9 +115,11 @@ internal static class DashboardEventScope
             return query.Where(ev =>
                 ev.UserId == userId
                 || ev.MedicalUserId == userId
-                || (ev.NotifyMedicalProfile && ev.MedicalUserId == null));
+                || (ev.NotifyMedicalProfile && ev.MedicalUserId == null && !teamLoginUserIds.Contains(ev.UserId))
+                || currentUserTeamLoginIds.Contains(ev.UserId));
         }
 
-        return query.Where(ev => ev.UserId == userId);
+        return query.Where(ev => ev.UserId == userId
+            || currentUserTeamLoginIds.Contains(ev.UserId));
     }
 }

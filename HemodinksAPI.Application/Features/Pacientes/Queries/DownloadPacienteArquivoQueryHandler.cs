@@ -9,7 +9,8 @@ public sealed record DownloadPacienteArquivoQuery(
     int PacienteId,
     int ArquivoId,
     int CurrentUserId,
-    int CurrentPerfilId) : IRequest<PrivateFileDownload?>;
+    int CurrentPerfilId,
+    int? CurrentEquipeId = null) : IRequest<PrivateFileDownload?>;
 
 public sealed class DownloadPacienteArquivoQueryHandler
     : IRequestHandler<DownloadPacienteArquivoQuery, PrivateFileDownload?>
@@ -33,7 +34,8 @@ public sealed class DownloadPacienteArquivoQueryHandler
                 _context,
                 _context.Pacientes.AsNoTracking(),
                 request.CurrentPerfilId,
-                request.CurrentUserId)
+                request.CurrentUserId,
+                request.CurrentEquipeId)
             .Select(paciente => paciente.Id);
 
         var arquivo = await _context.PacienteArquivos

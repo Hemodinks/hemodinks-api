@@ -1,4 +1,6 @@
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Features.Common;
+using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Features.Faturamentos.Queries;
 
@@ -13,9 +15,12 @@ internal static class FaturamentoMedicoFilters
         string? convenio,
         string? procedimento,
         DateTime? competenciaInicio,
-        DateTime? competenciaFinal)
+        DateTime? competenciaFinal,
+        bool supportsFullTextSearch)
     {
-        var canUseGlobalFilters = Perfil.IsAdministradorOuSuper(currentPerfilId) || currentPerfilId == Perfil.ControllerId;
+        var canUseGlobalFilters = Perfil.IsAdministradorOuSuper(currentPerfilId)
+            || currentPerfilId == Perfil.ControllerId
+            || currentPerfilId == Perfil.EquipeId;
         var normalizedMedico = canUseGlobalFilters ? TrimOptional(medico) : null;
         var normalizedConvenio = TrimOptional(convenio);
         var normalizedProcedimento = TrimOptional(procedimento);
@@ -24,55 +29,46 @@ internal static class FaturamentoMedicoFilters
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            query = query.Where(p =>
-                p.NomePaciente.Contains(search)
-                || p.User.Email.Contains(search)
-                || (p.HospitalReferencia != null && p.HospitalReferencia.Nome.Contains(search))
-                || (p.Hospital != null && p.Hospital.Contains(search))
-                || (p.MedicoUser != null && p.MedicoUser.Nome.Contains(search))
-                || (p.Medico != null && p.Medico.Contains(search))
-                || (p.ConvenioReferencia != null && p.ConvenioReferencia.DescricaoConvenio.Contains(search))
-                || (p.Convenio != null && p.Convenio.Contains(search))
-                || (p.OpmeFornecedorReferencia != null && p.OpmeFornecedorReferencia.Fornecedor.Contains(search))
-                || (p.OpmeFornecedor != null && p.OpmeFornecedor.Contains(search))
-                || (p.Procedimento != null && p.Procedimento.Contains(search))
-                || (p.CbhpmCodigo != null && p.CbhpmCodigo.Contains(search))
-                || (p.Autorizacao != null && p.Autorizacao.Contains(search))
-                || (p.FaturamentoMedico != null
-                    && ((p.FaturamentoMedico.GuiaAutorizacaoConvenio != null && p.FaturamentoMedico.GuiaAutorizacaoConvenio.Contains(search))
-                        || (p.FaturamentoMedico.CodigoTussCbhpmAmb != null && p.FaturamentoMedico.CodigoTussCbhpmAmb.Contains(search))
-                        || (p.FaturamentoMedico.GlosaStatus != null && p.FaturamentoMedico.GlosaStatus.Contains(search))))
-                || (!string.IsNullOrEmpty(digits)
-                    && p.CbhpmCodigo != null
-                    && p.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
-                || p.Procedimentos.Any(item =>
-                    item.Procedimento.Contains(search)
-                    || (item.CbhpmCodigo != null && item.CbhpmCodigo.Contains(search))
-                    || (!string.IsNullOrEmpty(digits)
-                        && item.CbhpmCodigo != null
-                        && item.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
-                    || (item.CbhpmPorte != null && item.CbhpmPorte.Contains(search))));
+            var fullTextCondition = FullTextSearchTermBuilder.BuildPrefixCondition(search);
+            query = supportsFullTextSearch && fullTextCondition != null
+                ? ApplyFullTextSearch(query, search, digits, fullTextCondition)
+                : ApplyFallbackSearch(query, search, digits);
         }
 
         if (!string.IsNullOrWhiteSpace(normalizedMedico))
         {
-            query = query.Where(p =>
-                (p.MedicoUser != null && p.MedicoUser.Nome.Contains(normalizedMedico))
-                || (p.Medico != null && p.Medico.Contains(normalizedMedico)));
+            var condition = FullTextSearchTermBuilder.BuildPrefixCondition(normalizedMedico);
+            query = supportsFullTextSearch && condition != null
+                ? query.Where(p =>
+                    (p.MedicoUser != null && EF.Functions.Contains(p.MedicoUser.Nome, condition))
+                    || (p.Medico != null && EF.Functions.Contains(p.Medico, condition)))
+                : query.Where(p =>
+                    (p.MedicoUser != null && p.MedicoUser.Nome.Contains(normalizedMedico))
+                    || (p.Medico != null && p.Medico.Contains(normalizedMedico)));
         }
 
         if (!string.IsNullOrWhiteSpace(normalizedConvenio))
         {
-            query = query.Where(p =>
-                (p.ConvenioReferencia != null && p.ConvenioReferencia.DescricaoConvenio.Contains(normalizedConvenio))
-                || (p.Convenio != null && p.Convenio.Contains(normalizedConvenio)));
+            var condition = FullTextSearchTermBuilder.BuildPrefixCondition(normalizedConvenio);
+            query = supportsFullTextSearch && condition != null
+                ? query.Where(p =>
+                    (p.ConvenioReferencia != null && EF.Functions.Contains(p.ConvenioReferencia.DescricaoConvenio, condition))
+                    || (p.Convenio != null && EF.Functions.Contains(p.Convenio, condition)))
+                : query.Where(p =>
+                    (p.ConvenioReferencia != null && p.ConvenioReferencia.DescricaoConvenio.Contains(normalizedConvenio))
+                    || (p.Convenio != null && p.Convenio.Contains(normalizedConvenio)));
         }
 
         if (!string.IsNullOrWhiteSpace(normalizedProcedimento))
         {
-            query = query.Where(p =>
-                (p.Procedimento != null && p.Procedimento.Contains(normalizedProcedimento))
-                || p.Procedimentos.Any(item => item.Procedimento.Contains(normalizedProcedimento)));
+            var condition = FullTextSearchTermBuilder.BuildPrefixCondition(normalizedProcedimento);
+            query = supportsFullTextSearch && condition != null
+                ? query.Where(p =>
+                    (p.Procedimento != null && EF.Functions.Contains(p.Procedimento, condition))
+                    || p.Procedimentos.Any(item => EF.Functions.Contains(item.Procedimento, condition)))
+                : query.Where(p =>
+                    (p.Procedimento != null && p.Procedimento.Contains(normalizedProcedimento))
+                    || p.Procedimentos.Any(item => item.Procedimento.Contains(normalizedProcedimento)));
         }
 
         if (normalizedCompetenciaInicio.HasValue || normalizedCompetenciaFinalExclusive.HasValue)
@@ -84,6 +80,73 @@ internal static class FaturamentoMedicoFilters
         }
 
         return query;
+    }
+
+    private static IQueryable<Paciente> ApplyFullTextSearch(
+        IQueryable<Paciente> query,
+        string search,
+        string digits,
+        string condition)
+    {
+        return query.Where(p =>
+            EF.Functions.Contains(p.NomePaciente, condition)
+            || (p.HospitalReferencia != null && EF.Functions.Contains(p.HospitalReferencia.Nome, condition))
+            || (p.Hospital != null && EF.Functions.Contains(p.Hospital, condition))
+            || (p.MedicoUser != null && EF.Functions.Contains(p.MedicoUser.Nome, condition))
+            || (p.Medico != null && EF.Functions.Contains(p.Medico, condition))
+            || (p.ConvenioReferencia != null && EF.Functions.Contains(p.ConvenioReferencia.DescricaoConvenio, condition))
+            || (p.Convenio != null && EF.Functions.Contains(p.Convenio, condition))
+            || (p.OpmeFornecedorReferencia != null && EF.Functions.Contains(p.OpmeFornecedorReferencia.Fornecedor, condition))
+            || (p.OpmeFornecedor != null && EF.Functions.Contains(p.OpmeFornecedor, condition))
+            || (p.Procedimento != null && EF.Functions.Contains(p.Procedimento, condition))
+            || p.User.Email.Contains(search)
+            || (p.CbhpmCodigo != null && p.CbhpmCodigo.Contains(search))
+            || (p.Autorizacao != null && p.Autorizacao.Contains(search))
+            || (p.FaturamentoMedico != null
+                && ((p.FaturamentoMedico.GuiaAutorizacaoConvenio != null && p.FaturamentoMedico.GuiaAutorizacaoConvenio.Contains(search))
+                    || (p.FaturamentoMedico.CodigoTussCbhpmAmb != null && p.FaturamentoMedico.CodigoTussCbhpmAmb.Contains(search))
+                    || (p.FaturamentoMedico.GlosaStatus != null && p.FaturamentoMedico.GlosaStatus.Contains(search))))
+            || (!string.IsNullOrEmpty(digits) && p.CbhpmCodigo != null
+                && p.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
+            || p.Procedimentos.Any(item =>
+                EF.Functions.Contains(item.Procedimento, condition)
+                || (item.CbhpmCodigo != null && item.CbhpmCodigo.Contains(search))
+                || (!string.IsNullOrEmpty(digits) && item.CbhpmCodigo != null
+                    && item.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
+                || (item.CbhpmPorte != null && item.CbhpmPorte.Contains(search))));
+    }
+
+    private static IQueryable<Paciente> ApplyFallbackSearch(
+        IQueryable<Paciente> query,
+        string search,
+        string digits)
+    {
+        return query.Where(p =>
+            p.NomePaciente.Contains(search)
+            || (p.HospitalReferencia != null && p.HospitalReferencia.Nome.Contains(search))
+            || (p.Hospital != null && p.Hospital.Contains(search))
+            || (p.MedicoUser != null && p.MedicoUser.Nome.Contains(search))
+            || (p.Medico != null && p.Medico.Contains(search))
+            || (p.ConvenioReferencia != null && p.ConvenioReferencia.DescricaoConvenio.Contains(search))
+            || (p.Convenio != null && p.Convenio.Contains(search))
+            || (p.OpmeFornecedorReferencia != null && p.OpmeFornecedorReferencia.Fornecedor.Contains(search))
+            || (p.OpmeFornecedor != null && p.OpmeFornecedor.Contains(search))
+            || (p.Procedimento != null && p.Procedimento.Contains(search))
+            || p.User.Email.Contains(search)
+            || (p.CbhpmCodigo != null && p.CbhpmCodigo.Contains(search))
+            || (p.Autorizacao != null && p.Autorizacao.Contains(search))
+            || (p.FaturamentoMedico != null
+                && ((p.FaturamentoMedico.GuiaAutorizacaoConvenio != null && p.FaturamentoMedico.GuiaAutorizacaoConvenio.Contains(search))
+                    || (p.FaturamentoMedico.CodigoTussCbhpmAmb != null && p.FaturamentoMedico.CodigoTussCbhpmAmb.Contains(search))
+                    || (p.FaturamentoMedico.GlosaStatus != null && p.FaturamentoMedico.GlosaStatus.Contains(search))))
+            || (!string.IsNullOrEmpty(digits) && p.CbhpmCodigo != null
+                && p.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
+            || p.Procedimentos.Any(item =>
+                item.Procedimento.Contains(search)
+                || (item.CbhpmCodigo != null && item.CbhpmCodigo.Contains(search))
+                || (!string.IsNullOrEmpty(digits) && item.CbhpmCodigo != null
+                    && item.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
+                || (item.CbhpmPorte != null && item.CbhpmPorte.Contains(search))));
     }
 
     private static IQueryable<Paciente> ApplyCompetenciaFilter(

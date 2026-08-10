@@ -12,82 +12,11 @@ public static class SessionEndpointExtensions
     public static void MapSessionEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/session")
-            .WithTags("Sessao");
+            .WithTags("Sessao")
+            .RequireAuthorization();
 
-        group.MapGet("/clinicas", ListClinicas).RequireAuthorization();
-        group.MapPost("/renovar", RefreshSession).AllowAnonymous();
-        group.MapPost("/atividade", RecordActivity).RequireAuthorization();
-        group.MapPost("/sair", Logout).AllowAnonymous();
-        group.MapPost("/selecionar-clinica", SelectClinica).RequireAuthorization();
-    }
-
-    private static async Task<IResult> RefreshSession(
-        RefreshSessionRequest request,
-        HttpContext httpContext,
-        AuthenticationSessionService sessionService,
-        AuthenticationSessionCookie sessionCookie,
-        CancellationToken cancellationToken)
-    {
-        IssuedAuthenticationSession? session;
-        var refreshToken = sessionCookie.Read(httpContext);
-        if (!string.IsNullOrWhiteSpace(refreshToken))
-        {
-            session = await sessionService.RefreshAsync(refreshToken, cancellationToken);
-        }
-        else if (httpContext.User.Identity?.IsAuthenticated == true
-            && TryGetGlobalUserId(httpContext.User, out var globalUserId)
-            && int.TryParse(httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier), out var userId)
-            && int.TryParse(httpContext.User.FindFirstValue(ClinicaClaimTypes.ClinicaId), out var clinicaId))
-        {
-            // Compatibilidade com clientes autenticados antes da introducao do refresh cookie.
-            session = await sessionService.StartAsync(
-                globalUserId,
-                userId,
-                clinicaId,
-                httpContext.Connection.RemoteIpAddress?.ToString(),
-                httpContext.Request.Headers.UserAgent.ToString(),
-                cancellationToken);
-        }
-        else
-        {
-            session = null;
-        }
-
-        if (session == null)
-        {
-            sessionCookie.Delete(httpContext);
-            return Results.Unauthorized();
-        }
-
-        sessionCookie.Write(httpContext, session);
-        return Results.Ok(new RefreshSessionResponse(session.AccessToken, session.IdleExpiresAt));
-    }
-
-    private static IResult RecordActivity()
-    {
-        // AuthenticationSessionMiddleware ja registrou a atividade desta requisicao.
-        return Results.NoContent();
-    }
-
-    private static async Task<IResult> Logout(
-        LogoutSessionRequest request,
-        HttpContext httpContext,
-        AuthenticationSessionService sessionService,
-        AuthenticationSessionCookie sessionCookie,
-        CancellationToken cancellationToken)
-    {
-        var sessionId = Guid.TryParse(
-            httpContext.User.FindFirstValue(AuthenticationSessionClaimTypes.SessionId),
-            out var parsedSessionId)
-            ? parsedSessionId
-            : (Guid?)null;
-
-        await sessionService.RevokeAsync(
-            sessionCookie.Read(httpContext),
-            sessionId,
-            cancellationToken);
-        sessionCookie.Delete(httpContext);
-        return Results.NoContent();
+        group.MapGet("/clinicas", ListClinicas);
+        group.MapPost("/selecionar-clinica", SelectClinica);
     }
 
     private static async Task<IResult> ListClinicas(
@@ -144,7 +73,6 @@ public static class SessionEndpointExtensions
         AppDbContext context,
         ClinicaContext clinicaContext,
         IJwtTokenService jwtTokenService,
-        AuthenticationSessionService sessionService,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -187,21 +115,7 @@ public static class SessionEndpointExtensions
             out var parsedClinicId)
             ? parsedClinicId
             : (int?)null;
-        var sessionId = Guid.TryParse(
-            httpContext.User.FindFirstValue(AuthenticationSessionClaimTypes.SessionId),
-            out var parsedSessionId)
-            ? parsedSessionId
-            : (Guid?)null;
-        if (sessionId.HasValue)
-        {
-            await sessionService.ChangeMembershipAsync(sessionId.Value, membership.Id, cancellationToken);
-        }
-
-        var token = jwtTokenService.GenerateToken(
-            membership.UsuarioGlobal,
-            membership,
-            membership.User,
-            sessionId);
+        var token = jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, membership.User);
 
         await auditService.RecordAsync(
             httpContext,
@@ -237,12 +151,6 @@ public static class SessionEndpointExtensions
     }
 
     public sealed record SelectClinicRequest(int ClinicaId);
-
-    public sealed record RefreshSessionRequest;
-
-    public sealed record LogoutSessionRequest;
-
-    public sealed record RefreshSessionResponse(string Token, DateTime SessionIdleExpiresAt);
 
     public sealed record SessionClinicResponse(
         int ClinicaId,

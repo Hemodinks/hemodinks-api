@@ -12,17 +12,24 @@ internal static partial class PacienteRules
         int currentPerfilId,
         int currentUserId,
         string currentUserName,
+        int? currentEquipeId,
         int? medicoUserId,
         string? medicoNome,
         CancellationToken cancellationToken)
     {
-        if (currentPerfilId == Perfil.MedicosId)
+        if (currentPerfilId == Perfil.MedicosId || currentPerfilId == Perfil.EquipeId)
         {
-            var accessibleMedicalUsers = MedicalGroupScope.BuildScopedMedicalUsersQuery(context, currentPerfilId, currentUserId, onlyActive: false);
+            var accessibleMedicalUsers = MedicalGroupScope.BuildScopedMedicalUsersQuery(
+                context, currentPerfilId, currentUserId, currentEquipeId, onlyActive: false);
+
+            if (currentPerfilId == Perfil.MedicosId && !medicoUserId.HasValue && string.IsNullOrWhiteSpace(medicoNome))
+            {
+                return new ResolvedMedico(currentUserId, currentUserName);
+            }
 
             if (!medicoUserId.HasValue && string.IsNullOrWhiteSpace(medicoNome))
             {
-                return new ResolvedMedico(currentUserId, currentUserName);
+                throw new InvalidOperationException("Selecione um medico associado a equipe.");
             }
 
             if (medicoUserId.HasValue)
@@ -95,6 +102,7 @@ internal static partial class PacienteRules
         IAppDbContext context,
         int currentPerfilId,
         int currentUserId,
+        int? currentEquipeId,
         int? medicoUserId,
         string? medicoNome,
         CancellationToken cancellationToken)
@@ -109,6 +117,7 @@ internal static partial class PacienteRules
             currentPerfilId,
             currentUserId,
             string.Empty,
+            currentEquipeId,
             medicoUserId,
             medicoNome,
             cancellationToken);

@@ -31,18 +31,22 @@ public static partial class EventEndpointExtensions
         group.MapPost("/", CreateEvent)
             .WithName("CreateEvent")
             .WithSummary("Criar evento na agenda")
-            .WithDescription("Cria evento na agenda. Envie Idempotency-Key para tornar retries seguros.");
+            .WithDescription("Cria evento na agenda. Envie Idempotency-Key para tornar retries seguros.")
+            .RequireAuthorization("EquipeOperacaoSensivel");
 
         group.MapPut("/{id:int}", UpdateEvent)
             .WithName("UpdateEvent")
-            .WithSummary("Atualizar evento da agenda");
+            .WithSummary("Atualizar evento da agenda")
+            .RequireAuthorization("EquipeOperacaoSensivel");
 
         group.MapPost("/{id:int}/complete", CompleteEvent)
             .WithName("CompleteEvent")
-            .WithSummary("Marcar evento como concluido");
+            .WithSummary("Marcar evento como concluido")
+            .RequireAuthorization("EquipeOperacaoSensivel");
 
         group.MapDelete("/{id:int}", DeleteEvent)
             .WithName("DeleteEvent")
-            .WithSummary("Excluir evento da agenda");
+            .WithSummary("Excluir evento da agenda")
+            .RequireAuthorization("EquipeOperacaoSensivel");
     }
 }

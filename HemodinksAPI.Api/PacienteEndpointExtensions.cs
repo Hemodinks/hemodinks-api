@@ -23,12 +23,14 @@ public static partial class PacienteEndpointExtensions
         group.MapPost("/", CreatePaciente)
             .WithName("CreatePaciente")
             .WithSummary("Criar paciente")
-            .RequireAuthorization("PacienteCadastrar");
+            .RequireAuthorization("PacienteCadastrar")
+            .RequireAuthorization("EquipeOperacaoSensivel");
 
         group.MapPut("/{id}", UpdatePaciente)
             .WithName("UpdatePaciente")
             .WithSummary("Atualizar paciente")
-            .RequireAuthorization("PacienteEditar");
+            .RequireAuthorization("PacienteEditar")
+            .RequireAuthorization("EquipeOperacaoSensivel");
 
         group.MapDelete("/{id}", DeletePaciente)
             .WithName("DeletePaciente")
@@ -39,7 +41,8 @@ public static partial class PacienteEndpointExtensions
             .WithName("UploadPacienteArquivo")
             .WithSummary("Enviar arquivo do paciente")
             .DisableAntiforgery()
-            .RequireAuthorization("PacienteArquivosGerenciar");
+            .RequireAuthorization("PacienteArquivosGerenciar")
+            .RequireAuthorization("EquipeOperacaoSensivel");
 
         group.MapGet("/{id}/arquivos/{arquivoId}/download", DownloadArquivo)
             .WithName("DownloadPacienteArquivo")
@@ -49,7 +52,8 @@ public static partial class PacienteEndpointExtensions
         group.MapDelete("/{id}/arquivos/{arquivoId}", DeleteArquivo)
             .WithName("DeletePacienteArquivo")
             .WithSummary("Excluir arquivo do paciente")
-            .RequireAuthorization("PacienteArquivosGerenciar");
+            .RequireAuthorization("PacienteArquivosGerenciar")
+            .RequireAuthorization("EquipeOperacaoSensivel");
 
         group.MapGet("/{id}/observacoes", GetObservacoes)
             .WithName("GetPacienteObservacoes")
@@ -59,7 +63,8 @@ public static partial class PacienteEndpointExtensions
         group.MapPost("/{id}/observacoes", CreateObservacao)
             .WithName("CreatePacienteObservacao")
             .WithSummary("Registrar observacao do paciente")
-            .RequireAuthorization("PacienteObservacaoGerenciar");
+            .RequireAuthorization("PacienteObservacaoGerenciar")
+            .RequireAuthorization("EquipeOperacaoSensivel");
 
         group.MapPost("/{id}/observacoes/marcar-lidas", MarkObservacoesAsRead)
             .WithName("MarkPacienteObservacoesAsRead")

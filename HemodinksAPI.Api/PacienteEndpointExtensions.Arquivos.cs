@@ -22,7 +22,8 @@ public static partial class PacienteEndpointExtensions
                 id,
                 arquivoId,
                 currentUser.Id,
-                currentUser.PerfilId), cancellationToken);
+                currentUser.PerfilId,
+                currentUser.EquipeId), cancellationToken);
 
             return file == null
                 ? Results.NotFound()
@@ -50,7 +51,8 @@ public static partial class PacienteEndpointExtensions
                 PacienteId = id,
                 File = file,
                 CurrentUserId = currentUser.Id,
-                CurrentPerfilId = currentUser.PerfilId
+                CurrentPerfilId = currentUser.PerfilId,
+                CurrentEquipeId = currentUser.EquipeId
             }, cancellationToken);
 
             return Results.Created($"/api/pacientes/{id}/arquivos/{result.Id}", result);
@@ -73,7 +75,8 @@ public static partial class PacienteEndpointExtensions
                 PacienteId = id,
                 ArquivoId = arquivoId,
                 CurrentUserId = currentUser.Id,
-                CurrentPerfilId = currentUser.PerfilId
+                CurrentPerfilId = currentUser.PerfilId,
+                CurrentEquipeId = currentUser.EquipeId
             }, cancellationToken);
 
             return Results.NoContent();

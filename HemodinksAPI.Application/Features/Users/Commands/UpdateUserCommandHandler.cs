@@ -98,7 +98,8 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 }
             }
 
-            var emailAlreadyExists = await _context.Users
+            var emailChanged = !string.Equals(user.Email, effectiveEmail, StringComparison.OrdinalIgnoreCase);
+            var emailAlreadyExists = emailChanged && await _context.Users
                 .AnyAsync(u => u.Id != request.Id && u.Email == effectiveEmail, cancellationToken);
 
             if (emailAlreadyExists)
@@ -119,17 +120,23 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             }
 
             var perfilId = UserProfileRules.NormalizePerfilId(effectivePerfilId);
-            var canAssignRestrictedProfiles = request.CurrentUser?.IsSuperAdministrador == true;
-            if (perfilId == Perfil.PacientesId && !canAssignRestrictedProfiles)
+            if (perfilId == Perfil.PacientesId)
             {
                 if (user.PerfilId != Perfil.PacientesId)
                 {
                     throw new InvalidOperationException("Perfil Pacientes desativado para cadastro de usuarios");
                 }
             }
+            else if (perfilId == Perfil.EquipeId)
+            {
+                if (user.PerfilId != Perfil.EquipeId)
+                {
+                    throw new InvalidOperationException("Perfil Equipe deve ser criado pelo gerenciamento de equipes");
+                }
+            }
             else
             {
-                UserProfileRules.EnsureAssignablePerfilId(perfilId, canAssignRestrictedProfiles);
+                UserProfileRules.EnsureAssignablePerfilId(perfilId, request.CurrentUser);
             }
             var perfil = await _context.Perfis
                 .AsNoTracking()

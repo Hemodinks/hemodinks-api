@@ -107,8 +107,11 @@ internal sealed class RelationalCbhpmTestAppDbContext : IAppDbContext
     public DbSet<Clinica> Clinicas => throw new NotSupportedException();
     public DbSet<UsuarioGlobal> UsuariosGlobais => throw new NotSupportedException();
     public DbSet<UsuarioClinica> UsuariosClinicas => throw new NotSupportedException();
-    public DbSet<AuthenticationSession> AuthenticationSessions => throw new NotSupportedException();
     public DbSet<AuditoriaPlataforma> AuditoriasPlataforma => throw new NotSupportedException();
+    public DbSet<Equipe> Equipes => throw new NotSupportedException();
+    public DbSet<EquipeMembro> EquipeMembros => throw new NotSupportedException();
+    public DbSet<EquipeOperador> EquipeOperadores => throw new NotSupportedException();
+    public DbSet<EquipeLoginDesafio> EquipeLoginDesafios => throw new NotSupportedException();
     public DbSet<User> Users => throw new NotSupportedException();
     public DbSet<Perfil> Perfis => throw new NotSupportedException();
     public DbSet<Paciente> Pacientes => throw new NotSupportedException();

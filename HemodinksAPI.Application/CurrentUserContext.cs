@@ -12,7 +12,10 @@ public sealed record CurrentUserContext(
     int ClinicaId = Clinica.DefaultId,
     string ClinicaSlug = Clinica.DefaultSlug,
     int UsuarioGlobalId = 0,
-    int UsuarioClinicaId = 0)
+    int UsuarioClinicaId = 0,
+    int? EquipeId = null,
+    int? EquipeOperadorId = null,
+    bool IdentificacaoConfiavel = false)
 {
     public bool IsAdministrador => Perfil.IsAdministradorOuSuper(PerfilId);
 
@@ -23,6 +26,8 @@ public sealed record CurrentUserContext(
     public bool IsPaciente => PerfilId == Perfil.PacientesId;
 
     public bool IsController => PerfilId == Perfil.ControllerId;
+
+    public bool IsEquipe => PerfilId == Perfil.EquipeId;
 }
 
 public static class CurrentUserContextExtensions
@@ -36,6 +41,9 @@ public static class CurrentUserContextExtensions
         var clinicaSlug = claimsPrincipal.FindFirst(ClinicaClaimTypes.ClinicaSlug)?.Value ?? Clinica.DefaultSlug;
         var usuarioGlobalIdClaim = claimsPrincipal.FindFirst(GlobalIdentityClaimTypes.UsuarioGlobalId)?.Value;
         var usuarioClinicaIdClaim = claimsPrincipal.FindFirst(GlobalIdentityClaimTypes.UsuarioClinicaId)?.Value;
+        var equipeIdClaim = claimsPrincipal.FindFirst(GlobalIdentityClaimTypes.EquipeId)?.Value;
+        var equipeOperadorIdClaim = claimsPrincipal.FindFirst(GlobalIdentityClaimTypes.EquipeOperadorId)?.Value;
+        var identificacaoConfiavelClaim = claimsPrincipal.FindFirst(GlobalIdentityClaimTypes.IdentificacaoConfiavel)?.Value;
 
         if (!int.TryParse(userIdClaim, out var userId) || !int.TryParse(perfilIdClaim, out var perfilId))
         {
@@ -48,6 +56,9 @@ public static class CurrentUserContextExtensions
 
         _ = int.TryParse(usuarioGlobalIdClaim, out var usuarioGlobalId);
         _ = int.TryParse(usuarioClinicaIdClaim, out var usuarioClinicaId);
+        var equipeId = int.TryParse(equipeIdClaim, out var parsedEquipeId) && parsedEquipeId > 0 ? parsedEquipeId : (int?)null;
+        var equipeOperadorId = int.TryParse(equipeOperadorIdClaim, out var parsedOperadorId) && parsedOperadorId > 0 ? parsedOperadorId : (int?)null;
+        var identificacaoConfiavel = bool.TryParse(identificacaoConfiavelClaim, out var parsedConfiavel) && parsedConfiavel;
 
         return new CurrentUserContext(
             userId,
@@ -56,6 +67,9 @@ public static class CurrentUserContextExtensions
             clinicaId,
             clinicaSlug,
             usuarioGlobalId,
-            usuarioClinicaId);
+            usuarioClinicaId,
+            equipeId,
+            equipeOperadorId,
+            identificacaoConfiavel);
     }
 }

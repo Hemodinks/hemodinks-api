@@ -33,6 +33,15 @@ public sealed class PlatformAuditService
         var localUserId = int.TryParse(httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedUserId)
             ? parsedUserId
             : (int?)null;
+        var equipeId = int.TryParse(httpContext.User.FindFirstValue(GlobalIdentityClaimTypes.EquipeId), out var parsedEquipeId)
+            ? parsedEquipeId
+            : (int?)null;
+        var equipeOperadorId = int.TryParse(httpContext.User.FindFirstValue(GlobalIdentityClaimTypes.EquipeOperadorId), out var parsedOperadorId)
+            ? parsedOperadorId
+            : (int?)null;
+        var auditDetails = equipeId.HasValue
+            ? new { EquipeId = equipeId, EquipeOperadorId = equipeOperadorId, Detalhes = details }
+            : details;
 
         _context.AuditoriasPlataforma.Add(new AuditoriaPlataforma
         {
@@ -42,7 +51,7 @@ public sealed class PlatformAuditService
             Acao = action,
             Recurso = resource,
             EntidadeId = entityId,
-            DetalhesJson = details == null ? null : JsonSerializer.Serialize(details),
+            DetalhesJson = auditDetails == null ? null : JsonSerializer.Serialize(auditDetails),
             Ip = httpContext.Connection.RemoteIpAddress?.ToString(),
             UserAgent = httpContext.Request.Headers.UserAgent.ToString(),
             RequestId = httpContext.TraceIdentifier,

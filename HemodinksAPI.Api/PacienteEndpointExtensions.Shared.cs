@@ -12,6 +12,7 @@ public static partial class PacienteEndpointExtensions
         command.CurrentUserId = currentUser.Id;
         command.CurrentPerfilId = currentUser.PerfilId;
         command.CurrentUserName = currentUser.Nome;
+        command.CurrentEquipeId = currentUser.EquipeId;
     }
 
     private static void ApplyCurrentUser(UpdatePacienteCommand command, CurrentUserContext currentUser)
@@ -19,6 +20,7 @@ public static partial class PacienteEndpointExtensions
         command.CurrentUserId = currentUser.Id;
         command.CurrentPerfilId = currentUser.PerfilId;
         command.CurrentUserName = currentUser.Nome;
+        command.CurrentEquipeId = currentUser.EquipeId;
     }
 
     private static void ApplyCurrentUser(CreatePacienteObservacaoCommand command, CurrentUserContext currentUser)

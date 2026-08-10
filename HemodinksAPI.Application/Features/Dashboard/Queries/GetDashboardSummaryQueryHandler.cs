@@ -21,22 +21,28 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
 
     public async Task<DashboardSummaryDto> Handle(GetDashboardSummaryQuery request, CancellationToken cancellationToken)
     {
-        var usersSummary = Perfil.IsAdministradorOuSuper(request.CurrentPerfilId)
-            ? await _context.Users
-                .AsNoTracking()
-                .Where(user => user.PerfilId != Perfil.PacientesId)
-                .GroupBy(_ => 1)
-                .Select(group => new
-                {
-                    UsersCount = group.Count(),
-                    ActiveUsersCount = group.Count(user => user.Ativo)
-                })
-                .FirstOrDefaultAsync(cancellationToken)
+        var usersQuery = _context.Users.AsNoTracking().Where(user => user.PerfilId != Perfil.PacientesId);
+        if (request.CurrentPerfilId == Perfil.EquipeId && request.CurrentEquipeId.HasValue)
+        {
+            var memberUserIds = _context.EquipeMembros.AsNoTracking()
+                .Where(member => member.EquipeId == request.CurrentEquipeId && member.Ativo)
+                .Select(member => member.UserId);
+            usersQuery = usersQuery.Where(user => memberUserIds.Contains(user.Id));
+        }
+        var canSeeUsersSummary = Perfil.IsAdministradorOuSuper(request.CurrentPerfilId)
+            || request.CurrentPerfilId == Perfil.EquipeId;
+        var usersSummary = canSeeUsersSummary
+            ? await usersQuery.GroupBy(_ => 1).Select(group => new
+            {
+                UsersCount = group.Count(),
+                ActiveUsersCount = group.Count(user => user.Ativo)
+            }).FirstOrDefaultAsync(cancellationToken)
             : null;
 
         var patientSummary = await BuildPatientSummaryAsync(
             request.CurrentPerfilId,
             request.CurrentUserId,
+            request.CurrentEquipeId,
             cancellationToken);
         var pendingPaymentsCount = await CountPendingPaymentsAsync(
             request.CurrentPerfilId,
@@ -56,6 +62,7 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
             _logger,
             request.CurrentPerfilId,
             request.CurrentUserId,
+            request.CurrentEquipeId,
             cancellationToken);
 
         var unreadObservationCount = request.CurrentPerfilId == Perfil.PacientesId
@@ -93,13 +100,15 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
     private async Task<dynamic?> BuildPatientSummaryAsync(
         int perfilId,
         int userId,
+        int? equipeId,
         CancellationToken cancellationToken)
     {
         var patientQuery = PacienteAccess.ApplyScope(
             _context,
             _context.Pacientes.AsNoTracking().AsQueryable(),
             perfilId,
-            userId);
+            userId,
+            equipeId);
 
         return await patientQuery
             .GroupBy(_ => 1)

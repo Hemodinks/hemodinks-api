@@ -17,4 +17,3 @@ public class RecursoGlosa : IClinicaOwnedEntity
     public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
     public DateTime? DataAtualizacao { get; set; }
 }
-

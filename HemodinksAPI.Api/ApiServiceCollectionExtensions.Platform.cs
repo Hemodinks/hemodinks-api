@@ -52,6 +52,19 @@ public static partial class ApiServiceCollectionExtensions
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddPolicy("Login", context =>
+            {
+                var clinic = context.Request.Headers[ClinicaResolutionService.ClinicaSlugHeaderName].ToString();
+                var partitionKey = $"{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}:{clinic}";
+                return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ =>
+                    new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(5),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    });
+            });
             options.AddPolicy("PasswordReset", context =>
             {
                 var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";

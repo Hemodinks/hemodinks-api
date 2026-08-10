@@ -58,7 +58,7 @@ IResourceBuilder<ContainerResource> AddContainerizedApi(IDistributedApplicationB
             "file-export-jobs"),
         AzureStorageContainerName: GetOptionalConfiguration(builder.Configuration, "AZURE_STORAGE_CONTAINER_NAME", "profile-photos"),
         AzureStoragePublicBaseUrl: GetOptionalConfiguration(builder.Configuration, "AZURE_STORAGE_PUBLIC_BASE_URL", string.Empty),
-        AzureStorageMaxBytes: GetOptionalConfiguration(builder.Configuration, "AZURE_STORAGE_MAX_BYTES", "1048576"),
+        AzureStorageMaxBytes: GetOptionalConfiguration(builder.Configuration, "AZURE_STORAGE_MAX_BYTES", "2097152"),
         AzureStoragePatientFilesContainerName: GetOptionalConfiguration(
             builder.Configuration,
             "AZURE_STORAGE_PATIENT_FILES_CONTAINER_NAME",

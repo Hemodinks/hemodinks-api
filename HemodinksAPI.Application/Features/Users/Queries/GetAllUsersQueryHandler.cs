@@ -10,11 +10,16 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedRe
 {
     private readonly IAppDbContext _context;
     private readonly ILogger<GetAllUsersQueryHandler> _logger;
+    private readonly bool _supportsFullTextSearch;
 
-    public GetAllUsersQueryHandler(IAppDbContext context, ILogger<GetAllUsersQueryHandler> logger)
+    public GetAllUsersQueryHandler(
+        IAppDbContext context,
+        ILogger<GetAllUsersQueryHandler> logger,
+        IFullTextSearchCapability? fullTextSearchCapability = null)
     {
         _context = context;
         _logger = logger;
+        _supportsFullTextSearch = fullTextSearchCapability?.IsSupported == true;
     }
 
     public async Task<PagedResult<UserDto>> Handle(GetAllUsersQuery request, CancellationToken cancellationToken)
@@ -33,7 +38,15 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedRe
             var query = _context.Users
                 .AsNoTracking()
                 .Where(user => user.PerfilId != Perfil.PacientesId);
-            query = ApplyFilters(query, request.ProfileId, search, digits);
+            if (request.CurrentUser?.IsEquipe == true)
+            {
+                var equipeId = request.CurrentUser.EquipeId
+                    ?? throw new UnauthorizedAccessException("Equipe ausente na sessao");
+                query = query.Where(user => _context.EquipeMembros.Any(membro => membro.EquipeId == equipeId
+                    && membro.UserId == user.Id
+                    && membro.Ativo));
+            }
+            query = ApplyFilters(query, request.ProfileId, search, digits, _supportsFullTextSearch);
 
             var totalItems = await query.CountAsync(cancellationToken);
             query = UserQueryOrdering.ApplyOrdering(query, request.SortBy, request.SortDirection);
@@ -66,7 +79,8 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedRe
         IQueryable<User> query,
         int? profileId,
         string? search,
-        string digits)
+        string digits,
+        bool supportsFullTextSearch)
     {
         if (profileId.HasValue)
         {
@@ -75,13 +89,22 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedRe
 
         if (!string.IsNullOrWhiteSpace(search))
         {
-            query = query.Where(u =>
-                u.Nome.Contains(search)
-                || u.Email.Contains(search)
-                || u.Telefone.Contains(search)
-                || u.Perfil.Nome.Contains(search)
-                || (!string.IsNullOrEmpty(digits) && u.Cpf != null && u.Cpf.Contains(digits))
-                || (!string.IsNullOrEmpty(digits) && u.Telefone.Contains(digits)));
+            var condition = FullTextSearchTermBuilder.BuildPrefixCondition(search);
+            query = supportsFullTextSearch && condition != null
+                ? query.Where(u =>
+                    EF.Functions.Contains(u.Nome, condition)
+                    || u.Email.Contains(search)
+                    || u.Telefone.Contains(search)
+                    || u.Perfil.Nome.Contains(search)
+                    || (!string.IsNullOrEmpty(digits) && u.Cpf != null && u.Cpf.Contains(digits))
+                    || (!string.IsNullOrEmpty(digits) && u.Telefone.Contains(digits)))
+                : query.Where(u =>
+                    u.Nome.Contains(search)
+                    || u.Email.Contains(search)
+                    || u.Telefone.Contains(search)
+                    || u.Perfil.Nome.Contains(search)
+                    || (!string.IsNullOrEmpty(digits) && u.Cpf != null && u.Cpf.Contains(digits))
+                    || (!string.IsNullOrEmpty(digits) && u.Telefone.Contains(digits)));
         }
 
         return query;

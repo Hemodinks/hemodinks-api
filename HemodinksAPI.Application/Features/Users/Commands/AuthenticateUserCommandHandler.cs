@@ -64,7 +64,10 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
             var user = await _context.Users
                 .Include(u => u.Perfil)
                 .Include(u => u.Clinica)
-                .FirstOrDefaultAsync(u => u.Email == request.Email && u.Ativo, cancellationToken);
+                .Where(u => u.Email == request.Email && u.Ativo)
+                .OrderByDescending(u => _context.Equipes.Any(equipe => equipe.UsuarioLoginId == u.Id && equipe.Ativa))
+                .ThenBy(u => u.Id)
+                .FirstOrDefaultAsync(cancellationToken);
 
             var globalAuthentication = user == null
                 ? null
@@ -81,10 +84,68 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 throw new UnauthorizedAccessException("Email ou senha invalidos");
             }
 
-            var token = _jwtTokenService.GenerateToken(
-                globalAuthentication.UsuarioGlobal,
-                globalAuthentication.UsuarioClinica,
-                user);
+            Equipe? equipe = null;
+            EquipeLoginChallengeDto? equipeDesafio = null;
+            string? token = null;
+            if (user.PerfilId == Perfil.EquipeId)
+            {
+                equipe = await _context.Equipes
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(item => item.UsuarioLoginId == user.Id && item.Ativa, cancellationToken)
+                    ?? throw new UnauthorizedAccessException("Equipe inativa ou nao configurada");
+
+                if (!equipe.ModoIdentificacao.Equals(EquipeModosIdentificacao.Nenhuma, StringComparison.OrdinalIgnoreCase))
+                {
+                    var challengeToken = EquipeAuthenticationRules.GenerateChallengeToken();
+                    var expiresAt = DateTime.UtcNow.AddMinutes(5);
+                    _context.EquipeLoginDesafios.Add(new EquipeLoginDesafio
+                    {
+                        ClinicaId = user.ClinicaId,
+                        EquipeId = equipe.Id,
+                        TokenHash = EquipeAuthenticationRules.HashChallengeToken(challengeToken),
+                        ExpiraEm = expiresAt
+                    });
+                    await _context.SaveChangesAsync(cancellationToken);
+
+                    var operadores = await _context.EquipeOperadores
+                        .AsNoTracking()
+                        .Where(item => item.EquipeId == equipe.Id
+                            && item.Ativo
+                            && item.User.Ativo
+                            && _context.EquipeMembros.Any(membro => membro.EquipeId == equipe.Id
+                                && membro.UserId == item.UserId
+                                && membro.Ativo))
+                        .OrderBy(item => item.User.Nome)
+                        .Select(item => new EquipeOperadorLoginDto(
+                            item.Id,
+                            item.User.Nome,
+                            equipe.ModoIdentificacao == EquipeModosIdentificacao.Pin && item.PinHash != null))
+                        .ToListAsync(cancellationToken);
+
+                    equipeDesafio = new EquipeLoginChallengeDto(
+                        challengeToken,
+                        equipe.Id,
+                        equipe.Nome,
+                        equipe.ModoIdentificacao,
+                        expiresAt,
+                        operadores);
+                }
+                else
+                {
+                    token = _jwtTokenService.GenerateToken(
+                        globalAuthentication.UsuarioGlobal,
+                        globalAuthentication.UsuarioClinica,
+                        user,
+                        equipe);
+                }
+            }
+            else
+            {
+                token = _jwtTokenService.GenerateToken(
+                    globalAuthentication.UsuarioGlobal,
+                    globalAuthentication.UsuarioClinica,
+                    user);
+            }
             var licenca = await _licencaService.GetCurrentAsync(
                 new CurrentUserContext(
                     user.Id,
@@ -115,7 +176,8 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 PerfilId = user.PerfilId,
                 PerfilNome = UserProfileRules.GetPerfilNome(user),
                 ModulosLiberados = ClinicaModulos.GetEffective(user.Clinica.Plano, user.Clinica.ModulosLiberados),
-                Licenca = licenca
+                Licenca = licenca,
+                EquipeDesafio = equipeDesafio
             };
         }
         catch (Exception ex)

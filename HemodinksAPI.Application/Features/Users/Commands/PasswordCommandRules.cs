@@ -1,3 +1,5 @@
+using HemodinksAPI.Domain.Utils;
+
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
 internal static class PasswordCommandRules
@@ -9,5 +11,9 @@ internal static class PasswordCommandRules
             throw new InvalidOperationException("A nova senha deve ter pelo menos 8 caracteres");
         }
 
+        if (newPassword == DefaultUserPassword.Value)
+        {
+            throw new InvalidOperationException("A nova senha nao pode ser a senha padrao");
+        }
     }
 }

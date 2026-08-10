@@ -19,7 +19,7 @@ public class LicencaService : ILicencaService
 
     public async Task<LicencaDto?> GetCurrentAsync(CurrentUserContext currentUser, CancellationToken cancellationToken)
     {
-        if (currentUser.IsAdministrador || currentUser.IsController)
+        if (currentUser.IsAdministrador || currentUser.IsController || currentUser.IsEquipe)
         {
             return LicencaMapper.CreateUnrestrictedDto(currentUser.Id);
         }

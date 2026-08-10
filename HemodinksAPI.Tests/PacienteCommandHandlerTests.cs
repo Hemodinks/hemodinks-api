@@ -93,7 +93,8 @@ public partial class PacienteCommandHandlerTests
             Procedimentos =
             [
                 new PacienteProcedimentoCommandDto { CbhpmCodigo = "10101012" },
-                new PacienteProcedimentoCommandDto { CbhpmCodigo = "1.01.02.01-9" }
+                new PacienteProcedimentoCommandDto { CbhpmCodigo = "1.01.02.01-9" },
+                new PacienteProcedimentoCommandDto { CbhpmCodigo = "10101012" }
             ],
             Autorizacao = "AUT-123",
             Pagamento = "Pix",
@@ -144,17 +145,19 @@ public partial class PacienteCommandHandlerTests
         Assert.Equal(auxiliar1.Nome, response.MedicoAuxiliar1);
         Assert.Equal(auxiliar2.Id, response.MedicoAuxiliar2UserId);
         Assert.Equal(auxiliar2.Nome, response.MedicoAuxiliar2);
-        Assert.Equal(["Em consultorio", "Visita hospitalar a paciente internado"], response.Procedimentos.Select(item => item.Procedimento));
+        Assert.Equal(["Em consultorio", "Visita hospitalar a paciente internado", "Em consultorio"], response.Procedimentos.Select(item => item.Procedimento));
 
         var storedProcedimentos = await context.PacienteProcedimentos
             .OrderBy(item => item.Ordem)
             .ToListAsync();
-        Assert.Equal(2, storedProcedimentos.Count);
+        Assert.Equal(3, storedProcedimentos.Count);
         Assert.Equal(storedPaciente.Id, storedProcedimentos[0].PacienteId);
         Assert.Equal("10101012", storedProcedimentos[0].CbhpmCodigo);
         Assert.Equal(120m, storedProcedimentos[0].ValorReferencia);
         Assert.Equal("10102019", storedProcedimentos[1].CbhpmCodigo);
         Assert.Equal(180m, storedProcedimentos[1].ValorReferencia);
+        Assert.Equal("10101012", storedProcedimentos[2].CbhpmCodigo);
+        Assert.Equal(120m, storedProcedimentos[2].ValorReferencia);
     }
 
     [Fact]

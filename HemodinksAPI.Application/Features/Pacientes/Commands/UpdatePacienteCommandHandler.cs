@@ -64,7 +64,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!await PacienteCommandAccess.CanEditPacienteAsync(_context, paciente, request.CurrentPerfilId, request.CurrentUserId, cancellationToken))
+            if (!await PacienteCommandAccess.CanEditPacienteAsync(_context, paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId, cancellationToken))
             {
                 throw new UnauthorizedAccessException("Sem permissao para atualizar paciente");
             }
@@ -79,12 +79,31 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 ? paciente.User.Telefone
                 : PacienteRules.ResolveTelefone(request.Telefone);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, paciente.User.FotoPerfil, cancellationToken);
-            var medico = await PacienteRules.ResolveMedicoAsync(_context, request.CurrentPerfilId, request.CurrentUserId,
-                request.CurrentUserName, request.MedicoUserId, request.Medico, cancellationToken);
-            var medicoAuxiliar1 = await PacienteRules.ResolveOptionalMedicoAsync(_context, request.CurrentPerfilId,
-                request.CurrentUserId, request.MedicoAuxiliar1UserId, request.MedicoAuxiliar1, cancellationToken);
-            var medicoAuxiliar2 = await PacienteRules.ResolveOptionalMedicoAsync(_context, request.CurrentPerfilId,
-                request.CurrentUserId, request.MedicoAuxiliar2UserId, request.MedicoAuxiliar2, cancellationToken);
+            var medico = await PacienteRules.ResolveMedicoAsync(
+                _context,
+                request.CurrentPerfilId,
+                request.CurrentUserId,
+                request.CurrentUserName,
+                request.CurrentEquipeId,
+                request.MedicoUserId,
+                request.Medico,
+                cancellationToken);
+            var medicoAuxiliar1 = await PacienteRules.ResolveOptionalMedicoAsync(
+                _context,
+                request.CurrentPerfilId,
+                request.CurrentUserId,
+                request.CurrentEquipeId,
+                request.MedicoAuxiliar1UserId,
+                request.MedicoAuxiliar1,
+                cancellationToken);
+            var medicoAuxiliar2 = await PacienteRules.ResolveOptionalMedicoAsync(
+                _context,
+                request.CurrentPerfilId,
+                request.CurrentUserId,
+                request.CurrentEquipeId,
+                request.MedicoAuxiliar2UserId,
+                request.MedicoAuxiliar2,
+                cancellationToken);
             PacienteRules.ValidateDistinctMedicos(medico, medicoAuxiliar1, medicoAuxiliar2);
             var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
                 ? await PacienteRules.ResolveHospitalAsync(_context, request.HospitalId, request.Hospital, cancellationToken)

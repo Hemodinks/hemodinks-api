@@ -49,11 +49,13 @@ public class GetAllGruposMedicosQuery : IRequest<PagedResult<GrupoMedicoDto>>
     public string? SortBy { get; set; }
 
     public string? SortDirection { get; set; }
+    public int? CurrentEquipeId { get; set; }
 }
 
 public class GetGrupoMedicoByIdQuery : IRequest<GrupoMedicoDto?>
 {
     public int Id { get; set; }
+    public int? CurrentEquipeId { get; set; }
 
     public GetGrupoMedicoByIdQuery(int id)
     {
@@ -66,4 +68,5 @@ public class GetScopedMedicalUsersQuery : IRequest<List<MedicalUserOptionDto>>
     public int CurrentPerfilId { get; set; }
 
     public int CurrentUserId { get; set; }
+    public int? CurrentEquipeId { get; set; }
 }

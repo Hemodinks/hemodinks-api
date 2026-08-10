@@ -7,4 +7,3 @@ public enum GlosaStatus { Aberta, Aceita, EmRecurso, RevertidaParcial, Revertida
 public enum RecursoGlosaStatus { EmPreparacao, Enviado, Aceito, AceitoParcialmente, Negado, Cancelado }
 public enum ContaReceberStatus { Previsto, Aberto, ParcialmenteRecebido, Recebido, Vencido, Cancelado }
 public enum FormaRecebimento { Pix, Transferencia, Boleto, Dinheiro, Cartao, Deposito, Outro }
-

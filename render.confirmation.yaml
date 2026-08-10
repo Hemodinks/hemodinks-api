@@ -25,7 +25,7 @@ services:
       - key: JwtSettings__Audience
         value: HemodinksAPI.Confirmation
       - key: JwtSettings__ExpirationMinutes
-        value: 30
+        value: 60
       - key: Platform__SuperAdminEmails__0
         sync: false
       - key: NEW_RELIC_LICENSE_KEY
@@ -77,7 +77,7 @@ services:
       - key: AzureStorage__PublicBaseUrl
         sync: false
       - key: AzureStorage__MaxBytes
-        value: 1048576
+        value: 2097152
       - key: AzureStorage__PatientFilesContainerName
         value: patient-files-confirmation
       - key: AzureStorage__PatientFilesPublicBaseUrl

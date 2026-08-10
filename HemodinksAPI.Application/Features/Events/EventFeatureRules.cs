@@ -8,11 +8,25 @@ namespace HemodinksAPI.Application.Features.Events;
 
 internal static class EventFeatureRules
 {
-    public static IQueryable<Event> ApplyScope(IQueryable<Event> query, CurrentUserContext currentUser)
+    public static IQueryable<Event> ApplyScope(IAppDbContext context, IQueryable<Event> query, CurrentUserContext currentUser)
     {
+        var teamLoginUserIds = context.Equipes.AsNoTracking()
+            .Where(team => team.Ativa)
+            .Select(team => team.UsuarioLoginId);
+
+        var currentUserTeamLoginIds = context.EquipeMembros.AsNoTracking()
+            .Where(member => member.UserId == currentUser.Id && member.Ativo && member.Equipe.Ativa)
+            .Select(member => member.Equipe.UsuarioLoginId);
+
+        if (currentUser.IsEquipe)
+        {
+            return query.Where(ev => ev.UserId == currentUser.Id);
+        }
+
         if (currentUser.IsAdministrador)
         {
-            return query;
+            return query.Where(ev => !teamLoginUserIds.Contains(ev.UserId)
+                || currentUserTeamLoginIds.Contains(ev.UserId));
         }
 
         if (currentUser.IsMedico)
@@ -20,10 +34,12 @@ internal static class EventFeatureRules
             return query.Where(ev =>
                 ev.UserId == currentUser.Id
                 || ev.MedicalUserId == currentUser.Id
-                || (ev.NotifyMedicalProfile && ev.MedicalUserId == null));
+                || (ev.NotifyMedicalProfile && ev.MedicalUserId == null && !teamLoginUserIds.Contains(ev.UserId))
+                || currentUserTeamLoginIds.Contains(ev.UserId));
         }
 
-        return query.Where(ev => ev.UserId == currentUser.Id);
+        return query.Where(ev => ev.UserId == currentUser.Id
+            || currentUserTeamLoginIds.Contains(ev.UserId));
     }
 
     public static void EnsureCanManageEvent(Event ev, CurrentUserContext currentUser)
@@ -66,6 +82,14 @@ internal static class EventFeatureRules
 
     public static HashSet<int> BuildAllowedNotificationRecipientUserIds(IAppDbContext context, CurrentUserContext currentUser)
     {
+        if (currentUser.IsEquipe && currentUser.EquipeId.HasValue)
+        {
+            return context.EquipeMembros.AsNoTracking()
+                .Where(member => member.EquipeId == currentUser.EquipeId && member.Ativo && member.User.Ativo)
+                .Select(member => member.UserId)
+                .ToHashSet();
+        }
+
         if (currentUser.IsAdministrador || currentUser.IsController)
         {
             return context.Users
