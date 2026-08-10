@@ -37045,11 +37045,650 @@
       "grupo": "PROCEDIMENTOS"
     },
     {
+      "codigo": "4.07.01.01-8",
+      "procedimento": "Angiografia radioisotópica",
+      "porte": "2A",
+      "custoOperacional": 5.839,
+      "valorReferencia": 135.12,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.01.02-6",
+      "procedimento": "Cintilografia com hemácias marcadas",
+      "porte": "3A",
+      "custoOperacional": 28.173,
+      "valorReferencia": 513.39,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.01.03-4",
+      "procedimento": "Cintilografia do miocárdio com duplo isótopo (perfusão + viabilidade)",
+      "porte": "3B",
+      "custoOperacional": 13.595,
+      "valorReferencia": 334.96,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.01.04-2",
+      "procedimento": "Cintilografia do miocárdio com FDG-18 F, em câmara híbrida",
+      "porte": "3C",
+      "custoOperacional": 53.016,
+      "valorReferencia": 920.24,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.01.05-0",
+      "procedimento": "Cintilografia do miocárdio necrose (infarto agudo)",
+      "porte": "2C",
+      "custoOperacional": 16.987,
+      "valorReferencia": 323.68,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.01.13-1",
+      "procedimento": "Cintilografia do miocárdio perfusão – estresse farmacológico",
+      "porte": "3B",
+      "custoOperacional": 19.426,
+      "valorReferencia": 418.51,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.01.14-0",
+      "procedimento": "Cintilografia do miocárdio perfusão – estresse físico",
+      "porte": "3B",
+      "custoOperacional": 19.426,
+      "valorReferencia": 418.51,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.01.06-9",
+      "procedimento": "Cintilografia do miocárdio perfusão – repouso",
+      "porte": "3B",
+      "custoOperacional": 19.426,
+      "valorReferencia": 418.51,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.01.07-7",
+      "procedimento": "Cintilografia sincronizada das câmaras cardíacas – esforço",
+      "porte": "3A",
+      "custoOperacional": 17.576,
+      "valorReferencia": 361.53,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.01.08-5",
+      "procedimento": "Cintilografia sincronizada das câmaras cardíacas – repouso",
+      "porte": "2B",
+      "custoOperacional": 13.595,
+      "valorReferencia": 262.64,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.01.09-3",
+      "procedimento": "Fluxo sanguíneo das extremidades",
+      "porte": "2A",
+      "custoOperacional": 6.573,
+      "valorReferencia": 145.64,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.01.10-7",
+      "procedimento": "Quantificação de shunt da direita para a esquerda",
+      "porte": "2C",
+      "custoOperacional": 13.372,
+      "valorReferencia": 271.88,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.01.11-5",
+      "procedimento": "Quantificação de shunt periférico",
+      "porte": "2C",
+      "custoOperacional": 14.706,
+      "valorReferencia": 291.0,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.01.12-3",
+      "procedimento": "Venografia radioisotópica",
+      "porte": "2C",
+      "custoOperacional": 13.143,
+      "valorReferencia": 268.6,
+      "capitulo": null,
+      "grupo": "CARDIOVASCULAR – IN VIVO"
+    },
+    {
+      "codigo": "4.07.02.01-4",
+      "procedimento": "Cintilografia das glândulas salivares com ou sem estímulo",
+      "porte": "2B",
+      "custoOperacional": 12.751,
+      "valorReferencia": 250.54,
+      "capitulo": null,
+      "grupo": "DIGESTIVO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.02.02-2",
+      "procedimento": "Cintilografia do fígado e do baço",
+      "porte": "2A",
+      "custoOperacional": 12.797,
+      "valorReferencia": 234.83,
+      "capitulo": null,
+      "grupo": "DIGESTIVO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.02.03-0",
+      "procedimento": "Cintilografia do fígado e vias biliares",
+      "porte": "2C",
+      "custoOperacional": 17.485,
+      "valorReferencia": 330.82,
+      "capitulo": null,
+      "grupo": "DIGESTIVO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.02.04-9",
+      "procedimento": "Cintilografia para detecção de hemorragia digestória ativa",
+      "porte": "2B",
+      "custoOperacional": 16.103,
+      "valorReferencia": 298.58,
+      "capitulo": null,
+      "grupo": "DIGESTIVO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.02.05-7",
+      "procedimento": "Cintilografia para detecção de hemorragia digestória não ativa",
+      "porte": "3A",
+      "custoOperacional": 31.679,
+      "valorReferencia": 563.63,
+      "capitulo": null,
+      "grupo": "DIGESTIVO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.02.06-5",
+      "procedimento": "Cintilografia para determinação do tempo de esvaziamento gástrico",
+      "porte": "2B",
+      "custoOperacional": 7.374,
+      "valorReferencia": 173.49,
+      "capitulo": null,
+      "grupo": "DIGESTIVO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.02.07-3",
+      "procedimento": "Cintilografia para estudo de trânsito esofágico (líquidos)",
+      "porte": "2B",
+      "custoOperacional": 4.733,
+      "valorReferencia": 135.64,
+      "capitulo": null,
+      "grupo": "DIGESTIVO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.02.08-1",
+      "procedimento": "Cintilografia para estudo de trânsito esofágico (semissólidos)",
+      "porte": "2B",
+      "custoOperacional": 4.755,
+      "valorReferencia": 135.96,
+      "capitulo": null,
+      "grupo": "DIGESTIVO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.02.09-0",
+      "procedimento": "Cintilografia para pesquisa de divertículo de Meckel",
+      "porte": "2C",
+      "custoOperacional": 12.811,
+      "valorReferencia": 263.84,
+      "capitulo": null,
+      "grupo": "DIGESTIVO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.02.10-3",
+      "procedimento": "Cintilografia para pesquisa de refluxo gastroesofágico",
+      "porte": "2B",
+      "custoOperacional": 6.687,
+      "valorReferencia": 163.64,
+      "capitulo": null,
+      "grupo": "DIGESTIVO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.02.11-1",
+      "procedimento": "Fluxo sanguíneo hepático (qualitativo e quantitativo)",
+      "porte": "1C",
+      "custoOperacional": 4.782,
+      "valorReferencia": 107.11,
+      "capitulo": null,
+      "grupo": "DIGESTIVO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.03.01-0",
+      "procedimento": "Cintilografia da tireoide e/ou captação (iodo – 123)",
+      "porte": "2B",
+      "custoOperacional": 12.617,
+      "valorReferencia": 248.62,
+      "capitulo": null,
+      "grupo": "ENDÓCRINO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.03.02-9",
+      "procedimento": "Cintilografia da tireoide e/ou captação (iodo – 131)",
+      "porte": "2B",
+      "custoOperacional": 12.617,
+      "valorReferencia": 248.62,
+      "capitulo": null,
+      "grupo": "ENDÓCRINO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.03.03-7",
+      "procedimento": "Cintilografia da tireoide e/ou captação (tecnécio – 99m TC)",
+      "porte": "2B",
+      "custoOperacional": 8.927,
+      "valorReferencia": 195.74,
+      "capitulo": null,
+      "grupo": "ENDÓCRINO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.03.04-5",
+      "procedimento": "Cintilografia das paratireoides",
+      "porte": "2B",
+      "custoOperacional": 24.663,
+      "valorReferencia": 421.24,
+      "capitulo": null,
+      "grupo": "ENDÓCRINO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.03.05-3",
+      "procedimento": "Cintilografia de corpo inteiro para pesquisa de metástases (PCI)",
+      "porte": "3A",
+      "custoOperacional": 37.466,
+      "valorReferencia": 646.56,
+      "capitulo": null,
+      "grupo": "ENDÓCRINO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.03.06-1",
+      "procedimento": "Teste de estímulo com TSH recombinante",
+      "porte": "2B",
+      "custoOperacional": 7.513,
+      "valorReferencia": 175.48,
+      "capitulo": null,
+      "grupo": "ENDÓCRINO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.03.07-0",
+      "procedimento": "Teste de supressão da tireoide com T3",
+      "porte": "2B",
+      "custoOperacional": 4.56,
+      "valorReferencia": 133.16,
+      "capitulo": null,
+      "grupo": "ENDÓCRINO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.03.08-8",
+      "procedimento": "Teste do perclorato",
+      "porte": "2B",
+      "custoOperacional": 3.932,
+      "valorReferencia": 124.17,
+      "capitulo": null,
+      "grupo": "ENDÓCRINO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.04.01-7",
+      "procedimento": "Cintilografia renal dinâmica",
+      "porte": "2C",
+      "custoOperacional": 13.201,
+      "valorReferencia": 269.43,
+      "capitulo": null,
+      "grupo": "GENITURINÁRIO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.04.02-5",
+      "procedimento": "Cintilografia renal dinâmica com diurético",
+      "porte": "2C",
+      "custoOperacional": 21.191,
+      "valorReferencia": 383.93,
+      "capitulo": null,
+      "grupo": "GENITURINÁRIO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.04.03-3",
+      "procedimento": "Cintilografia renal estática (quantitativa ou qualitativa)",
+      "porte": "2C",
+      "custoOperacional": 11.747,
+      "valorReferencia": 248.59,
+      "capitulo": null,
+      "grupo": "GENITURINÁRIO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.04.04-1",
+      "procedimento": "Cintilografia testicular (escrotal)",
+      "porte": "2C",
+      "custoOperacional": 8.946,
+      "valorReferencia": 208.46,
+      "capitulo": null,
+      "grupo": "GENITURINÁRIO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.04.05-0",
+      "procedimento": "Cistocintilografia direta",
+      "porte": "2C",
+      "custoOperacional": 11.786,
+      "valorReferencia": 249.15,
+      "capitulo": null,
+      "grupo": "GENITURINÁRIO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.04.06-8",
+      "procedimento": "Cistocintilografia indireta",
+      "porte": "2B",
+      "custoOperacional": 10.435,
+      "valorReferencia": 217.35,
+      "capitulo": null,
+      "grupo": "GENITURINÁRIO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.04.07-6",
+      "procedimento": "Determinação da filtração glomerular",
+      "porte": "1C",
+      "custoOperacional": 2.539,
+      "valorReferencia": 74.96,
+      "capitulo": null,
+      "grupo": "GENITURINÁRIO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.04.08-4",
+      "procedimento": "Determinação do fluxo plasmático renal",
+      "porte": "1C",
+      "custoOperacional": 2.539,
+      "valorReferencia": 74.96,
+      "capitulo": null,
+      "grupo": "GENITURINÁRIO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.05.01-3",
+      "procedimento": "Cintilografia do sistema retículo-endotelial (medula óssea)",
+      "porte": "2C",
+      "custoOperacional": 5.234,
+      "valorReferencia": 155.26,
+      "capitulo": null,
+      "grupo": "HEMATOLÓGICO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.05.02-1",
+      "procedimento": "Demonstração do sequestro de hemácias pelo baço",
+      "porte": "2A",
+      "custoOperacional": 4.243,
+      "valorReferencia": 112.25,
+      "capitulo": null,
+      "grupo": "HEMATOLÓGICO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.05.03-0",
+      "procedimento": "Determinação da sobrevida de hemácias",
+      "porte": "1C",
+      "custoOperacional": 2.713,
+      "valorReferencia": 77.46,
+      "capitulo": null,
+      "grupo": "HEMATOLÓGICO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.05.04-8",
+      "procedimento": "Determinação do volume eritrocitário",
+      "porte": "1C",
+      "custoOperacional": 0.895,
+      "valorReferencia": 51.41,
+      "capitulo": null,
+      "grupo": "HEMATOLÓGICO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.05.05-6",
+      "procedimento": "Determinação do volume plasmático",
+      "porte": "1C",
+      "custoOperacional": 0.895,
+      "valorReferencia": 51.41,
+      "capitulo": null,
+      "grupo": "HEMATOLÓGICO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.05.06-4",
+      "procedimento": "Teste de absorção de vitamina B12 com cobalto – 57 (teste de Schilling)",
+      "porte": "1C",
+      "custoOperacional": 0.895,
+      "valorReferencia": 51.41,
+      "capitulo": null,
+      "grupo": "HEMATOLÓGICO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.06.01-0",
+      "procedimento": "Cintilografia óssea (corpo total)",
+      "porte": "2C",
+      "custoOperacional": 13.643,
+      "valorReferencia": 275.76,
+      "capitulo": null,
+      "grupo": "MÚSCULO–ESQUELÉTICO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.06.02-8",
+      "procedimento": "Fluxo sanguíneo ósseo",
+      "porte": "1C",
+      "custoOperacional": 3.419,
+      "valorReferencia": 87.57,
+      "capitulo": null,
+      "grupo": "MÚSCULO–ESQUELÉTICO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.07.01-6",
+      "procedimento": "Cintilografia cerebral",
+      "porte": "2A",
+      "custoOperacional": 9.236,
+      "valorReferencia": 183.8,
+      "capitulo": null,
+      "grupo": "NERVOSO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.07.02-4",
+      "procedimento": "Cintilografia cerebral com FDG-18 F, em câmara híbrida",
+      "porte": "3C",
+      "custoOperacional": 53.016,
+      "valorReferencia": 920.24,
+      "capitulo": null,
+      "grupo": "NERVOSO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.07.03-2",
+      "procedimento": "Cintilografia de perfusão cerebral",
+      "porte": "3B",
+      "custoOperacional": 13.997,
+      "valorReferencia": 340.72,
+      "capitulo": null,
+      "grupo": "NERVOSO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.07.09-1",
+      "procedimento": "Cintilografia de perfusão cerebral para avaliação de transporte de dopamina",
+      "porte": "3B",
+      "custoOperacional": 13.997,
+      "valorReferencia": 340.72,
+      "capitulo": null,
+      "grupo": "NERVOSO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.07.04-0",
+      "procedimento": "Cisternocintilografia",
+      "porte": "3B",
+      "custoOperacional": 32.535,
+      "valorReferencia": 606.37,
+      "capitulo": null,
+      "grupo": "NERVOSO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.07.05-9",
+      "procedimento": "Cisternocintilografia para pesquisa de fístula liquórica",
+      "porte": "3B",
+      "custoOperacional": 32.535,
+      "valorReferencia": 606.37,
+      "capitulo": null,
+      "grupo": "NERVOSO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.07.06-7",
+      "procedimento": "Fluxo sanguíneo cerebral",
+      "porte": "1C",
+      "custoOperacional": 4.296,
+      "valorReferencia": 100.14,
+      "capitulo": null,
+      "grupo": "NERVOSO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.07.07-5",
+      "procedimento": "Mielocintilografia",
+      "porte": "3B",
+      "custoOperacional": 14.087,
+      "valorReferencia": 342.01,
+      "capitulo": null,
+      "grupo": "NERVOSO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.07.08-3",
+      "procedimento": "Ventrículo-cintilografia",
+      "porte": "3B",
+      "custoOperacional": 14.087,
+      "valorReferencia": 342.01,
+      "capitulo": null,
+      "grupo": "NERVOSO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.08.01-2",
+      "procedimento": "Cintilografia com análogo de somatostatina",
+      "porte": "3A",
+      "custoOperacional": 18.48,
+      "valorReferencia": 374.49,
+      "capitulo": null,
+      "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.08.02-0",
+      "procedimento": "Cintilografia com gálio-67",
+      "porte": "3A",
+      "custoOperacional": 22.813,
+      "valorReferencia": 436.58,
+      "capitulo": null,
+      "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.08.03-9",
+      "procedimento": "Cintilografia com leucócitos marcados",
+      "porte": "3A",
+      "custoOperacional": 19.956,
+      "valorReferencia": 395.64,
+      "capitulo": null,
+      "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.08.04-7",
+      "procedimento": "Cintilografia com MIBG (metaiodobenzilguanidina)",
+      "porte": "3A",
+      "custoOperacional": 26.423,
+      "valorReferencia": 488.31,
+      "capitulo": null,
+      "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.08.05-5",
+      "procedimento": "Cintilografia de corpo total com FDG-18 F, em câmara híbrida",
+      "porte": "3C",
+      "custoOperacional": 53.016,
+      "valorReferencia": 920.24,
+      "capitulo": null,
+      "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.08.06-3",
+      "procedimento": "Cintilografia de mama (bilateral)",
+      "porte": "2C",
+      "custoOperacional": 24.613,
+      "valorReferencia": 432.96,
+      "capitulo": null,
+      "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.08.07-1",
+      "procedimento": "Demarcação radioisotópica de lesões tumorais",
+      "porte": "2C",
+      "custoOperacional": 14.347,
+      "valorReferencia": 285.85,
+      "capitulo": null,
+      "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.08.08-0",
+      "procedimento": "Detecção intraoperatória radioguiada de lesões tumorais",
+      "porte": "6A",
+      "custoOperacional": 14.347,
+      "valorReferencia": 523.24,
+      "capitulo": null,
+      "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.08.09-8",
+      "procedimento": "Detecção intraoperatória radioguiada de linfonodo sentinela",
+      "porte": "6A",
+      "custoOperacional": 14.347,
+      "valorReferencia": 523.24,
+      "capitulo": null,
+      "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
+    },
+    {
       "codigo": "4.07.08.15-2",
       "procedimento": "Laudo evolutivo de PET-CT por procedimento",
       "porte": "6C",
       "custoOperacional": null,
       "valorReferencia": 382.08,
+      "capitulo": null,
+      "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.08.10-1",
+      "procedimento": "Linfocintilografia",
+      "porte": "2C",
+      "custoOperacional": 7.877,
+      "valorReferencia": 193.14,
+      "capitulo": null,
+      "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.08.13-6",
+      "procedimento": "PET-CT neurológico com FDG",
+      "porte": "6C",
+      "custoOperacional": 127.4,
+      "valorReferencia": 2207.72,
+      "capitulo": null,
+      "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.08.12-8",
+      "procedimento": "PET dedicado oncológico",
+      "porte": "6C",
+      "custoOperacional": 127.4,
+      "valorReferencia": 2207.72,
+      "capitulo": null,
+      "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.08.11-0",
+      "procedimento": "Quantificação da captação pulmonar com gálio-67",
+      "porte": "2B",
+      "custoOperacional": 13.608,
+      "valorReferencia": 262.82,
       "capitulo": null,
       "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
     },
@@ -37063,11 +37702,92 @@
       "grupo": "ONCOLOGIA/INFECTOLOGIA – IN VIVO"
     },
     {
+      "codigo": "4.07.09.01-9",
+      "procedimento": "Cintilografia para detecção de aspiração pulmonar",
+      "porte": "2A",
+      "custoOperacional": 4.79,
+      "valorReferencia": 120.09,
+      "capitulo": null,
+      "grupo": "RESPIRATÓRIO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.09.02-7",
+      "procedimento": "Cintilografia pulmonar (inalação)",
+      "porte": "2C",
+      "custoOperacional": 10.66,
+      "valorReferencia": 233.02,
+      "capitulo": null,
+      "grupo": "RESPIRATÓRIO – IN VIVO"
+    },
+    {
+      "codigo": "4.07.09.03-5",
+      "procedimento": "Cintilografia pulmonar (perfusão)",
+      "porte": "2C",
+      "custoOperacional": 8.853,
+      "valorReferencia": 207.12,
+      "capitulo": null,
+      "grupo": "RESPIRATÓRIO – IN VIVO"
+    },
+    {
       "codigo": "4.07.10.01-7",
       "procedimento": "Sessão médica para planejamento técnico de radioisotopoterapia",
       "porte": "2C",
       "custoOperacional": null,
       "valorReferencia": 80.26,
+      "capitulo": null,
+      "grupo": "TERAPIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.10.02-5",
+      "procedimento": "Tratamento com metaiodobenzilguanidina (MIBG)",
+      "porte": "5A",
+      "custoOperacional": 16.086,
+      "valorReferencia": 484.85,
+      "capitulo": null,
+      "grupo": "TERAPIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.10.04-1",
+      "procedimento": "Tratamento de câncer da tireoide",
+      "porte": "5A",
+      "custoOperacional": 21.739,
+      "valorReferencia": 565.86,
+      "capitulo": null,
+      "grupo": "TERAPIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.10.05-0",
+      "procedimento": "Tratamento de hipertireoidismo-bócio nodular tóxico (Graves)",
+      "porte": "3B",
+      "custoOperacional": 3.913,
+      "valorReferencia": 196.21,
+      "capitulo": null,
+      "grupo": "TERAPIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.10.06-8",
+      "procedimento": "Tratamento de hipertireoidismo-bócio nodular tóxico (Plummer)",
+      "porte": "3B",
+      "custoOperacional": 3.913,
+      "valorReferencia": 196.21,
+      "capitulo": null,
+      "grupo": "TERAPIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.10.07-6",
+      "procedimento": "Tratamento de metástases ósseas (estrôncio-90)",
+      "porte": "3B",
+      "custoOperacional": 9.434,
+      "valorReferencia": 275.33,
+      "capitulo": null,
+      "grupo": "TERAPIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.10.08-4",
+      "procedimento": "Tratamento de metástases ósseas (samário-153)",
+      "porte": "3B",
+      "custoOperacional": 9.434,
+      "valorReferencia": 275.33,
       "capitulo": null,
       "grupo": "TERAPIA – IN VIVO"
     },
@@ -37088,6 +37808,33 @@
       "valorReferencia": 80.26,
       "capitulo": null,
       "grupo": "TERAPIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.10.09-2",
+      "procedimento": "Tratamento de tumores neuroendócrinos",
+      "porte": "5A",
+      "custoOperacional": 16.08,
+      "valorReferencia": 484.77,
+      "capitulo": null,
+      "grupo": "TERAPIA – IN VIVO"
+    },
+    {
+      "codigo": "4.07.11.01-3",
+      "procedimento": "Dacriocintilografia",
+      "porte": "1C",
+      "custoOperacional": 8.898,
+      "valorReferencia": 166.09,
+      "capitulo": null,
+      "grupo": "OUTROS – IN VIVO"
+    },
+    {
+      "codigo": "4.07.11.02-1",
+      "procedimento": "Imunocintilografia (anticorpos monoclonais)",
+      "porte": "3A",
+      "custoOperacional": 21.913,
+      "valorReferencia": 423.68,
+      "capitulo": null,
+      "grupo": "OUTROS – IN VIVO"
     },
     {
       "codigo": "4.08.01.12-8",

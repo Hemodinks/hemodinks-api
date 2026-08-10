@@ -1,6 +1,5 @@
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Infrastructure.Storage;
-using HemodinksAPI.Infrastructure.Utils;
 
 namespace HemodinksAPI.Api;
 

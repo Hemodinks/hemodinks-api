@@ -75,6 +75,12 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 throw new UnauthorizedAccessException("Sem permissao para atualizar usuario");
             }
 
+            if (user.PerfilId == Perfil.SuperAdministradorId
+                && request.CurrentUser?.IsSuperAdministrador != true)
+            {
+                throw new UnauthorizedAccessException("Somente outro SuperAdministrador pode alterar este cadastro");
+            }
+
             if (request.CurrentUser != null && !request.CurrentUser.IsAdministrador)
             {
                 effectivePerfilId = user.PerfilId;

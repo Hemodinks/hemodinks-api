@@ -24,6 +24,8 @@ public class AppDbContext : DbContext, IAppDbContext
 
     public DbSet<UsuarioClinica> UsuariosClinicas { get; set; } = null!;
 
+    public DbSet<AuthenticationSession> AuthenticationSessions { get; set; } = null!;
+
     public DbSet<AuditoriaPlataforma> AuditoriasPlataforma { get; set; } = null!;
 
     public DbSet<Equipe> Equipes { get; set; } = null!;
@@ -44,6 +46,18 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<Paciente> Pacientes { get; set; } = null!;
 
     public DbSet<FaturamentoMedico> FaturamentosMedicos { get; set; } = null!;
+
+    public DbSet<AtendimentoCirurgico> AtendimentosCirurgicos { get; set; } = null!;
+    public DbSet<AtendimentoProcedimento> AtendimentoProcedimentos { get; set; } = null!;
+    public DbSet<AtendimentoArquivo> AtendimentoArquivos { get; set; } = null!;
+    public DbSet<Faturamento> Faturamentos { get; set; } = null!;
+    public DbSet<FaturamentoItem> FaturamentoItens { get; set; } = null!;
+    public DbSet<Glosa> Glosas { get; set; } = null!;
+    public DbSet<RecursoGlosa> RecursosGlosa { get; set; } = null!;
+    public DbSet<ContaReceber> ContasReceber { get; set; } = null!;
+    public DbSet<Recebimento> Recebimentos { get; set; } = null!;
+    public DbSet<ConvenioProcedimentoPreco> ConvenioProcedimentoPrecos { get; set; } = null!;
+    public DbSet<FinanceiroMigracaoInconsistencia> FinanceiroMigracaoInconsistencias { get; set; } = null!;
 
     public DbSet<Observacao> Observacoes { get; set; } = null!;
 

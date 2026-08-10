@@ -25,7 +25,7 @@ PORTE_TOKEN_RE = r"(?:\d{1,2}[ABC]|0,\d{1,2}\s+de\s+\d{1,2}[ABC])"
 COST_TOKEN_RE = r"(?:\d{1,6},\d{3,4}|[-\u2013])"
 PORTE_RE = re.compile(
     rf"(?P<porte>{PORTE_TOKEN_RE})(?:\s+(?P<custo>{COST_TOKEN_RE}))?"
-    rf"(?P<extra>(?:\s+(?:\d+|[-\u2013]|\d+,\d{{3,4}}))*)\s*$",
+    rf"(?P<extra>(?:\s+(?:\d+|[-\u2013*]|\d+,\d{{3,4}}))*)\s*$",
     re.IGNORECASE,
 )
 PORTE_FRACIONARIO_RE = re.compile(

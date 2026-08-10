@@ -42,19 +42,9 @@ internal static class PacienteCommandValidator
             throw new InvalidOperationException("Nome do paciente obrigatorio");
         }
 
-        if (diagnostico?.Trim().Length > 100)
-        {
-            throw new InvalidOperationException("Diagnostico excede 100 caracteres");
-        }
+        if (diagnostico?.Trim().Length > 100) throw new InvalidOperationException("Diagnostico excede 100 caracteres");
+        if (tratamentoMedico?.Trim().Length > 100) throw new InvalidOperationException("Tratamento medico excede 100 caracteres");
+        if (opmeFornecedor?.Trim().Length > 255) throw new InvalidOperationException("Fornecedor OPME excede 255 caracteres");
 
-        if (tratamentoMedico?.Trim().Length > 100)
-        {
-            throw new InvalidOperationException("Tratamento medico excede 100 caracteres");
-        }
-
-        if (opmeFornecedor?.Trim().Length > 255)
-        {
-            throw new InvalidOperationException("Fornecedor OPME excede 255 caracteres");
-        }
     }
 }

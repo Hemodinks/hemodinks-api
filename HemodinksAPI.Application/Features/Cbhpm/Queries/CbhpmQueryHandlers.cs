@@ -110,7 +110,11 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
         return query.Where(item =>
             EF.Functions.Like(item.Codigo, originalPattern, LikeEscapeCharacter)
             || EF.Functions.Like(
-                item.Codigo.Replace(".", string.Empty).Replace("-", string.Empty),
+                item.Codigo
+                    .Replace(".", string.Empty)
+                    .Replace("-", string.Empty)
+                    .Replace("/", string.Empty)
+                    .Replace(" ", string.Empty),
                 normalizedPattern,
                 LikeEscapeCharacter));
     }
@@ -168,7 +172,11 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
             EF.Functions.Like(item.Codigo, codigoPattern, LikeEscapeCharacter)
             || (normalizedCodigoPattern != null
                 && EF.Functions.Like(
-                    item.Codigo.Replace(".", string.Empty).Replace("-", string.Empty),
+                    item.Codigo
+                        .Replace(".", string.Empty)
+                        .Replace("-", string.Empty)
+                        .Replace("/", string.Empty)
+                        .Replace(" ", string.Empty),
                     normalizedCodigoPattern,
                     LikeEscapeCharacter))
             || EF.Functions.Like(item.Procedimento.ToUpper(), searchPattern, LikeEscapeCharacter)

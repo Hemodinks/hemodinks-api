@@ -58,7 +58,7 @@ dotnet user-secrets set --project HemodinksAPI.Api "ConnectionStrings:DefaultCon
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:SecretKey" "troque_por_uma_chave_com_32_caracteres_ou_mais"
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Issuer" "HemodinksAPI"
 dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:Audience" "HemodinksAPI"
-dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:ExpirationMinutes" "60"
+dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:ExpirationMinutes" "30"
 dotnet run --project HemodinksAPI.Api
 ```
 

@@ -9,7 +9,6 @@ using HemodinksAPI.Application.Services;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Data;
-using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 

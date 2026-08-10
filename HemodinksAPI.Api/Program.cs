@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json.Serialization;
 using HemodinksAPI.Api;
 using HemodinksAPI.Infrastructure.Storage;
 using Microsoft.Extensions.FileProviders;
@@ -6,6 +7,7 @@ using Serilog;
 using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Configuration.AddNonProductionUserSecretsFallback(builder.Environment);
 builder.AddServiceDefaults();
 
@@ -26,6 +28,34 @@ builder.Services
     .AddApiDocumentation();
 
 var app = builder.Build();
+app.Use(async (context, next) =>
+{
+    try
+    {
+        await next();
+    }
+    catch (BadHttpRequestException exception)
+    {
+        app.Logger.LogWarning(exception, "Invalid request body for {Path}", context.Request.Path);
+        if (context.Response.HasStarted) throw;
+        context.Response.StatusCode = StatusCodes.Status400BadRequest;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            message = "Alguns campos estao ausentes ou possuem formato invalido. Revise os dados informados."
+        });
+    }
+});
+app.UseStatusCodePages(async statusCodeContext =>
+{
+    var response = statusCodeContext.HttpContext.Response;
+    if (response.StatusCode == StatusCodes.Status400BadRequest)
+    {
+        await response.WriteAsJsonAsync(new
+        {
+            message = "Alguns campos estao ausentes ou possuem formato invalido. Revise os dados informados."
+        });
+    }
+});
 var newRelicProfilingEnabled = string.Equals(app.Configuration["CORECLR_ENABLE_PROFILING"], "1", StringComparison.Ordinal);
 var newRelicAppNameConfigured = !string.IsNullOrWhiteSpace(app.Configuration["NEW_RELIC_APP_NAME"]);
 app.Logger.LogInformation(
@@ -67,7 +97,9 @@ app.UseSerilogRequestLogging(options =>
     options.MessageTemplate = "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms [request_id: {TraceIdentifier}, trace_id: {TraceId}, span_id: {SpanId}]";
     options.GetLevel = (httpContext, _, exception) =>
     {
-        if (httpContext.Request.Path.StartsWithSegments("/healthz"))
+        if (httpContext.Request.Path.StartsWithSegments("/healthz")
+            || httpContext.Request.Path.StartsWithSegments("/readyz")
+            || httpContext.Request.Path.StartsWithSegments("/livez"))
         {
             return LogEventLevel.Verbose;
         }
@@ -95,6 +127,7 @@ app.UseHttpsRedirection();
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();
+app.UseMiddleware<AuthenticationSessionMiddleware>();
 app.UseMiddleware<ClinicaResolutionMiddleware>();
 app.UseMiddleware<ClinicaModuleAccessMiddleware>();
 app.UseAuthorization();

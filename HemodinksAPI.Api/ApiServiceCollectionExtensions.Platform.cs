@@ -3,7 +3,6 @@ using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Infrastructure.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi;
 
 namespace HemodinksAPI.Api;
@@ -40,7 +39,8 @@ public static partial class ApiServiceCollectionExtensions
             {
                 policy.WithOrigins(allowedOrigins)
                     .AllowAnyHeader()
-                    .AllowAnyMethod();
+                    .AllowAnyMethod()
+                    .AllowCredentials();
             });
         });
 

@@ -1,8 +1,9 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Cbhpm;
-using HemodinksAPI.Application.Features.Faturamentos;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
+using HemodinksAPI.Application.Features.Users.Commands;
+using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Application.Utils;
@@ -20,20 +21,23 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
     private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<CreatePacienteCommandHandler> _logger;
+    private readonly IPasswordResetNotificationSender? _passwordResetNotificationSender;
 
     public CreatePacienteCommandHandler(
         IAppDbContext context,
         ICbhpmCache cbhpmCache,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
-        ILogger<CreatePacienteCommandHandler> logger)
+        ILogger<CreatePacienteCommandHandler> logger,
+        IPasswordResetNotificationSender? passwordResetNotificationSender = null)
         : this(
             context,
             cbhpmCache,
             passwordHasher,
             profilePhotoStorage,
             ClinicaContextFactory.CreateDefaultResolved(),
-            logger)
+            logger,
+            passwordResetNotificationSender)
     {
     }
 
@@ -43,7 +47,8 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
         IClinicaContext clinicaContext,
-        ILogger<CreatePacienteCommandHandler> logger)
+        ILogger<CreatePacienteCommandHandler> logger,
+        IPasswordResetNotificationSender? passwordResetNotificationSender = null)
     {
         _context = context;
         _cbhpmCache = cbhpmCache;
@@ -51,6 +56,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
         _profilePhotoStorage = profilePhotoStorage;
         _clinicaContext = clinicaContext;
         _logger = logger;
+        _passwordResetNotificationSender = passwordResetNotificationSender;
     }
 
     public async Task<PacienteDto> Handle(CreatePacienteCommand request, CancellationToken cancellationToken)
@@ -96,30 +102,15 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 request.MedicoAuxiliar2,
                 cancellationToken);
             PacienteRules.ValidateDistinctMedicos(medico, medicoAuxiliar1, medicoAuxiliar2);
-            var hospital = await PacienteRules.ResolveHospitalAsync(
-                _context,
-                request.HospitalId,
-                request.Hospital,
-                cancellationToken);
-            var convenio = await PacienteRules.ResolveConvenioAsync(
-                _context,
-                request.ConvenioId,
-                request.Convenio,
-                cancellationToken);
-            var opmeFornecedor = await PacienteRules.ResolveOpmeFornecedorAsync(
-                _context,
-                request.OpmeFornecedorId,
-                request.OpmeFornecedor,
-                cancellationToken);
-            var procedimentos = await PacienteRules.ResolveProcedimentosAsync(
-                _cbhpmCache,
-                request.Procedimentos,
-                request.CbhpmCodigo,
-                request.Procedimento,
-                request.CbhpmPorte,
-                cancellationToken);
+            var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
+                ? await PacienteRules.ResolveHospitalAsync(_context, request.HospitalId, request.Hospital, cancellationToken)
+                : null;
+            var convenio = await PacienteRules.ResolveConvenioAsync(_context, request.ConvenioId, request.Convenio, cancellationToken);
+            var opmeFornecedor = await PacienteRules.ResolveOpmeFornecedorAsync(_context, request.OpmeFornecedorId, request.OpmeFornecedor, cancellationToken);
+            var procedimentos = await PacienteRules.ResolveProcedimentosAsync(_cbhpmCache, request.Procedimentos,
+                request.CbhpmCodigo, request.Procedimento, request.CbhpmPorte, cancellationToken);
             var procedimentoPrincipal = procedimentos.FirstOrDefault();
-
+            var temporaryPassword = TemporaryPasswordGenerator.Generate();
             var user = new User
             {
                 ClinicaId = clinicaId,
@@ -128,7 +119,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 Telefone = telefone,
                 Cpf = cpf,
                 FotoPerfil = fotoPerfil,
-                Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
+                Senha = _passwordHasher.HashPassword(temporaryPassword),
                 DataCadastro = DateTime.UtcNow,
                 DataNascimento = request.DataNascimento,
                 Ativo = request.Ativo,
@@ -149,9 +140,9 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 NomePaciente = user.Nome,
                 Diagnostico = diagnostico,
                 TratamentoMedico = tratamentoMedico,
-                HospitalId = hospital.Id,
-                HospitalReferencia = hospital.Referencia,
-                Hospital = hospital.Nome,
+                HospitalId = hospital?.Id,
+                HospitalReferencia = hospital?.Referencia,
+                Hospital = hospital?.Nome,
                 MedicoUserId = medico.UserId,
                 Medico = medico.Nome,
                 MedicoAuxiliar1UserId = medicoAuxiliar1.UserId,
@@ -175,10 +166,17 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             };
 
             _context.Pacientes.Add(paciente);
-            FaturamentoMedicoSync.EnsureSynced(paciente, DateTime.UtcNow);
             await _context.SaveChangesAsync(cancellationToken);
 
-            return PacienteMapper.ToDto(paciente);
+            var invitationSent = await FirstAccessInvitation.TrySendAsync(
+                _context,
+                _passwordResetNotificationSender,
+                user,
+                _logger,
+                cancellationToken);
+            var response = PacienteMapper.ToDto(paciente);
+            response.ConvitePrimeiroAcessoEnviado = invitationSent;
+            return response;
         }
         catch (Exception ex)
         {

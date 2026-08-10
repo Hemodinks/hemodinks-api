@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using HemodinksAPI.Application.Features.Events;
-using HemodinksAPI.Application.Features.Events.Commands;
 using HemodinksAPI.Application.Features.Events.Queries;
 using MediatR;
 

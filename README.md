@@ -153,6 +153,10 @@ O login retorna um JWT usado em:
 Authorization: Bearer <token>
 ```
 
+O login tambem grava um refresh token rotativo em cookie `HttpOnly`. A sessao expira depois de 30 minutos sem requisicoes autenticadas, mas permanece ativa durante o uso continuo. O refresh, isoladamente, nao conta como atividade e nao consegue manter uma sessao ociosa viva.
+
+Clientes web devem usar `credentials: "include"` no login, refresh e logout. Ao se aproximar do vencimento do JWT (ou ao receber `401`), devem enviar um corpo JSON vazio (`{}`) para `POST /api/session/renovar`, armazenar o novo JWT e repetir a requisicao original. Interacoes locais que nao chamam a API podem ser registradas, com debounce, em `POST /api/session/atividade`. O logout tambem recebe `{}`.
+
 Perfis seedados:
 
 | Id | Perfil |
@@ -328,7 +332,9 @@ Entidades principais:
 - `IdempotencyRequests`
 - `CBHPMGeral`
 
-Migrations rodam no startup quando `Database__RunMigrationsOnStartup=true`.
+Em desenvolvimento, migrations podem rodar no startup com `Database__RunMigrationsOnStartup=true`.
+Em produção, mantenha essa opção desabilitada e use o workflow manual `Apply Production Migrations`
+antes de publicar a imagem que depende do novo schema.
 
 ## Documentacao interativa
 

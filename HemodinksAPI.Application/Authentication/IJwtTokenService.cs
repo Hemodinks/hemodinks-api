@@ -9,6 +9,14 @@ public interface IJwtTokenService
 {
     string GenerateToken(User user);
 
+    string GenerateToken(User user, Guid? sessionId);
+
+    string GenerateToken(
+        UsuarioGlobal usuarioGlobal,
+        UsuarioClinica usuarioClinica,
+        User user,
+        Guid? sessionId);
+
     string GenerateToken(
         UsuarioGlobal usuarioGlobal,
         UsuarioClinica usuarioClinica,

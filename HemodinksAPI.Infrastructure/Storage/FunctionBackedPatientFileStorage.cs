@@ -1,5 +1,3 @@
-using HemodinksAPI.Application.Storage;
-
 namespace HemodinksAPI.Infrastructure.Storage;
 
 public class FunctionBackedPatientFileStorage : IPatientFileStorage

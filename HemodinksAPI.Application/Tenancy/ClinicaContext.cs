@@ -1,5 +1,4 @@
 using HemodinksAPI.Application.Authorization;
-using HemodinksAPI.Domain.Models;
 
 namespace HemodinksAPI.Application.Tenancy;
 

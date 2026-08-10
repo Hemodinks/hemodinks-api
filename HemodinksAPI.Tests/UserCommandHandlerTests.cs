@@ -1,14 +1,10 @@
-using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Application.Services;
-using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 using HemodinksAPI.Infrastructure.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -68,13 +64,15 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
+        var invitationSender = new RecordingPasswordResetNotificationSender();
         var handler = new CreateUserCommandHandler(
             context,
             hasher,
             new FakeProfilePhotoStorage(),
             new UserPatientSyncService(context),
             Options.Create(new LicencaOptions()),
-            NullLogger<CreateUserCommandHandler>.Instance);
+            NullLogger<CreateUserCommandHandler>.Instance,
+            invitationSender);
 
         var response = await handler.Handle(new CreateUserCommand
         {
@@ -103,7 +101,11 @@ public partial class UserCommandHandlerTests
         Assert.Equal("12345", response.Crm);
         Assert.Equal("PE", response.CrmUf);
         Assert.Equal("Médicos", response.PerfilNome);
-        Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+        Assert.True(response.ConvitePrimeiroAcessoEnviado);
+        Assert.Single(invitationSender.Notifications);
+        Assert.Equal(storedUser.Email, invitationSender.Notifications[0].Email);
+        Assert.NotEmpty(await context.PasswordResetTokens.ToListAsync());
+        Assert.False(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
         Assert.NotNull(await context.Licencas.SingleOrDefaultAsync(item => item.UserId == storedUser.Id));
     }
 

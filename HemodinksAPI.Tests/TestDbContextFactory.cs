@@ -116,6 +116,17 @@ internal sealed class RelationalCbhpmTestAppDbContext : IAppDbContext
     public DbSet<Perfil> Perfis => throw new NotSupportedException();
     public DbSet<Paciente> Pacientes => throw new NotSupportedException();
     public DbSet<FaturamentoMedico> FaturamentosMedicos => throw new NotSupportedException();
+    public DbSet<AtendimentoCirurgico> AtendimentosCirurgicos => throw new NotSupportedException();
+    public DbSet<AtendimentoProcedimento> AtendimentoProcedimentos => throw new NotSupportedException();
+    public DbSet<AtendimentoArquivo> AtendimentoArquivos => throw new NotSupportedException();
+    public DbSet<Faturamento> Faturamentos => throw new NotSupportedException();
+    public DbSet<FaturamentoItem> FaturamentoItens => throw new NotSupportedException();
+    public DbSet<Glosa> Glosas => throw new NotSupportedException();
+    public DbSet<RecursoGlosa> RecursosGlosa => throw new NotSupportedException();
+    public DbSet<ContaReceber> ContasReceber => throw new NotSupportedException();
+    public DbSet<Recebimento> Recebimentos => throw new NotSupportedException();
+    public DbSet<ConvenioProcedimentoPreco> ConvenioProcedimentoPrecos => throw new NotSupportedException();
+    public DbSet<FinanceiroMigracaoInconsistencia> FinanceiroMigracaoInconsistencias => throw new NotSupportedException();
     public DbSet<Observacao> Observacoes => throw new NotSupportedException();
     public DbSet<GrupoMedico> GruposMedicos => throw new NotSupportedException();
     public DbSet<GrupoMedicoUsuario> GrupoMedicoUsuarios => throw new NotSupportedException();

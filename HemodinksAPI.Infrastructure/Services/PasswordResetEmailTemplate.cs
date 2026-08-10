@@ -1,5 +1,4 @@
 using System.Text.Encodings.Web;
-using HemodinksAPI.Application.Services;
 
 namespace HemodinksAPI.Infrastructure.Services;
 

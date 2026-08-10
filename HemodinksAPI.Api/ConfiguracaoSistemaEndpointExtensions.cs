@@ -1,4 +1,3 @@
-using HemodinksAPI.Application.Features.ConfiguracoesSistema.Commands;
 using HemodinksAPI.Application.Features.ConfiguracoesSistema.Queries;
 using MediatR;
 

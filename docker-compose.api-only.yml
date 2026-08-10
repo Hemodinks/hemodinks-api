@@ -22,7 +22,7 @@ services:
       JwtSettings__SecretKey: "${JWT_SECRET_KEY:?Set JWT_SECRET_KEY in .env}"
       JwtSettings__Issuer: "${JWT_ISSUER:-HemodinksAPI}"
       JwtSettings__Audience: "${JWT_AUDIENCE:-HemodinksAPI}"
-      JwtSettings__ExpirationMinutes: "${JWT_EXPIRATION_MINUTES:-60}"
+      JwtSettings__ExpirationMinutes: "${JWT_EXPIRATION_MINUTES:-30}"
       PasswordReset__UseEmail: "${PasswordReset__UseEmail:-true}"
       AsyncQueues__Enabled: "${AsyncQueues__Enabled:-false}"
       AsyncQueues__PasswordResetEnabled: "${AsyncQueues__PasswordResetEnabled:-false}"
