@@ -8,6 +8,7 @@ public class Paciente : IClinicaOwnedEntity
     public int UserId { get; set; }
     public User User { get; set; } = null!;
     public DateTime? Data { get; set; }
+    public DateTime? DataAtendimento { get; set; }
     public string NomePaciente { get; set; } = null!;
     public string? Diagnostico { get; set; }
     public string? TratamentoMedico { get; set; }

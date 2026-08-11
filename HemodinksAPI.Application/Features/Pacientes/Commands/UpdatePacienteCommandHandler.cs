@@ -124,6 +124,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             paciente.User.DataAtualizacao = DateTime.UtcNow;
 
             paciente.Data = request.Data;
+            paciente.DataAtendimento = request.DataAtendimento;
             paciente.NomePaciente = paciente.User.Nome;
             paciente.Diagnostico = PacienteRules.TrimAndValidateOptional(request.Diagnostico, 100, "Diagnostico excede 100 caracteres");
             paciente.TratamentoMedico = PacienteRules.TrimAndValidateOptional(request.TratamentoMedico, 100, "Tratamento medico excede 100 caracteres");

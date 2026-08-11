@@ -340,13 +340,16 @@ public partial class ApiEndpointIntegrationTests
     {
         using var factory = new HemodinksApiFactory();
         var beta = await SeedClinicaBetaAsync(factory);
+        var betaDoctorGlobalId = 0;
         using (var seedScope = factory.Services.CreateScope())
         {
             var seedContext = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
             seedScope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>().SetPlatformScope();
             var betaDoctor = await seedContext.Users.SingleAsync(item =>
                 item.ClinicaId == beta.Id && item.Email == "dra.beta@hemodinks.com");
-            await GlobalIdentityService.EnsureForUserAsync(seedContext, betaDoctor, CancellationToken.None);
+            var betaMembership = await GlobalIdentityService.EnsureForUserAsync(
+                seedContext, betaDoctor, CancellationToken.None);
+            betaDoctorGlobalId = betaMembership.UsuarioGlobalId;
         }
         using var client = factory.CreateClient();
         await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
@@ -377,14 +380,25 @@ public partial class ApiEndpointIntegrationTests
         using var usersJson = await ReadJsonAsync(usersResponse);
         var candidates = usersJson.RootElement.EnumerateArray().ToArray();
         Assert.All(candidates, item => Assert.Contains(item.GetProperty("perfilId").GetInt32(), new[] { Perfil.MedicosId, Perfil.ControllerId, Perfil.EquipeId }));
-        var importedCandidate = candidates.Single(item => item.GetProperty("email").GetString() == "dra.beta@hemodinks.com");
-        Assert.False(importedCandidate.GetProperty("cadastradoNaClinica").GetBoolean());
-        var localCandidate = candidates.First(item => item.GetProperty("cadastradoNaClinica").GetBoolean());
-        var selectedGlobalIds = new[]
-        {
-            importedCandidate.GetProperty("usuarioGlobalId").GetInt32(),
-            localCandidate.GetProperty("usuarioGlobalId").GetInt32()
-        };
+        Assert.DoesNotContain(candidates, item => item.GetProperty("email").GetString() == "dra.beta@hemodinks.com");
+
+        var crossClinicAssociationResponse = await client.PostAsJsonAsync(
+            $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}/membros",
+            new
+            {
+                usuarioGlobalIds = new[] { betaDoctorGlobalId },
+                novosUsuarios = Array.Empty<object>(),
+                gerarPin = false
+            });
+        Assert.Equal(HttpStatusCode.BadRequest, crossClinicAssociationResponse.StatusCode);
+
+        var localCandidate = candidates.First(item =>
+            item.GetProperty("cadastradoNaClinica").GetBoolean()
+            && item.GetProperty("usuarioGlobalId").ValueKind == JsonValueKind.Number
+            && item.GetProperty("perfilId").GetInt32() is Perfil.MedicosId or Perfil.ControllerId);
+        var selectedGlobalIds = new[] { localCandidate.GetProperty("usuarioGlobalId").GetInt32() };
+        var selectedUserId = localCandidate.GetProperty("userIdNaClinica").GetInt32();
+        var selectedName = localCandidate.GetProperty("nome").GetString();
 
         var modeResponse = await client.PutAsJsonAsync(
             $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}",
@@ -402,12 +416,11 @@ public partial class ApiEndpointIntegrationTests
         addMemberResponse.EnsureSuccessStatusCode();
         using var addMemberJson = await ReadJsonAsync(addMemberResponse);
         var associations = addMemberJson.RootElement.GetProperty("associados").EnumerateArray().ToArray();
-        Assert.Equal(3, associations.Length);
+        Assert.Equal(2, associations.Length);
         Assert.All(associations, item => Assert.Equal(6, item.GetProperty("pinTemporario").GetString()!.Length));
-        var importedAssociation = associations.Single(item => item.GetProperty("nome").GetString() == beta.DoctorName);
+        var selectedAssociation = associations.Single(item => item.GetProperty("nome").GetString() == selectedName);
         var createdAssociation = associations.Single(item => item.GetProperty("nome").GetString() == "Raquel Fernandes");
-        var operatorId = importedAssociation.GetProperty("operadorId").GetInt32();
-        var importedUserId = importedAssociation.GetProperty("userId").GetInt32();
+        var operatorId = selectedAssociation.GetProperty("operadorId").GetInt32();
         var createdUserId = createdAssociation.GetProperty("userId").GetInt32();
 
         var candidatesAfterCreationResponse = await client.GetAsync($"/api/platform/clinicas/{Clinica.DefaultId}/equipes/usuarios");
@@ -462,15 +475,14 @@ public partial class ApiEndpointIntegrationTests
         Assert.Equal(6, resetPinJson.RootElement.GetProperty("pinTemporario").GetString()!.Length);
 
         var removeMemberResponse = await client.DeleteAsync(
-            $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}/membros/{importedUserId}");
+            $"/api/platform/clinicas/{Clinica.DefaultId}/equipes/{teamId}/membros/{selectedUserId}");
         Assert.Equal(HttpStatusCode.NoContent, removeMemberResponse.StatusCode);
 
         using var scope = factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var importedUser = await context.Users.IgnoreQueryFilters().SingleAsync(item => item.Id == importedUserId);
-        Assert.Equal(Clinica.DefaultId, importedUser.ClinicaId);
-        Assert.Equal(Perfil.EquipeId, importedUser.PerfilId);
-        Assert.Equal("dra.beta@hemodinks.com", importedUser.Email);
+        var selectedUser = await context.Users.IgnoreQueryFilters().SingleAsync(item => item.Id == selectedUserId);
+        Assert.Equal(Clinica.DefaultId, selectedUser.ClinicaId);
+        Assert.Contains(selectedUser.PerfilId, new[] { Perfil.MedicosId, Perfil.ControllerId });
         var createdUser = await context.Users.IgnoreQueryFilters().SingleAsync(item => item.Id == createdUserId);
         Assert.Equal(Clinica.DefaultId, createdUser.ClinicaId);
         Assert.Equal(Perfil.EquipeId, createdUser.PerfilId);
@@ -486,6 +498,77 @@ public partial class ApiEndpointIntegrationTests
             item.Acao == "team.create" && item.ClinicaId == Clinica.DefaultId && item.Sucesso));
         Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
             item.Acao == "team.member.add" && item.ClinicaId == Clinica.DefaultId && item.Sucesso));
+    }
+
+    [Fact]
+    public async Task ClinicEmployeeLimit_DoesNotCountTeamLoginOrPlatformShadowUser()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var slug = $"clinica-limite-{Guid.NewGuid():N}";
+        var createResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica com Limite",
+            slug,
+            administradorNome = "Administradora Limite",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLimite@123",
+            limiteUsuarios = 3,
+            equipeInicial = new
+            {
+                nome = "Equipe Limite",
+                email = $"equipe-{Guid.NewGuid():N}@example.com",
+                senha = "EquipeLimite@123",
+                modoIdentificacao = "Selecao"
+            }
+        });
+        createResponse.EnsureSuccessStatusCode();
+        using var createJson = await ReadJsonAsync(createResponse);
+        var clinicId = createJson.RootElement.GetProperty("id").GetInt32();
+        Assert.Equal(1, createJson.RootElement.GetProperty("usuarios").GetInt32());
+
+        var switchResponse = await client.PostAsJsonAsync("/api/session/selecionar-clinica", new
+        {
+            clinicaId = clinicId
+        });
+        switchResponse.EnsureSuccessStatusCode();
+        using var switchJson = await ReadJsonAsync(switchResponse);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
+            "Bearer",
+            switchJson.RootElement.GetProperty("token").GetString());
+
+        var teamsResponse = await client.GetAsync($"/api/platform/clinicas/{clinicId}/equipes");
+        teamsResponse.EnsureSuccessStatusCode();
+        using var teamsJson = await ReadJsonAsync(teamsResponse);
+        var teamId = teamsJson.RootElement.EnumerateArray().Single().GetProperty("id").GetInt32();
+
+        var fillLimitResponse = await client.PostAsJsonAsync(
+            $"/api/platform/clinicas/{clinicId}/equipes/{teamId}/membros",
+            new
+            {
+                usuarioGlobalIds = Array.Empty<int>(),
+                novosUsuarios = new[]
+                {
+                    new { nome = "Funcionario Um", telefone = (string?)null },
+                    new { nome = "Funcionario Dois", telefone = (string?)null }
+                },
+                gerarPin = false
+            });
+        Assert.True(
+            fillLimitResponse.IsSuccessStatusCode,
+            await fillLimitResponse.Content.ReadAsStringAsync());
+
+        var exceedLimitResponse = await client.PostAsJsonAsync(
+            $"/api/platform/clinicas/{clinicId}/equipes/{teamId}/membros",
+            new
+            {
+                usuarioGlobalIds = Array.Empty<int>(),
+                novosUsuarios = new[] { new { nome = "Funcionario Excedente", telefone = (string?)null } },
+                gerarPin = false
+            });
+        Assert.Equal(HttpStatusCode.Conflict, exceedLimitResponse.StatusCode);
     }
 
     [Fact]
@@ -626,7 +709,10 @@ public partial class ApiEndpointIntegrationTests
             platformClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue(
                 "Bearer",
                 switchJson.RootElement.GetProperty("token").GetString());
-            Assert.Equal(HttpStatusCode.Forbidden, (await platformClient.GetAsync("/api/users/")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await platformClient.GetAsync("/api/users/")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await platformClient.GetAsync("/api/faturamentos-medicos/")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await platformClient.GetAsync("/api/grupos-medicos/")).StatusCode);
+            Assert.Equal(HttpStatusCode.OK, (await platformClient.GetAsync("/api/events/")).StatusCode);
         }
 
         using var clinicClient = factory.CreateClient();
@@ -645,6 +731,9 @@ public partial class ApiEndpointIntegrationTests
             authJson.RootElement.GetProperty("token").GetString());
 
         Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/users/")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/faturamentos-medicos/")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/grupos-medicos/")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/events/")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await clinicClient.GetAsync("/api/pacientes/")).StatusCode);
     }
 

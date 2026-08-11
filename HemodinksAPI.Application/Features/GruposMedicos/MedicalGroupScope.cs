@@ -13,9 +13,18 @@ internal static class MedicalGroupScope
         int? currentEquipeId = null,
         bool onlyActive = true)
     {
-        var query = context.Users
-            .AsNoTracking()
-            .Where(user => user.PerfilId == Perfil.MedicosId);
+        var users = context.Users.AsNoTracking();
+
+        if (currentPerfilId == Perfil.EquipeId && currentEquipeId.HasValue)
+        {
+            var memberUserIds = context.EquipeMembros
+                .AsNoTracking()
+                .Where(member => member.EquipeId == currentEquipeId.Value && member.Ativo)
+                .Select(member => member.UserId);
+            return users.Where(user => memberUserIds.Contains(user.Id) && (!onlyActive || user.Ativo));
+        }
+
+        var query = users.Where(user => user.PerfilId == Perfil.MedicosId);
 
         if (onlyActive)
         {
@@ -25,15 +34,6 @@ internal static class MedicalGroupScope
         if (Perfil.IsAdministradorOuSuper(currentPerfilId) || currentPerfilId == Perfil.ControllerId)
         {
             return query;
-        }
-
-        if (currentPerfilId == Perfil.EquipeId && currentEquipeId.HasValue)
-        {
-            var memberUserIds = context.EquipeMembros
-                .AsNoTracking()
-                .Where(member => member.EquipeId == currentEquipeId.Value && member.Ativo)
-                .Select(member => member.UserId);
-            return query.Where(user => memberUserIds.Contains(user.Id));
         }
 
         if (currentPerfilId != Perfil.MedicosId)

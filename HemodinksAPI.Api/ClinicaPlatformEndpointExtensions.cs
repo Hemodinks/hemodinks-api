@@ -55,8 +55,7 @@ public static partial class ClinicaPlatformEndpointExtensions
             .AsNoTracking()
             .OrderBy(item => item.Nome)
             .ToListAsync(cancellationToken);
-        var userCounts = await context.Users
-            .IgnoreQueryFilters()
+        var userCounts = await ClinicEmployees(context)
             .AsNoTracking()
             .GroupBy(item => item.ClinicaId)
             .Select(group => new { ClinicaId = group.Key, Count = group.Count() })
@@ -81,7 +80,8 @@ public static partial class ClinicaPlatformEndpointExtensions
         }
 
         clinicaContext.SetPlatformScope();
-        var userCount = await context.Users.CountAsync(item => item.ClinicaId == id, cancellationToken);
+        var userCount = await ClinicEmployees(context)
+            .CountAsync(item => item.ClinicaId == id, cancellationToken);
         return Results.Ok(ToResponse(clinica, userCount));
     }
 
@@ -130,11 +130,6 @@ public static partial class ClinicaPlatformEndpointExtensions
         if (request.LimiteUsuarios is <= 0)
         {
             throw new InvalidOperationException("LimiteUsuarios deve ser maior que zero");
-        }
-
-        if (request.EquipeInicial != null && request.LimiteUsuarios is < 2)
-        {
-            throw new InvalidOperationException("LimiteUsuarios deve permitir o administrador e a equipe inicial");
         }
 
         var strategy = context.Database.CreateExecutionStrategy();
@@ -268,7 +263,8 @@ public static partial class ClinicaPlatformEndpointExtensions
                 await transaction.CommitAsync(cancellationToken);
             }
 
-            var userCount = await context.Users.CountAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
+            var userCount = await ClinicEmployees(context)
+                .CountAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
             return (IResult)Results.Created($"/api/platform/clinicas/{clinica.Id}", ToResponse(clinica, userCount));
         });
     }
@@ -368,16 +364,6 @@ public static partial class ClinicaPlatformEndpointExtensions
             return Results.Conflict(new { message = "Email coletivo ja utilizado por outra identidade" });
         }
 
-        if (request.NovaEquipe != null && clinica.LimiteUsuarios.HasValue)
-        {
-            var currentUserCount = await context.Users
-                .IgnoreQueryFilters()
-                .CountAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
-            if (currentUserCount >= clinica.LimiteUsuarios.Value)
-            {
-                return Results.Conflict(new { message = "Limite de usuarios da clinica atingido" });
-            }
-        }
         if (request.FotoClinica != null)
         {
             clinica.FotoClinica = await photoStorage.SaveAsync(
@@ -622,6 +608,17 @@ public static partial class ClinicaPlatformEndpointExtensions
             userCount,
             clinica.DataCadastro,
             clinica.DataAtualizacao);
+    }
+
+    private static IQueryable<User> ClinicEmployees(AppDbContext context)
+    {
+        return context.Users
+            .IgnoreQueryFilters()
+            .Where(user => (user.PerfilId == Perfil.AdministradorId
+                    || user.PerfilId == Perfil.MedicosId
+                    || user.PerfilId == Perfil.ControllerId
+                    || user.PerfilId == Perfil.EquipeId)
+                && !context.Equipes.IgnoreQueryFilters().Any(team => team.UsuarioLoginId == user.Id));
     }
 
     private static string NormalizeSlug(string? value)

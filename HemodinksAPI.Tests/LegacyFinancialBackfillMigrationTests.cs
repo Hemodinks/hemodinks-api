@@ -24,6 +24,12 @@ public sealed class LegacyFinancialBackfillMigrationTests
             var migrator = db.Database.GetService<IMigrator>();
             await migrator.MigrateAsync("20260721160019_AddPartialClinicPlanModules");
 
+            // O teste para deliberadamente em um schema legado, mas usa o modelo atual para
+            // preparar os registros. A coluna temporaria evita que essa preparacao antecipe
+            // a migration real, que sera exercitada normalmente logo abaixo.
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE [Pacientes] ADD [DataAtendimento] datetime2 NULL;");
+
             var doctor = new User { ClinicaId = Clinica.DefaultId, Nome = "Médico legado", Telefone = "+5581999000001", Cpf = "11144477735", Email = $"doctor-{databaseName}@test.local", Senha = "hash", PerfilId = Perfil.MedicosId };
             var validUser = new User { ClinicaId = Clinica.DefaultId, Nome = "Paciente legado válido", Telefone = "+5581999000002", Cpf = "52998224725", Email = $"valid-{databaseName}@test.local", Senha = "hash", PerfilId = Perfil.PacientesId };
             var invalidUser = new User { ClinicaId = Clinica.DefaultId, Nome = "Paciente legado inválido", Telefone = "+5581999000003", Cpf = "16899535009", Email = $"invalid-{databaseName}@test.local", Senha = "hash", PerfilId = Perfil.PacientesId };
@@ -49,6 +55,9 @@ public sealed class LegacyFinancialBackfillMigrationTests
 
                 DELETE FROM [FaturamentosMedicos] WHERE [PacienteId] IN ({patientIds[0]}, {patientIds[1]});
                 """);
+
+            await db.Database.ExecuteSqlRawAsync(
+                "ALTER TABLE [Pacientes] DROP COLUMN [DataAtendimento];");
 
             await migrator.MigrateAsync();
             db.ChangeTracker.Clear();

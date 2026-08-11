@@ -152,7 +152,9 @@ public static class EquipeEndpointExtensions
         CancellationToken cancellationToken)
     {
         var equipe = await context.Equipes.FirstOrDefaultAsync(item => item.Id == id && item.Ativa, cancellationToken);
-        var user = await context.Users.FirstOrDefaultAsync(item => item.Id == request.UserId && item.Ativo && item.PerfilId != Perfil.EquipeId, cancellationToken);
+        var user = await context.Users.FirstOrDefaultAsync(item => item.Id == request.UserId
+            && item.Ativo
+            && (item.PerfilId == Perfil.MedicosId || item.PerfilId == Perfil.ControllerId), cancellationToken);
         if (equipe == null || user == null) return Results.NotFound();
         if (request.GerarPin && !equipe.ModoIdentificacao.Equals(EquipeModosIdentificacao.Pin, StringComparison.OrdinalIgnoreCase))
         {

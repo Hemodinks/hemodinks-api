@@ -59,13 +59,13 @@ public static partial class ClinicaPlatformEndpointExtensions
         var eligibleMemberships = await context.UsuariosClinicas
             .IgnoreQueryFilters()
             .AsNoTracking()
-            .Where(item => item.Ativo
+            .Where(item => item.ClinicaId == id
+                && item.Ativo
                 && item.UsuarioGlobal.Ativo
                 && item.User.Ativo
                 && !context.Equipes.IgnoreQueryFilters().Any(team => team.UsuarioLoginId == item.UserId)
                 && (item.PerfilId == Perfil.MedicosId
-                    || item.PerfilId == Perfil.ControllerId
-                    || item.PerfilId == Perfil.EquipeId))
+                    || item.PerfilId == Perfil.ControllerId))
             .Select(item => new
             {
                 item.UsuarioGlobalId,
@@ -188,20 +188,20 @@ public static partial class ClinicaPlatformEndpointExtensions
             .Include(item => item.UsuarioGlobal)
             .Include(item => item.User)
             .Where(item => globalUserIds.Contains(item.UsuarioGlobalId)
+                && item.ClinicaId == id
                 && item.Ativo
                 && item.UsuarioGlobal.Ativo
                 && item.User.Ativo
                 && !context.Equipes.IgnoreQueryFilters().Any(team => team.UsuarioLoginId == item.UserId)
                 && (item.PerfilId == Perfil.MedicosId
-                    || item.PerfilId == Perfil.ControllerId
-                    || item.PerfilId == Perfil.EquipeId))
+                    || item.PerfilId == Perfil.ControllerId))
             .ToListAsync(cancellationToken);
         var sources = sourceMemberships
             .GroupBy(item => item.UsuarioGlobalId)
             .ToDictionary(group => group.Key, group => group.First());
         if (sources.Count != globalUserIds.Length)
         {
-            return Results.BadRequest(new { message = "A selecao deve conter apenas medicos, controllers ou usuarios de equipe ativos" });
+            return Results.BadRequest(new { message = "A selecao deve conter apenas medicos ou controllers ativos desta clinica" });
         }
 
         var localUsers = await context.Users.IgnoreQueryFilters()
@@ -228,7 +228,7 @@ public static partial class ClinicaPlatformEndpointExtensions
             .FirstAsync(cancellationToken);
         if (clinicLimit.HasValue && importCount > 0)
         {
-            var currentUserCount = await context.Users.IgnoreQueryFilters()
+            var currentUserCount = await ClinicEmployees(context)
                 .CountAsync(item => item.ClinicaId == id, cancellationToken);
             if (currentUserCount + importCount > clinicLimit.Value)
             {
