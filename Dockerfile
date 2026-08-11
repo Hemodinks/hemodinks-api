@@ -29,6 +29,9 @@ COPY --from=publish /app/publish .
 
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
+# Configuration files are immutable in the container. Avoid consuming an
+# inotify instance only to watch appsettings files that cannot change at runtime.
+ENV DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
 ENV CORECLR_PROFILER={36032161-FFC0-4B61-B559-F6C5D41BAE5A}
 ENV CORECLR_NEWRELIC_HOME=/app/newrelic
 ENV CORECLR_PROFILER_PATH=/app/newrelic/libNewRelicProfiler.so
