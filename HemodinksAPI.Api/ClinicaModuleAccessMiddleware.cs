@@ -21,7 +21,8 @@ public sealed class ClinicaModuleAccessMiddleware
     {
         var requiredModule = ResolveRequiredModule(context.Request.Path);
         if (requiredModule == null
-            || context.User.Identity?.IsAuthenticated != true)
+            || context.User.Identity?.IsAuthenticated != true
+            || IsSuperAdministrador(context.User))
         {
             await _next(context);
             return;
@@ -46,6 +47,11 @@ public sealed class ClinicaModuleAccessMiddleware
         }
 
         await _next(context);
+    }
+
+    private static bool IsSuperAdministrador(System.Security.Claims.ClaimsPrincipal principal)
+    {
+        return principal.FindFirst("perfilId")?.Value == Perfil.SuperAdministradorId.ToString();
     }
 
     private static string? ResolveRequiredModule(PathString path)

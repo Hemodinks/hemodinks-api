@@ -137,6 +137,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 UserId = user.Id,
                 User = user,
                 Data = request.Data,
+                DataAtendimento = request.DataAtendimento,
                 NomePaciente = user.Nome,
                 Diagnostico = diagnostico,
                 TratamentoMedico = tratamentoMedico,

@@ -6,6 +6,7 @@ namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 public class CreatePacienteCommand : IRequest<PacienteDto>
 {
     public DateTime? Data { get; set; }
+    public DateTime? DataAtendimento { get; set; }
     public string NomePaciente { get; set; } = null!;
     public string? Diagnostico { get; set; }
     public string? TratamentoMedico { get; set; }
@@ -45,6 +46,7 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
 {
     public int Id { get; set; }
     public DateTime? Data { get; set; }
+    public DateTime? DataAtendimento { get; set; }
     public string NomePaciente { get; set; } = null!;
     public string? Diagnostico { get; set; }
     public string? TratamentoMedico { get; set; }

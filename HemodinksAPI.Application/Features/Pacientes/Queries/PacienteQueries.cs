@@ -8,6 +8,7 @@ public class PacienteDto
     public int Id { get; set; }
     public int UserId { get; set; }
     public DateTime? Data { get; set; }
+    public DateTime? DataAtendimento { get; set; }
     public DateTime DataCadastro { get; set; }
     public DateTime? DataAtualizacao { get; set; }
     public string NomePaciente { get; set; } = null!;

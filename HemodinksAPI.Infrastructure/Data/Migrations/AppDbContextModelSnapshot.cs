@@ -1896,6 +1896,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Property<DateTime?>("Data")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("DataAtendimento")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Diagnostico")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -1986,6 +1989,8 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.HasIndex("ClinicaId", "Data");
+
+                    b.HasIndex("ClinicaId", "DataAtendimento");
 
                     b.ToTable("Pacientes", (string)null);
                 });
