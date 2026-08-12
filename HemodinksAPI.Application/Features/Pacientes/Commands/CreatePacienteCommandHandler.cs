@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Cbhpm;
+using HemodinksAPI.Application.Features.Faturamentos;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Application.Services;
@@ -167,6 +168,8 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             };
 
             _context.Pacientes.Add(paciente);
+            var faturamento = FaturamentoMedicoSync.EnsureSynced(paciente, DateTime.UtcNow);
+            faturamento.DataPagamento = request.StatusPago ? request.DataPagamento : null;
             await _context.SaveChangesAsync(cancellationToken);
 
             var invitationSent = await FirstAccessInvitation.TrySendAsync(

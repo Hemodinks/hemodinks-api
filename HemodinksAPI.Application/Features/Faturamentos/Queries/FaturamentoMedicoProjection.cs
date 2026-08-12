@@ -13,6 +13,7 @@ internal static class FaturamentoMedicoProjection
             Id = p.Id,
             UserId = p.UserId,
             Data = p.Data,
+            DataAtendimento = p.DataAtendimento,
             DataCadastro = p.User.DataCadastro,
             DataAtualizacao = p.User.DataAtualizacao,
             NomePaciente = p.NomePaciente,

@@ -76,13 +76,13 @@ internal static class PacienteFilters
         if (dataInicio.HasValue)
         {
             var inicio = dataInicio.Value.Date;
-            query = query.Where(p => p.Data.HasValue && p.Data.Value >= inicio);
+            query = query.Where(p => p.DataAtendimento.HasValue && p.DataAtendimento.Value >= inicio);
         }
 
         if (dataFinal.HasValue)
         {
             var fimExclusivo = dataFinal.Value.Date.AddDays(1);
-            query = query.Where(p => p.Data.HasValue && p.Data.Value < fimExclusivo);
+            query = query.Where(p => p.DataAtendimento.HasValue && p.DataAtendimento.Value < fimExclusivo);
         }
 
         return query;

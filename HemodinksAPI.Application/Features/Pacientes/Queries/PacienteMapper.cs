@@ -105,6 +105,7 @@ internal static class PacienteMapper
             GlosaStatus = faturamento.GlosaStatus,
             RecursoGlosa = faturamento.RecursoGlosa,
             ConferenciaPagamentoRealizada = faturamento.ConferenciaPagamentoRealizada,
+            DataPagamento = faturamento.DataPagamento,
             RepasseMedico = faturamento.RepasseMedico,
             RepasseMedicoObservacao = faturamento.RepasseMedicoObservacao,
             TipoFaturamentoParticular = faturamento.TipoFaturamentoParticular,

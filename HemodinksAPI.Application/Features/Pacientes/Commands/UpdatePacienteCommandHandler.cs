@@ -1,5 +1,6 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Cbhpm;
+using HemodinksAPI.Application.Features.Faturamentos;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Tenancy;
@@ -153,6 +154,8 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             paciente.Procedimentos.Clear();
             foreach (var procedimentoItem in PacienteRules.ToPacienteProcedimentos(procedimentos))
                 paciente.Procedimentos.Add(procedimentoItem);
+            var faturamento = FaturamentoMedicoSync.EnsureSynced(paciente, DateTime.UtcNow);
+            faturamento.DataPagamento = request.StatusPago ? request.DataPagamento : null;
             await _context.SaveChangesAsync(cancellationToken);
 
             return PacienteMapper.ToDto(paciente);

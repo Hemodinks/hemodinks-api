@@ -66,6 +66,7 @@ public class PacienteFaturamentoDto
     public string? GlosaStatus { get; set; }
     public string? RecursoGlosa { get; set; }
     public bool ConferenciaPagamentoRealizada { get; set; }
+    public DateTime? DataPagamento { get; set; }
     public decimal? RepasseMedico { get; set; }
     public string? RepasseMedicoObservacao { get; set; }
     public string? TipoFaturamentoParticular { get; set; }

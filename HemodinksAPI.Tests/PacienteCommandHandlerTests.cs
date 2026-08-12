@@ -101,6 +101,7 @@ public partial class PacienteCommandHandlerTests
             Pagamento = "Pix",
             RepasseGlosa = "Sem glosa",
             StatusPago = true,
+            DataPagamento = new DateTime(2026, 6, 20),
             CurrentPerfilId = Perfil.AdministradorId
         }, CancellationToken.None);
 
@@ -134,7 +135,10 @@ public partial class PacienteCommandHandlerTests
         Assert.Equal("Em consultorio", storedPaciente.Procedimento);
         Assert.Equal("2B", storedPaciente.CbhpmPorte);
         Assert.True(storedPaciente.StatusPago);
-        Assert.Empty(await context.FaturamentosMedicos.ToListAsync());
+        var faturamento = Assert.Single(await context.FaturamentosMedicos.ToListAsync());
+        Assert.Equal(420m, faturamento.HonorariosCirurgiao);
+        Assert.Null(faturamento.ValorGlosa);
+        Assert.Equal(new DateTime(2026, 6, 20), faturamento.DataPagamento);
         Assert.Equal(storedPaciente.Id, response.Id);
         Assert.Equal("Diagnostico clinico de teste", response.Diagnostico);
         Assert.Equal("Tratamento clinico de teste", response.TratamentoMedico);
