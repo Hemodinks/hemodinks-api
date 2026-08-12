@@ -35,6 +35,7 @@ public class CreatePacienteCommand : IRequest<PacienteDto>
     public string? Pagamento { get; set; }
     public string? RepasseGlosa { get; set; }
     public bool StatusPago { get; set; }
+    public DateTime? DataPagamento { get; set; }
     public bool Ativo { get; set; } = true;
     public int CurrentUserId { get; set; }
     public int CurrentPerfilId { get; set; }
@@ -75,6 +76,7 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
     public string? Pagamento { get; set; }
     public string? RepasseGlosa { get; set; }
     public bool StatusPago { get; set; }
+    public DateTime? DataPagamento { get; set; }
     public bool Ativo { get; set; }
     public int CurrentUserId { get; set; }
     public int CurrentPerfilId { get; set; }

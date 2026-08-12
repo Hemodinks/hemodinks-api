@@ -113,6 +113,7 @@ public partial class PacienteCommandHandlerTests
             Pagamento = "R$ 2.500,00",
             RepasseGlosa = "R$ 125,50",
             StatusPago = true,
+            DataPagamento = new DateTime(2026, 6, 21),
             CurrentUserId = 99,
             CurrentPerfilId = Perfil.AdministradorId,
             CurrentUserName = "Admin"
@@ -126,7 +127,11 @@ public partial class PacienteCommandHandlerTests
         Assert.Equal(doctorName, response.Medico);
         Assert.Equal(3, response.OpmeFornecedorId);
         Assert.Equal("GE", response.OpmeFornecedor);
-        Assert.Empty(await context.FaturamentosMedicos.ToListAsync());
+        var faturamento = Assert.Single(await context.FaturamentosMedicos.ToListAsync());
+        Assert.Equal(2500m, faturamento.HonorariosCirurgiao);
+        Assert.Equal(125.50m, faturamento.ValorGlosa);
+        Assert.Equal(2500m, faturamento.RepasseMedico);
+        Assert.Equal(new DateTime(2026, 6, 21), faturamento.DataPagamento);
         var storedUser = await context.Users.SingleAsync(storedUser => storedUser.Id == user.Id);
         Assert.NotNull(storedUser.DataAtualizacao);
         Assert.Equal(storedUser.DataAtualizacao, response.DataAtualizacao);

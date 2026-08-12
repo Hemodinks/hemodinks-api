@@ -20,13 +20,16 @@ public static class FaturamentoMedicoSync
             paciente.FaturamentoMedico = faturamento;
         }
 
-        var pagamento = ParseCurrency(paciente.Pagamento);
+        var valorRecebido = ParseCurrency(paciente.Pagamento);
         var glosa = ParseCurrency(paciente.RepasseGlosa);
+        var valorEstimado = paciente.Procedimentos.Sum(item => item.ValorReferencia ?? 0m);
 
-        faturamento.HonorariosCirurgiao = pagamento ?? faturamento.HonorariosCirurgiao;
+        faturamento.HonorariosCirurgiao = valorEstimado > 0m
+            ? valorEstimado
+            : valorRecebido ?? faturamento.HonorariosCirurgiao;
         faturamento.ValorGlosa = glosa ?? faturamento.ValorGlosa;
-        faturamento.RepasseMedico = pagamento.HasValue || glosa.HasValue
-            ? (pagamento ?? 0m) - (glosa ?? 0m)
+        faturamento.RepasseMedico = valorRecebido.HasValue || glosa.HasValue
+            ? valorRecebido ?? 0m
             : faturamento.RepasseMedico;
         faturamento.GuiaAutorizacaoConvenio = TrimOrCurrent(paciente.Autorizacao, faturamento.GuiaAutorizacaoConvenio);
         faturamento.OpmeMateriaisEspeciais = ResolveOpmeMateriais(paciente, faturamento.OpmeMateriaisEspeciais);
@@ -35,7 +38,7 @@ public static class FaturamentoMedicoSync
         faturamento.ConferenciaPagamentoRealizada = paciente.StatusPago;
         faturamento.GlosaStatus = ResolveGlosaStatus(glosa, paciente.RepasseGlosa, paciente.StatusPago);
         faturamento.TipoFaturamentoParticular = ResolveTipoFaturamento(paciente);
-        UpdateCompetencia(faturamento, paciente.Data);
+        UpdateCompetencia(faturamento, paciente.DataAtendimento);
         faturamento.DataAtualizacao = utcNow;
 
         return faturamento;

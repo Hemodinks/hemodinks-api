@@ -131,6 +131,7 @@ public class ListOrderingTests
             User = CreateUser(nome, email, cpf, DateTime.UtcNow, null, Perfil.PacientesId),
             NomePaciente = nome,
             Data = data,
+            DataAtendimento = data,
             MedicoUser = doctor,
             Medico = doctor.Nome,
             ConvenioReferencia = convenio,

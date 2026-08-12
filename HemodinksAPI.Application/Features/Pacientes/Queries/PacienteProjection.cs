@@ -75,6 +75,7 @@ internal static class PacienteProjection
                 GlosaStatus = p.FaturamentoMedico.GlosaStatus,
                 RecursoGlosa = p.FaturamentoMedico.RecursoGlosa,
                 ConferenciaPagamentoRealizada = p.FaturamentoMedico.ConferenciaPagamentoRealizada,
+                DataPagamento = p.FaturamentoMedico.DataPagamento,
                 RepasseMedico = p.FaturamentoMedico.RepasseMedico,
                 RepasseMedicoObservacao = p.FaturamentoMedico.RepasseMedicoObservacao,
                 TipoFaturamentoParticular = p.FaturamentoMedico.TipoFaturamentoParticular,

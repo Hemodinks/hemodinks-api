@@ -62,6 +62,8 @@ internal sealed class FaturamentoMedicoConfiguration : IEntityTypeConfiguration<
             .IsRequired()
             .HasDefaultValue(false);
 
+        entity.Property(e => e.DataPagamento);
+
         entity.Property(e => e.RepasseMedico)
             .HasColumnType("decimal(18,2)");
 
@@ -87,6 +89,8 @@ internal sealed class FaturamentoMedicoConfiguration : IEntityTypeConfiguration<
             .IsUnique();
 
         entity.HasIndex(e => new { e.ClinicaId, e.ConferenciaPagamentoRealizada });
+
+        entity.HasIndex(e => new { e.ClinicaId, e.DataPagamento });
 
         entity.HasIndex(e => new { e.ClinicaId, e.DataCadastro });
 

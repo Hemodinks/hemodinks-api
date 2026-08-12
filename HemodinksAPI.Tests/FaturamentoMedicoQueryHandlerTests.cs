@@ -280,11 +280,11 @@ public class FaturamentoMedicoQueryHandlerTests
     }
 
     [Fact]
-    public void EnsureSynced_WhenPacienteHasData_SetsMonthlyCompetencia()
+    public void EnsureSynced_WhenPacienteHasAttendanceDate_SetsMonthlyCompetencia()
     {
         var paciente = new Paciente
         {
-            Data = new DateTime(2026, 7, 15),
+            DataAtendimento = new DateTime(2026, 7, 15),
             NomePaciente = "Paciente Competencia",
             Procedimentos = []
         };
