@@ -9,7 +9,7 @@ Este checklist registra o que ja esta coberto no repositorio e o que ainda depen
 - [x] `/healthz` e `/` validam conectividade com o banco e migrations pendentes.
 - [x] Logs HTTP com Serilog, `TraceIdentifier` e header `X-Request-ID`.
 - [x] Reset de senha alternavel por ambiente: `PasswordReset__UseEmail=true|false`.
-- [x] Reset por email com cadeia Function HTTP -> fila Azure -> SMTP e fallback final para senha padrao se o sender falhar.
+- [x] Reset por email com cadeia Function HTTP -> fila Azure -> SMTP, sem alterar a senha quando todos os transportes falham.
 - [x] Filas opcionais por recurso para reset de senha e exportacao PDF/XLSX.
 - [x] Trial/licenca com politicas por feature.
 - [x] Endpoints administrativos de licenca protegidos por perfil administrador.
@@ -64,7 +64,7 @@ Politica recomendada:
 
 - `Down()` sozinho nao e estrategia suficiente para producao.
 - `Data` e `Repair` devem preferir restore/PITR ou forward fix.
-- Se `Database__RunMigrationsOnStartup=true`, o restore do banco precisa estar pronto antes do deploy.
+- O workflow `Apply Production Migrations` exige confirmação de backup/PITR antes da aplicação.
 
 ## CI, branch protection e deploy
 
@@ -77,7 +77,7 @@ O workflow `CI / Build and test` ja esta no repositorio. Para ele bloquear deplo
 - [ ] Force push bloqueado em `main`.
 - [ ] Render apontando para a branch correta.
 - [ ] Render usando deploy apenas apos checks passarem.
-- [ ] Render com `Database__RunMigrationsOnStartup=true` no servico de producao.
+- [ ] Produção com `Database__RunMigrationsOnStartup=false` e migrations aplicadas pelo workflow controlado.
 - [ ] Workflow rodando `pwsh ./scripts/Test-Migrations.ps1`.
 
 Fluxo recomendado:
@@ -157,7 +157,8 @@ Obrigatorias:
 - `JwtSettings__Issuer`
 - `JwtSettings__Audience`
 - `JwtSettings__ExpirationMinutes`
-- `Database__RunMigrationsOnStartup=true`
+- `Database__RunMigrationsOnStartup=false`
+- `Database__RunMaintenanceOnStartup=false`
 - `PasswordReset__UseEmail`
 
 Quando usar storage:

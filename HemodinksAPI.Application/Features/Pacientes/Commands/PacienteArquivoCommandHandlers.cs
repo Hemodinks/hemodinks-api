@@ -36,7 +36,7 @@ public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacient
                 throw new KeyNotFoundException("Paciente nao encontrado");
             }
 
-            if (!await PacienteCommandAccess.CanManagePacienteArquivoAsync(_context, paciente, request.CurrentPerfilId, request.CurrentUserId, cancellationToken))
+            if (!await PacienteCommandAccess.CanManagePacienteArquivoAsync(_context, paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId, cancellationToken))
             {
                 throw new UnauthorizedAccessException("Sem permissao para enviar arquivo do paciente");
             }
@@ -97,7 +97,7 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
                 throw new KeyNotFoundException("Arquivo nao encontrado");
             }
 
-            if (!await PacienteCommandAccess.CanManagePacienteArquivoAsync(_context, arquivo.Paciente, request.CurrentPerfilId, request.CurrentUserId, cancellationToken))
+            if (!await PacienteCommandAccess.CanManagePacienteArquivoAsync(_context, arquivo.Paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId, cancellationToken))
             {
                 throw new UnauthorizedAccessException("Sem permissao para excluir arquivo do paciente");
             }

@@ -54,6 +54,7 @@ public class RequestFileExportCommandHandler : IRequestHandler<RequestFileExport
             format,
             currentUser.Id,
             currentUser.PerfilId,
+            currentUser.ClinicaId,
             requestedAt,
             NormalizeFilters(request.Filters));
 

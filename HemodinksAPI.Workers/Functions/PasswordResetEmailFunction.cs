@@ -36,9 +36,13 @@ public class PasswordResetEmailFunction
             message.Email,
             message.Nome,
             message.Token,
-            message.ExpiresAt), cancellationToken);
+            message.ExpiresAt,
+            message.ClinicaId), cancellationToken);
 
-        _logger.LogInformation("Email de reset de senha processado para {Email}", message.Email);
+        _logger.LogInformation(
+            "Email de reset de senha processado para {Email} na clinica {ClinicaId}",
+            message.Email,
+            message.ClinicaId);
     }
 
     [Function(nameof(SendPasswordResetEmailSync))]
@@ -56,7 +60,8 @@ public class PasswordResetEmailFunction
             payload.Email,
             payload.Nome,
             payload.Token,
-            payload.ExpiresAt), cancellationToken);
+            payload.ExpiresAt,
+            payload.ClinicaId > 0 ? payload.ClinicaId : 1), cancellationToken);
 
         _logger.LogInformation("Email de reset de senha enviado pela function HTTP para {Email}", payload.Email);
 
@@ -72,5 +77,6 @@ public class PasswordResetEmailFunction
         string Email,
         string Nome,
         string Token,
-        DateTime ExpiresAt);
+        DateTime ExpiresAt,
+        int ClinicaId = 1);
 }

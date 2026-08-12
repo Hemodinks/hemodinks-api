@@ -1,4 +1,5 @@
 using HemodinksAPI.Domain.Models;
+using Microsoft.Extensions.Configuration;
 
 namespace HemodinksAPI.Infrastructure.Seeders;
 
@@ -8,10 +9,18 @@ namespace HemodinksAPI.Infrastructure.Seeders;
 public class UserSeeder
 {
     private readonly IPasswordHasher _passwordHasher;
+    private readonly string _initialPassword;
 
     public UserSeeder(IPasswordHasher passwordHasher)
+        : this(passwordHasher, null)
+    {
+    }
+
+    public UserSeeder(IPasswordHasher passwordHasher, IConfiguration? configuration)
     {
         _passwordHasher = passwordHasher;
+        _initialPassword = configuration?["Seed:InitialPassword"]
+            ?? TemporaryPasswordGenerator.Generate();
     }
 
     /// <summary>
@@ -29,7 +38,7 @@ public class UserSeeder
             Email = "gmarcone@gmail.com",
             Telefone = "+5581997236704",
             Cpf = GenerateCpf(1),
-            Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
+            Senha = _passwordHasher.HashPassword(_initialPassword),
             DataNascimento = new DateTime(1982, 2, 25),
             DataCadastro = DateTime.UtcNow,
             Ativo = true,
@@ -100,7 +109,7 @@ public class UserSeeder
                 Email = emails[i],
                 Telefone = telefones[i],
                 Cpf = GenerateCpf(i + 2),
-                Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
+                Senha = _passwordHasher.HashPassword(_initialPassword),
                 DataNascimento = dataNascimento,
                 DataCadastro = DateTime.UtcNow.AddDays(-random.Next(1, 365)),
                 Ativo = true,
@@ -124,7 +133,7 @@ public class UserSeeder
                 Email = $"paciente{i + 1}@hemodinks.com",
                 Telefone = $"+55819988{i + 1:00000}",
                 Cpf = GenerateCpf(i + 100),
-                Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
+                Senha = _passwordHasher.HashPassword(_initialPassword),
                 DataNascimento = new DateTime(1980 + i, (i % 12) + 1, (i % 27) + 1),
                 DataCadastro = DateTime.UtcNow.AddDays(-i),
                 Ativo = true,

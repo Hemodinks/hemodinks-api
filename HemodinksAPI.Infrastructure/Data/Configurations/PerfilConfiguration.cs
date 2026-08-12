@@ -23,6 +23,8 @@ internal sealed class PerfilConfiguration : IEntityTypeConfiguration<Perfil>
             new Perfil { Id = Perfil.AdministradorId, Nome = "Administrador" },
             new Perfil { Id = Perfil.MedicosId, Nome = "Médicos" },
             new Perfil { Id = Perfil.PacientesId, Nome = "Pacientes" },
-            new Perfil { Id = Perfil.ControllerId, Nome = "Controller" });
+            new Perfil { Id = Perfil.ControllerId, Nome = "Controller" },
+            new Perfil { Id = Perfil.SuperAdministradorId, Nome = "SuperAdministrador" },
+            new Perfil { Id = Perfil.EquipeId, Nome = "Equipe" });
     }
 }

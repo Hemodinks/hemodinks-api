@@ -14,6 +14,10 @@ public class DashboardSummaryDto
 
     public int PendingPaymentsCount { get; set; }
 
+    public int AttendancesCount { get; set; }
+
+    public int BillingsCount { get; set; }
+
     public int PatientFilesCount { get; set; }
 
     public int UpcomingEventsCount { get; set; }
@@ -57,6 +61,7 @@ public class GetDashboardSummaryQuery : IRequest<DashboardSummaryDto>
     public int CurrentUserId { get; set; }
 
     public int CurrentPerfilId { get; set; }
+    public int? CurrentEquipeId { get; set; }
 }
 
 public class GetDashboardNotificationsQuery : IRequest<IReadOnlyList<DashboardNotificationDto>>
@@ -64,6 +69,7 @@ public class GetDashboardNotificationsQuery : IRequest<IReadOnlyList<DashboardNo
     public int CurrentUserId { get; set; }
 
     public int CurrentPerfilId { get; set; }
+    public int? CurrentEquipeId { get; set; }
 
     public int Limit { get; set; } = 20;
 }

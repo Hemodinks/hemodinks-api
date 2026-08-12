@@ -46,7 +46,7 @@ internal static class PacienteObservacaoRecipients
         PacienteObservacaoContext paciente,
         CancellationToken cancellationToken)
     {
-        if (request.CurrentPerfilId == Perfil.AdministradorId || request.CurrentPerfilId == Perfil.ControllerId)
+        if (Perfil.IsAdministradorOuSuper(request.CurrentPerfilId) || request.CurrentPerfilId == Perfil.ControllerId)
         {
             var medicalIds = new[] { paciente.MedicoUserId, paciente.MedicoAuxiliar1UserId, paciente.MedicoAuxiliar2UserId }
                 .Where(userId => userId.HasValue)
@@ -72,7 +72,7 @@ internal static class PacienteObservacaoRecipients
                 .AsNoTracking()
                 .Where(user =>
                     user.Ativo
-                    && (user.PerfilId == Perfil.AdministradorId || user.PerfilId == Perfil.ControllerId))
+                    && (Perfil.IsAdministradorOuSuper(user.PerfilId) || user.PerfilId == Perfil.ControllerId))
                 .Select(user => user.Id)
                 .ToListAsync(cancellationToken);
         }

@@ -71,6 +71,17 @@ internal static class EventCommandQueries
                 && user.Ativo
                 && user.PerfilId == Perfil.MedicosId, cancellationToken);
 
+        if (isValidMedicalUser && currentUser.IsEquipe)
+        {
+            isValidMedicalUser = currentUser.EquipeId.HasValue
+                && await context.EquipeMembros
+                    .AsNoTracking()
+                    .AnyAsync(member => member.EquipeId == currentUser.EquipeId.Value
+                        && member.UserId == medicalUserId.Value
+                        && member.Ativo,
+                        cancellationToken);
+        }
+
         if (!isValidMedicalUser)
         {
             throw new InvalidOperationException("Medico selecionado para notificacao nao encontrado ou inativo.");

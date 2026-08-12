@@ -11,6 +11,9 @@ internal static class PacienteQueryOrdering
 
         return normalizedSortBy switch
         {
+            "data" or "dataprocedimento" => isDescending
+                ? query.OrderByDescending(paciente => paciente.Data).ThenByDescending(paciente => paciente.Id)
+                : query.OrderBy(paciente => paciente.Data).ThenBy(paciente => paciente.Id),
             "nome" => isDescending
                 ? query.OrderByDescending(paciente => paciente.NomePaciente).ThenByDescending(paciente => paciente.Id)
                 : query.OrderBy(paciente => paciente.NomePaciente).ThenBy(paciente => paciente.Id),
@@ -58,7 +61,7 @@ internal static class PacienteQueryOrdering
     private static string NormalizeSortBy(string? sortBy)
     {
         return string.IsNullOrWhiteSpace(sortBy)
-            ? "recent"
+            ? "data"
             : sortBy.Trim().ToLowerInvariant();
     }
 }

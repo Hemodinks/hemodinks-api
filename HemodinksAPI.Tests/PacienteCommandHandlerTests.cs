@@ -1,13 +1,8 @@
-using HemodinksAPI.Infrastructure.Data;
-using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.Pacientes.Commands;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HemodinksAPI.Tests;
@@ -66,12 +61,14 @@ public partial class PacienteCommandHandlerTests
         await context.SaveChangesAsync();
 
         var hasher = new PasswordHasher();
+        var invitationSender = new RecordingPasswordResetNotificationSender();
         var handler = new CreatePacienteCommandHandler(
             context,
             CreateCbhpmCache(context),
             hasher,
             new FakeProfilePhotoStorage(),
-            NullLogger<CreatePacienteCommandHandler>.Instance);
+            NullLogger<CreatePacienteCommandHandler>.Instance,
+            invitationSender);
 
         var response = await handler.Handle(new CreatePacienteCommand
         {
@@ -83,6 +80,7 @@ public partial class PacienteCommandHandlerTests
             Cpf = "52998224725",
             DataNascimento = new DateTime(1990, 1, 1),
             Data = new DateTime(2026, 6, 1),
+            DataAtendimento = new DateTime(2026, 6, 5),
             HospitalId = 1,
             MedicoUserId = doctor.Id,
             Medico = doctor.Nome,
@@ -96,26 +94,32 @@ public partial class PacienteCommandHandlerTests
             Procedimentos =
             [
                 new PacienteProcedimentoCommandDto { CbhpmCodigo = "10101012" },
-                new PacienteProcedimentoCommandDto { CbhpmCodigo = "1.01.02.01-9" }
+                new PacienteProcedimentoCommandDto { CbhpmCodigo = "1.01.02.01-9" },
+                new PacienteProcedimentoCommandDto { CbhpmCodigo = "10101012" }
             ],
             Autorizacao = "AUT-123",
             Pagamento = "Pix",
             RepasseGlosa = "Sem glosa",
             StatusPago = true,
+            DataPagamento = new DateTime(2026, 6, 20),
             CurrentPerfilId = Perfil.AdministradorId
         }, CancellationToken.None);
 
         var storedUser = await context.Users.SingleAsync(user => user.PerfilId == Perfil.PacientesId);
         var storedPaciente = await context.Pacientes.SingleAsync();
-        var storedFaturamento = await context.FaturamentosMedicos.SingleAsync();
 
         Assert.Equal(storedUser.Id, storedPaciente.UserId);
         Assert.Equal(Perfil.PacientesId, storedUser.PerfilId);
         Assert.Equal("Paciente Novo", storedUser.Nome);
         Assert.Equal("Diagnostico clinico de teste", storedPaciente.Diagnostico);
         Assert.Equal("Tratamento clinico de teste", storedPaciente.TratamentoMedico);
+        Assert.Equal(new DateTime(2026, 6, 5), storedPaciente.DataAtendimento);
         Assert.Equal("52998224725", storedUser.Cpf);
-        Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+        Assert.True(response.ConvitePrimeiroAcessoEnviado);
+        Assert.Single(invitationSender.Notifications);
+        Assert.Equal(storedUser.Email, invitationSender.Notifications[0].Email);
+        Assert.NotEmpty(await context.PasswordResetTokens.ToListAsync());
+        Assert.False(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
         Assert.Equal(1, storedPaciente.HospitalId);
         Assert.Equal("Santa Clara - Mater Dei", storedPaciente.Hospital);
         Assert.Equal(doctor.Id, storedPaciente.MedicoUserId);
@@ -131,13 +135,14 @@ public partial class PacienteCommandHandlerTests
         Assert.Equal("Em consultorio", storedPaciente.Procedimento);
         Assert.Equal("2B", storedPaciente.CbhpmPorte);
         Assert.True(storedPaciente.StatusPago);
-        Assert.Equal(storedPaciente.Id, storedFaturamento.PacienteId);
-        Assert.Equal("AUT-123", storedFaturamento.GuiaAutorizacaoConvenio);
-        Assert.Equal("Fornecedor Manual OPME", storedFaturamento.OpmeMateriaisEspeciais);
-        Assert.True(storedFaturamento.ConferenciaPagamentoRealizada);
+        var faturamento = Assert.Single(await context.FaturamentosMedicos.ToListAsync());
+        Assert.Equal(420m, faturamento.HonorariosCirurgiao);
+        Assert.Null(faturamento.ValorGlosa);
+        Assert.Equal(new DateTime(2026, 6, 20), faturamento.DataPagamento);
         Assert.Equal(storedPaciente.Id, response.Id);
         Assert.Equal("Diagnostico clinico de teste", response.Diagnostico);
         Assert.Equal("Tratamento clinico de teste", response.TratamentoMedico);
+        Assert.Equal(new DateTime(2026, 6, 5), response.DataAtendimento);
         Assert.Equal(storedUser.Id, response.UserId);
         Assert.Equal(7, response.ConvenioId);
         Assert.Equal("Particular", response.Convenio);
@@ -147,19 +152,19 @@ public partial class PacienteCommandHandlerTests
         Assert.Equal(auxiliar1.Nome, response.MedicoAuxiliar1);
         Assert.Equal(auxiliar2.Id, response.MedicoAuxiliar2UserId);
         Assert.Equal(auxiliar2.Nome, response.MedicoAuxiliar2);
-        Assert.Equal(["Em consultorio", "Visita hospitalar a paciente internado"], response.Procedimentos.Select(item => item.Procedimento));
+        Assert.Equal(["Em consultorio", "Visita hospitalar a paciente internado", "Em consultorio"], response.Procedimentos.Select(item => item.Procedimento));
 
         var storedProcedimentos = await context.PacienteProcedimentos
             .OrderBy(item => item.Ordem)
             .ToListAsync();
-        Assert.Equal(2, storedProcedimentos.Count);
+        Assert.Equal(3, storedProcedimentos.Count);
         Assert.Equal(storedPaciente.Id, storedProcedimentos[0].PacienteId);
         Assert.Equal("10101012", storedProcedimentos[0].CbhpmCodigo);
         Assert.Equal(120m, storedProcedimentos[0].ValorReferencia);
         Assert.Equal("10102019", storedProcedimentos[1].CbhpmCodigo);
         Assert.Equal(180m, storedProcedimentos[1].ValorReferencia);
-        Assert.Equal("10101012, 10102019", storedFaturamento.CodigoTussCbhpmAmb);
-        Assert.Equal("2B, 2A", storedFaturamento.PorteCirurgicoAnestesico);
+        Assert.Equal("10101012", storedProcedimentos[2].CbhpmCodigo);
+        Assert.Equal(120m, storedProcedimentos[2].ValorReferencia);
     }
 
     [Fact]

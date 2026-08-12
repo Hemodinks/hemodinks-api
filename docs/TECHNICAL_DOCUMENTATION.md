@@ -56,6 +56,8 @@ flowchart LR
 ### Usuarios e autenticacao
 
 - login JWT
+- refresh token rotativo em cookie `HttpOnly`, com expiracao deslizante apos 30 minutos de inatividade
+- renovacao de JWT, registro de atividade e revogacao de sessao no logout
 - reset de senha por email/token
 - reset administrativo para senha padrao
 - foto de perfil

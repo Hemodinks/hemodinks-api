@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using HemodinksAPI.Application.Features.Events;
-using HemodinksAPI.Application.Features.Events.Commands;
 using HemodinksAPI.Application.Features.Events.Queries;
 using MediatR;
 
@@ -9,13 +8,15 @@ namespace HemodinksAPI.Api;
 public static partial class EventEndpointExtensions
 {
     private static Task<IResult> GetMedicalUsers(
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
         return EndpointExecution.RunAsync(async () =>
         {
-            return Results.Ok(await mediator.Send(new GetEventMedicalUsersQuery(), cancellationToken));
+            var currentUser = GetRequiredNonPatientCurrentUser(claimsPrincipal);
+            return Results.Ok(await mediator.Send(new GetEventMedicalUsersQuery { CurrentUser = currentUser }, cancellationToken));
         }, logger, "Erro ao buscar medicos para agenda", "Erro ao buscar medicos para agenda");
     }
 

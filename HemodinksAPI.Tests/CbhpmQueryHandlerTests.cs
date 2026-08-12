@@ -196,6 +196,39 @@ public class CbhpmQueryHandlerTests
     }
 
     [Fact]
+    public async Task GetCbhpmGeral_FiltersByPartialUnformattedCodigo()
+    {
+        await using var lease = TestDbContextFactory.CreateRelationalCbhpm();
+        var context = lease.Context;
+        context.CbhpmGeral.AddRange(
+            new CbhpmGeral
+            {
+                Codigo = "4.07.01.01-8",
+                Procedimento = "Procedimento compatível"
+            },
+            new CbhpmGeral
+            {
+                Codigo = "1.01.01.01-2",
+                Procedimento = "Outro procedimento"
+            });
+        await context.SaveChangesAsync();
+
+        var handler = new GetCbhpmGeralQueryHandler(
+            lease.AppContext,
+            NullLogger<GetCbhpmGeralQueryHandler>.Instance);
+
+        var result = await handler.Handle(new GetCbhpmGeralQuery
+        {
+            Codigo = "40701",
+            Page = 1,
+            PageSize = 10
+        }, CancellationToken.None);
+
+        Assert.Single(result.Items);
+        Assert.Equal("40701018", result.Items[0].Codigo);
+    }
+
+    [Fact]
     public async Task GetCbhpmGeral_FiltersProcedimentoByDescriptionWord()
     {
         await using var lease = TestDbContextFactory.CreateRelationalCbhpm();

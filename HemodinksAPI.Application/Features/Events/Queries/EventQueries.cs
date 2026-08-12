@@ -5,6 +5,7 @@ namespace HemodinksAPI.Application.Features.Events.Queries;
 
 public sealed class GetEventMedicalUsersQuery : IRequest<IReadOnlyList<EventMedicalUserDto>>
 {
+    public CurrentUserContext CurrentUser { get; set; } = null!;
 }
 
 public sealed class GetEventsQuery : IRequest<IReadOnlyList<EventDto>>

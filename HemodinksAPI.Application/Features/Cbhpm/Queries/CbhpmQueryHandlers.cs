@@ -12,11 +12,16 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
 
     private readonly IAppDbContext _context;
     private readonly ILogger<GetCbhpmGeralQueryHandler> _logger;
+    private readonly bool _supportsFullTextSearch;
 
-    public GetCbhpmGeralQueryHandler(IAppDbContext context, ILogger<GetCbhpmGeralQueryHandler> logger)
+    public GetCbhpmGeralQueryHandler(
+        IAppDbContext context,
+        ILogger<GetCbhpmGeralQueryHandler> logger,
+        IFullTextSearchCapability? fullTextSearchCapability = null)
     {
         _context = context;
         _logger = logger;
+        _supportsFullTextSearch = fullTextSearchCapability?.IsSupported == true;
     }
 
     public async Task<PagedResult<CbhpmGeralDto>> Handle(GetCbhpmGeralQuery request, CancellationToken cancellationToken)
@@ -36,7 +41,7 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
             var procedimento = CbhpmQueryRules.TrimOptional(request.Procedimento);
             if (procedimento != null)
             {
-                query = ApplyProcedimentoFilter(query, procedimento);
+                query = ApplyProcedimentoFilter(query, procedimento, _supportsFullTextSearch);
             }
 
             var porte = CbhpmQueryRules.TrimOptional(request.Porte);
@@ -51,7 +56,7 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
             var search = CbhpmQueryRules.TrimOptional(request.Search);
             if (search != null)
             {
-                query = ApplySearchFilter(query, search);
+                query = ApplySearchFilter(query, search, _supportsFullTextSearch);
             }
 
             query = ApplyOrdering(query, request.SortBy, request.SortDirection);
@@ -105,13 +110,28 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
         return query.Where(item =>
             EF.Functions.Like(item.Codigo, originalPattern, LikeEscapeCharacter)
             || EF.Functions.Like(
-                item.Codigo.Replace(".", string.Empty).Replace("-", string.Empty),
+                item.Codigo
+                    .Replace(".", string.Empty)
+                    .Replace("-", string.Empty)
+                    .Replace("/", string.Empty)
+                    .Replace(" ", string.Empty),
                 normalizedPattern,
                 LikeEscapeCharacter));
     }
 
-    private static IQueryable<CbhpmGeral> ApplyProcedimentoFilter(IQueryable<CbhpmGeral> query, string procedimento)
+    private static IQueryable<CbhpmGeral> ApplyProcedimentoFilter(
+        IQueryable<CbhpmGeral> query,
+        string procedimento,
+        bool supportsFullTextSearch)
     {
+        var fullTextCondition = FullTextSearchTermBuilder.BuildPrefixCondition(procedimento);
+        if (supportsFullTextSearch && fullTextCondition != null)
+        {
+            return query.Where(item =>
+                EF.Functions.Contains(item.Procedimento, fullTextCondition)
+                || (item.Grupo != null && EF.Functions.Contains(item.Grupo, fullTextCondition)));
+        }
+
         var procedimentoPattern = BuildContainsLikePattern(procedimento.ToUpperInvariant());
 
         return query.Where(item =>
@@ -120,7 +140,10 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
                 && EF.Functions.Like(item.Grupo.ToUpper(), procedimentoPattern, LikeEscapeCharacter)));
     }
 
-    private static IQueryable<CbhpmGeral> ApplySearchFilter(IQueryable<CbhpmGeral> query, string search)
+    private static IQueryable<CbhpmGeral> ApplySearchFilter(
+        IQueryable<CbhpmGeral> query,
+        string search,
+        bool supportsFullTextSearch)
     {
         var searchPattern = BuildContainsLikePattern(search.ToUpperInvariant());
         var codigoPattern = BuildContainsLikePattern(search);
@@ -129,11 +152,31 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
             ? BuildContainsLikePattern(normalizedSearch)
             : null;
 
+        var fullTextCondition = FullTextSearchTermBuilder.BuildPrefixCondition(search);
+        if (supportsFullTextSearch && fullTextCondition != null)
+        {
+            return query.Where(item =>
+                EF.Functions.Like(item.Codigo, codigoPattern, LikeEscapeCharacter)
+                || (normalizedCodigoPattern != null
+                    && EF.Functions.Like(
+                        item.Codigo.Replace(".", string.Empty).Replace("-", string.Empty),
+                        normalizedCodigoPattern,
+                        LikeEscapeCharacter))
+                || (item.Porte != null
+                    && EF.Functions.Like(item.Porte.ToUpper(), searchPattern, LikeEscapeCharacter))
+                || EF.Functions.Contains(item.Procedimento, fullTextCondition)
+                || (item.Grupo != null && EF.Functions.Contains(item.Grupo, fullTextCondition)));
+        }
+
         return query.Where(item =>
             EF.Functions.Like(item.Codigo, codigoPattern, LikeEscapeCharacter)
             || (normalizedCodigoPattern != null
                 && EF.Functions.Like(
-                    item.Codigo.Replace(".", string.Empty).Replace("-", string.Empty),
+                    item.Codigo
+                        .Replace(".", string.Empty)
+                        .Replace("-", string.Empty)
+                        .Replace("/", string.Empty)
+                        .Replace(" ", string.Empty),
                     normalizedCodigoPattern,
                     LikeEscapeCharacter))
             || EF.Functions.Like(item.Procedimento.ToUpper(), searchPattern, LikeEscapeCharacter)

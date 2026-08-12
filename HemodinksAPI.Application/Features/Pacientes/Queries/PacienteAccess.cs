@@ -10,9 +10,10 @@ internal static class PacienteAccess
         IAppDbContext context,
         IQueryable<Paciente> query,
         int perfilId,
-        int userId)
+        int userId,
+        int? equipeId = null)
     {
-        if (perfilId == Perfil.AdministradorId || perfilId == Perfil.ControllerId)
+        if (Perfil.IsAdministradorOuSuper(perfilId) || perfilId == Perfil.ControllerId)
         {
             return query;
         }
@@ -24,6 +25,17 @@ internal static class PacienteAccess
                 (p.MedicoUserId.HasValue && accessibleMedicalUserIds.Contains(p.MedicoUserId.Value))
                 || (p.MedicoAuxiliar1UserId.HasValue && accessibleMedicalUserIds.Contains(p.MedicoAuxiliar1UserId.Value))
                 || (p.MedicoAuxiliar2UserId.HasValue && accessibleMedicalUserIds.Contains(p.MedicoAuxiliar2UserId.Value)));
+        }
+
+        if (perfilId == Perfil.EquipeId && equipeId.HasValue)
+        {
+            var memberUserIds = context.EquipeMembros
+                .Where(item => item.EquipeId == equipeId.Value && item.Ativo)
+                .Select(item => item.UserId);
+            return query.Where(p =>
+                (p.MedicoUserId.HasValue && memberUserIds.Contains(p.MedicoUserId.Value))
+                || (p.MedicoAuxiliar1UserId.HasValue && memberUserIds.Contains(p.MedicoAuxiliar1UserId.Value))
+                || (p.MedicoAuxiliar2UserId.HasValue && memberUserIds.Contains(p.MedicoAuxiliar2UserId.Value)));
         }
 
         if (perfilId == Perfil.PacientesId)

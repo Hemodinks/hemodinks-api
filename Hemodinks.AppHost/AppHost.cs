@@ -37,7 +37,7 @@ IResourceBuilder<ContainerResource> AddContainerizedApi(IDistributedApplicationB
             "JWT_SECRET_KEY"),
         JwtIssuer: GetOptionalConfiguration(builder.Configuration, "JWT_ISSUER", "HemodinksAPI"),
         JwtAudience: GetOptionalConfiguration(builder.Configuration, "JWT_AUDIENCE", "HemodinksAPI"),
-        JwtExpirationMinutes: GetOptionalConfiguration(builder.Configuration, "JWT_EXPIRATION_MINUTES", "60"),
+        JwtExpirationMinutes: GetOptionalConfiguration(builder.Configuration, "JWT_EXPIRATION_MINUTES", "30"),
         PasswordResetUseEmail: GetOptionalConfiguration(builder.Configuration, "PasswordReset__UseEmail", "true"),
         AsyncQueuesEnabled: GetOptionalConfiguration(builder.Configuration, "AsyncQueues__Enabled", "false"),
         AsyncQueuesPasswordResetEnabled: GetOptionalConfiguration(
@@ -58,7 +58,7 @@ IResourceBuilder<ContainerResource> AddContainerizedApi(IDistributedApplicationB
             "file-export-jobs"),
         AzureStorageContainerName: GetOptionalConfiguration(builder.Configuration, "AZURE_STORAGE_CONTAINER_NAME", "profile-photos"),
         AzureStoragePublicBaseUrl: GetOptionalConfiguration(builder.Configuration, "AZURE_STORAGE_PUBLIC_BASE_URL", string.Empty),
-        AzureStorageMaxBytes: GetOptionalConfiguration(builder.Configuration, "AZURE_STORAGE_MAX_BYTES", "1048576"),
+        AzureStorageMaxBytes: GetOptionalConfiguration(builder.Configuration, "AZURE_STORAGE_MAX_BYTES", "2097152"),
         AzureStoragePatientFilesContainerName: GetOptionalConfiguration(
             builder.Configuration,
             "AZURE_STORAGE_PATIENT_FILES_CONTAINER_NAME",
@@ -192,7 +192,7 @@ void ConfigureFront<TResource>(
     IResourceBuilder<TResource> api)
     where TResource : IResourceWithEndpoints
 {
-    var front = builder.AddNpmApp("front", frontPath, "dev")
+    var front = builder.AddJavaScriptApp("front", frontPath, "dev")
         .WithHttpEndpoint(targetPort: 5173, port: 5173, isProxied: false)
         .WithEnvironment("VITE_API_URL", api.GetEndpoint("http"));
 

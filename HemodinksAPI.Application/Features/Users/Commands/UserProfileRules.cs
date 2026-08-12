@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 
@@ -18,11 +19,21 @@ internal static class UserProfileRules
         return perfilId == 0 ? Perfil.MedicosId : perfilId;
     }
 
-    public static void EnsureAssignablePerfilId(int perfilId)
+    public static void EnsureAssignablePerfilId(int perfilId, CurrentUserContext? currentUser = null)
     {
+        if (perfilId == Perfil.SuperAdministradorId && currentUser?.IsSuperAdministrador != true)
+        {
+            throw new UnauthorizedAccessException("Perfil SuperAdministrador somente pode ser atribuido por outro SuperAdministrador");
+        }
+
         if (perfilId == Perfil.PacientesId)
         {
             throw new InvalidOperationException("Perfil Pacientes desativado para cadastro de usuarios");
+        }
+
+        if (perfilId == Perfil.EquipeId)
+        {
+            throw new InvalidOperationException("Perfil Equipe deve ser criado pelo gerenciamento de equipes");
         }
     }
 

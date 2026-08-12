@@ -22,12 +22,19 @@ public static partial class UserEndpointExtensions
         group.MapPost("/authenticate", AuthenticateUser)
             .WithName("AuthenticateUser")
             .WithSummary("Autenticar usuario")
-            .WithDescription("Autentica um usuario e retorna um token JWT");
+            .WithDescription("Autentica um usuario e retorna um token JWT")
+            .RequireRateLimiting("Login");
 
         group.MapGet("/", GetAllUsers)
             .WithName("GetAllUsers")
             .WithSummary("Listar todos os usuarios")
             .WithDescription("Retorna uma lista de todos os usuarios cadastrados")
+            .RequireAuthorization("UsuariosVisualizar");
+
+        group.MapGet("/perfis", GetAvailableProfiles)
+            .WithName("GetAvailableUserProfiles")
+            .WithSummary("Listar perfis disponiveis para cadastro de usuarios")
+            .WithDescription("Retorna somente os perfis que o usuario autenticado pode atribuir")
             .RequireAuthorization("Administrador");
 
         group.MapGet("/{id}", GetUserById)
@@ -89,6 +96,11 @@ public static partial class UserEndpointExtensions
             .WithSummary("Enviar arquivo do cadastro medico")
             .WithDescription("Adiciona documento ao cadastro de um usuario medico")
             .DisableAntiforgery()
+            .RequireAuthorization();
+
+        group.MapGet("/{id}/arquivos/{arquivoId}/download", DownloadArquivo)
+            .WithName("DownloadUserArquivo")
+            .WithSummary("Baixar arquivo do cadastro medico")
             .RequireAuthorization();
 
         group.MapDelete("/{id}/arquivos/{arquivoId}", DeleteArquivo)

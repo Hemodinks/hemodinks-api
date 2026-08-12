@@ -14,7 +14,10 @@ services:
       - hemodinks-network
 
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    build:
+      context: .
+      dockerfile: sqlserver/Dockerfile.fts
+    image: hemodinks-sqlserver:2022-fts
     container_name: hemodinks-mssql
     restart: unless-stopped
     environment:
@@ -46,7 +49,12 @@ services:
       JwtSettings__SecretKey: "${JWT_SECRET_KEY}"
       JwtSettings__Issuer: "${JWT_ISSUER:-HemodinksAPI}"
       JwtSettings__Audience: "${JWT_AUDIENCE:-HemodinksAPI}"
-      JwtSettings__ExpirationMinutes: "${JWT_EXPIRATION_MINUTES:-60}"
+      JwtSettings__ExpirationMinutes: "${JWT_EXPIRATION_MINUTES:-30}"
+      Database__RunMigrationsOnStartup: "${Database__RunMigrationsOnStartup:-true}"
+      Database__RunMaintenanceOnStartup: "${Database__RunMaintenanceOnStartup:-true}"
+      Seed__CbhpmOnStartup: "${Seed__CbhpmOnStartup:-true}"
+      Seed__UsersOnStartup: "${Seed__UsersOnStartup:-true}"
+      EventReminders__RunHostedProcessor: "${EventReminders__RunHostedProcessor:-true}"
       PasswordReset__UseEmail: "${PasswordReset__UseEmail:-true}"
       AsyncQueues__Enabled: "${AsyncQueues__Enabled:-false}"
       AsyncQueues__PasswordResetEnabled: "${AsyncQueues__PasswordResetEnabled:-false}"
@@ -57,7 +65,7 @@ services:
       AzureStorage__ConnectionString: "${AZURE_STORAGE_CONNECTION_STRING:-UseDevelopmentStorage=true;DevelopmentStorageProxyUri=http://azurite}"
       AzureStorage__ContainerName: "${AZURE_STORAGE_CONTAINER_NAME:-profile-photos}"
       AzureStorage__PublicBaseUrl: "${AZURE_STORAGE_PUBLIC_BASE_URL:-}"
-      AzureStorage__MaxBytes: "${AZURE_STORAGE_MAX_BYTES:-1048576}"
+      AzureStorage__MaxBytes: "${AZURE_STORAGE_MAX_BYTES:-2097152}"
       AzureStorage__PatientFilesContainerName: "${AZURE_STORAGE_PATIENT_FILES_CONTAINER_NAME:-patient-files}"
       AzureStorage__PatientFilesPublicBaseUrl: "${AZURE_STORAGE_PATIENT_FILES_PUBLIC_BASE_URL:-}"
       AzureStorage__PatientFileMaxBytes: "${AZURE_STORAGE_PATIENT_FILE_MAX_BYTES:-10485760}"

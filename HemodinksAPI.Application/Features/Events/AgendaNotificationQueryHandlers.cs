@@ -38,8 +38,16 @@ public sealed class GetAgendaNotificationRecipientOptionsQueryHandler
         else if (currentUser.IsMedico)
         {
             usersQuery = usersQuery.Where(user =>
-                user.PerfilId == Perfil.AdministradorId
+                Perfil.IsAdministradorOuSuper(user.PerfilId)
                 || user.PerfilId == Perfil.ControllerId);
+        }
+        else if (currentUser.IsEquipe && currentUser.EquipeId.HasValue)
+        {
+            var memberUserIds = _context.EquipeMembros
+                .AsNoTracking()
+                .Where(member => member.EquipeId == currentUser.EquipeId.Value && member.Ativo)
+                .Select(member => member.UserId);
+            usersQuery = usersQuery.Where(user => memberUserIds.Contains(user.Id));
         }
         else
         {
@@ -86,9 +94,11 @@ public sealed class GetAgendaNotificationRecipientOptionsQueryHandler
         return new AgendaNotificationRecipientOptionsDto
         {
             CanNotifyAllAllowedRecipients = true,
-            AllRecipientsLabel = currentUser.IsMedico
-                ? "Todos os administradores, controllers e medicos dos meus grupos"
-                : "Todos os usuarios ativos, exceto pacientes",
+            AllRecipientsLabel = currentUser.IsEquipe
+                ? "Todos os membros ativos desta equipe"
+                : currentUser.IsMedico
+                    ? "Todos os administradores, controllers e medicos dos meus grupos"
+                    : "Todos os usuarios ativos, exceto pacientes",
             Users = users,
             Groups = groups
         };

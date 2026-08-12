@@ -23,5 +23,5 @@ public class JwtSettings
     /// <summary>
     /// Tempo de expiração em minutos
     /// </summary>
-    public int ExpirationMinutes { get; set; } = 60;
+    public int ExpirationMinutes { get; set; } = 30;
 }

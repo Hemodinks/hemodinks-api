@@ -1,14 +1,10 @@
-using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Application.Services;
-using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 using HemodinksAPI.Infrastructure.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -18,17 +14,65 @@ namespace HemodinksAPI.Tests;
 public partial class UserCommandHandlerTests
 {
     [Fact]
+    public async Task CreateUser_WhenSuperAdministradorAssignsSameProfile_AllowsAssignment()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new CreateUserCommandHandler(
+            context,
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
+            NullLogger<CreateUserCommandHandler>.Instance);
+
+        var response = await handler.Handle(new CreateUserCommand
+        {
+            CurrentUser = new CurrentUserContext(1, Perfil.SuperAdministradorId, "Super Admin"),
+            Nome = "Novo Super Admin",
+            Email = "novo.superadmin@email.com",
+            Telefone = "+5511999999999",
+            PerfilId = Perfil.SuperAdministradorId
+        }, CancellationToken.None);
+
+        Assert.Equal(Perfil.SuperAdministradorId, response.PerfilId);
+    }
+
+    [Fact]
+    public async Task CreateUser_WhenAdministradorAssignsSuperAdministrador_RejectsAssignment()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var handler = new CreateUserCommandHandler(
+            context,
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            new UserPatientSyncService(context),
+            Options.Create(new LicencaOptions()),
+            NullLogger<CreateUserCommandHandler>.Instance);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new CreateUserCommand
+        {
+            CurrentUser = new CurrentUserContext(1, Perfil.AdministradorId, "Admin"),
+            Nome = "Super Admin Indevido",
+            Email = "superadmin.indevido@email.com",
+            Telefone = "+5511999999999",
+            PerfilId = Perfil.SuperAdministradorId
+        }, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task CreateUser_WhenEmailIsNew_CreatesActiveUserWithDefaultPassword()
     {
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
+        var invitationSender = new RecordingPasswordResetNotificationSender();
         var handler = new CreateUserCommandHandler(
             context,
             hasher,
             new FakeProfilePhotoStorage(),
             new UserPatientSyncService(context),
             Options.Create(new LicencaOptions()),
-            NullLogger<CreateUserCommandHandler>.Instance);
+            NullLogger<CreateUserCommandHandler>.Instance,
+            invitationSender);
 
         var response = await handler.Handle(new CreateUserCommand
         {
@@ -57,7 +101,11 @@ public partial class UserCommandHandlerTests
         Assert.Equal("12345", response.Crm);
         Assert.Equal("PE", response.CrmUf);
         Assert.Equal("Médicos", response.PerfilNome);
-        Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+        Assert.True(response.ConvitePrimeiroAcessoEnviado);
+        Assert.Single(invitationSender.Notifications);
+        Assert.Equal(storedUser.Email, invitationSender.Notifications[0].Email);
+        Assert.NotEmpty(await context.PasswordResetTokens.ToListAsync());
+        Assert.False(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
         Assert.NotNull(await context.Licencas.SingleOrDefaultAsync(item => item.UserId == storedUser.Id));
     }
 

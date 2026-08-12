@@ -10,18 +10,28 @@ internal static class MedicalGroupScope
         IAppDbContext context,
         int currentPerfilId,
         int currentUserId,
+        int? currentEquipeId = null,
         bool onlyActive = true)
     {
-        var query = context.Users
-            .AsNoTracking()
-            .Where(user => user.PerfilId == Perfil.MedicosId);
+        var users = context.Users.AsNoTracking();
+
+        if (currentPerfilId == Perfil.EquipeId && currentEquipeId.HasValue)
+        {
+            var memberUserIds = context.EquipeMembros
+                .AsNoTracking()
+                .Where(member => member.EquipeId == currentEquipeId.Value && member.Ativo)
+                .Select(member => member.UserId);
+            return users.Where(user => memberUserIds.Contains(user.Id) && (!onlyActive || user.Ativo));
+        }
+
+        var query = users.Where(user => user.PerfilId == Perfil.MedicosId);
 
         if (onlyActive)
         {
             query = query.Where(user => user.Ativo);
         }
 
-        if (currentPerfilId == Perfil.AdministradorId || currentPerfilId == Perfil.ControllerId)
+        if (Perfil.IsAdministradorOuSuper(currentPerfilId) || currentPerfilId == Perfil.ControllerId)
         {
             return query;
         }
@@ -44,9 +54,10 @@ internal static class MedicalGroupScope
     public static IQueryable<int> BuildScopedMedicalUserIdsQuery(
         IAppDbContext context,
         int currentPerfilId,
-        int currentUserId)
+        int currentUserId,
+        int? currentEquipeId = null)
     {
-        return BuildScopedMedicalUsersQuery(context, currentPerfilId, currentUserId, onlyActive: false)
+        return BuildScopedMedicalUsersQuery(context, currentPerfilId, currentUserId, currentEquipeId, onlyActive: false)
             .Select(user => user.Id);
     }
 
@@ -54,9 +65,10 @@ internal static class MedicalGroupScope
         IAppDbContext context,
         int currentPerfilId,
         int currentUserId,
+        int? currentEquipeId,
         CancellationToken cancellationToken)
     {
-        return await BuildScopedMedicalUserIdsQuery(context, currentPerfilId, currentUserId)
+        return await BuildScopedMedicalUserIdsQuery(context, currentPerfilId, currentUserId, currentEquipeId)
             .ToHashSetAsync(cancellationToken);
     }
 }

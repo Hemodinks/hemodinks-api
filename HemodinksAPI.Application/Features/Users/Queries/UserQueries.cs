@@ -37,6 +37,8 @@ public class UserArquivoDto
 
 public class GetAllUsersQuery : IRequest<PagedResult<UserDto>>
 {
+    public CurrentUserContext? CurrentUser { get; set; }
+
     public int Page { get; set; } = 1;
 
     public int PageSize { get; set; } = 10;
@@ -49,6 +51,13 @@ public class GetAllUsersQuery : IRequest<PagedResult<UserDto>>
 
     public string? SortDirection { get; set; }
 }
+
+public sealed class GetAvailableProfilesQuery : IRequest<IReadOnlyList<UserProfileOptionDto>>
+{
+    public CurrentUserContext CurrentUser { get; set; } = null!;
+}
+
+public sealed record UserProfileOptionDto(int Id, string Nome);
 
 public class GetUserByIdQuery : IRequest<UserDto?>
 {

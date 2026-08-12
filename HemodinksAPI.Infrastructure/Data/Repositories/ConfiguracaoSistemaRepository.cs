@@ -28,20 +28,24 @@ public sealed class ConfiguracaoSistemaRepository : IConfiguracaoSistemaReposito
         var configuracao = await _context.ConfiguracoesSistema
             .FirstOrDefaultAsync(item => item.ClinicaId == clinicaId, cancellationToken);
 
-        if (configuracao != null)
-        {
-            return configuracao;
-        }
-
         var clinica = await _context.Clinicas
             .AsNoTracking()
             .FirstOrDefaultAsync(item => item.Id == clinicaId, cancellationToken)
             ?? throw new KeyNotFoundException("Clinica nao encontrada para a configuracao do sistema.");
 
+        if (configuracao != null)
+        {
+            // Compatibilidade de leitura: a identidade visual agora pertence a Clinica.
+            configuracao.NomeEmpresa = clinica.Nome;
+            configuracao.FotoEmpresa = clinica.FotoClinica;
+            return configuracao;
+        }
+
         configuracao = new ConfiguracaoSistema
         {
             ClinicaId = clinicaId,
             NomeEmpresa = clinica.Nome,
+            FotoEmpresa = clinica.FotoClinica,
             DataCadastro = _timeProvider.GetUtcNow().UtcDateTime
         };
 

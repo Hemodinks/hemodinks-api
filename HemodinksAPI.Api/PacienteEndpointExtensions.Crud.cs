@@ -13,7 +13,11 @@ public static partial class PacienteEndpointExtensions
         string? search,
         string? medico,
         string? convenio,
+        string? medicoUserIds,
+        string? convenioIds,
         string? procedimento,
+        DateTime? dataInicio,
+        DateTime? dataFinal,
         string? sortBy,
         string? sortDirection,
         ClaimsPrincipal claimsPrincipal,
@@ -31,11 +35,16 @@ public static partial class PacienteEndpointExtensions
                 Search = search,
                 Medico = medico,
                 Convenio = convenio,
+                MedicoUserIds = medicoUserIds,
+                ConvenioIds = convenioIds,
                 Procedimento = procedimento,
+                DataInicio = dataInicio,
+                DataFinal = dataFinal,
                 SortBy = sortBy,
                 SortDirection = sortDirection,
                 CurrentUserId = currentUser.Id,
-                CurrentPerfilId = currentUser.PerfilId
+                CurrentPerfilId = currentUser.PerfilId,
+                CurrentEquipeId = currentUser.EquipeId
             }, cancellationToken);
 
             return Results.Ok(result);
@@ -53,7 +62,7 @@ public static partial class PacienteEndpointExtensions
         {
             var currentUser = GetRequiredCurrentUser(claimsPrincipal);
             var result = await mediator.Send(
-                new GetPacienteByIdQuery(id, currentUser.Id, currentUser.PerfilId),
+                new GetPacienteByIdQuery(id, currentUser.Id, currentUser.PerfilId, currentUser.EquipeId),
                 cancellationToken);
 
             return result == null ? Results.NotFound() : Results.Ok(result);

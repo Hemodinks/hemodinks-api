@@ -20,9 +20,18 @@ public sealed class GetEventMedicalUsersQueryHandler
         GetEventMedicalUsersQuery request,
         CancellationToken cancellationToken)
     {
-        return await _context.Users
+        var query = _context.Users
             .AsNoTracking()
-            .Where(user => user.Ativo && user.PerfilId == Perfil.MedicosId)
+            .Where(user => user.Ativo && user.PerfilId == Perfil.MedicosId);
+        if (request.CurrentUser.IsEquipe && request.CurrentUser.EquipeId.HasValue)
+        {
+            var memberUserIds = _context.EquipeMembros.AsNoTracking()
+                .Where(member => member.EquipeId == request.CurrentUser.EquipeId && member.Ativo)
+                .Select(member => member.UserId);
+            query = query.Where(user => memberUserIds.Contains(user.Id));
+        }
+
+        return await query
             .OrderBy(user => user.Nome)
             .Select(user => new EventMedicalUserDto
             {
@@ -50,7 +59,7 @@ public sealed class GetEventsQueryHandler
     {
         await _reminderProcessor.ProcessDueRemindersAsync(cancellationToken);
 
-        var query = EventFeatureRules.ApplyScope(_context.Events.AsNoTracking(), request.CurrentUser);
+        var query = EventFeatureRules.ApplyScope(_context, _context.Events.AsNoTracking(), request.CurrentUser);
 
         if (request.From.HasValue)
         {
@@ -76,7 +85,7 @@ public sealed class GetEventsQueryHandler
 
     public async Task<EventDto?> Handle(GetEventByIdQuery request, CancellationToken cancellationToken)
     {
-        var ev = await EventFeatureRules.ApplyScope(_context.Events.AsNoTracking(), request.CurrentUser)
+        var ev = await EventFeatureRules.ApplyScope(_context, _context.Events.AsNoTracking(), request.CurrentUser)
             .Include(item => item.User)
             .Include(item => item.MedicalUser)
             .Where(item => item.Id == request.Id)

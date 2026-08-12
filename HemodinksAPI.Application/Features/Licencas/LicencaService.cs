@@ -19,7 +19,7 @@ public class LicencaService : ILicencaService
 
     public async Task<LicencaDto?> GetCurrentAsync(CurrentUserContext currentUser, CancellationToken cancellationToken)
     {
-        if (currentUser.IsAdministrador || currentUser.IsController)
+        if (currentUser.IsAdministrador || currentUser.IsController || currentUser.IsEquipe)
         {
             return LicencaMapper.CreateUnrestrictedDto(currentUser.Id);
         }
@@ -72,6 +72,12 @@ public class LicencaService : ILicencaService
         string feature,
         CancellationToken cancellationToken)
     {
+        if (!currentUser.IsSuperAdministrador
+            && !await IsClinicaSubscriptionActiveAsync(currentUser.ClinicaId, cancellationToken))
+        {
+            return false;
+        }
+
         if (LicencaFeatureRules.HasImplicitFeatureAccess(currentUser, feature, out var allowed))
         {
             return allowed;
@@ -79,6 +85,20 @@ public class LicencaService : ILicencaService
 
         var licenca = await GetOrCreateForMedicoEntityAsync(currentUser.Id, DateTime.UtcNow, cancellationToken);
         return LicencaFeatureRules.IsFeatureAllowed(licenca, feature, DateTime.UtcNow);
+    }
+
+    private async Task<bool> IsClinicaSubscriptionActiveAsync(int clinicaId, CancellationToken cancellationToken)
+    {
+        var now = DateTime.UtcNow;
+        return await _context.Clinicas
+            .AsNoTracking()
+            .AnyAsync(clinica => clinica.Id == clinicaId
+                && clinica.Ativa
+                && (clinica.AssinaturaStatus == ClinicaAssinaturaStatus.Ativa
+                    && (!clinica.AssinaturaValidaAte.HasValue || clinica.AssinaturaValidaAte >= now)
+                    || clinica.AssinaturaStatus == ClinicaAssinaturaStatus.Trial
+                    && (!clinica.TrialAte.HasValue || clinica.TrialAte >= now)),
+                cancellationToken);
     }
 
     private async Task<Licenca> GetOrCreateForMedicoEntityAsync(

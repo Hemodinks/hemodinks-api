@@ -6,6 +6,7 @@ namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 public class CreatePacienteCommand : IRequest<PacienteDto>
 {
     public DateTime? Data { get; set; }
+    public DateTime? DataAtendimento { get; set; }
     public string NomePaciente { get; set; } = null!;
     public string? Diagnostico { get; set; }
     public string? TratamentoMedico { get; set; }
@@ -13,7 +14,7 @@ public class CreatePacienteCommand : IRequest<PacienteDto>
     public string? Email { get; set; }
     public string? Telefone { get; set; }
     public string? FotoPerfil { get; set; }
-    public DateTime DataNascimento { get; set; }
+    public DateTime? DataNascimento { get; set; }
     public int? HospitalId { get; set; }
     public string? Hospital { get; set; }
     public int? MedicoUserId { get; set; }
@@ -34,9 +35,11 @@ public class CreatePacienteCommand : IRequest<PacienteDto>
     public string? Pagamento { get; set; }
     public string? RepasseGlosa { get; set; }
     public bool StatusPago { get; set; }
+    public DateTime? DataPagamento { get; set; }
     public bool Ativo { get; set; } = true;
     public int CurrentUserId { get; set; }
     public int CurrentPerfilId { get; set; }
+    public int? CurrentEquipeId { get; set; }
     public string CurrentUserName { get; set; } = string.Empty;
 }
 
@@ -44,6 +47,7 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
 {
     public int Id { get; set; }
     public DateTime? Data { get; set; }
+    public DateTime? DataAtendimento { get; set; }
     public string NomePaciente { get; set; } = null!;
     public string? Diagnostico { get; set; }
     public string? TratamentoMedico { get; set; }
@@ -51,7 +55,7 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
     public string? Email { get; set; }
     public string? Telefone { get; set; }
     public string? FotoPerfil { get; set; }
-    public DateTime DataNascimento { get; set; }
+    public DateTime? DataNascimento { get; set; }
     public int? HospitalId { get; set; }
     public string? Hospital { get; set; }
     public int? MedicoUserId { get; set; }
@@ -72,9 +76,11 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
     public string? Pagamento { get; set; }
     public string? RepasseGlosa { get; set; }
     public bool StatusPago { get; set; }
+    public DateTime? DataPagamento { get; set; }
     public bool Ativo { get; set; }
     public int CurrentUserId { get; set; }
     public int CurrentPerfilId { get; set; }
+    public int? CurrentEquipeId { get; set; }
     public string CurrentUserName { get; set; } = string.Empty;
 }
 
@@ -98,6 +104,7 @@ public class UploadPacienteArquivoCommand : IRequest<PacienteArquivoDto>
     public IFormFile File { get; set; } = null!;
     public int CurrentUserId { get; set; }
     public int CurrentPerfilId { get; set; }
+    public int? CurrentEquipeId { get; set; }
 }
 
 public class DeletePacienteArquivoCommand : IRequest
@@ -106,4 +113,5 @@ public class DeletePacienteArquivoCommand : IRequest
     public int ArquivoId { get; set; }
     public int CurrentUserId { get; set; }
     public int CurrentPerfilId { get; set; }
+    public int? CurrentEquipeId { get; set; }
 }

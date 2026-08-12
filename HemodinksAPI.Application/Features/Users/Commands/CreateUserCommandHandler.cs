@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Storage;
@@ -24,6 +25,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
     private readonly LicencaOptions _licencaOptions;
     private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<CreateUserCommandHandler> _logger;
+    private readonly IPasswordResetNotificationSender? _passwordResetNotificationSender;
 
     public CreateUserCommandHandler(
         IAppDbContext context,
@@ -31,7 +33,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
         IProfilePhotoStorage profilePhotoStorage,
         IUserPatientSyncService userPatientSyncService,
         IOptions<LicencaOptions> licencaOptions,
-        ILogger<CreateUserCommandHandler> logger)
+        ILogger<CreateUserCommandHandler> logger,
+        IPasswordResetNotificationSender? passwordResetNotificationSender = null)
         : this(
             context,
             passwordHasher,
@@ -39,7 +42,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
             userPatientSyncService,
             licencaOptions,
             ClinicaContextFactory.CreateDefaultResolved(),
-            logger)
+            logger,
+            passwordResetNotificationSender)
     {
     }
 
@@ -50,7 +54,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
         IUserPatientSyncService userPatientSyncService,
         IOptions<LicencaOptions> licencaOptions,
         IClinicaContext clinicaContext,
-        ILogger<CreateUserCommandHandler> logger)
+        ILogger<CreateUserCommandHandler> logger,
+        IPasswordResetNotificationSender? passwordResetNotificationSender = null)
     {
         _context = context;
         _passwordHasher = passwordHasher;
@@ -59,6 +64,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
         _licencaOptions = licencaOptions.Value;
         _clinicaContext = clinicaContext;
         _logger = logger;
+        _passwordResetNotificationSender = passwordResetNotificationSender;
     }
 
     public async Task<CreateUserResponse> Handle(CreateUserCommand request, CancellationToken cancellationToken)
@@ -89,7 +95,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
             }
 
             var perfilId = UserProfileRules.NormalizePerfilId(request.PerfilId);
-            UserProfileRules.EnsureAssignablePerfilId(perfilId);
+            UserProfileRules.EnsureAssignablePerfilId(perfilId, request.CurrentUser);
             var perfil = await _context.Perfis
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == perfilId, cancellationToken);
@@ -101,6 +107,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
 
             var medicalRegistration = UserProfileRules.NormalizeAndValidateMedicalRegistration(request.Crm, request.CrmUf, perfilId);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, null, cancellationToken);
+            var temporaryPassword = TemporaryPasswordGenerator.Generate();
 
             var user = new User
             {
@@ -112,7 +119,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 Crm = medicalRegistration.Crm,
                 CrmUf = medicalRegistration.CrmUf,
                 FotoPerfil = fotoPerfil,
-                Senha = _passwordHasher.HashPassword(DefaultUserPassword.Value),
+                Senha = _passwordHasher.HashPassword(temporaryPassword),
                 DataNascimento = request.DataNascimento,
                 DataCadastro = DateTime.UtcNow,
                 Ativo = true,
@@ -122,6 +129,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
 
             _context.Users.Add(user);
             await _context.SaveChangesAsync(cancellationToken);
+            await GlobalIdentityService.EnsureForUserAsync(_context, user, cancellationToken);
 
             if (user.PerfilId == Perfil.MedicosId)
             {
@@ -140,6 +148,12 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
 
             await _userPatientSyncService.EnsurePacienteForUserAsync(user, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
+            var invitationSent = await FirstAccessInvitation.TrySendAsync(
+                _context,
+                _passwordResetNotificationSender,
+                user,
+                _logger,
+                cancellationToken);
 
             _logger.LogInformation("Usuario criado com sucesso. ID: {UserId}", user.Id);
 
@@ -159,7 +173,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 Ativo = user.Ativo,
                 PrecisaTrocarSenha = user.PrecisaTrocarSenha,
                 PerfilId = user.PerfilId,
-                PerfilNome = perfil.Nome
+                PerfilNome = perfil.Nome,
+                ConvitePrimeiroAcessoEnviado = invitationSent
             };
         }
         catch (Exception ex)

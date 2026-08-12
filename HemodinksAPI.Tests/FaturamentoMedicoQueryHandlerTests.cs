@@ -1,10 +1,8 @@
 using HemodinksAPI.Application.Features.Faturamentos.Queries;
 using HemodinksAPI.Application.Features.Faturamentos;
-using HemodinksAPI.Application.Features.Pacientes.Commands;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HemodinksAPI.Tests;
@@ -282,11 +280,11 @@ public class FaturamentoMedicoQueryHandlerTests
     }
 
     [Fact]
-    public void EnsureSynced_WhenPacienteHasData_SetsMonthlyCompetencia()
+    public void EnsureSynced_WhenPacienteHasAttendanceDate_SetsMonthlyCompetencia()
     {
         var paciente = new Paciente
         {
-            Data = new DateTime(2026, 7, 15),
+            DataAtendimento = new DateTime(2026, 7, 15),
             NomePaciente = "Paciente Competencia",
             Procedimentos = []
         };

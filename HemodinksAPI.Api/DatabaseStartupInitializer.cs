@@ -1,6 +1,8 @@
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.Seeders;
+using HemodinksAPI.Application.Tenancy;
+using HemodinksAPI.Application.Authentication;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
@@ -11,14 +13,15 @@ internal static class DatabaseStartupInitializer
     {
         using var scope = app.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var clinicaContext = scope.ServiceProvider.GetRequiredService<ClinicaContext>();
+        clinicaContext.SetPlatformScope();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
         try
         {
             logger.LogInformation("Iniciando migracao do banco de dados");
 
-            var runMigrations = app.Configuration.GetValue<bool?>("Database:RunMigrationsOnStartup")
-                ?? !app.Environment.IsProduction();
+            var runMigrations = ShouldRunMigrations(app.Environment, app.Configuration);
             var isRelational = dbContext.Database.IsRelational();
             var pendingMigrations = isRelational
                 ? (await dbContext.Database.GetPendingMigrationsAsync()).ToList()
@@ -31,6 +34,8 @@ internal static class DatabaseStartupInitializer
             logger.LogInformation("Inicializacao do banco de dados concluida");
 
             await SeedReferenceDataAsync(app, scope.ServiceProvider, dbContext, logger);
+            await ProvisionSuperAdministratorsAsync(app.Configuration, dbContext, logger);
+            await SynchronizeGlobalIdentitiesAsync(dbContext, logger);
             await SyncPatientRecordsAsync(dbContext, logger);
         }
         catch (Exception ex)
@@ -38,6 +43,116 @@ internal static class DatabaseStartupInitializer
             logger.LogError(ex, "Erro ao processar migracao ou seed do banco de dados");
             throw;
         }
+    }
+
+    internal static bool ShouldRunMigrations(
+        IHostEnvironment environment,
+        IConfiguration configuration)
+    {
+        return configuration.GetValue<bool?>("Database:RunMigrationsOnStartup")
+            ?? !environment.IsProduction();
+    }
+
+    private static async Task SynchronizeGlobalIdentitiesAsync(AppDbContext dbContext, ILogger logger)
+    {
+        var users = await dbContext.Users
+            .IgnoreQueryFilters()
+            .OrderBy(item => item.Id)
+            .ToListAsync();
+
+        var linkedUserIds = await dbContext.UsuariosClinicas
+            .IgnoreQueryFilters()
+            .Select(item => item.UserId)
+            .ToHashSetAsync();
+        var teamLoginUserIds = await dbContext.Equipes
+            .IgnoreQueryFilters()
+            .Select(item => item.UsuarioLoginId)
+            .ToHashSetAsync();
+
+        foreach (var user in users)
+        {
+            // Operadores criados dentro de uma equipe compartilham a conta coletiva e
+            // não representam identidades globais independentes. Vinculá-los pelo mesmo
+            // e-mail produziria mais de uma associação global para a mesma clínica.
+            if (user.PerfilId == Perfil.EquipeId
+                && !linkedUserIds.Contains(user.Id)
+                && !teamLoginUserIds.Contains(user.Id))
+            {
+                continue;
+            }
+
+            var membership = await GlobalIdentityService.EnsureForUserAsync(dbContext, user, CancellationToken.None);
+            membership.PerfilId = user.PerfilId;
+            membership.Ativo = user.Ativo;
+            membership.DataAtualizacao = DateTime.UtcNow;
+        }
+
+        await dbContext.SaveChangesAsync();
+        logger.LogInformation("Identidades globais sincronizadas para {Count} usuarios locais", users.Count);
+    }
+
+    private static async Task ProvisionSuperAdministratorsAsync(
+        IConfiguration configuration,
+        AppDbContext dbContext,
+        ILogger logger)
+    {
+        var configuredEmails = configuration.GetSection("Platform:SuperAdminEmails")
+            .Get<string[]>()
+            ?.Where(item => !string.IsNullOrWhiteSpace(item))
+            .Select(item => item.Trim().ToLowerInvariant())
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList() ?? [];
+
+        if (configuredEmails.Count == 0)
+        {
+            return;
+        }
+
+        var clinicaIds = await dbContext.Clinicas
+            .Where(item => item.Ativa)
+            .Select(item => item.Id)
+            .ToListAsync();
+
+        foreach (var email in configuredEmails)
+        {
+            var existingUsers = await dbContext.Users
+                .IgnoreQueryFilters()
+                .Where(item => item.Email == email)
+                .OrderBy(item => item.ClinicaId == Clinica.DefaultId ? 0 : 1)
+                .ThenBy(item => item.Id)
+                .ToListAsync();
+
+            var source = existingUsers.FirstOrDefault();
+            if (source == null)
+            {
+                logger.LogWarning("Superadministrador configurado nao encontrado: {Email}", email);
+                continue;
+            }
+
+            foreach (var user in existingUsers)
+            {
+                user.PerfilId = Perfil.SuperAdministradorId;
+            }
+
+            foreach (var clinicaId in clinicaIds.Except(existingUsers.Select(item => item.ClinicaId)))
+            {
+                dbContext.Users.Add(new User
+                {
+                    ClinicaId = clinicaId,
+                    Nome = source.Nome,
+                    Email = source.Email,
+                    Telefone = $"+559{clinicaId:00000000000}",
+                    Senha = source.Senha,
+                    DataNascimento = source.DataNascimento,
+                    DataCadastro = DateTime.UtcNow,
+                    Ativo = true,
+                    PrecisaTrocarSenha = source.PrecisaTrocarSenha,
+                    PerfilId = Perfil.SuperAdministradorId
+                });
+            }
+        }
+
+        await dbContext.SaveChangesAsync();
     }
 
     private static void LogPendingMigrations(
@@ -90,7 +205,7 @@ internal static class DatabaseStartupInitializer
         ILogger logger)
     {
         var seedCbhpm = app.Configuration.GetValue<bool?>("Seed:CbhpmOnStartup")
-            ?? !app.Environment.IsProduction();
+            ?? app.Environment.IsDevelopment();
 
         if (seedCbhpm)
         {
@@ -99,7 +214,7 @@ internal static class DatabaseStartupInitializer
         }
 
         var seedUsers = app.Configuration.GetValue<bool?>("Seed:UsersOnStartup")
-            ?? !app.Environment.IsProduction();
+            ?? app.Environment.IsDevelopment();
 
         if (seedUsers && !await dbContext.Users.AnyAsync())
         {

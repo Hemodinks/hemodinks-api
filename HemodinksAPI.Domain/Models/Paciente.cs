@@ -8,6 +8,7 @@ public class Paciente : IClinicaOwnedEntity
     public int UserId { get; set; }
     public User User { get; set; } = null!;
     public DateTime? Data { get; set; }
+    public DateTime? DataAtendimento { get; set; }
     public string NomePaciente { get; set; } = null!;
     public string? Diagnostico { get; set; }
     public string? TratamentoMedico { get; set; }
@@ -40,4 +41,6 @@ public class Paciente : IClinicaOwnedEntity
     public ICollection<PacienteProcedimento> Procedimentos { get; set; } = new List<PacienteProcedimento>();
     public ICollection<PacienteArquivo> Arquivos { get; set; } = new List<PacienteArquivo>();
     public ICollection<Observacao> Observacoes { get; set; } = new List<Observacao>();
+    public ICollection<AtendimentoCirurgico> AtendimentosCirurgicos { get; set; } = new List<AtendimentoCirurgico>();
+    public ICollection<ContaReceber> ContasReceber { get; set; } = new List<ContaReceber>();
 }

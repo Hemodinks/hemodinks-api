@@ -3,7 +3,6 @@ using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Infrastructure.Authorization;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
-using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi;
 
 namespace HemodinksAPI.Api;
@@ -40,7 +39,8 @@ public static partial class ApiServiceCollectionExtensions
             {
                 policy.WithOrigins(allowedOrigins)
                     .AllowAnyHeader()
-                    .AllowAnyMethod();
+                    .AllowAnyMethod()
+                    .AllowCredentials();
             });
         });
 
@@ -52,6 +52,19 @@ public static partial class ApiServiceCollectionExtensions
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddPolicy("Login", context =>
+            {
+                var clinic = context.Request.Headers[ClinicaResolutionService.ClinicaSlugHeaderName].ToString();
+                var partitionKey = $"{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}:{clinic}";
+                return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ =>
+                    new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 10,
+                        Window = TimeSpan.FromMinutes(5),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    });
+            });
             options.AddPolicy("PasswordReset", context =>
             {
                 var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
@@ -60,6 +73,18 @@ public static partial class ApiServiceCollectionExtensions
                     {
                         PermitLimit = 5,
                         Window = TimeSpan.FromMinutes(5),
+                        QueueLimit = 0,
+                        AutoReplenishment = true
+                    });
+            });
+            options.AddPolicy("PublicClinicDirectory", context =>
+            {
+                var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ =>
+                    new FixedWindowRateLimiterOptions
+                    {
+                        PermitLimit = 60,
+                        Window = TimeSpan.FromMinutes(1),
                         QueueLimit = 0,
                         AutoReplenishment = true
                     });

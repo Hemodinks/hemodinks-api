@@ -42,6 +42,8 @@ public class FaturamentoMedico : IClinicaOwnedEntity
 
     public bool ConferenciaPagamentoRealizada { get; set; }
 
+    public DateTime? DataPagamento { get; set; }
+
     public decimal? RepasseMedico { get; set; }
 
     public string? RepasseMedicoObservacao { get; set; }

@@ -11,7 +11,8 @@ public static class ExportEndpointExtensions
     {
         var group = app.MapGroup("/api/exports")
             .WithTags("Exports")
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .RequireAuthorization("EquipeOperacaoSensivel");
 
         group.MapPost("/", RequestExport)
             .WithName("RequestFileExport")

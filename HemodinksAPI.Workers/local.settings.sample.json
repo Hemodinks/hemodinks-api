@@ -9,7 +9,7 @@
     "AzureStorage__ConnectionString": "UseDevelopmentStorage=true",
     "AzureStorage__ContainerName": "profile-photos",
     "AzureStorage__PublicBaseUrl": "",
-    "AzureStorage__MaxBytes": "1048576",
+    "AzureStorage__MaxBytes": "2097152",
     "AzureStorage__PatientFilesContainerName": "patient-files",
     "AzureStorage__PatientFilesPublicBaseUrl": "",
     "AzureStorage__PatientFileMaxBytes": "10485760",

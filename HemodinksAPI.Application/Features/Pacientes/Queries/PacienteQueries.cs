@@ -8,6 +8,7 @@ public class PacienteDto
     public int Id { get; set; }
     public int UserId { get; set; }
     public DateTime? Data { get; set; }
+    public DateTime? DataAtendimento { get; set; }
     public DateTime DataCadastro { get; set; }
     public DateTime? DataAtualizacao { get; set; }
     public string NomePaciente { get; set; } = null!;
@@ -39,6 +40,7 @@ public class PacienteDto
     public string? FotoPerfil { get; set; }
     public DateTime? DataNascimento { get; set; }
     public bool Ativo { get; set; }
+    public bool ConvitePrimeiroAcessoEnviado { get; set; }
     public int ArquivosCount { get; set; }
     public int ObservacoesNaoLidasCount { get; set; }
     public PacienteFaturamentoDto? Faturamento { get; set; }
@@ -64,6 +66,7 @@ public class PacienteFaturamentoDto
     public string? GlosaStatus { get; set; }
     public string? RecursoGlosa { get; set; }
     public bool ConferenciaPagamentoRealizada { get; set; }
+    public DateTime? DataPagamento { get; set; }
     public decimal? RepasseMedico { get; set; }
     public string? RepasseMedicoObservacao { get; set; }
     public string? TipoFaturamentoParticular { get; set; }
@@ -107,11 +110,21 @@ public class GetAllPacientesQuery : IRequest<PagedResult<PacienteDto>>
 
     public string? Convenio { get; set; }
 
+    public string? MedicoUserIds { get; set; }
+
+    public string? ConvenioIds { get; set; }
+
     public string? Procedimento { get; set; }
+
+    public DateTime? DataInicio { get; set; }
+
+    public DateTime? DataFinal { get; set; }
 
     public int CurrentUserId { get; set; }
 
     public int CurrentPerfilId { get; set; }
+
+    public int? CurrentEquipeId { get; set; }
 
     public string? SortBy { get; set; }
 
@@ -126,10 +139,13 @@ public class GetPacienteByIdQuery : IRequest<PacienteDto?>
 
     public int CurrentPerfilId { get; set; }
 
-    public GetPacienteByIdQuery(int id, int currentUserId, int currentPerfilId)
+    public int? CurrentEquipeId { get; set; }
+
+    public GetPacienteByIdQuery(int id, int currentUserId, int currentPerfilId, int? currentEquipeId = null)
     {
         Id = id;
         CurrentUserId = currentUserId;
         CurrentPerfilId = currentPerfilId;
+        CurrentEquipeId = currentEquipeId;
     }
 }

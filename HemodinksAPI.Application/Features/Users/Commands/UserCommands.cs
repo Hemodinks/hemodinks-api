@@ -11,6 +11,7 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 /// </summary>
 public partial class CreateUserCommand : IRequest<CreateUserResponse>
 {
+    public CurrentUserContext? CurrentUser { get; set; }
     public string Nome { get; set; } = null!;
     public string Email { get; set; } = null!;
     public string Telefone { get; set; } = null!;
@@ -42,6 +43,7 @@ public class CreateUserResponse
     public bool PrecisaTrocarSenha { get; set; }
     public int PerfilId { get; set; }
     public string PerfilNome { get; set; } = null!;
+    public bool ConvitePrimeiroAcessoEnviado { get; set; }
 }
 
 /// <summary>
@@ -59,20 +61,34 @@ public partial class AuthenticateUserCommand : IRequest<AuthenticateUserResponse
 public class AuthenticateUserResponse
 {
     public int Id { get; set; }
+    public int UsuarioGlobalId { get; set; }
     public int ClinicaId { get; set; }
     public string ClinicaSlug { get; set; } = null!;
     public string Nome { get; set; } = null!;
     public string Email { get; set; } = null!;
-    public string Token { get; set; } = null!;
+    public string? Token { get; set; }
     public string? Cpf { get; set; }
     public string? Crm { get; set; }
     public string? CrmUf { get; set; }
     public string? FotoPerfil { get; set; }
     public bool PrecisaTrocarSenha { get; set; }
+    public bool PrecisaTrocarPin { get; set; }
     public int PerfilId { get; set; }
     public string PerfilNome { get; set; } = null!;
+    public IReadOnlyList<string> ModulosLiberados { get; set; } = [];
     public LicencaDto? Licenca { get; set; }
+    public EquipeLoginChallengeDto? EquipeDesafio { get; set; }
 }
+
+public sealed record EquipeLoginChallengeDto(
+    string Token,
+    int EquipeId,
+    string EquipeNome,
+    string ModoIdentificacao,
+    DateTime ExpiraEm,
+    IReadOnlyList<EquipeOperadorLoginDto> Operadores);
+
+public sealed record EquipeOperadorLoginDto(int Id, string Nome, bool ExigePin);
 
 /// <summary>
 /// DTO para atualização de usuário
@@ -197,4 +213,5 @@ public class ResetUserPasswordResponse
     public int Id { get; set; }
     public bool PrecisaTrocarSenha { get; set; }
     public string Message { get; set; } = null!;
+    public string? SenhaTemporaria { get; set; }
 }

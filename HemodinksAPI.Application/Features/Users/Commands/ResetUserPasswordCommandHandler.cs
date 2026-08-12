@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Utils;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -39,6 +40,7 @@ public class ResetUserPasswordCommandHandler : IRequestHandler<ResetUserPassword
             }
 
             PasswordCommandMutations.ApplyDefaultPassword(user, _passwordHasher, DateTime.UtcNow);
+            await GlobalIdentityService.SynchronizePasswordAsync(_context, user.Id, user.Senha, cancellationToken);
             await _context.SaveChangesAsync(cancellationToken);
 
             return new ResetUserPasswordResponse

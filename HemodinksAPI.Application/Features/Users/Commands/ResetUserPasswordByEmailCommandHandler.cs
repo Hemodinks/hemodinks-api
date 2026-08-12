@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Utils;
 using MediatR;
@@ -54,6 +55,7 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
         }
 
         PasswordCommandMutations.ApplyDefaultPassword(user, _passwordHasher, now);
+        await GlobalIdentityService.SynchronizePasswordAsync(_context, user.Id, user.Senha, cancellationToken);
         await _context.SaveChangesAsync(cancellationToken);
 
         return new RequestPasswordResetResponse
@@ -95,7 +97,8 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
                 user.Email,
                 user.Nome,
                 token,
-                tokenEntity.ExpiresAt), cancellationToken);
+                tokenEntity.ExpiresAt,
+                user.ClinicaId), cancellationToken);
 
             response.Id = user.Id;
             response.Mode = PasswordResetModes.EmailToken;
