@@ -53,7 +53,7 @@ $readyRevision = @(
         Where-Object {
             $_.properties.active -eq $true -and
             $_.properties.healthState -eq "Healthy" -and
-            $_.properties.runningState -eq "Running"
+            $_.properties.runningState -like "Running*"
         } |
         Sort-Object { $_.properties.createdTime } -Descending
 )[0]
@@ -148,9 +148,16 @@ $patchBody = @{
     }
 } | ConvertTo-Json -Depth 30 -Compress
 $resourceUri = "https://management.azure.com$($app.id)?api-version=2025-07-01"
-& az rest --method patch --uri $resourceUri --body $patchBody --output none
-if ($LASTEXITCODE -ne 0) {
-    throw "Falha ao reforcar migrations=false e configurar as probes HTTP."
+$patchFile = [System.IO.Path]::GetTempFileName()
+try {
+    [System.IO.File]::WriteAllText($patchFile, $patchBody, [System.Text.UTF8Encoding]::new($false))
+    & az rest --method patch --uri $resourceUri --headers "Content-Type=application/json" --body "@$patchFile" --output none
+    if ($LASTEXITCODE -ne 0) {
+        throw "Falha ao reforcar migrations=false e configurar as probes HTTP."
+    }
+}
+finally {
+    Remove-Item -LiteralPath $patchFile -Force -ErrorAction SilentlyContinue
 }
 
 $currentRevision = (& az containerapp show `
