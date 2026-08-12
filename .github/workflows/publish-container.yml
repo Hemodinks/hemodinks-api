@@ -196,7 +196,7 @@ jobs:
           retention-days: 30
 
   migrate-production:
-    name: Approve and migrate Production once
+    name: Approve Production release and migrate once
     needs:
       - publish
       - prepare-migrations
@@ -243,11 +243,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-api:
-    name: Approve and switch API Blue/Green
+    name: Switch API Blue/Green
     needs: migrate-production
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: production
 
     steps:
       - name: Log in to Azure
@@ -542,7 +541,6 @@ jobs:
       - publish
       - migrate-production
     runs-on: ubuntu-latest
-    environment: production
     if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME != '' && (vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
 
     steps:
@@ -574,7 +572,6 @@ jobs:
     name: Deploy Workers to Azure Function App
     needs: migrate-production
     runs-on: ubuntu-latest
-    environment: production
     if: ${{ vars.AZURE_FUNCTION_APP_WORKERS_NAME != '' && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
 
     steps:
