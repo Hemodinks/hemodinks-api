@@ -401,18 +401,39 @@ jobs:
             --argjson containers "$containers" '
               {properties: {template: {revisionSuffix: $suffix, containers: $containers}}}
             ')"
-          az rest \
-            --method patch \
-            --uri "https://management.azure.com${app_id}?api-version=2025-07-01" \
-            --body "$patch_body" \
-            --output none
-
-          actual_revision="$(az containerapp show \
+          if az containerapp revision show \
             --name "$API_NAME" \
             --resource-group "$API_RESOURCE_GROUP" \
-            --query properties.latestRevisionName -o tsv)"
-          if [ "$actual_revision" != "$candidate_revision" ]; then
-            echo "::error::Expected revision '$candidate_revision', got '$actual_revision'."
+            --revision "$candidate_revision" \
+            --output none 2>/dev/null; then
+            echo "::notice::Reusing existing candidate revision '$candidate_revision'."
+          else
+            az rest \
+              --method patch \
+              --uri "https://management.azure.com${app_id}?api-version=2025-07-01" \
+              --body "$patch_body" \
+              --output none
+          fi
+
+          candidate_provisioned=false
+          for attempt in $(seq 1 30); do
+            actual_revision="$(az containerapp show \
+              --name "$API_NAME" \
+              --resource-group "$API_RESOURCE_GROUP" \
+              --query properties.latestRevisionName -o tsv)"
+            provisioning_state="$(az containerapp show \
+              --name "$API_NAME" \
+              --resource-group "$API_RESOURCE_GROUP" \
+              --query properties.provisioningState -o tsv)"
+            if [ "$actual_revision" = "$candidate_revision" ] && [ "$provisioning_state" = "Succeeded" ]; then
+              candidate_provisioned=true
+              break
+            fi
+            echo "Candidate provisioning attempt ${attempt}/30 (latest=${actual_revision}, state=${provisioning_state})."
+            sleep $(( attempt < 6 ? attempt * 2 : 10 ))
+          done
+          if [ "$candidate_provisioned" != "true" ]; then
+            echo "::error::Expected provisioned revision '$candidate_revision', got '$actual_revision' with state '$provisioning_state'."
             exit 7
           fi
 
