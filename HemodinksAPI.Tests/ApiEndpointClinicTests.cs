@@ -17,8 +17,11 @@ namespace HemodinksAPI.Tests;
 
 public partial class ApiEndpointIntegrationTests
 {
-    [Fact]
-    public async Task PublicClinics_WhenJsonDoesNotExist_FallsBackToActiveClinicsFromDatabase()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PublicClinics_WhenJsonIsMissingOrEmpty_FallsBackToActiveClinicsFromDatabase(
+        bool emptyJson)
     {
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient();
@@ -42,7 +45,14 @@ public partial class ApiEndpointIntegrationTests
             await context.SaveChangesAsync();
         }
 
-        factory.DeletePublicClinicDirectory();
+        if (emptyJson)
+        {
+            factory.EmptyPublicClinicDirectory();
+        }
+        else
+        {
+            factory.DeletePublicClinicDirectory();
+        }
 
         var response = await client.GetAsync("/api/public/clinicas");
 
