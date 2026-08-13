@@ -29,7 +29,7 @@ public sealed class PublicClinicDirectory
         CancellationToken cancellationToken)
     {
         var items = await TryGetSnapshotAsync(cancellationToken);
-        if (items == null)
+        if (items == null || items.Count == 0)
         {
             return null;
         }
