@@ -1,0 +1,14 @@
+[
+  {
+    "id": 2,
+    "nome": "Clíninca - GM Saúde segura",
+    "slug": "saude-segura",
+    "temFoto": true
+  },
+  {
+    "id": 1,
+    "nome": "Hemodinks - Gestão de Cirurgias",
+    "slug": "hemodinks",
+    "temFoto": true
+  }
+]

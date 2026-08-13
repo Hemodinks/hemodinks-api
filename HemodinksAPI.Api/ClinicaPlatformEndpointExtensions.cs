@@ -117,6 +117,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         ClinicaContext clinicaContext,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage photoStorage,
+        PublicClinicDirectory publicClinicDirectory,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -287,6 +288,14 @@ public static partial class ClinicaPlatformEndpointExtensions
                 await transaction.CommitAsync(cancellationToken);
             }
 
+            await publicClinicDirectory.UpsertAsync(
+                new PublicClinicDirectoryItem(
+                    clinica.Id,
+                    clinica.Nome,
+                    clinica.Slug,
+                    clinica.FotoClinica != null),
+                cancellationToken);
+
             var userCount = await ClinicEmployees(context)
                 .CountAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
             return (IResult)Results.Created($"/api/platform/clinicas/{clinica.Id}", ToResponse(clinica, userCount));
@@ -301,6 +310,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         AppDbContext context,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage photoStorage,
+        PublicClinicDirectory publicClinicDirectory,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -470,6 +480,22 @@ public static partial class ClinicaPlatformEndpointExtensions
                 true,
                 cancellationToken);
         }
+
+        if (clinica.Ativa)
+        {
+            await publicClinicDirectory.UpsertAsync(
+                new PublicClinicDirectoryItem(
+                    clinica.Id,
+                    clinica.Nome,
+                    clinica.Slug,
+                    clinica.FotoClinica != null),
+                cancellationToken);
+        }
+        else
+        {
+            await publicClinicDirectory.RemoveAsync(clinica.Id, cancellationToken);
+        }
+
         return Results.Ok(ToResponse(clinica, null));
     }
 
@@ -477,6 +503,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         int id,
         HttpContext httpContext,
         AppDbContext context,
+        PublicClinicDirectory publicClinicDirectory,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -509,6 +536,8 @@ public static partial class ClinicaPlatformEndpointExtensions
             new { clinica.Nome, clinica.Slug },
             true,
             cancellationToken);
+
+        await publicClinicDirectory.RemoveAsync(clinica.Id, cancellationToken);
 
         return Results.NoContent();
     }

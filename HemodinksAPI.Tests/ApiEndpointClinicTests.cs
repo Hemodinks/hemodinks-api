@@ -124,7 +124,7 @@ public partial class ApiEndpointIntegrationTests
         using var client = factory.CreateClient();
         var beta = await SeedClinicaBetaAsync(factory);
         var administratorEmail = $"admin-isolado-{Guid.NewGuid():N}@example.com";
-        const string administratorPassword = "AdminIsolado@123";
+        var administratorPassword = TemporaryPasswordGenerator.Generate();
         using (var seedScope = factory.Services.CreateScope())
         {
             var seedContext = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
