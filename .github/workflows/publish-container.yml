@@ -226,7 +226,18 @@ jobs:
           ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
         run: |
           chmod +x ./artifacts/hemodinks-efbundle
-          ./artifacts/hemodinks-efbundle
+          for attempt in $(seq 1 5); do
+            if ./artifacts/hemodinks-efbundle; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::Migration bundle failed after ${attempt} attempts."
+              exit 1
+            fi
+            delay=$((attempt * 15))
+            echo "::warning::Migration attempt ${attempt}/5 failed; retrying in ${delay}s."
+            sleep "$delay"
+          done
 
       - name: Migration summary
         if: always()
@@ -278,6 +289,37 @@ jobs:
             echo "::error::Run scripts/Bootstrap-ProductionBlueGreen.ps1 manually before deploying."
             exit 4
           fi
+
+      - name: Ensure Production Container App is running
+        run: |
+          set -euo pipefail
+          app_id="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query id -o tsv)"
+          running_status="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.runningStatus -o tsv)"
+          if [ "$running_status" != "Running" ]; then
+            az rest \
+              --method post \
+              --uri "https://management.azure.com${app_id}/start?api-version=2025-07-01" \
+              --output none
+          fi
+          for attempt in $(seq 1 30); do
+            running_status="$(az containerapp show \
+              --name "$API_NAME" \
+              --resource-group "$API_RESOURCE_GROUP" \
+              --query properties.runningStatus -o tsv)"
+            if [ "$running_status" = "Running" ]; then
+              exit 0
+            fi
+            echo "Container App start attempt ${attempt}/30 (status=${running_status})."
+            sleep 5
+          done
+          echo "::error::Container App did not reach Running state."
+          exit 5
 
       - name: Create candidate revision with zero traffic
         id: candidate
@@ -398,7 +440,15 @@ jobs:
           patch_body="$(jq -n \
             --arg suffix "$suffix" \
             --argjson containers "$containers" '
-              {properties: {template: {revisionSuffix: $suffix, containers: $containers}}}
+              {
+                properties: {
+                  template: {
+                    revisionSuffix: $suffix,
+                    containers: $containers,
+                    scale: {minReplicas: 1, maxReplicas: 1}
+                  }
+                }
+              }
             ')"
           if az containerapp revision show \
             --name "$API_NAME" \
