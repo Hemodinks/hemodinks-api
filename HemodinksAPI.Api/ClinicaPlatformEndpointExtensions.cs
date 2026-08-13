@@ -19,9 +19,19 @@ public static partial class ClinicaPlatformEndpointExtensions
     {
         var group = app.MapGroup("/api/platform/clinicas")
             .WithTags("Plataforma - Clinicas")
-            .RequireAuthorization("SuperAdministrador")
+            .RequireAuthorization("Administrador")
             .AddEndpointFilter(async (invocationContext, next) =>
             {
+                var principal = invocationContext.HttpContext.User;
+                if (principal.FindFirstValue("perfilId") == Perfil.AdministradorId.ToString()
+                    && invocationContext.HttpContext.Request.RouteValues.TryGetValue("id", out var routeId)
+                    && int.TryParse(routeId?.ToString(), out var requestedClinicId)
+                    && (!int.TryParse(principal.FindFirstValue(ClinicaClaimTypes.ClinicaId), out var currentClinicId)
+                        || currentClinicId != requestedClinicId))
+                {
+                    return Results.Forbid();
+                }
+
                 try
                 {
                     return await next(invocationContext);
@@ -34,9 +44,9 @@ public static partial class ClinicaPlatformEndpointExtensions
 
         group.MapGet("/", ListClinicas);
         group.MapGet("/{id:int}", GetClinica);
-        group.MapPost("/", CreateClinica);
+        group.MapPost("/", CreateClinica).RequireAuthorization("SuperAdministrador");
         group.MapPut("/{id:int}", UpdateClinica);
-        group.MapDelete("/{id:int}", DeactivateClinica);
+        group.MapDelete("/{id:int}", DeactivateClinica).RequireAuthorization("SuperAdministrador");
         group.MapGet("/{id:int}/equipes", ListClinicTeams);
         group.MapGet("/{id:int}/equipes/usuarios", ListClinicTeamUsers);
         group.MapPut("/{id:int}/equipes/{teamId:int}", UpdateClinicTeam);
@@ -49,9 +59,23 @@ public static partial class ClinicaPlatformEndpointExtensions
             .RequireAuthorization("SuperAdministrador");
     }
 
-    private static async Task<IResult> ListClinicas(AppDbContext context, CancellationToken cancellationToken)
+    private static async Task<IResult> ListClinicas(
+        ClaimsPrincipal principal,
+        AppDbContext context,
+        CancellationToken cancellationToken)
     {
-        var clinicas = await context.Clinicas
+        var query = context.Clinicas.AsNoTracking();
+        if (principal.FindFirstValue("perfilId") == Perfil.AdministradorId.ToString())
+        {
+            if (!int.TryParse(principal.FindFirstValue(ClinicaClaimTypes.ClinicaId), out var currentClinicId))
+            {
+                return Results.Forbid();
+            }
+
+            query = query.Where(item => item.Id == currentClinicId);
+        }
+
+        var clinicas = await query
             .AsNoTracking()
             .OrderBy(item => item.Nome)
             .ToListAsync(cancellationToken);
@@ -272,6 +296,7 @@ public static partial class ClinicaPlatformEndpointExtensions
     private static async Task<IResult> UpdateClinica(
         int id,
         UpdateClinicaRequest request,
+        ClaimsPrincipal principal,
         HttpContext httpContext,
         AppDbContext context,
         IPasswordHasher passwordHasher,
@@ -356,6 +381,13 @@ public static partial class ClinicaPlatformEndpointExtensions
             }
 
             clinica.LimiteUsuarios = request.LimiteUsuarios;
+        }
+
+        if (request.Ativa.HasValue
+            && request.Ativa.Value != clinica.Ativa
+            && principal.FindFirstValue("perfilId") != Perfil.SuperAdministradorId.ToString())
+        {
+            return Results.Forbid();
         }
 
         if (equipeEmail != null

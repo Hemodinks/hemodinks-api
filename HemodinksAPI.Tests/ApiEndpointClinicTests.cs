@@ -9,6 +9,7 @@ using HemodinksAPI.Application.Services;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Data;
+using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.EntityFrameworkCore;
 
@@ -117,7 +118,51 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
-    public async Task SelectClinic_WhenMembershipDoesNotExist_ReturnsForbiddenAndAuditsDenial()
+    public async Task SelectClinic_WhenAdministratorDoesNotBelongToClinic_ReturnsForbiddenAndAuditsDenial()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+        var administratorEmail = $"admin-isolado-{Guid.NewGuid():N}@example.com";
+        const string administratorPassword = "AdminIsolado@123";
+        using (var seedScope = factory.Services.CreateScope())
+        {
+            var seedContext = seedScope.ServiceProvider.GetRequiredService<AppDbContext>();
+            seedScope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>()
+                .SetPlatformScope();
+            var administrator = new User
+            {
+                ClinicaId = beta.Id,
+                Nome = "Administrador Isolado",
+                Email = administratorEmail,
+                Telefone = "+5511990000099",
+                Senha = new PasswordHasher().HashPassword(administratorPassword),
+                Ativo = true,
+                PrecisaTrocarSenha = false,
+                PerfilId = Perfil.AdministradorId
+            };
+            seedContext.Users.Add(administrator);
+            await seedContext.SaveChangesAsync();
+            await GlobalIdentityService.EnsureForUserAsync(seedContext, administrator, CancellationToken.None);
+        }
+        await AuthenticateAsync(client, beta.Slug, administratorEmail, administratorPassword);
+
+        var response = await client.PostAsJsonAsync("/api/session/selecionar-clinica", new
+        {
+            clinicaId = Clinica.DefaultId
+        });
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
+            item.Acao == "session.clinic.switch.denied"
+            && item.EntidadeId == Clinica.DefaultId.ToString()
+            && !item.Sucesso));
+    }
+
+    [Fact]
+    public async Task SelectClinic_WhenSuperAdministratorHasNoMembership_ProvisionsAccessAndSwitchesClinic()
     {
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient();
@@ -129,13 +174,18 @@ public partial class ApiEndpointIntegrationTests
             clinicaId = beta.Id
         });
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        response.EnsureSuccessStatusCode();
+        using var json = await ReadJsonAsync(response);
+        Assert.Equal(beta.Id, json.RootElement.GetProperty("clinica").GetProperty("clinicaId").GetInt32());
+
         using var scope = factory.Services.CreateScope();
         var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
-            item.Acao == "session.clinic.switch.denied"
-            && item.EntidadeId == beta.Id.ToString()
-            && !item.Sucesso));
+        scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>().SetPlatformScope();
+        Assert.True(await context.UsuariosClinicas.AnyAsync(item =>
+            item.ClinicaId == beta.Id
+            && item.PerfilId == Perfil.SuperAdministradorId
+            && item.Ativo
+            && item.User.Ativo));
     }
 
     [Fact]
@@ -675,7 +725,7 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
-    public async Task PartialClinicPlan_ExposesAndEnforcesOnlyContractedModules()
+    public async Task PartialClinicPlan_DoesNotRestrictAdministratorEndpoints()
     {
         using var factory = new HemodinksApiFactory();
         using var platformClient = factory.CreateClient();
@@ -730,15 +780,15 @@ public partial class ApiEndpointIntegrationTests
             "Bearer",
             authJson.RootElement.GetProperty("token").GetString());
 
-        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/users/")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/faturamentos-medicos/")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/grupos-medicos/")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await clinicClient.GetAsync("/api/events/")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await clinicClient.GetAsync("/api/users/")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await clinicClient.GetAsync("/api/faturamentos-medicos/")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await clinicClient.GetAsync("/api/grupos-medicos/")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await clinicClient.GetAsync("/api/events/")).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await clinicClient.GetAsync("/api/pacientes/")).StatusCode);
     }
 
     [Fact]
-    public async Task PlatformClinics_WhenUserIsCommonAdministrator_ReturnsForbidden()
+    public async Task PlatformClinics_WhenUserIsCommonAdministrator_ReturnsOnlyOwnClinic()
     {
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient();
@@ -747,7 +797,22 @@ public partial class ApiEndpointIntegrationTests
 
         var response = await client.GetAsync("/api/platform/clinicas");
 
-        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        var clinic = Assert.Single(json.RootElement.EnumerateArray());
+        Assert.Equal(beta.Id, clinic.GetProperty("id").GetInt32());
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/platform/clinicas/{beta.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync(
+            $"/api/platform/clinicas/{beta.Id}",
+            new { nome = "Clinica Beta Administrada" })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(
+            "/api/platform/clinicas",
+            new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.DeleteAsync(
+            $"/api/platform/clinicas/{beta.Id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(
+            $"/api/platform/clinicas/{Clinica.DefaultId}")).StatusCode);
     }
 
     [Fact]

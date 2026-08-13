@@ -63,8 +63,8 @@ public static partial class UserEndpointExtensions
 
         group.MapDelete("/{id}", DeleteUser)
             .WithName("DeleteUser")
-            .WithSummary("Excluir usuario")
-            .WithDescription("Remove um usuario cadastrado")
+            .WithSummary("Inativar usuario")
+            .WithDescription("Inativa logicamente um usuario, preservando seu historico")
             .RequireAuthorization("Administrador");
 
         group.MapPut("/{id}/password", ChangePassword)

@@ -115,6 +115,7 @@ public partial class UpdateUserCommand : IRequest<UserDto>
 public partial class DeleteUserCommand : IRequest
 {
     public int Id { get; set; }
+    public CurrentUserContext? CurrentUser { get; set; }
 }
 
 public partial class UploadUserArquivoCommand : IRequest<UserArquivoDto>
