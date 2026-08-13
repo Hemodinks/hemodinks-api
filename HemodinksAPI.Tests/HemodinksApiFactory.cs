@@ -35,6 +35,14 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
         ConfigureEnvironment();
     }
 
+    public void DeletePublicClinicDirectory()
+    {
+        if (File.Exists(_publicClinicDirectoryPath))
+        {
+            File.Delete(_publicClinicDirectoryPath);
+        }
+    }
+
     private static void ConfigureEnvironment()
     {
         Environment.SetEnvironmentVariable("ConnectionStrings__DefaultConnection", "Server=(localdb)\\MSSQLLocalDB;Database=HemodinksApiTests;Trusted_Connection=True;TrustServerCertificate=True");

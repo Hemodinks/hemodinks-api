@@ -288,12 +288,9 @@ public static partial class ClinicaPlatformEndpointExtensions
                 await transaction.CommitAsync(cancellationToken);
             }
 
-            await publicClinicDirectory.UpsertAsync(
-                new PublicClinicDirectoryItem(
-                    clinica.Id,
-                    clinica.Nome,
-                    clinica.Slug,
-                    clinica.FotoClinica != null),
+            await SynchronizePublicClinicDirectoryAsync(
+                context,
+                publicClinicDirectory,
                 cancellationToken);
 
             var userCount = await ClinicEmployees(context)
@@ -481,20 +478,10 @@ public static partial class ClinicaPlatformEndpointExtensions
                 cancellationToken);
         }
 
-        if (clinica.Ativa)
-        {
-            await publicClinicDirectory.UpsertAsync(
-                new PublicClinicDirectoryItem(
-                    clinica.Id,
-                    clinica.Nome,
-                    clinica.Slug,
-                    clinica.FotoClinica != null),
-                cancellationToken);
-        }
-        else
-        {
-            await publicClinicDirectory.RemoveAsync(clinica.Id, cancellationToken);
-        }
+        await SynchronizePublicClinicDirectoryAsync(
+            context,
+            publicClinicDirectory,
+            cancellationToken);
 
         return Results.Ok(ToResponse(clinica, null));
     }
@@ -537,9 +524,31 @@ public static partial class ClinicaPlatformEndpointExtensions
             true,
             cancellationToken);
 
-        await publicClinicDirectory.RemoveAsync(clinica.Id, cancellationToken);
+        await SynchronizePublicClinicDirectoryAsync(
+            context,
+            publicClinicDirectory,
+            cancellationToken);
 
         return Results.NoContent();
+    }
+
+    private static async Task SynchronizePublicClinicDirectoryAsync(
+        AppDbContext context,
+        PublicClinicDirectory publicClinicDirectory,
+        CancellationToken cancellationToken)
+    {
+        var activeClinics = await context.Clinicas
+            .AsNoTracking()
+            .Where(item => item.Ativa)
+            .OrderBy(item => item.Nome)
+            .Select(item => new PublicClinicDirectoryItem(
+                item.Id,
+                item.Nome,
+                item.Slug,
+                item.FotoClinica != null && item.FotoClinica != string.Empty))
+            .ToListAsync(cancellationToken);
+
+        await publicClinicDirectory.ReplaceAsync(activeClinics, cancellationToken);
     }
 
     private static async Task<User?> AddPlatformShadowUserAsync(

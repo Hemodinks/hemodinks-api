@@ -18,6 +18,45 @@ namespace HemodinksAPI.Tests;
 public partial class ApiEndpointIntegrationTests
 {
     [Fact]
+    public async Task PublicClinics_WhenJsonDoesNotExist_FallsBackToActiveClinicsFromDatabase()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            context.Clinicas.AddRange(
+                new Clinica
+                {
+                    Nome = "Clinica Ativa do Banco",
+                    Slug = $"ativa-{Guid.NewGuid():N}",
+                    Ativa = true
+                },
+                new Clinica
+                {
+                    Nome = "Clinica Inativa do Banco",
+                    Slug = $"inativa-{Guid.NewGuid():N}",
+                    Ativa = false
+                });
+            await context.SaveChangesAsync();
+        }
+
+        factory.DeletePublicClinicDirectory();
+
+        var response = await client.GetAsync("/api/public/clinicas");
+
+        response.EnsureSuccessStatusCode();
+        using var json = await ReadJsonAsync(response);
+        Assert.Contains(
+            json.RootElement.EnumerateArray(),
+            item => item.GetProperty("nome").GetString() == "Clinica Ativa do Banco");
+        Assert.DoesNotContain(
+            json.RootElement.EnumerateArray(),
+            item => item.GetProperty("nome").GetString() == "Clinica Inativa do Banco");
+    }
+
+    [Fact]
     public async Task AvailableProfiles_WhenCurrentUserIsSuperAdministrador_IncludesSuperAdministrador()
     {
         using var factory = new HemodinksApiFactory();

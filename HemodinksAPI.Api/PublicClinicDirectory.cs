@@ -18,17 +18,22 @@ public sealed class PublicClinicDirectory
     {
         var configuredPath = configuration["PublicClinicDirectory:FilePath"];
         _filePath = string.IsNullOrWhiteSpace(configuredPath)
-            ? Path.Combine(environment.ContentRootPath, "Data", "public-clinics.json")
+            ? Path.Combine(environment.ContentRootPath, DefaultRelativeFilePath)
             : Path.IsPathRooted(configuredPath)
                 ? configuredPath
                 : Path.Combine(environment.ContentRootPath, configuredPath);
     }
 
-    public async Task<IReadOnlyList<PublicClinicaEndpointExtensions.PublicClinicaResponse>> ListAsync(
+    public async Task<IReadOnlyList<PublicClinicaEndpointExtensions.PublicClinicaResponse>?> TryListAsync(
         string? search,
         CancellationToken cancellationToken)
     {
-        var items = await GetSnapshotAsync(cancellationToken);
+        var items = await TryGetSnapshotAsync(cancellationToken);
+        if (items == null)
+        {
+            return null;
+        }
+
         var normalizedSearch = search?.Trim();
         var query = items.AsEnumerable();
 
@@ -50,18 +55,15 @@ public sealed class PublicClinicDirectory
             .ToList();
     }
 
-    public async Task UpsertAsync(
-        PublicClinicDirectoryItem clinic,
+    public async Task ReplaceAsync(
+        IReadOnlyCollection<PublicClinicDirectoryItem> clinics,
         CancellationToken cancellationToken)
     {
-        ValidateItem(clinic);
+        Validate(clinics);
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            await EnsureLoadedAsync(cancellationToken);
-            _items!.RemoveAll(item => item.Id == clinic.Id
-                || item.Slug.Equals(clinic.Slug, StringComparison.OrdinalIgnoreCase));
-            _items.Add(clinic);
+            _items = clinics.ToList();
             await SaveAsync(cancellationToken);
         }
         finally
@@ -70,30 +72,17 @@ public sealed class PublicClinicDirectory
         }
     }
 
-    public async Task RemoveAsync(int clinicId, CancellationToken cancellationToken)
-    {
-        await _gate.WaitAsync(cancellationToken);
-        try
-        {
-            await EnsureLoadedAsync(cancellationToken);
-            if (_items!.RemoveAll(item => item.Id == clinicId) > 0)
-            {
-                await SaveAsync(cancellationToken);
-            }
-        }
-        finally
-        {
-            _gate.Release();
-        }
-    }
-
-    private async Task<IReadOnlyList<PublicClinicDirectoryItem>> GetSnapshotAsync(
+    private async Task<IReadOnlyList<PublicClinicDirectoryItem>?> TryGetSnapshotAsync(
         CancellationToken cancellationToken)
     {
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            await EnsureLoadedAsync(cancellationToken);
+            if (!await TryEnsureLoadedAsync(cancellationToken))
+            {
+                return null;
+            }
+
             return _items!.ToList();
         }
         finally
@@ -102,17 +91,16 @@ public sealed class PublicClinicDirectory
         }
     }
 
-    private async Task EnsureLoadedAsync(CancellationToken cancellationToken)
+    private async Task<bool> TryEnsureLoadedAsync(CancellationToken cancellationToken)
     {
         if (_items != null)
         {
-            return;
+            return true;
         }
 
         if (!File.Exists(_filePath))
         {
-            throw new InvalidOperationException(
-                $"Catalogo publico de clinicas nao encontrado em {DefaultRelativeFilePath}.");
+            return false;
         }
 
         await using var stream = File.OpenRead(_filePath);
@@ -124,6 +112,7 @@ public sealed class PublicClinicDirectory
 
         Validate(items);
         _items = items;
+        return true;
     }
 
     private async Task SaveAsync(CancellationToken cancellationToken)
