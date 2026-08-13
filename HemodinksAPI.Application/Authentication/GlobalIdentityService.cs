@@ -66,6 +66,8 @@ public static class GlobalIdentityService
             .FirstOrDefaultAsync(item => item.UserId == user.Id, cancellationToken);
         if (existingMembership != null)
         {
+            SynchronizeMembership(existingMembership, user);
+            await context.SaveChangesAsync(cancellationToken);
             return existingMembership;
         }
 
@@ -112,6 +114,37 @@ public static class GlobalIdentityService
         context.UsuariosClinicas.Add(membership);
         await context.SaveChangesAsync(cancellationToken);
         return membership;
+    }
+
+    public static async Task SynchronizeUserAsync(
+        IAppDbContext context,
+        User user,
+        CancellationToken cancellationToken)
+    {
+        var membership = await context.UsuariosClinicas
+            .Include(item => item.UsuarioGlobal)
+            .FirstOrDefaultAsync(item => item.UserId == user.Id, cancellationToken);
+        if (membership == null)
+        {
+            return;
+        }
+
+        SynchronizeMembership(membership, user);
+    }
+
+    private static void SynchronizeMembership(UsuarioClinica membership, User user)
+    {
+        membership.PerfilId = user.PerfilId;
+        membership.Ativo = user.Ativo;
+        membership.DataAtualizacao = DateTime.UtcNow;
+
+        if (user.Ativo)
+        {
+            membership.UsuarioGlobal.Ativo = true;
+        }
+
+        membership.UsuarioGlobal.Nome = user.Nome;
+        membership.UsuarioGlobal.DataAtualizacao = DateTime.UtcNow;
     }
 
     public static async Task SynchronizePasswordAsync(

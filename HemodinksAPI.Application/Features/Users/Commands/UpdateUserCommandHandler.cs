@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Users.Queries;
 using HemodinksAPI.Application.Services;
@@ -163,6 +164,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             user.DataAtualizacao = DateTime.UtcNow;
 
             await _userPatientSyncService.EnsurePacienteForUserAsync(user, cancellationToken);
+            await GlobalIdentityService.SynchronizeUserAsync(_context, user, cancellationToken);
 
             await _context.SaveChangesAsync(cancellationToken);
 

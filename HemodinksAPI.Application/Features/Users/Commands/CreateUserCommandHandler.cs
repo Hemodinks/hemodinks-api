@@ -74,10 +74,10 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
             var clinicaId = _clinicaContext.GetRequiredClinicaId();
             _logger.LogInformation("Criando novo usuario: {Email}", request.Email);
 
-            var emailAlreadyExists = await _context.Users
-                .AnyAsync(u => u.Email == request.Email, cancellationToken);
+            var existingUser = await _context.Users
+                .FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
 
-            if (emailAlreadyExists)
+            if (existingUser?.Ativo == true)
             {
                 throw new InvalidOperationException("Email ja cadastrado");
             }
@@ -86,7 +86,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
             if (cpf != null)
             {
                 var cpfAlreadyExists = await _context.Users
-                    .AnyAsync(u => u.Cpf == cpf, cancellationToken);
+                    .AnyAsync(u => u.Id != (existingUser == null ? 0 : existingUser.Id) && u.Cpf == cpf, cancellationToken);
 
                 if (cpfAlreadyExists)
                 {
@@ -106,34 +106,43 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
             }
 
             var medicalRegistration = UserProfileRules.NormalizeAndValidateMedicalRegistration(request.Crm, request.CrmUf, perfilId);
-            var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, null, cancellationToken);
+            var fotoPerfil = await _profilePhotoStorage.SaveAsync(
+                request.FotoPerfil,
+                existingUser?.FotoPerfil,
+                cancellationToken);
             var temporaryPassword = TemporaryPasswordGenerator.Generate();
-
-            var user = new User
+            var now = DateTime.UtcNow;
+            var user = existingUser ?? new User
             {
                 ClinicaId = clinicaId,
-                Nome = request.Nome,
-                Email = request.Email,
-                Telefone = request.Telefone,
-                Cpf = cpf,
-                Crm = medicalRegistration.Crm,
-                CrmUf = medicalRegistration.CrmUf,
-                FotoPerfil = fotoPerfil,
-                Senha = _passwordHasher.HashPassword(temporaryPassword),
-                DataNascimento = request.DataNascimento,
-                DataCadastro = DateTime.UtcNow,
-                Ativo = true,
-                PrecisaTrocarSenha = true,
-                PerfilId = perfilId
+                DataCadastro = now
             };
 
-            _context.Users.Add(user);
+            user.Nome = request.Nome;
+            user.Email = request.Email;
+            user.Telefone = request.Telefone;
+            user.Cpf = cpf;
+            user.Crm = medicalRegistration.Crm;
+            user.CrmUf = medicalRegistration.CrmUf;
+            user.FotoPerfil = fotoPerfil;
+            user.Senha = _passwordHasher.HashPassword(temporaryPassword);
+            user.DataNascimento = request.DataNascimento;
+            user.DataAtualizacao = existingUser == null ? null : now;
+            user.Ativo = true;
+            user.PrecisaTrocarSenha = true;
+            user.PerfilId = perfilId;
+
+            if (existingUser == null)
+            {
+                _context.Users.Add(user);
+            }
+
             await _context.SaveChangesAsync(cancellationToken);
             await GlobalIdentityService.EnsureForUserAsync(_context, user, cancellationToken);
 
-            if (user.PerfilId == Perfil.MedicosId)
+            if (user.PerfilId == Perfil.MedicosId
+                && !await _context.Licencas.AnyAsync(item => item.UserId == user.Id, cancellationToken))
             {
-                var now = DateTime.UtcNow;
                 _context.Licencas.Add(new Licenca
                 {
                     ClinicaId = clinicaId,
