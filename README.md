@@ -166,6 +166,7 @@ Perfis seedados:
 | 3 | Paciente |
 | 4 | Controller |
 | 5 | SuperAdministrador |
+| 6 | Equipe |
 
 Regras principais:
 
@@ -173,6 +174,7 @@ Regras principais:
 - Medico acessa seu proprio cadastro, pacientes vinculados, faturamento filtrado pelo seu escopo e agenda.
 - Paciente acessa o proprio cadastro quando houver vinculo.
 - Controller acessa pacientes, faturamento e operacoes liberadas por policy, sem dashboard nem agenda no front atual.
+- Equipe usa uma identidade coletiva com identificacao individual do operador e acessa somente os dados da equipe configurada.
 - Licencas controlam dashboard, pacientes e CBHPM para medicos.
 - A assinatura comercial pertence a `Clinica`; licencas individuais de medicos continuam existindo como uma segunda camada de compatibilidade e liberacao de features.
 - SuperAdministrador lista e provisiona clinicas pelos endpoints de plataforma. Para navegar, ele solicita um novo token tenant-scoped em `/api/session/selecionar-clinica`; headers nao alteram a clinica de uma sessao autenticada.

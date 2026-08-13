@@ -16,7 +16,8 @@ public static class EquipeEndpointExtensions
     {
         var admin = app.MapGroup("/api/equipes")
             .WithTags("Equipes")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("Administrador")
+            .AddEndpointFilter(new EquipeExceptionFilter());
 
         admin.MapGet("/", Listar);
         admin.MapPost("/", Criar);
@@ -286,6 +287,11 @@ public static class EquipeEndpointExtensions
         ILicencaService licencaService,
         CancellationToken cancellationToken)
     {
+        if (string.IsNullOrWhiteSpace(request.Token) || request.OperadorId <= 0)
+        {
+            return Results.BadRequest(new { message = "Token e operador sao obrigatorios" });
+        }
+
         var tokenHash = EquipeAuthenticationRules.HashChallengeToken(request.Token);
         var desafio = await context.EquipeLoginDesafios
             .Include(item => item.Equipe).ThenInclude(item => item.UsuarioLogin).ThenInclude(item => item.Perfil)
@@ -436,3 +442,22 @@ public sealed record IdentificarEquipeRequest(string Token, int OperadorId, stri
 public sealed record TrocarEquipePinRequest(string PinAtual, string NovoPin);
 public sealed record EquipeResponse(int Id, string Nome, int UsuarioLoginId, string Email, string ModoIdentificacao, bool Ativa, IReadOnlyList<EquipeMembroResponse> Membros);
 public sealed record EquipeMembroResponse(int UserId, string Nome, string Email, int PerfilId, int OperadorId, bool OperadorAtivo, bool PossuiPin, bool PrecisaTrocarPin, DateTime? BloqueadoAte);
+
+internal sealed class EquipeExceptionFilter : IEndpointFilter
+{
+    public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
+    {
+        try
+        {
+            return await next(context);
+        }
+        catch (KeyNotFoundException exception)
+        {
+            return Results.NotFound(new { message = exception.Message });
+        }
+        catch (InvalidOperationException exception)
+        {
+            return Results.BadRequest(new { message = exception.Message });
+        }
+    }
+}
