@@ -152,13 +152,18 @@ public static partial class UserEndpointExtensions
 
     private static Task<IResult> DeleteUser(
         int id,
+        ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
         return EndpointExecution.RunAsync(async () =>
         {
-            await mediator.Send(new DeleteUserCommand { Id = id }, cancellationToken);
+            await mediator.Send(new DeleteUserCommand
+            {
+                Id = id,
+                CurrentUser = GetRequiredCurrentUser(claimsPrincipal)
+            }, cancellationToken);
             return Results.NoContent();
         }, logger, "Erro ao excluir usuario", "Erro ao excluir usuario");
     }

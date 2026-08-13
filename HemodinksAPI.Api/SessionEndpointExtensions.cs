@@ -31,6 +31,11 @@ public static class SessionEndpointExtensions
         }
 
         clinicaContext.SetPlatformScope();
+        await EnsureSuperAdministratorMembershipsAsync(
+            principal,
+            context,
+            requestedClinicId: null,
+            cancellationToken);
         var memberships = await context.UsuariosClinicas
             .AsNoTracking()
             .Where(item => item.UsuarioGlobalId == globalUserId
@@ -82,6 +87,11 @@ public static class SessionEndpointExtensions
         }
 
         clinicaContext.SetPlatformScope();
+        await EnsureSuperAdministratorMembershipsAsync(
+            httpContext.User,
+            context,
+            request.ClinicaId,
+            cancellationToken);
         var membership = await context.UsuariosClinicas
             .Include(item => item.UsuarioGlobal)
             .Include(item => item.Clinica)
@@ -140,6 +150,94 @@ public static class SessionEndpointExtensions
                 ClinicaModulos.GetEffective(membership.Clinica.Plano, membership.Clinica.ModulosLiberados),
                 membership.ClinicaPadrao,
                 membership.Id)));
+    }
+
+    private static async Task EnsureSuperAdministratorMembershipsAsync(
+        ClaimsPrincipal principal,
+        AppDbContext context,
+        int? requestedClinicId,
+        CancellationToken cancellationToken)
+    {
+        if (principal.FindFirstValue("perfilId") != Perfil.SuperAdministradorId.ToString()
+            || !TryGetGlobalUserId(principal, out var globalUserId)
+            || !int.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var sourceUserId))
+        {
+            return;
+        }
+
+        var source = await context.Users
+            .IgnoreQueryFilters()
+            .AsNoTracking()
+            .FirstOrDefaultAsync(item => item.Id == sourceUserId
+                && item.PerfilId == Perfil.SuperAdministradorId
+                && item.Ativo,
+                cancellationToken);
+        if (source == null)
+        {
+            return;
+        }
+
+        var clinicIdsQuery = context.Clinicas
+            .AsNoTracking()
+            .Where(item => item.Ativa);
+        if (requestedClinicId.HasValue)
+        {
+            clinicIdsQuery = clinicIdsQuery.Where(item => item.Id == requestedClinicId.Value);
+        }
+
+        var clinicIds = await clinicIdsQuery
+            .Select(item => item.Id)
+            .ToListAsync(cancellationToken);
+        var memberships = await context.UsuariosClinicas
+            .Include(item => item.User)
+            .Where(item => item.UsuarioGlobalId == globalUserId && clinicIds.Contains(item.ClinicaId))
+            .ToDictionaryAsync(item => item.ClinicaId, cancellationToken);
+
+        foreach (var clinicId in clinicIds)
+        {
+            if (memberships.TryGetValue(clinicId, out var existingMembership))
+            {
+                existingMembership.Ativo = true;
+                existingMembership.PerfilId = Perfil.SuperAdministradorId;
+                existingMembership.DataAtualizacao = DateTime.UtcNow;
+                existingMembership.User.Ativo = true;
+                existingMembership.User.PerfilId = Perfil.SuperAdministradorId;
+                existingMembership.User.DataAtualizacao = DateTime.UtcNow;
+                continue;
+            }
+
+            var localUser = await context.Users
+                .IgnoreQueryFilters()
+                .FirstOrDefaultAsync(item => item.ClinicaId == clinicId && item.Email == source.Email, cancellationToken);
+            if (localUser == null)
+            {
+                localUser = new User
+                {
+                    ClinicaId = clinicId,
+                    Nome = source.Nome,
+                    Email = source.Email,
+                    Telefone = $"+559{clinicId:00000000000}",
+                    Senha = source.Senha,
+                    DataNascimento = source.DataNascimento,
+                    DataCadastro = DateTime.UtcNow,
+                    Ativo = true,
+                    PrecisaTrocarSenha = source.PrecisaTrocarSenha,
+                    PerfilId = Perfil.SuperAdministradorId
+                };
+                context.Users.Add(localUser);
+            }
+            else
+            {
+                localUser.Ativo = true;
+                localUser.PerfilId = Perfil.SuperAdministradorId;
+                localUser.DataAtualizacao = DateTime.UtcNow;
+            }
+
+            await context.SaveChangesAsync(cancellationToken);
+            await GlobalIdentityService.EnsureForUserAsync(context, localUser, cancellationToken);
+        }
+
+        await context.SaveChangesAsync(cancellationToken);
     }
 
     private static bool TryGetGlobalUserId(ClaimsPrincipal principal, out int globalUserId)

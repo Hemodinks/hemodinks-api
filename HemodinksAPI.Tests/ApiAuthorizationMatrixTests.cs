@@ -77,7 +77,7 @@ public partial class ApiEndpointIntegrationTests
         return
         [
             Probe("Dashboard", "Visualizar", HttpMethod.Get, "/api/dashboard/summary", AllProfiles),
-            Probe("Clinicas", "Listar", HttpMethod.Get, "/api/platform/clinicas", [Perfil.SuperAdministradorId]),
+            Probe("Clinicas", "Listar", HttpMethod.Get, "/api/platform/clinicas", Administrators),
             Probe("Clinicas", "Cadastrar", HttpMethod.Post, "/api/platform/clinicas", [Perfil.SuperAdministradorId], BodyKind.EmptyJson),
             Probe("Clinicas", "Alterar", HttpMethod.Put, "/api/platform/clinicas/999999", [Perfil.SuperAdministradorId], BodyKind.EmptyJson),
             Probe("Clinicas", "Desativar", HttpMethod.Delete, "/api/platform/clinicas/999999", [Perfil.SuperAdministradorId]),

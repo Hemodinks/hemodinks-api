@@ -200,6 +200,13 @@ Features atuais de licenca:
 | `GET` | `/api/session/clinicas` | autenticado | lista associacoes ativas da identidade global |
 | `POST` | `/api/session/selecionar-clinica` | autenticado | valida `UsuarioClinica` e emite novo JWT para a clinica |
 
+O seletor publico do login e servido pelo arquivo `HemodinksAPI.Api/Data/public-clinics.json`,
+carregado uma vez em memoria sem consultar o SQL Server. O cadastro, a edicao, a ativacao e a
+desativacao de clinicas sincronizam esse catalogo automaticamente. As demais operacoes continuam
+usando exclusivamente o banco de dados. O caminho pode ser alterado com
+`PublicClinicDirectory__FilePath`; em ambientes com filesystem efemero, configure esse caminho
+em um volume persistente para que as alteracoes sobrevivam a novos deploys.
+
 Configure os emails autorizados com `Platform__SuperAdminEmails__0`. No startup, o usuario correspondente e promovido e recebe uma associacao `UsuarioClinica` em cada clinica ativa. Administradores comuns permanecem restritos as associacoes explicitamente cadastradas.
 
 `UsuarioGlobal` guarda a credencial unica; `UsuarioClinica` liga essa identidade ao usuario local, clinica e perfil. O `ClinicaId` do JWT e o tenant efetivo. Consultas sem contexto resolvido falham fechadas; gravacoes com `ClinicaId` divergente e relacionamentos internos entre clinicas diferentes sao recusados antes do `SaveChanges`.

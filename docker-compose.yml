@@ -92,6 +92,7 @@ services:
       - hemodinks-network
     volumes:
       - ./logs:/app/logs
+      - ./HemodinksAPI.Api/Data:/app/Data
 
   workers:
     build:

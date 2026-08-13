@@ -19,9 +19,19 @@ public static partial class ClinicaPlatformEndpointExtensions
     {
         var group = app.MapGroup("/api/platform/clinicas")
             .WithTags("Plataforma - Clinicas")
-            .RequireAuthorization("SuperAdministrador")
+            .RequireAuthorization("Administrador")
             .AddEndpointFilter(async (invocationContext, next) =>
             {
+                var principal = invocationContext.HttpContext.User;
+                if (principal.FindFirstValue("perfilId") == Perfil.AdministradorId.ToString()
+                    && invocationContext.HttpContext.Request.RouteValues.TryGetValue("id", out var routeId)
+                    && int.TryParse(routeId?.ToString(), out var requestedClinicId)
+                    && (!int.TryParse(principal.FindFirstValue(ClinicaClaimTypes.ClinicaId), out var currentClinicId)
+                        || currentClinicId != requestedClinicId))
+                {
+                    return Results.Forbid();
+                }
+
                 try
                 {
                     return await next(invocationContext);
@@ -34,9 +44,9 @@ public static partial class ClinicaPlatformEndpointExtensions
 
         group.MapGet("/", ListClinicas);
         group.MapGet("/{id:int}", GetClinica);
-        group.MapPost("/", CreateClinica);
+        group.MapPost("/", CreateClinica).RequireAuthorization("SuperAdministrador");
         group.MapPut("/{id:int}", UpdateClinica);
-        group.MapDelete("/{id:int}", DeactivateClinica);
+        group.MapDelete("/{id:int}", DeactivateClinica).RequireAuthorization("SuperAdministrador");
         group.MapGet("/{id:int}/equipes", ListClinicTeams);
         group.MapGet("/{id:int}/equipes/usuarios", ListClinicTeamUsers);
         group.MapPut("/{id:int}/equipes/{teamId:int}", UpdateClinicTeam);
@@ -49,9 +59,23 @@ public static partial class ClinicaPlatformEndpointExtensions
             .RequireAuthorization("SuperAdministrador");
     }
 
-    private static async Task<IResult> ListClinicas(AppDbContext context, CancellationToken cancellationToken)
+    private static async Task<IResult> ListClinicas(
+        ClaimsPrincipal principal,
+        AppDbContext context,
+        CancellationToken cancellationToken)
     {
-        var clinicas = await context.Clinicas
+        var query = context.Clinicas.AsNoTracking();
+        if (principal.FindFirstValue("perfilId") == Perfil.AdministradorId.ToString())
+        {
+            if (!int.TryParse(principal.FindFirstValue(ClinicaClaimTypes.ClinicaId), out var currentClinicId))
+            {
+                return Results.Forbid();
+            }
+
+            query = query.Where(item => item.Id == currentClinicId);
+        }
+
+        var clinicas = await query
             .AsNoTracking()
             .OrderBy(item => item.Nome)
             .ToListAsync(cancellationToken);
@@ -93,6 +117,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         ClinicaContext clinicaContext,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage photoStorage,
+        PublicClinicDirectory publicClinicDirectory,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -263,6 +288,14 @@ public static partial class ClinicaPlatformEndpointExtensions
                 await transaction.CommitAsync(cancellationToken);
             }
 
+            await publicClinicDirectory.UpsertAsync(
+                new PublicClinicDirectoryItem(
+                    clinica.Id,
+                    clinica.Nome,
+                    clinica.Slug,
+                    clinica.FotoClinica != null),
+                cancellationToken);
+
             var userCount = await ClinicEmployees(context)
                 .CountAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
             return (IResult)Results.Created($"/api/platform/clinicas/{clinica.Id}", ToResponse(clinica, userCount));
@@ -272,10 +305,12 @@ public static partial class ClinicaPlatformEndpointExtensions
     private static async Task<IResult> UpdateClinica(
         int id,
         UpdateClinicaRequest request,
+        ClaimsPrincipal principal,
         HttpContext httpContext,
         AppDbContext context,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage photoStorage,
+        PublicClinicDirectory publicClinicDirectory,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -358,6 +393,13 @@ public static partial class ClinicaPlatformEndpointExtensions
             clinica.LimiteUsuarios = request.LimiteUsuarios;
         }
 
+        if (request.Ativa.HasValue
+            && request.Ativa.Value != clinica.Ativa
+            && principal.FindFirstValue("perfilId") != Perfil.SuperAdministradorId.ToString())
+        {
+            return Results.Forbid();
+        }
+
         if (equipeEmail != null
             && await context.UsuariosGlobais.AnyAsync(item => item.Email == equipeEmail, cancellationToken))
         {
@@ -438,6 +480,22 @@ public static partial class ClinicaPlatformEndpointExtensions
                 true,
                 cancellationToken);
         }
+
+        if (clinica.Ativa)
+        {
+            await publicClinicDirectory.UpsertAsync(
+                new PublicClinicDirectoryItem(
+                    clinica.Id,
+                    clinica.Nome,
+                    clinica.Slug,
+                    clinica.FotoClinica != null),
+                cancellationToken);
+        }
+        else
+        {
+            await publicClinicDirectory.RemoveAsync(clinica.Id, cancellationToken);
+        }
+
         return Results.Ok(ToResponse(clinica, null));
     }
 
@@ -445,6 +503,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         int id,
         HttpContext httpContext,
         AppDbContext context,
+        PublicClinicDirectory publicClinicDirectory,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -477,6 +536,8 @@ public static partial class ClinicaPlatformEndpointExtensions
             new { clinica.Nome, clinica.Slug },
             true,
             cancellationToken);
+
+        await publicClinicDirectory.RemoveAsync(clinica.Id, cancellationToken);
 
         return Results.NoContent();
     }
