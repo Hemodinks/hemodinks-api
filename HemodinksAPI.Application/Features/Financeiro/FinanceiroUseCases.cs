@@ -273,6 +273,12 @@ public sealed class GerarContaReceberCommandHandler(IAppDbContext db, IClinicaCo
 {
     public async Task<ContaReceberDto> Handle(GerarContaReceberCommand request, CancellationToken ct)
     {
+        if (string.IsNullOrWhiteSpace(request.NumeroDocumento)
+            || string.IsNullOrWhiteSpace(request.Descricao))
+        {
+            throw new InvalidOperationException("Numero do documento e descricao sao obrigatorios.");
+        }
+
         var document = request.NumeroDocumento.Trim();
         var existing = await db.ContasReceber.Include(x => x.Paciente).Include(x => x.Recebimentos)
             .SingleOrDefaultAsync(x => x.FaturamentoId == request.FaturamentoId && x.NumeroDocumento == document, ct);
@@ -368,6 +374,11 @@ public sealed class SalvarConvenioProcedimentoPrecoCommandHandler(IAppDbContext 
 {
     public async Task<ConvenioProcedimentoPrecoDto> Handle(SalvarConvenioProcedimentoPrecoCommand request, CancellationToken ct)
     {
+        if (request.ConvenioId <= 0 || string.IsNullOrWhiteSpace(request.CbhpmCodigo))
+        {
+            throw new InvalidOperationException("Convenio e codigo CBHPM sao obrigatorios.");
+        }
+
         if (request.ValorNegociado < 0 || request.PercentualPrincipal < 0 || request.PercentualAuxiliar1 < 0 || request.PercentualAuxiliar2 < 0
             || request.VigenciaFinal < request.VigenciaInicio)
             throw new InvalidOperationException("Valores ou vigencia do preco sao invalidos.");

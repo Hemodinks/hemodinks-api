@@ -18,7 +18,8 @@ public partial class ApiEndpointIntegrationTests
         Perfil.MedicosId,
         Perfil.PacientesId,
         Perfil.ControllerId,
-        Perfil.SuperAdministradorId
+        Perfil.SuperAdministradorId,
+        Perfil.EquipeId
     ];
 
     private static readonly int[] Administrators = [Perfil.AdministradorId, Perfil.SuperAdministradorId];
@@ -29,8 +30,11 @@ public partial class ApiEndpointIntegrationTests
         Perfil.AdministradorId,
         Perfil.MedicosId,
         Perfil.ControllerId,
-        Perfil.SuperAdministradorId
+        Perfil.SuperAdministradorId,
+        Perfil.EquipeId
     ];
+    private static readonly int[] UserReaders =
+        [Perfil.AdministradorId, Perfil.SuperAdministradorId, Perfil.EquipeId];
 
     [Fact]
     public async Task ApiCrudAuthorizationMatrix_MatchesDocumentedProfileContract()
@@ -83,7 +87,7 @@ public partial class ApiEndpointIntegrationTests
             Probe("Clinicas", "Desativar", HttpMethod.Delete, "/api/platform/clinicas/999999", [Perfil.SuperAdministradorId]),
             Probe("Auditoria", "Visualizar", HttpMethod.Get, "/api/platform/auditoria", [Perfil.SuperAdministradorId]),
 
-            Probe("Usuarios", "Listar", HttpMethod.Get, "/api/users/", Administrators),
+            Probe("Usuarios", "Listar", HttpMethod.Get, "/api/users/", UserReaders),
             Probe("Usuarios", "Cadastrar", HttpMethod.Post, "/api/users/", Administrators, BodyKind.EmptyJson),
             Probe("Usuarios", "Visualizar proprio", HttpMethod.Get, "/api/users/{self}", AllProfiles),
             Probe("Usuarios", "Alterar proprio", HttpMethod.Put, "/api/users/{self}",
@@ -194,14 +198,60 @@ public partial class ApiEndpointIntegrationTests
             .Include(item => item.Clinica)
             .Where(item => users.Select(user => user.Id).Contains(item.Id))
             .ToListAsync();
+        var teamLogin = loadedUsers.Single(user => user.PerfilId == Perfil.EquipeId);
+        var teamOperatorUser = new User
+        {
+            ClinicaId = Clinica.DefaultId,
+            Nome = "Operador da matriz Equipe",
+            Email = $"operador-matriz-{Guid.NewGuid():N}@example.com",
+            Telefone = "+5511988888806",
+            Senha = "hash-nao-utilizado",
+            DataCadastro = DateTime.UtcNow,
+            Ativo = true,
+            PrecisaTrocarSenha = false,
+            PerfilId = Perfil.MedicosId
+        };
+        var team = new Equipe
+        {
+            ClinicaId = Clinica.DefaultId,
+            Nome = "Equipe da matriz",
+            UsuarioLoginId = teamLogin.Id,
+            ModoIdentificacao = EquipeModosIdentificacao.Selecao,
+            Ativa = true
+        };
+        var teamMember = new EquipeMembro
+        {
+            ClinicaId = Clinica.DefaultId,
+            Equipe = team,
+            User = teamOperatorUser,
+            Ativo = true
+        };
+        var teamOperator = new EquipeOperador
+        {
+            ClinicaId = Clinica.DefaultId,
+            Equipe = team,
+            User = teamOperatorUser,
+            Ativo = true
+        };
+        context.EquipeMembros.Add(teamMember);
+        context.EquipeOperadores.Add(teamOperator);
+        await context.SaveChangesAsync();
+
         var tokenService = scope.ServiceProvider.GetRequiredService<IJwtTokenService>();
         var identities = new Dictionary<int, ProfileIdentity>();
         foreach (var user in loadedUsers)
         {
             var membership = await GlobalIdentityService.EnsureForUserAsync(context, user, CancellationToken.None);
-            identities[user.PerfilId] = new ProfileIdentity(
-                user,
-                tokenService.GenerateToken(membership.UsuarioGlobal, membership, user));
+            var token = user.PerfilId == Perfil.EquipeId
+                ? tokenService.GenerateToken(
+                    membership.UsuarioGlobal,
+                    membership,
+                    user,
+                    team,
+                    teamOperator,
+                    identificacaoConfiavel: true)
+                : tokenService.GenerateToken(membership.UsuarioGlobal, membership, user);
+            identities[user.PerfilId] = new ProfileIdentity(user, token);
         }
 
         return identities;
@@ -223,6 +273,7 @@ public partial class ApiEndpointIntegrationTests
             Perfil.PacientesId => "Paciente",
             Perfil.ControllerId => "Controller",
             Perfil.SuperAdministradorId => "SuperAdministrador",
+            Perfil.EquipeId => "Equipe",
             _ => $"Perfil {profileId}"
         };
     }
