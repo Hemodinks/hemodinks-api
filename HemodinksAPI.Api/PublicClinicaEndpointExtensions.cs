@@ -20,9 +20,43 @@ public static class PublicClinicaEndpointExtensions
     private static async Task<IResult> ListActiveClinicas(
         string? busca,
         PublicClinicDirectory directory,
+        AppDbContext context,
+        ILogger<PublicClinicDirectory> logger,
         CancellationToken cancellationToken)
     {
-        return Results.Ok(await directory.ListAsync(busca, cancellationToken));
+        var cachedClinics = await directory.TryListAsync(busca, cancellationToken);
+        if (cachedClinics != null)
+        {
+            return Results.Ok(cachedClinics);
+        }
+
+        logger.LogWarning(
+            "Catalogo JSON publico de clinicas ausente; consultando o banco de dados para o login.");
+        var normalizedSearch = busca?.Trim();
+        var query = context.Clinicas
+            .AsNoTracking()
+            .Where(item => item.Ativa);
+
+        if (!string.IsNullOrWhiteSpace(normalizedSearch))
+        {
+            query = query.Where(item =>
+                item.Nome.Contains(normalizedSearch)
+                || item.Slug.Contains(normalizedSearch));
+        }
+
+        var clinics = await query
+            .OrderBy(item => item.Nome)
+            .Take(50)
+            .Select(item => new PublicClinicaResponse(
+                item.Id,
+                item.Nome,
+                item.Slug,
+                item.FotoClinica != null && item.FotoClinica != string.Empty
+                    ? $"/api/public/clinicas/{item.Slug}/foto"
+                    : null))
+            .ToListAsync(cancellationToken);
+
+        return Results.Ok(clinics);
     }
 
     private static async Task<IResult> GetClinicPhoto(
