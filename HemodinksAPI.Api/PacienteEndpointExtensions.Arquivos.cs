@@ -49,7 +49,7 @@ public static partial class PacienteEndpointExtensions
             var result = await mediator.Send(new UploadPacienteArquivoCommand
             {
                 PacienteId = id,
-                File = file,
+                File = file.ToUploadedFile(),
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId,
                 CurrentEquipeId = currentUser.EquipeId

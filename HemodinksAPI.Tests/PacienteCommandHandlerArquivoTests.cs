@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Features.Pacientes.Commands;
+using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
@@ -46,7 +47,7 @@ public partial class PacienteCommandHandlerTests
         var response = await handler.Handle(new UploadPacienteArquivoCommand
         {
             PacienteId = paciente.Id,
-            File = file,
+            File = new UploadedFile(file.FileName, file.ContentType, file.Length, file.OpenReadStream),
             CurrentPerfilId = Perfil.AdministradorId
         }, CancellationToken.None);
 
@@ -107,7 +108,7 @@ public partial class PacienteCommandHandlerTests
         var response = await handler.Handle(new UploadPacienteArquivoCommand
         {
             PacienteId = paciente.Id,
-            File = file,
+            File = new UploadedFile(file.FileName, file.ContentType, file.Length, file.OpenReadStream),
             CurrentUserId = doctor.Id,
             CurrentPerfilId = Perfil.MedicosId
         }, CancellationToken.None);

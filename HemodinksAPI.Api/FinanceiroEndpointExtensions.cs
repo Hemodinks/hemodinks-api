@@ -1,11 +1,8 @@
 using System.Security.Claims;
-using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Financeiro;
 using HemodinksAPI.Application.Features.Licencas;
-using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Infrastructure.Data;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -43,78 +40,31 @@ public static class FinanceiroEndpointExtensions
                 command with { Id = id, CurrentUserId = user.Id, CurrentPerfilId = user.PerfilId },
                 ct));
         }).RequireAuthorization("AtendimentoGerenciar");
-        atendimentos.MapDelete("/{id:int}", async (int id, ClaimsPrincipal principal, IMediator mediator,
-            IPatientFileStorage storage, AppDbContext db, CancellationToken ct) =>
+        atendimentos.MapDelete("/{id:int}", async (int id, ClaimsPrincipal principal,
+            FinanceiroFileUseCases files, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
-            var fileUrls = await db.AtendimentoArquivos.AsNoTracking()
-                .Where(x => x.AtendimentoCirurgicoId == id).Select(x => x.Url).ToListAsync(ct);
-            await mediator.Send(new ExcluirAtendimentoCommand(id, user.Id, user.PerfilId), ct);
-            foreach (var fileUrl in fileUrls)
-                await storage.DeleteAsync(fileUrl, ct);
+            await files.DeleteAtendimentoAsync(id, user, ct);
             return Results.NoContent();
         }).RequireAuthorization("AtendimentoGerenciar");
         atendimentos.MapPost("/{id:int}/arquivos", async (int id, IFormFile arquivo,
-            ClaimsPrincipal principal, IPatientFileStorage storage, AppDbContext db, CancellationToken ct) =>
+            ClaimsPrincipal principal, FinanceiroFileUseCases files, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
-            var atendimento = await db.AtendimentosCirurgicos.SingleOrDefaultAsync(x => x.Id == id, ct)
-                ?? throw new KeyNotFoundException("Atendimento nao encontrado.");
-            if (user.PerfilId == Perfil.MedicosId
-                && atendimento.MedicoResponsavelId != user.Id
-                && atendimento.MedicoAuxiliar1Id != user.Id
-                && atendimento.MedicoAuxiliar2Id != user.Id)
-                throw new UnauthorizedAccessException("Sem permissao para anexar arquivos ao atendimento.");
-            var stored = await storage.SaveAsync(arquivo, ct);
-            var entity = new AtendimentoArquivo
-            {
-                ClinicaId = atendimento.ClinicaId,
-                AtendimentoCirurgicoId = atendimento.Id,
-                NomeOriginal = stored.OriginalName,
-                ContentType = stored.ContentType,
-                TamanhoBytes = stored.SizeBytes,
-                Url = stored.Url,
-                DataUpload = DateTime.UtcNow
-            };
-            db.AtendimentoArquivos.Add(entity);
-            atendimento.DataAtualizacao = DateTime.UtcNow;
-            await db.SaveChangesAsync(ct);
-            return Results.Ok(new AtendimentoArquivoDto(entity.Id, entity.NomeOriginal, entity.ContentType,
-                entity.TamanhoBytes, entity.Url, entity.DataUpload));
+            return Results.Ok(await files.UploadAtendimentoFileAsync(id, arquivo.ToUploadedFile(), user, ct));
         }).DisableAntiforgery().RequireAuthorization("AtendimentoGerenciar");
         atendimentos.MapGet("/{id:int}/arquivos/{arquivoId:int}/download", async (int id, int arquivoId,
-            ClaimsPrincipal principal, IPatientFileStorage storage, AppDbContext db, CancellationToken ct) =>
+            ClaimsPrincipal principal, FinanceiroFileUseCases files, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
-            var entity = await db.AtendimentoArquivos.AsNoTracking()
-                .Include(x => x.AtendimentoCirurgico)
-                .SingleOrDefaultAsync(x => x.Id == arquivoId && x.AtendimentoCirurgicoId == id, ct)
-                ?? throw new KeyNotFoundException("Arquivo nao encontrado.");
-            if (user.PerfilId == Perfil.MedicosId
-                && entity.AtendimentoCirurgico.MedicoResponsavelId != user.Id
-                && entity.AtendimentoCirurgico.MedicoAuxiliar1Id != user.Id
-                && entity.AtendimentoCirurgico.MedicoAuxiliar2Id != user.Id)
-                throw new UnauthorizedAccessException("Sem permissao para baixar este arquivo.");
-            var stored = await storage.GetAsync(entity.Url, ct)
-                ?? throw new KeyNotFoundException("Arquivo nao encontrado.");
-            return Results.Stream(stored.Content, entity.ContentType, entity.NomeOriginal);
+            var file = await files.DownloadAtendimentoFileAsync(id, arquivoId, user, ct);
+            return Results.Stream(file.Content, file.ContentType, file.FileName);
         }).RequireAuthorization("AtendimentoVisualizar");
         atendimentos.MapDelete("/{id:int}/arquivos/{arquivoId:int}", async (int id, int arquivoId,
-            ClaimsPrincipal principal, IPatientFileStorage storage, AppDbContext db, CancellationToken ct) =>
+            ClaimsPrincipal principal, FinanceiroFileUseCases files, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
-            var entity = await db.AtendimentoArquivos.Include(x => x.AtendimentoCirurgico)
-                .SingleOrDefaultAsync(x => x.Id == arquivoId && x.AtendimentoCirurgicoId == id, ct)
-                ?? throw new KeyNotFoundException("Arquivo nao encontrado.");
-            if (user.PerfilId == Perfil.MedicosId
-                && entity.AtendimentoCirurgico.MedicoResponsavelId != user.Id
-                && entity.AtendimentoCirurgico.MedicoAuxiliar1Id != user.Id
-                && entity.AtendimentoCirurgico.MedicoAuxiliar2Id != user.Id)
-                throw new UnauthorizedAccessException("Sem permissao para excluir este arquivo.");
-            var url = entity.Url;
-            db.AtendimentoArquivos.Remove(entity);
-            await db.SaveChangesAsync(ct);
-            await storage.DeleteAsync(url, ct);
+            await files.DeleteAtendimentoFileAsync(id, arquivoId, user, ct);
             return Results.NoContent();
         }).RequireAuthorization("AtendimentoGerenciar");
 
@@ -199,41 +149,15 @@ public static class FinanceiroEndpointExtensions
             return Results.Ok(await mediator.Send(command with { RecebimentoId = id, UsuarioEstornoId = user.Id }, ct));
         }).RequireAuthorization("FinanceiroGerenciar");
         financeiro.MapPost("/recebimentos/{id:int}/comprovante", async (int id, IFormFile arquivo,
-            IPatientFileStorage storage, AppDbContext db, CancellationToken ct) =>
+            FinanceiroFileUseCases files, CancellationToken ct) =>
         {
-            var extension = Path.GetExtension(arquivo.FileName).ToLowerInvariant();
-            if (extension is not ".pdf" and not ".jpg" and not ".jpeg")
-                throw new InvalidOperationException("O comprovante deve estar no formato PDF ou JPG.");
-
-            var receipt = await db.Recebimentos.SingleOrDefaultAsync(x => x.Id == id, ct)
-                ?? throw new KeyNotFoundException("Recebimento nao encontrado.");
-            var oldUrl = receipt.DocumentoComprovante;
-            var stored = await storage.SaveAsync(arquivo, ct);
-            receipt.DocumentoComprovante = stored.Url; await db.SaveChangesAsync(ct);
-            if (!string.IsNullOrWhiteSpace(oldUrl)) await storage.DeleteAsync(oldUrl, ct);
-            return Results.Ok(new { recebimentoId = id, nome = stored.OriginalName, contentType = stored.ContentType,
-                tamanho = stored.SizeBytes, url = stored.Url });
+            return Results.Ok(await files.UploadReceiptAsync(id, arquivo.ToUploadedFile(), ct));
         }).DisableAntiforgery().RequireAuthorization("FinanceiroGerenciar");
         financeiro.MapGet("/recebimentos/{id:int}/comprovante", async (int id,
-            IPatientFileStorage storage, AppDbContext db, CancellationToken ct) =>
+            FinanceiroFileUseCases files, CancellationToken ct) =>
         {
-            var receipt = await db.Recebimentos.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, ct)
-                ?? throw new KeyNotFoundException("Recebimento nao encontrado.");
-            var storedUrl = receipt.DocumentoComprovante
-                ?? throw new KeyNotFoundException("Comprovante nao encontrado.");
-            var file = await storage.GetAsync(storedUrl, ct)
-                ?? throw new KeyNotFoundException("Comprovante nao encontrado.");
-            var storedPath = Uri.TryCreate(storedUrl, UriKind.Absolute, out var storedUri)
-                ? storedUri.AbsolutePath
-                : storedUrl;
-            var extension = Path.GetExtension(storedPath).ToLowerInvariant();
-            var (contentType, downloadExtension) = extension switch
-            {
-                ".pdf" => ("application/pdf", ".pdf"),
-                ".jpg" or ".jpeg" => ("image/jpeg", ".jpg"),
-                _ => throw new InvalidOperationException("O formato do comprovante armazenado não é suportado.")
-            };
-            return Results.Stream(file.Content, contentType, $"comprovante-{id}{downloadExtension}");
+            var file = await files.DownloadReceiptAsync(id, ct);
+            return Results.Stream(file.Content, file.ContentType, file.FileName);
         }).RequireAuthorization("FinanceiroVisualizar");
 
         var precos = app.MapGroup("/api/convenios-procedimentos-precos").WithTags("Precos por convenio").RequireAuthorization()
@@ -256,19 +180,10 @@ public static class FinanceiroEndpointExtensions
             int? pacienteId,
             IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(
                 new ObterFinanceiroResumoQuery(inicio, fim, convenioId, medicoId, pacienteId), ct))).RequireAuthorization("FinanceiroVisualizar");
-        reports.MapGet("/auditoria", async (int page, int pageSize, string? recurso, AppDbContext db,
-            IClinicaContext tenant, CancellationToken ct) =>
-        {
-            if (page < 1 || pageSize is < 1 or > 100)
-                throw new InvalidOperationException("Pagina deve ser positiva e o tamanho deve estar entre 1 e 100.");
-            var clinicaId = tenant.GetRequiredClinicaId();
-            var query = db.AuditoriasPlataforma.AsNoTracking().Where(x => x.ClinicaId == clinicaId && x.Recurso.StartsWith("financeiro:"));
-            if (!string.IsNullOrWhiteSpace(recurso)) query = query.Where(x => x.Recurso == $"financeiro:{recurso.Trim()}");
-            var total = await query.CountAsync(ct);
-            var items = await query.OrderByDescending(x => x.DataCadastro).Skip((page - 1) * pageSize).Take(pageSize)
-                .Select(x => new { x.Id, x.Acao, x.Recurso, x.EntidadeId, x.DetalhesJson, x.UserId, x.Ip, x.Sucesso, x.DataCadastro }).ToListAsync(ct);
-            return Results.Ok(new PagedResult<object>(items.Cast<object>().ToList(), page, pageSize, total));
-        }).RequireAuthorization("FinanceiroVisualizar");
+        reports.MapGet("/auditoria", async (int page, int pageSize, string? recurso,
+            FinanceiroFileUseCases files, CancellationToken ct) =>
+            Results.Ok(await files.ListAuditAsync(page, pageSize, recurso, ct)))
+            .RequireAuthorization("FinanceiroVisualizar");
 
         app.MapGet("/api/pacientes/{id:int}/resumo-financeiro", async (int id, ClaimsPrincipal principal,
             IMediator mediator, CancellationToken ct) =>

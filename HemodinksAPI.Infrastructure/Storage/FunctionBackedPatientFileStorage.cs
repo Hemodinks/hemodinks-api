@@ -13,7 +13,7 @@ public class FunctionBackedPatientFileStorage : IPatientFileStorage
         _fallbackStorage = fallbackStorage;
     }
 
-    public async Task<StoredPatientFile> SaveAsync(IFormFile file, CancellationToken cancellationToken)
+    public async Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
     {
         await using var stream = file.OpenReadStream();
         using var memoryStream = new MemoryStream();

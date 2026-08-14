@@ -12,7 +12,7 @@ public sealed record GlobalAuthenticationContext(
 public static class GlobalIdentityService
 {
     public static async Task<GlobalAuthenticationContext?> AuthenticateAsync(
-        IAppDbContext context,
+        IGlobalIdentityDbContext context,
         IPasswordHasher passwordHasher,
         User user,
         string password,
@@ -56,7 +56,7 @@ public static class GlobalIdentityService
     }
 
     public static async Task<UsuarioClinica> EnsureForUserAsync(
-        IAppDbContext context,
+        IGlobalIdentityDbContext context,
         User user,
         CancellationToken cancellationToken,
         bool clinicaPadrao = false)
@@ -117,7 +117,7 @@ public static class GlobalIdentityService
     }
 
     public static async Task SynchronizeUserAsync(
-        IAppDbContext context,
+        IGlobalIdentityDbContext context,
         User user,
         CancellationToken cancellationToken)
     {
@@ -148,7 +148,7 @@ public static class GlobalIdentityService
     }
 
     public static async Task SynchronizePasswordAsync(
-        IAppDbContext context,
+        IGlobalIdentityDbContext context,
         int userId,
         string passwordHash,
         CancellationToken cancellationToken)

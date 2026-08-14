@@ -24,6 +24,16 @@ public static partial class ApiServiceCollectionExtensions
             }));
 
         services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IClinicDirectoryDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IGlobalIdentityDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<ITeamDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IPlatformTeamDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IPlatformClinicDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<ISessionDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IFinanceEndpointDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<EfDataExecution>();
+        services.AddScoped<IDataExecutionStrategy>(provider => provider.GetRequiredService<EfDataExecution>());
+        services.AddScoped<IDataTransactionManager>(provider => provider.GetRequiredService<EfDataExecution>());
         services.AddScoped<IFullTextSearchCapability, SqlServerFullTextSearchCapability>();
         services
             .AddHealthChecks()

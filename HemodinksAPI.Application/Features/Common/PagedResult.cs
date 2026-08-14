@@ -2,6 +2,19 @@ namespace HemodinksAPI.Application.Features.Common;
 
 public class PagedResult<T>
 {
+    public PagedResult()
+    {
+    }
+
+    public PagedResult(IReadOnlyList<T> items, int page, int pageSize, int totalItems)
+    {
+        Items = items.ToList();
+        Page = page;
+        PageSize = pageSize;
+        TotalItems = totalItems;
+        TotalPages = pageSize > 0 ? (int)Math.Ceiling(totalItems / (double)pageSize) : 0;
+    }
+
     public List<T> Items { get; set; } = [];
 
     public int Page { get; set; }

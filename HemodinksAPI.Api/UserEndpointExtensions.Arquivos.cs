@@ -66,7 +66,7 @@ public static partial class UserEndpointExtensions
             var result = await mediator.Send(new UploadUserArquivoCommand
             {
                 UserId = id,
-                File = file,
+                File = file.ToUploadedFile(),
                 CurrentUser = GetRequiredCurrentUser(claimsPrincipal)
             }, cancellationToken);
 

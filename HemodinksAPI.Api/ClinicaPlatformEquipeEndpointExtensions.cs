@@ -1,7 +1,8 @@
 using HemodinksAPI.Application.Authentication;
+using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Teams;
 using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
@@ -10,7 +11,7 @@ public static partial class ClinicaPlatformEndpointExtensions
 {
     private static async Task<IResult> ListClinicTeams(
         int id,
-        AppDbContext context,
+        IPlatformTeamDbContext context,
         CancellationToken cancellationToken)
     {
         if (!await context.Clinicas.AsNoTracking().AnyAsync(item => item.Id == id, cancellationToken))
@@ -23,14 +24,14 @@ public static partial class ClinicaPlatformEndpointExtensions
             .AsNoTracking()
             .Where(item => item.ClinicaId == id)
             .OrderBy(item => item.Nome)
-            .Select(item => new EquipeResponse(
+            .Select(item => new TeamResponse(
                 item.Id,
                 item.Nome,
                 item.UsuarioLoginId,
                 item.UsuarioLogin.Email,
                 item.ModoIdentificacao,
                 item.Ativa,
-                item.Membros.Where(member => member.Ativo).Select(member => new EquipeMembroResponse(
+                item.Membros.Where(member => member.Ativo).Select(member => new TeamMemberResponse(
                     member.UserId,
                     member.User.Nome,
                     member.User.Email,
@@ -48,7 +49,7 @@ public static partial class ClinicaPlatformEndpointExtensions
 
     private static async Task<IResult> ListClinicTeamUsers(
         int id,
-        AppDbContext context,
+        IPlatformTeamDbContext context,
         CancellationToken cancellationToken)
     {
         if (!await context.Clinicas.AsNoTracking().AnyAsync(item => item.Id == id, cancellationToken))
@@ -130,7 +131,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         int teamId,
         AtualizarEquipeRequest request,
         HttpContext httpContext,
-        AppDbContext context,
+        IPlatformTeamDbContext context,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -155,7 +156,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         int teamId,
         AssociateClinicTeamMembersRequest request,
         HttpContext httpContext,
-        AppDbContext context,
+        IPlatformTeamDbContext context,
         IPasswordHasher passwordHasher,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
@@ -440,7 +441,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         int teamId,
         int userId,
         HttpContext httpContext,
-        AppDbContext context,
+        IPlatformTeamDbContext context,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -472,7 +473,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         int teamId,
         int operatorId,
         HttpContext httpContext,
-        AppDbContext context,
+        IPlatformTeamDbContext context,
         IPasswordHasher passwordHasher,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)

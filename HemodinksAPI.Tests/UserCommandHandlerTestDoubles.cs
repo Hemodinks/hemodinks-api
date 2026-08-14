@@ -3,7 +3,6 @@ using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Storage;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Tests;
@@ -116,7 +115,7 @@ public partial class UserCommandHandlerTests
 
     private sealed class FakePatientFileStorage : IPatientFileStorage
     {
-        public Task<StoredPatientFile> SaveAsync(IFormFile file, CancellationToken cancellationToken)
+        public Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
         {
             return Task.FromResult(new StoredPatientFile(
                 file.FileName,

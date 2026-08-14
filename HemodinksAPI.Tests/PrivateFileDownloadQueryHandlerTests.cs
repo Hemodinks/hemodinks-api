@@ -3,7 +3,6 @@ using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Application.Features.Users.Queries;
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Domain.Models;
-using Microsoft.AspNetCore.Http;
 
 namespace HemodinksAPI.Tests;
 
@@ -121,7 +120,7 @@ public class PrivateFileDownloadQueryHandlerTests
     {
         public int GetCalls { get; private set; }
 
-        public Task<StoredPatientFile> SaveAsync(IFormFile file, CancellationToken cancellationToken)
+        public Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }

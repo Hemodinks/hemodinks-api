@@ -36,7 +36,7 @@ public class LocalDiskPatientFileStorage : IPatientFileStorage
         _logger = logger;
     }
 
-    public async Task<StoredPatientFile> SaveAsync(IFormFile file, CancellationToken cancellationToken)
+    public async Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
     {
         if (file.Length <= 0)
         {

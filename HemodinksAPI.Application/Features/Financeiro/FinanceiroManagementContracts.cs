@@ -1,12 +1,8 @@
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Features.Common;
 using MediatR;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
-
-public record PagedResult<T>(IReadOnlyList<T> Items, int Page, int PageSize, int TotalItems)
-{
-    public int TotalPages => (int)Math.Ceiling(TotalItems / (double)PageSize);
-}
 
 public record ObterAtendimentoQuery(int Id, int CurrentUserId, int CurrentPerfilId) : IRequest<AtendimentoDto>;
 public record AtualizarAtendimentoCommand(int Id, DateTime DataProcedimento, int? HospitalId, int? ConvenioId,

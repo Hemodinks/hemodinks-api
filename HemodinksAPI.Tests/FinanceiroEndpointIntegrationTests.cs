@@ -6,7 +6,6 @@ using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -619,7 +618,7 @@ public partial class ApiEndpointIntegrationTests
     {
         private byte[] _content = [];
         public string? LastSavedName { get; private set; }
-        public async Task<StoredPatientFile> SaveAsync(IFormFile file, CancellationToken cancellationToken)
+        public async Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
         {
             LastSavedName = file.FileName; await using var stream = new MemoryStream();
             await file.CopyToAsync(stream, cancellationToken); _content = stream.ToArray();
