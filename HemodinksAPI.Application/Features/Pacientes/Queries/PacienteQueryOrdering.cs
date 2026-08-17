@@ -14,6 +14,9 @@ internal static class PacienteQueryOrdering
             "data" or "dataprocedimento" => isDescending
                 ? query.OrderByDescending(paciente => paciente.Data).ThenByDescending(paciente => paciente.Id)
                 : query.OrderBy(paciente => paciente.Data).ThenBy(paciente => paciente.Id),
+            "dataatendimento" => isDescending
+                ? query.OrderByDescending(paciente => paciente.DataAtendimento).ThenByDescending(paciente => paciente.Id)
+                : query.OrderBy(paciente => paciente.DataAtendimento).ThenBy(paciente => paciente.Id),
             "nome" => isDescending
                 ? query.OrderByDescending(paciente => paciente.NomePaciente).ThenByDescending(paciente => paciente.Id)
                 : query.OrderBy(paciente => paciente.NomePaciente).ThenBy(paciente => paciente.Id),

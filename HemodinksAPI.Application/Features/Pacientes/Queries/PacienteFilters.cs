@@ -17,6 +17,8 @@ internal static class PacienteFilters
         int[] convenioIds,
         DateTime? dataInicio,
         DateTime? dataFinal,
+        DateTime? dataSolicitacaoInicio,
+        DateTime? dataSolicitacaoFinal,
         bool supportsFullTextSearch)
     {
         if (!string.IsNullOrWhiteSpace(search))
@@ -83,6 +85,18 @@ internal static class PacienteFilters
         {
             var fimExclusivo = dataFinal.Value.Date.AddDays(1);
             query = query.Where(p => p.DataAtendimento.HasValue && p.DataAtendimento.Value < fimExclusivo);
+        }
+
+        if (dataSolicitacaoInicio.HasValue)
+        {
+            var inicio = dataSolicitacaoInicio.Value.Date;
+            query = query.Where(p => p.Data.HasValue && p.Data.Value >= inicio);
+        }
+
+        if (dataSolicitacaoFinal.HasValue)
+        {
+            var fimExclusivo = dataSolicitacaoFinal.Value.Date.AddDays(1);
+            query = query.Where(p => p.Data.HasValue && p.Data.Value < fimExclusivo);
         }
 
         return query;

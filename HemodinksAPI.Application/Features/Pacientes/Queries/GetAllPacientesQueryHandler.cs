@@ -52,6 +52,8 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                 convenioIds,
                 request.DataInicio,
                 request.DataFinal,
+                request.DataSolicitacaoInicio,
+                request.DataSolicitacaoFinal,
                 _supportsFullTextSearch);
 
             var totalItems = await query.CountAsync(cancellationToken);

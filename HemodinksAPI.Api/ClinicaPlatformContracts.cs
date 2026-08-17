@@ -34,6 +34,7 @@ public sealed record UpdateClinicaRequest(
     DateTime? AssinaturaValidaAte,
     int? LimiteUsuarios,
     string? FotoClinica,
+    string? AdministradorNovaSenha,
     CreateEquipeInicialRequest? NovaEquipe);
 
 public sealed record ClinicaPlatformResponse(

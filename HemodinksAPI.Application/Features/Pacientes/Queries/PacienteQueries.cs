@@ -120,6 +120,10 @@ public class GetAllPacientesQuery : IRequest<PagedResult<PacienteDto>>
 
     public DateTime? DataFinal { get; set; }
 
+    public DateTime? DataSolicitacaoInicio { get; set; }
+
+    public DateTime? DataSolicitacaoFinal { get; set; }
+
     public int CurrentUserId { get; set; }
 
     public int CurrentPerfilId { get; set; }

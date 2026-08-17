@@ -163,6 +163,41 @@ public class ListOrderingTests
     }
 
     [Fact]
+    public async Task GetAllPacientes_FiltersRequestDatesAndOrdersByAttendanceDate()
+    {
+        await using var context = TestDbContextFactory.Create();
+
+        Paciente CreatePaciente(string nome, string email, string cpf, DateTime requestDate, DateTime attendanceDate) => new()
+        {
+            User = CreateUser(nome, email, cpf, DateTime.UtcNow, null, Perfil.PacientesId),
+            NomePaciente = nome,
+            Data = requestDate,
+            DataAtendimento = attendanceDate,
+        };
+
+        context.Pacientes.AddRange(
+            CreatePaciente("Atendimento posterior", "posterior@hemodinks.com", "52998224725", new DateTime(2026, 5, 10), new DateTime(2026, 6, 20)),
+            CreatePaciente("Atendimento anterior", "anterior@hemodinks.com", "11144477735", new DateTime(2026, 5, 20), new DateTime(2026, 6, 10)),
+            CreatePaciente("Solicitacao fora", "fora@hemodinks.com", "93541134780", new DateTime(2026, 4, 30), new DateTime(2026, 6, 30)));
+        await context.SaveChangesAsync();
+
+        var handler = new GetAllPacientesQueryHandler(context, NullLogger<GetAllPacientesQueryHandler>.Instance);
+        var result = await handler.Handle(new GetAllPacientesQuery
+        {
+            Page = 1,
+            PageSize = 10,
+            DataSolicitacaoInicio = new DateTime(2026, 5, 1),
+            DataSolicitacaoFinal = new DateTime(2026, 5, 31),
+            SortBy = "dataAtendimento",
+            SortDirection = "asc",
+            CurrentPerfilId = Perfil.AdministradorId,
+        }, CancellationToken.None);
+
+        Assert.Equal(2, result.TotalItems);
+        Assert.Equal(["Atendimento anterior", "Atendimento posterior"], result.Items.Select(paciente => paciente.NomePaciente));
+    }
+
+    [Fact]
     public async Task GetAllPacientes_WhenLoggedDoctor_ReturnsOnlyPatientsLinkedToDoctorUserId()
     {
         await using var context = TestDbContextFactory.Create();

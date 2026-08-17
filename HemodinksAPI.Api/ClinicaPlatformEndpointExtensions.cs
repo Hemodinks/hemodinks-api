@@ -304,12 +304,22 @@ public static partial class ClinicaPlatformEndpointExtensions
         ClaimsPrincipal principal,
         HttpContext httpContext,
         IPlatformClinicDbContext context,
+        ClinicaContext clinicaContext,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage photoStorage,
         PublicClinicDirectory publicClinicDirectory,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
+        clinicaContext.SetPlatformScope();
+        var administratorNewPassword = string.IsNullOrWhiteSpace(request.AdministradorNovaSenha)
+            ? null
+            : RequireText(request.AdministradorNovaSenha, "Nova senha do administrador invalida", 200);
+        if (administratorNewPassword is { Length: < 8 })
+        {
+            throw new InvalidOperationException("Nova senha do administrador deve possuir ao menos 8 caracteres");
+        }
+
         var equipeNome = request.NovaEquipe == null
             ? null
             : RequireText(request.NovaEquipe.Nome, "Nome da equipe obrigatorio", 120);
@@ -423,6 +433,24 @@ public static partial class ClinicaPlatformEndpointExtensions
 
         User? equipeLogin = null;
         Equipe? novaEquipe = null;
+        User? clinicAdministrator = null;
+        if (administratorNewPassword != null)
+        {
+            clinicAdministrator = await context.Users
+                .Where(item => item.ClinicaId == id && item.PerfilId == Perfil.AdministradorId && item.Ativo)
+                .OrderBy(item => item.DataCadastro)
+                .ThenBy(item => item.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (clinicAdministrator == null)
+            {
+                return Results.Conflict(new { message = "A clinica nao possui administrador ativo para redefinir a senha" });
+            }
+
+            clinicAdministrator.Senha = passwordHasher.HashPassword(administratorNewPassword);
+            clinicAdministrator.PrecisaTrocarSenha = true;
+            clinicAdministrator.DataAtualizacao = DateTime.UtcNow;
+        }
+
         if (request.NovaEquipe != null)
         {
             equipeLogin = new User
@@ -451,6 +479,24 @@ public static partial class ClinicaPlatformEndpointExtensions
         }
 
         await context.SaveChangesAsync(cancellationToken);
+        if (clinicAdministrator != null)
+        {
+            await GlobalIdentityService.SynchronizePasswordAsync(
+                context,
+                clinicAdministrator.Id,
+                clinicAdministrator.Senha,
+                cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+            await auditService.RecordAsync(
+                httpContext,
+                "clinic.administrator-password-reset",
+                "user",
+                clinicAdministrator.Id.ToString(),
+                clinica.Id,
+                new { clinicAdministrator.Email, RequiresPasswordChange = true },
+                true,
+                cancellationToken);
+        }
         if (equipeLogin != null)
         {
             await GlobalIdentityService.EnsureForUserAsync(context, equipeLogin, cancellationToken);

@@ -393,6 +393,60 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task PlatformClinicUpdate_CanResetPrincipalAdministratorPasswordWithoutExposingIt()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var platformClient = factory.CreateClient();
+        await AuthenticateAsync(platformClient, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+
+        var slug = $"clinica-password-{Guid.NewGuid():N}";
+        var email = $"admin-password-{Guid.NewGuid():N}@example.com";
+        var initialPassword = TemporaryPasswordGenerator.Generate();
+        var newPassword = TemporaryPasswordGenerator.Generate();
+        var createResponse = await platformClient.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica Senha Segura",
+            slug,
+            administradorNome = "Administradora Principal",
+            administradorEmail = email,
+            administradorSenha = initialPassword,
+            plano = "Completa"
+        });
+        createResponse.EnsureSuccessStatusCode();
+        using var createJson = await ReadJsonAsync(createResponse);
+        var clinicId = createJson.RootElement.GetProperty("id").GetInt32();
+
+        var updateResponse = await platformClient.PutAsJsonAsync($"/api/platform/clinicas/{clinicId}", new
+        {
+            administradorNovaSenha = newPassword
+        });
+        updateResponse.EnsureSuccessStatusCode();
+        Assert.DoesNotContain(newPassword, await updateResponse.Content.ReadAsStringAsync());
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            scope.ServiceProvider.GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>().SetPlatformScope();
+            var administrator = await context.Users.SingleAsync(item => item.ClinicaId == clinicId && item.PerfilId == Perfil.AdministradorId);
+            Assert.True(administrator.PrecisaTrocarSenha);
+            Assert.True(new PasswordHasher().VerifyPassword(newPassword, administrator.Senha));
+            Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
+                item.Acao == "clinic.administrator-password-reset"
+                && item.ClinicaId == clinicId
+                && item.EntidadeId == administrator.Id.ToString()
+                && item.Sucesso));
+        }
+
+        using var clinicClient = factory.CreateClient();
+        var loginResponse = await PostAsJsonWithClinicHeaderAsync(
+            clinicClient,
+            slug,
+            "/api/users/authenticate",
+            new { Email = email, Senha = newPassword });
+        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
+    }
+
+    [Fact]
     public async Task PlatformClinics_WhenPlanIsInvalid_ReturnsBadRequest()
     {
         using var factory = new HemodinksApiFactory();
@@ -862,6 +916,9 @@ public partial class ApiEndpointIntegrationTests
             $"/api/platform/clinicas/{beta.Id}")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync(
             $"/api/platform/clinicas/{Clinica.DefaultId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.PutAsJsonAsync(
+            $"/api/platform/clinicas/{Clinica.DefaultId}",
+            new { administradorNovaSenha = TemporaryPasswordGenerator.Generate() })).StatusCode);
     }
 
     [Fact]
