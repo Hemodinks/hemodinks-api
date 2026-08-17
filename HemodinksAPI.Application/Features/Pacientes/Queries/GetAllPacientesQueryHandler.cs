@@ -29,9 +29,7 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
             var page = Math.Max(1, request.Page);
             var pageSize = Math.Clamp(request.PageSize, 1, 100);
             var search = request.Search?.Trim();
-            var digits = string.IsNullOrWhiteSpace(search)
-                ? string.Empty
-                : new string(search.Where(char.IsDigit).ToArray());
+            var digits = PacienteFilters.GetStructuredSearchDigits(search);
             var canUseAdminFilters = Perfil.IsAdministradorOuSuper(request.CurrentPerfilId);
             var medico = canUseAdminFilters ? PacienteQueryOrdering.TrimOptional(request.Medico) : null;
             var convenio = canUseAdminFilters ? PacienteQueryOrdering.TrimOptional(request.Convenio) : null;

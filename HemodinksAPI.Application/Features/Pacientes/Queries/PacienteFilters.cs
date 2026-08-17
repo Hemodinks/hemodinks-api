@@ -6,6 +6,18 @@ namespace HemodinksAPI.Application.Features.Pacientes.Queries;
 
 internal static class PacienteFilters
 {
+    internal static string GetStructuredSearchDigits(string? search)
+    {
+        if (string.IsNullOrWhiteSpace(search)
+            || search.Contains(',')
+            || search.Any(char.IsLetter))
+        {
+            return string.Empty;
+        }
+
+        return new string(search.Where(char.IsDigit).ToArray());
+    }
+
     public static IQueryable<Paciente> ApplyFilters(
         IQueryable<Paciente> query,
         string? search,

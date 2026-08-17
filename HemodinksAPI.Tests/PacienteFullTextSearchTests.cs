@@ -7,6 +7,17 @@ namespace HemodinksAPI.Tests;
 
 public class PacienteFullTextSearchTests
 {
+    [Theory]
+    [InlineData("81900000125", "81900000125")]
+    [InlineData("3.10.05.25-0", "31005250")]
+    [InlineData("um, 25, pacinete", "")]
+    [InlineData("25, 56", "")]
+    [InlineData("paciente 25", "")]
+    public void StructuredDigits_AreUsedOnlyForAnExclusiveNumericSearch(string search, string expected)
+    {
+        Assert.Equal(expected, PacienteFilters.GetStructuredSearchDigits(search));
+    }
+
     [Fact]
     public void ApplyFilters_UsesFullTextOnPacienteColumnsWithoutContainsOnFilteredNavigationSubqueries()
     {
