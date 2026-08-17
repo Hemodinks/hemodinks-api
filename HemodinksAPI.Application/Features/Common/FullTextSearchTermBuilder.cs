@@ -8,8 +8,9 @@ public static class FullTextSearchTermBuilder
 
     /// <summary>
     /// Converte texto livre em uma condicao CONTAINS segura de prefixos, por exemplo
-    /// <c>"cirurg*" AND "cardiac*"</c>. Pontuacao e operadores sao tratados como
-    /// separadores; somente letras, digitos e marcas Unicode compoem os termos.
+    /// <c>"cirurg*" AND "cardiac*"</c>. Grupos separados por virgula sao combinados
+    /// com OR. As demais pontuacoes e operadores sao tratados como separadores;
+    /// somente letras, digitos e marcas Unicode compoem os termos.
     /// </summary>
     public static string? BuildPrefixCondition(string? value)
     {
@@ -18,6 +19,26 @@ public static class FullTextSearchTermBuilder
             return null;
         }
 
+        var groups = value
+            .Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries)
+            .Select(BuildAndGroup)
+            .Where(group => group != null)
+            .Select(group => group!)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToArray();
+
+        if (groups.Length == 0)
+        {
+            return null;
+        }
+
+        return groups.Length == 1
+            ? groups[0]
+            : string.Join(" OR ", groups.Select(group => $"({group})"));
+    }
+
+    private static string? BuildAndGroup(string value)
+    {
         var terms = Tokenize(value)
             .Where(term => term.Length >= MinimumTermLength)
             .Distinct(StringComparer.OrdinalIgnoreCase)

@@ -34,7 +34,9 @@ internal static class PacienteFilters
             var condition = FullTextSearchTermBuilder.BuildPrefixCondition(medico);
             query = supportsFullTextSearch && condition != null
                 ? query.Where(p =>
-                    (p.MedicoUser != null && EF.Functions.Contains(p.MedicoUser.Nome, condition))
+                    // Navegacoes com filtro global de clinica viram derived tables no SQL.
+                    // O SQL Server nao permite CONTAINS sobre a coluna projetada delas.
+                    (p.MedicoUser != null && p.MedicoUser.Nome.Contains(medico))
                     || (p.Medico != null && EF.Functions.Contains(p.Medico, condition)))
                 : query.Where(p =>
                     (p.MedicoUser != null && p.MedicoUser.Nome.Contains(medico))
@@ -46,7 +48,7 @@ internal static class PacienteFilters
             var condition = FullTextSearchTermBuilder.BuildPrefixCondition(convenio);
             query = supportsFullTextSearch && condition != null
                 ? query.Where(p =>
-                    (p.ConvenioReferencia != null && EF.Functions.Contains(p.ConvenioReferencia.DescricaoConvenio, condition))
+                    (p.ConvenioReferencia != null && p.ConvenioReferencia.DescricaoConvenio.Contains(convenio))
                     || (p.Convenio != null && EF.Functions.Contains(p.Convenio, condition)))
                 : query.Where(p =>
                     (p.ConvenioReferencia != null && p.ConvenioReferencia.DescricaoConvenio.Contains(convenio))
@@ -59,7 +61,7 @@ internal static class PacienteFilters
             query = supportsFullTextSearch && condition != null
                 ? query.Where(p =>
                     (p.Procedimento != null && EF.Functions.Contains(p.Procedimento, condition))
-                    || p.Procedimentos.Any(item => EF.Functions.Contains(item.Procedimento, condition)))
+                    || p.Procedimentos.Any(item => item.Procedimento.Contains(procedimento)))
                 : query.Where(p =>
                     (p.Procedimento != null && p.Procedimento.Contains(procedimento))
                     || p.Procedimentos.Any(item => item.Procedimento.Contains(procedimento)));
@@ -111,17 +113,17 @@ internal static class PacienteFilters
         return query.Where(p =>
             EF.Functions.Contains(p.NomePaciente, condition)
             || (p.Diagnostico != null && EF.Functions.Contains(p.Diagnostico, condition))
-            || (p.HospitalReferencia != null && EF.Functions.Contains(p.HospitalReferencia.Nome, condition))
+            || (p.HospitalReferencia != null && p.HospitalReferencia.Nome.Contains(search))
             || (p.Hospital != null && EF.Functions.Contains(p.Hospital, condition))
-            || (p.MedicoUser != null && EF.Functions.Contains(p.MedicoUser.Nome, condition))
+            || (p.MedicoUser != null && p.MedicoUser.Nome.Contains(search))
             || (p.Medico != null && EF.Functions.Contains(p.Medico, condition))
-            || (p.MedicoAuxiliar1User != null && EF.Functions.Contains(p.MedicoAuxiliar1User.Nome, condition))
+            || (p.MedicoAuxiliar1User != null && p.MedicoAuxiliar1User.Nome.Contains(search))
             || (p.MedicoAuxiliar1 != null && EF.Functions.Contains(p.MedicoAuxiliar1, condition))
-            || (p.MedicoAuxiliar2User != null && EF.Functions.Contains(p.MedicoAuxiliar2User.Nome, condition))
+            || (p.MedicoAuxiliar2User != null && p.MedicoAuxiliar2User.Nome.Contains(search))
             || (p.MedicoAuxiliar2 != null && EF.Functions.Contains(p.MedicoAuxiliar2, condition))
-            || (p.ConvenioReferencia != null && EF.Functions.Contains(p.ConvenioReferencia.DescricaoConvenio, condition))
+            || (p.ConvenioReferencia != null && p.ConvenioReferencia.DescricaoConvenio.Contains(search))
             || (p.Convenio != null && EF.Functions.Contains(p.Convenio, condition))
-            || (p.OpmeFornecedorReferencia != null && EF.Functions.Contains(p.OpmeFornecedorReferencia.Fornecedor, condition))
+            || (p.OpmeFornecedorReferencia != null && p.OpmeFornecedorReferencia.Fornecedor.Contains(search))
             || (p.OpmeFornecedor != null && EF.Functions.Contains(p.OpmeFornecedor, condition))
             || (p.Procedimento != null && EF.Functions.Contains(p.Procedimento, condition))
             || p.User.Email.Contains(search)
@@ -131,7 +133,7 @@ internal static class PacienteFilters
                 && p.CbhpmCodigo != null
                 && p.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
             || p.Procedimentos.Any(item =>
-                EF.Functions.Contains(item.Procedimento, condition)
+                item.Procedimento.Contains(search)
                 || (item.CbhpmCodigo != null && item.CbhpmCodigo.Contains(search))
                 || (!string.IsNullOrEmpty(digits)
                     && item.CbhpmCodigo != null
