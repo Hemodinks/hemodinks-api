@@ -1,7 +1,6 @@
 using System.Net;
 using System.Text.Json;
 using HemodinksAPI.Application.Storage;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
@@ -69,14 +68,13 @@ public class StorageUploadFunctions
         }
 
         var fileBytes = Convert.FromBase64String(payload.Base64Content);
-        await using var stream = new MemoryStream(fileBytes);
-        var formFile = new FormFile(stream, 0, stream.Length, "file", payload.FileName)
-        {
-            Headers = new HeaderDictionary(),
-            ContentType = payload.ContentType ?? "application/octet-stream"
-        };
+        var uploadedFile = new UploadedFile(
+            payload.FileName,
+            payload.ContentType ?? "application/octet-stream",
+            fileBytes.LongLength,
+            () => new MemoryStream(fileBytes, writable: false));
 
-        var storedFile = await _patientFileStorage.SaveAsync(formFile, cancellationToken);
+        var storedFile = await _patientFileStorage.SaveAsync(uploadedFile, cancellationToken);
 
         _logger.LogInformation("Upload de arquivo processado pela Function para {FileName}", payload.FileName);
 

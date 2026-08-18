@@ -3,6 +3,10 @@ using HemodinksAPI.Application.Async;
 using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.ConfiguracoesSistema;
 using HemodinksAPI.Application.Features.Users.Commands;
+using HemodinksAPI.Application.Features.Sessions;
+using HemodinksAPI.Application.Features.Clinics;
+using HemodinksAPI.Application.Features.Financeiro;
+using HemodinksAPI.Application.Features.Teams;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Infrastructure.Data.Repositories;
@@ -41,6 +45,10 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<PlatformAuditService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IEventReminderProcessor, EventReminderProcessor>();
+        services.AddScoped<SessionUseCases>();
+        services.AddScoped<PublicClinicQueries>();
+        services.AddScoped<FinanceiroFileUseCases>();
+        services.AddScoped<TeamUseCases>();
         var runEventReminderProcessor = configuration.GetValue<bool?>("EventReminders:RunHostedProcessor")
             ?? !environment.IsProduction();
         if (runEventReminderProcessor)

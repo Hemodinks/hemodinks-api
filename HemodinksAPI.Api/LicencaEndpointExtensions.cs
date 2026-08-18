@@ -1,5 +1,4 @@
 using System.Security.Claims;
-using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Licencas;
 
 namespace HemodinksAPI.Api;

@@ -3,41 +3,23 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Data;
 
-public interface IAppDbContext
+public interface IAppDbContext :
+    IPlatformClinicDbContext,
+    ISessionDbContext,
+    IFinanceEndpointDbContext
 {
-    DbSet<Clinica> Clinicas { get; }
-
-    DbSet<UsuarioGlobal> UsuariosGlobais { get; }
-
-    DbSet<UsuarioClinica> UsuariosClinicas { get; }
-
-    DbSet<AuditoriaPlataforma> AuditoriasPlataforma { get; }
-
-    DbSet<Equipe> Equipes { get; }
-
-    DbSet<EquipeMembro> EquipeMembros { get; }
-
-    DbSet<EquipeOperador> EquipeOperadores { get; }
-
-    DbSet<EquipeLoginDesafio> EquipeLoginDesafios { get; }
-
-    DbSet<User> Users { get; }
-
     DbSet<Perfil> Perfis { get; }
 
     DbSet<Paciente> Pacientes { get; }
 
     DbSet<FaturamentoMedico> FaturamentosMedicos { get; }
 
-    DbSet<AtendimentoCirurgico> AtendimentosCirurgicos { get; }
     DbSet<AtendimentoProcedimento> AtendimentoProcedimentos { get; }
-    DbSet<AtendimentoArquivo> AtendimentoArquivos { get; }
     DbSet<Faturamento> Faturamentos { get; }
     DbSet<FaturamentoItem> FaturamentoItens { get; }
     DbSet<Glosa> Glosas { get; }
     DbSet<RecursoGlosa> RecursosGlosa { get; }
     DbSet<ContaReceber> ContasReceber { get; }
-    DbSet<Recebimento> Recebimentos { get; }
     DbSet<ConvenioProcedimentoPreco> ConvenioProcedimentoPrecos { get; }
     DbSet<FinanceiroMigracaoInconsistencia> FinanceiroMigracaoInconsistencias { get; }
 
@@ -46,12 +28,6 @@ public interface IAppDbContext
     DbSet<GrupoMedico> GruposMedicos { get; }
 
     DbSet<GrupoMedicoUsuario> GrupoMedicoUsuarios { get; }
-
-    DbSet<Hospital> Hospitais { get; }
-
-    DbSet<Convenio> Convenios { get; }
-
-    DbSet<Opme> OPME { get; }
 
     DbSet<PacienteArquivo> PacienteArquivos { get; }
 
@@ -71,7 +47,4 @@ public interface IAppDbContext
 
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
 
-    DbSet<ConfiguracaoSistema> ConfiguracoesSistema { get; }
-
-    Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -1,5 +1,5 @@
+using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Infrastructure.Storage;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -22,11 +22,9 @@ public sealed class LocalDiskPatientFileStorageTests : IDisposable
             }),
             NullLogger<LocalDiskPatientFileStorage>.Instance);
 
-        var file = new FormFile(new MemoryStream("conteudo"u8.ToArray()), 0, 8, "file", "laudo.pdf")
-        {
-            Headers = new HeaderDictionary(),
-            ContentType = "application/pdf"
-        };
+        var content = "conteudo"u8.ToArray();
+        var file = new UploadedFile("laudo.pdf", "application/pdf", content.LongLength,
+            () => new MemoryStream(content, writable: false));
 
         var storedFile = await storage.SaveAsync(file, CancellationToken.None);
         var localPath = GetLocalPathFromUrl(storedFile.Url);

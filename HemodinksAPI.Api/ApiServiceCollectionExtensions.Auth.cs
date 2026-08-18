@@ -3,7 +3,6 @@ using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Authentication;
-using HemodinksAPI.Infrastructure.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;

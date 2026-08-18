@@ -1,7 +1,6 @@
 using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Storage;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -37,7 +36,7 @@ public partial class PacienteCommandHandlerTests
 
     private sealed class FakePatientFileStorage : IPatientFileStorage
     {
-        public Task<StoredPatientFile> SaveAsync(IFormFile file, CancellationToken cancellationToken)
+        public Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
         {
             return Task.FromResult(new StoredPatientFile(
                 file.FileName,

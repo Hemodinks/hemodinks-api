@@ -2,7 +2,7 @@ namespace HemodinksAPI.Application.Storage;
 
 public interface IPatientFileStorage
 {
-    Task<StoredPatientFile> SaveAsync(IFormFile file, CancellationToken cancellationToken);
+    Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken);
 
     Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken);
 

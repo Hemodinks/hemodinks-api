@@ -10,5 +10,7 @@ public interface IClinicaContext
 
     bool IsPlatformScope { get; }
 
+    void SetPlatformScope();
+
     int GetRequiredClinicaId();
 }

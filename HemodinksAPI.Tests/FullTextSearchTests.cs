@@ -13,9 +13,12 @@ public class FullTextSearchTermBuilderTests
 {
     [Theory]
     [InlineData(" cirurgia   cardiaca ", "\"cirurgia*\" AND \"cardiaca*\"")]
-    [InlineData("cirurg\" OR FORMSOF(INFLECTIONAL, ataque)", "\"cirurg*\" AND \"OR*\" AND \"FORMSOF*\" AND \"INFLECTIONAL*\" AND \"ataque*\"")]
+    [InlineData("cirurg\" OR FORMSOF(INFLECTIONAL, ataque)", "(\"cirurg*\" AND \"OR*\" AND \"FORMSOF*\" AND \"INFLECTIONAL*\") OR (\"ataque*\")")]
     [InlineData("coração; válvula", "\"coração*\" AND \"válvula*\"")]
     [InlineData("cirurgia cirurgia", "\"cirurgia*\"")]
+    [InlineData("zero, maria", "(\"zero*\") OR (\"maria*\")")]
+    [InlineData("arthur zero, maria silva", "(\"arthur*\" AND \"zero*\") OR (\"maria*\" AND \"silva*\")")]
+    [InlineData("zero,,, maria, ", "(\"zero*\") OR (\"maria*\")")]
     public void BuildPrefixCondition_SanitizesAndCombinesTerms(string input, string expected)
     {
         Assert.Equal(expected, FullTextSearchTermBuilder.BuildPrefixCondition(input));

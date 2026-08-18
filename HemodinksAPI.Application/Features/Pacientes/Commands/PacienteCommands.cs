@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Features.Pacientes.Queries;
+using HemodinksAPI.Application.Storage;
 using MediatR;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Commands;
@@ -101,7 +102,7 @@ public class PacienteProcedimentoCommandDto
 public class UploadPacienteArquivoCommand : IRequest<PacienteArquivoDto>
 {
     public int PacienteId { get; set; }
-    public IFormFile File { get; set; } = null!;
+    public UploadedFile File { get; set; } = null!;
     public int CurrentUserId { get; set; }
     public int CurrentPerfilId { get; set; }
     public int? CurrentEquipeId { get; set; }

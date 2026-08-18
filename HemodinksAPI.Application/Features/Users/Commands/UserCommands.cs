@@ -1,5 +1,6 @@
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Features.Licencas;
+using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Users.Queries;
 using MediatR;
@@ -121,7 +122,7 @@ public partial class DeleteUserCommand : IRequest
 public partial class UploadUserArquivoCommand : IRequest<UserArquivoDto>
 {
     public int UserId { get; set; }
-    public IFormFile File { get; set; } = null!;
+    public UploadedFile File { get; set; } = null!;
     public CurrentUserContext? CurrentUser { get; set; }
 }
 

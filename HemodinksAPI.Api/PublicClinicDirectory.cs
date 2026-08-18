@@ -1,4 +1,5 @@
 using System.Text.Json;
+using HemodinksAPI.Application.Features.Clinics;
 
 namespace HemodinksAPI.Api;
 
@@ -24,7 +25,7 @@ public sealed class PublicClinicDirectory
                 : Path.Combine(environment.ContentRootPath, configuredPath);
     }
 
-    public async Task<IReadOnlyList<PublicClinicaEndpointExtensions.PublicClinicaResponse>?> TryListAsync(
+    public async Task<IReadOnlyList<PublicClinicResponse>?> TryListAsync(
         string? search,
         CancellationToken cancellationToken)
     {
@@ -47,7 +48,7 @@ public sealed class PublicClinicDirectory
         return query
             .OrderBy(item => item.Nome, StringComparer.OrdinalIgnoreCase)
             .Take(50)
-            .Select(item => new PublicClinicaEndpointExtensions.PublicClinicaResponse(
+            .Select(item => new PublicClinicResponse(
                 item.Id,
                 item.Nome,
                 item.Slug,

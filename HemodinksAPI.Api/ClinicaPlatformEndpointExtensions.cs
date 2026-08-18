@@ -3,10 +3,10 @@ using System.Text.RegularExpressions;
 using System.Net.Mail;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Application.Authentication;
+using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
@@ -61,7 +61,7 @@ public static partial class ClinicaPlatformEndpointExtensions
 
     private static async Task<IResult> ListClinicas(
         ClaimsPrincipal principal,
-        AppDbContext context,
+        IPlatformClinicDbContext context,
         CancellationToken cancellationToken)
     {
         var query = context.Clinicas.AsNoTracking();
@@ -93,7 +93,7 @@ public static partial class ClinicaPlatformEndpointExtensions
 
     private static async Task<IResult> GetClinica(
         int id,
-        AppDbContext context,
+        IPlatformClinicDbContext context,
         ClinicaContext clinicaContext,
         CancellationToken cancellationToken)
     {
@@ -113,7 +113,9 @@ public static partial class ClinicaPlatformEndpointExtensions
         CreateClinicaRequest request,
         ClaimsPrincipal principal,
         HttpContext httpContext,
-        AppDbContext context,
+        IPlatformClinicDbContext context,
+        IDataExecutionStrategy executionStrategy,
+        IDataTransactionManager transactionManager,
         ClinicaContext clinicaContext,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage photoStorage,
@@ -157,23 +159,20 @@ public static partial class ClinicaPlatformEndpointExtensions
             throw new InvalidOperationException("LimiteUsuarios deve ser maior que zero");
         }
 
-        var strategy = context.Database.CreateExecutionStrategy();
-        return await strategy.ExecuteAsync(async () =>
+        return await executionStrategy.ExecuteAsync(async operationCancellationToken =>
         {
-            if (await context.Clinicas.AnyAsync(item => item.Slug == slug, cancellationToken))
+            if (await context.Clinicas.AnyAsync(item => item.Slug == slug, operationCancellationToken))
             {
                 return (IResult)Results.Conflict(new { message = "Slug da clinica ja cadastrado" });
             }
 
             if (equipeEmail != null
-                && await context.UsuariosGlobais.AnyAsync(item => item.Email == equipeEmail, cancellationToken))
+                && await context.UsuariosGlobais.AnyAsync(item => item.Email == equipeEmail, operationCancellationToken))
             {
                 return (IResult)Results.Conflict(new { message = "Email coletivo ja utilizado por outra identidade" });
             }
 
-            await using var transaction = context.Database.IsRelational()
-                ? await context.Database.BeginTransactionAsync(cancellationToken)
-                : null;
+            await using var transaction = await transactionManager.BeginAsync(operationCancellationToken);
             var now = DateTime.UtcNow;
             var plano = NormalizePlano(request.Plano);
             var clinica = new Clinica
@@ -285,7 +284,7 @@ public static partial class ClinicaPlatformEndpointExtensions
 
             if (transaction != null)
             {
-                await transaction.CommitAsync(cancellationToken);
+                await transaction.CommitAsync(operationCancellationToken);
             }
 
             await SynchronizePublicClinicDirectoryAsync(
@@ -296,7 +295,7 @@ public static partial class ClinicaPlatformEndpointExtensions
             var userCount = await ClinicEmployees(context)
                 .CountAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
             return (IResult)Results.Created($"/api/platform/clinicas/{clinica.Id}", ToResponse(clinica, userCount));
-        });
+        }, cancellationToken);
     }
 
     private static async Task<IResult> UpdateClinica(
@@ -304,13 +303,23 @@ public static partial class ClinicaPlatformEndpointExtensions
         UpdateClinicaRequest request,
         ClaimsPrincipal principal,
         HttpContext httpContext,
-        AppDbContext context,
+        IPlatformClinicDbContext context,
+        ClinicaContext clinicaContext,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage photoStorage,
         PublicClinicDirectory publicClinicDirectory,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
+        clinicaContext.SetPlatformScope();
+        var administratorNewPassword = string.IsNullOrWhiteSpace(request.AdministradorNovaSenha)
+            ? null
+            : RequireText(request.AdministradorNovaSenha, "Nova senha do administrador invalida", 200);
+        if (administratorNewPassword is { Length: < 8 })
+        {
+            throw new InvalidOperationException("Nova senha do administrador deve possuir ao menos 8 caracteres");
+        }
+
         var equipeNome = request.NovaEquipe == null
             ? null
             : RequireText(request.NovaEquipe.Nome, "Nome da equipe obrigatorio", 120);
@@ -424,6 +433,24 @@ public static partial class ClinicaPlatformEndpointExtensions
 
         User? equipeLogin = null;
         Equipe? novaEquipe = null;
+        User? clinicAdministrator = null;
+        if (administratorNewPassword != null)
+        {
+            clinicAdministrator = await context.Users
+                .Where(item => item.ClinicaId == id && item.PerfilId == Perfil.AdministradorId && item.Ativo)
+                .OrderBy(item => item.DataCadastro)
+                .ThenBy(item => item.Id)
+                .FirstOrDefaultAsync(cancellationToken);
+            if (clinicAdministrator == null)
+            {
+                return Results.Conflict(new { message = "A clinica nao possui administrador ativo para redefinir a senha" });
+            }
+
+            clinicAdministrator.Senha = passwordHasher.HashPassword(administratorNewPassword);
+            clinicAdministrator.PrecisaTrocarSenha = true;
+            clinicAdministrator.DataAtualizacao = DateTime.UtcNow;
+        }
+
         if (request.NovaEquipe != null)
         {
             equipeLogin = new User
@@ -452,6 +479,24 @@ public static partial class ClinicaPlatformEndpointExtensions
         }
 
         await context.SaveChangesAsync(cancellationToken);
+        if (clinicAdministrator != null)
+        {
+            await GlobalIdentityService.SynchronizePasswordAsync(
+                context,
+                clinicAdministrator.Id,
+                clinicAdministrator.Senha,
+                cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+            await auditService.RecordAsync(
+                httpContext,
+                "clinic.administrator-password-reset",
+                "user",
+                clinicAdministrator.Id.ToString(),
+                clinica.Id,
+                new { clinicAdministrator.Email, RequiresPasswordChange = true },
+                true,
+                cancellationToken);
+        }
         if (equipeLogin != null)
         {
             await GlobalIdentityService.EnsureForUserAsync(context, equipeLogin, cancellationToken);
@@ -489,7 +534,7 @@ public static partial class ClinicaPlatformEndpointExtensions
     private static async Task<IResult> DeactivateClinica(
         int id,
         HttpContext httpContext,
-        AppDbContext context,
+        IPlatformClinicDbContext context,
         PublicClinicDirectory publicClinicDirectory,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
@@ -533,7 +578,7 @@ public static partial class ClinicaPlatformEndpointExtensions
     }
 
     private static async Task SynchronizePublicClinicDirectoryAsync(
-        AppDbContext context,
+        IClinicDirectoryDbContext context,
         PublicClinicDirectory publicClinicDirectory,
         CancellationToken cancellationToken)
     {
@@ -554,7 +599,7 @@ public static partial class ClinicaPlatformEndpointExtensions
     private static async Task<User?> AddPlatformShadowUserAsync(
         ClaimsPrincipal principal,
         int clinicaId,
-        AppDbContext context,
+        IPlatformClinicDbContext context,
         CancellationToken cancellationToken)
     {
         var sourceId = int.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedId) ? parsedId : 0;
@@ -589,7 +634,7 @@ public static partial class ClinicaPlatformEndpointExtensions
     }
 
     private static async Task<IResult> ListPlatformAudit(
-        AppDbContext context,
+        IPlatformClinicDbContext context,
         int? clinicaId,
         string? acao,
         DateTime? de,
@@ -635,7 +680,7 @@ public static partial class ClinicaPlatformEndpointExtensions
 
     private static async Task CloneClinicReferenceDataAsync(
         int targetClinicaId,
-        AppDbContext context,
+        IPlatformClinicDbContext context,
         CancellationToken cancellationToken)
     {
         var convenios = await context.Convenios.IgnoreQueryFilters().AsNoTracking()
@@ -680,143 +725,4 @@ public static partial class ClinicaPlatformEndpointExtensions
             clinica.DataAtualizacao);
     }
 
-    private static IQueryable<User> ClinicEmployees(AppDbContext context)
-    {
-        return context.Users
-            .IgnoreQueryFilters()
-            .Where(user => (user.PerfilId == Perfil.AdministradorId
-                    || user.PerfilId == Perfil.MedicosId
-                    || user.PerfilId == Perfil.ControllerId
-                    || user.PerfilId == Perfil.EquipeId)
-                && !context.Equipes.IgnoreQueryFilters().Any(team => team.UsuarioLoginId == user.Id));
-    }
-
-    private static string NormalizeSlug(string? value)
-    {
-        var slug = RequireText(value, "Slug da clinica obrigatorio", 120).ToLowerInvariant();
-        if (!SlugPattern.IsMatch(slug))
-        {
-            throw new InvalidOperationException("Slug deve conter apenas letras minusculas, numeros e hifens");
-        }
-
-        return slug;
-    }
-
-    private static string NormalizePlano(string? value)
-    {
-        var plano = string.IsNullOrWhiteSpace(value) ? ClinicaPlanos.Trial : value.Trim();
-        if (plano.Equals(ClinicaPlanos.Trial, StringComparison.OrdinalIgnoreCase))
-        {
-            return ClinicaPlanos.Trial;
-        }
-
-        if (plano.Equals(ClinicaPlanos.Completa, StringComparison.OrdinalIgnoreCase))
-        {
-            return ClinicaPlanos.Completa;
-        }
-
-        if (plano.Equals(ClinicaPlanos.Parcial, StringComparison.OrdinalIgnoreCase))
-        {
-            return ClinicaPlanos.Parcial;
-        }
-
-        throw new InvalidOperationException("Plano deve ser Trial, Parcial ou Completa");
-    }
-
-    private static string? NormalizeModulos(string plano, IEnumerable<string>? values)
-    {
-        if (plano != ClinicaPlanos.Parcial)
-        {
-            return null;
-        }
-
-        var requested = values?.Where(value => !string.IsNullOrWhiteSpace(value)).ToList() ?? [];
-        var invalid = requested.FirstOrDefault(value =>
-            !ClinicaModulos.Todos.Contains(value.Trim(), StringComparer.OrdinalIgnoreCase));
-        if (invalid != null)
-        {
-            throw new InvalidOperationException($"Modulo invalido: {invalid}");
-        }
-
-        var normalized = ClinicaModulos.Todos
-            .Where(allowed => requested.Contains(allowed, StringComparer.OrdinalIgnoreCase))
-            .ToList();
-        if (normalized.Count == 0)
-        {
-            throw new InvalidOperationException("Selecione ao menos um modulo para o plano Parcial");
-        }
-
-        return string.Join(',', normalized);
-    }
-
-    private static string RequireText(string? value, string message, int maxLength)
-    {
-        var normalized = value?.Trim();
-        if (string.IsNullOrWhiteSpace(normalized) || normalized.Length > maxLength)
-        {
-            throw new InvalidOperationException(message);
-        }
-
-        return normalized;
-    }
-
-    private static string NormalizeOptional(string? value, string fallback, int maxLength)
-    {
-        var normalized = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
-        return normalized.Length <= maxLength
-            ? normalized
-            : throw new InvalidOperationException($"Valor deve ter no maximo {maxLength} caracteres");
-    }
 }
-
-public sealed record CreateClinicaRequest(
-    string Nome,
-    string Slug,
-    string AdministradorNome,
-    string AdministradorEmail,
-    string AdministradorSenha,
-    string? AdministradorTelefone,
-    string? Plano,
-    IReadOnlyList<string>? ModulosLiberados,
-    string? AssinaturaStatus,
-    DateTime? TrialAte,
-    DateTime? AssinaturaValidaAte,
-    int? LimiteUsuarios,
-    string? FotoClinica,
-    CreateEquipeInicialRequest? EquipeInicial);
-
-public sealed record CreateEquipeInicialRequest(
-    string Nome,
-    string Email,
-    string Senha,
-    string? Telefone,
-    string? ModoIdentificacao);
-
-public sealed record UpdateClinicaRequest(
-    string? Nome,
-    string? Slug,
-    bool? Ativa,
-    string? Plano,
-    IReadOnlyList<string>? ModulosLiberados,
-    string? AssinaturaStatus,
-    DateTime? TrialAte,
-    DateTime? AssinaturaValidaAte,
-    int? LimiteUsuarios,
-    string? FotoClinica,
-    CreateEquipeInicialRequest? NovaEquipe);
-
-public sealed record ClinicaPlatformResponse(
-    int Id,
-    string Nome,
-    string Slug,
-    string? FotoUrl,
-    bool Ativa,
-    string Plano,
-    IReadOnlyList<string> ModulosLiberados,
-    string AssinaturaStatus,
-    DateTime? TrialAte,
-    DateTime? AssinaturaValidaAte,
-    int? LimiteUsuarios,
-    int? Usuarios,
-    DateTime DataCadastro,
-    DateTime? DataAtualizacao);
