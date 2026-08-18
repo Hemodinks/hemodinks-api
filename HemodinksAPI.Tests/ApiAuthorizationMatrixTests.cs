@@ -37,6 +37,37 @@ public partial class ApiEndpointIntegrationTests
         [Perfil.AdministradorId, Perfil.SuperAdministradorId, Perfil.EquipeId];
 
     [Fact]
+    public async Task ActiveSession_WhenUserIsPromotedToSuperAdministrador_UsesCurrentProfileForMutations()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+
+        await SetLocalProfileAsync(factory, "gmarcone@gmail.com", Perfil.ControllerId);
+        await AuthenticateAsync(client);
+
+        // Simula a promocao feita por outro administrador enquanto o token antigo
+        // ainda carrega o perfil Controller.
+        await SetLocalProfileAsync(factory, "gmarcone@gmail.com", Perfil.SuperAdministradorId);
+
+        using var createUserResponse = await client.PostAsJsonAsync("/api/users/", new { });
+        using var createPatientResponse = await client.PostAsJsonAsync("/api/pacientes/", new { });
+
+        Assert.Equal(HttpStatusCode.BadRequest, createUserResponse.StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest, createPatientResponse.StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+        var membershipProfileId = await context.UsuariosClinicas
+            .IgnoreQueryFilters()
+            .Where(item => item.User.Email == "gmarcone@gmail.com"
+                && item.ClinicaId == Clinica.DefaultId)
+            .Select(item => item.PerfilId)
+            .SingleAsync();
+        Assert.Equal(Perfil.SuperAdministradorId, membershipProfileId);
+    }
+
+    [Fact]
     public async Task ApiCrudAuthorizationMatrix_MatchesDocumentedProfileContract()
     {
         using var factory = new HemodinksApiFactory();
@@ -262,6 +293,21 @@ public partial class ApiEndpointIntegrationTests
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
+    }
+
+    private static async Task SetLocalProfileAsync(
+        HemodinksApiFactory factory,
+        string email,
+        int profileId)
+    {
+        using var scope = factory.Services.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+        var user = await context.Users
+            .IgnoreQueryFilters()
+            .SingleAsync(item => item.Email == email && item.ClinicaId == Clinica.DefaultId);
+        user.PerfilId = profileId;
+        await context.SaveChangesAsync();
     }
 
     private static string ProfileName(int profileId)

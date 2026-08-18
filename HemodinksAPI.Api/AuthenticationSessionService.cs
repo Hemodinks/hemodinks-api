@@ -23,6 +23,11 @@ public sealed record IssuedAuthenticationSession(
     DateTime IdleExpiresAt,
     DateTime RefreshCookieExpiresAt);
 
+public sealed record AuthenticationSessionValidation(
+    bool IsValid,
+    int? PerfilId = null,
+    string? PerfilNome = null);
+
 public sealed class AuthenticationSessionService
 {
     private readonly AppDbContext _context;
@@ -145,13 +150,19 @@ public sealed class AuthenticationSessionService
         return Issue(session, session.UsuarioClinica, newRefreshToken);
     }
 
-    public async Task<bool> ValidateAndTouchAsync(Guid sessionId, CancellationToken cancellationToken)
+    public async Task<AuthenticationSessionValidation> ValidateAndTouchAsync(
+        Guid sessionId,
+        CancellationToken cancellationToken)
     {
         var session = await _context.AuthenticationSessions
+            .IgnoreQueryFilters()
+            .Include(item => item.UsuarioClinica).ThenInclude(item => item.UsuarioGlobal)
+            .Include(item => item.UsuarioClinica).ThenInclude(item => item.Clinica)
+            .Include(item => item.UsuarioClinica).ThenInclude(item => item.User).ThenInclude(item => item.Perfil)
             .FirstOrDefaultAsync(item => item.Id == sessionId, cancellationToken);
         var now = UtcNow();
 
-        if (session == null || !IsActive(session, now))
+        if (session == null || !IsActive(session, now) || !IsActive(session.UsuarioClinica))
         {
             if (session is { RevokedAt: null })
             {
@@ -159,7 +170,17 @@ public sealed class AuthenticationSessionService
                 await SaveRevocationAsync(cancellationToken);
             }
 
-            return false;
+            return new AuthenticationSessionValidation(false);
+        }
+
+        // O cadastro local e a fonte canonica do perfil. Uma promocao ou remocao de
+        // permissao pode ocorrer enquanto ainda existe um access token valido; nesse
+        // intervalo, o claim do JWT nao pode continuar autorizando com o perfil antigo.
+        var currentProfileId = session.UsuarioClinica.User.PerfilId;
+        if (session.UsuarioClinica.PerfilId != currentProfileId)
+        {
+            session.UsuarioClinica.PerfilId = currentProfileId;
+            session.UsuarioClinica.DataAtualizacao = now;
         }
 
         session.LastActivityAt = now;
@@ -173,7 +194,10 @@ public sealed class AuthenticationSessionService
             _logger.LogDebug(exception, "Atividade concorrente na sessao {SessionId}", sessionId);
         }
 
-        return true;
+        return new AuthenticationSessionValidation(
+            true,
+            currentProfileId,
+            session.UsuarioClinica.User.Perfil.Nome);
     }
 
     public async Task<bool> ChangeMembershipAsync(
