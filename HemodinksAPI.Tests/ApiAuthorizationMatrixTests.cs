@@ -35,6 +35,8 @@ public partial class ApiEndpointIntegrationTests
     ];
     private static readonly int[] UserReaders =
         [Perfil.AdministradorId, Perfil.SuperAdministradorId, Perfil.EquipeId];
+    private static readonly int[] PatientDeleters =
+        [Perfil.AdministradorId, Perfil.SuperAdministradorId, Perfil.MedicosId];
 
     [Fact]
     public async Task ActiveSession_WhenUserIsPromotedToSuperAdministrador_UsesCurrentProfileForMutations()
@@ -129,7 +131,7 @@ public partial class ApiEndpointIntegrationTests
             Probe("Pacientes", "Listar", HttpMethod.Get, "/api/pacientes/", AllProfiles),
             Probe("Pacientes", "Cadastrar", HttpMethod.Post, "/api/pacientes/", ClinicalOperators, BodyKind.EmptyJson),
             Probe("Pacientes", "Alterar", HttpMethod.Put, "/api/pacientes/999999", ClinicalOperators, BodyKind.EmptyJson),
-            Probe("Pacientes", "Excluir", HttpMethod.Delete, "/api/pacientes/999999", Administrators),
+            Probe("Pacientes", "Excluir", HttpMethod.Delete, "/api/pacientes/999999", PatientDeleters),
 
             Probe("Faturamento medico", "Visualizar", HttpMethod.Get, "/api/faturamentos-medicos/", ClinicalOperators),
 

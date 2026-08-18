@@ -35,7 +35,7 @@ public static partial class PacienteEndpointExtensions
         group.MapDelete("/{id}", DeletePaciente)
             .WithName("DeletePaciente")
             .WithSummary("Excluir paciente")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("PacienteExcluir");
 
         group.MapPost("/{id}/arquivos", UploadArquivo)
             .WithName("UploadPacienteArquivo")

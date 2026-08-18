@@ -4,8 +4,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using HemodinksAPI.Api;
 using HemodinksAPI.Application.Authentication;
-using HemodinksAPI.Application.Async;
-using HemodinksAPI.Application.Services;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Data;
@@ -17,11 +15,8 @@ namespace HemodinksAPI.Tests;
 
 public partial class ApiEndpointIntegrationTests
 {
-    [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task PublicClinics_WhenJsonIsMissingOrEmpty_FallsBackToActiveClinicsFromDatabase(
-        bool emptyJson)
+    [Fact]
+    public async Task PublicClinics_ReturnsActiveClinicsFromDatabase()
     {
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient();
@@ -43,15 +38,6 @@ public partial class ApiEndpointIntegrationTests
                     Ativa = false
                 });
             await context.SaveChangesAsync();
-        }
-
-        if (emptyJson)
-        {
-            factory.EmptyPublicClinicDirectory();
-        }
-        else
-        {
-            factory.DeletePublicClinicDirectory();
         }
 
         var response = await client.GetAsync("/api/public/clinicas");

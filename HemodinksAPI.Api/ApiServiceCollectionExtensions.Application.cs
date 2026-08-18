@@ -27,7 +27,6 @@ public static partial class ApiServiceCollectionExtensions
         IWebHostEnvironment environment)
     {
         services.AddSingleton(TimeProvider.System);
-        services.AddSingleton<PublicClinicDirectory>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IConfiguracaoSistemaRepository, ConfiguracaoSistemaRepository>();
         services.AddScoped<IUserPatientSyncService, UserPatientSyncService>();

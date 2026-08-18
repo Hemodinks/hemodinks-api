@@ -119,7 +119,6 @@ public static partial class ClinicaPlatformEndpointExtensions
         ClinicaContext clinicaContext,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage photoStorage,
-        PublicClinicDirectory publicClinicDirectory,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -287,11 +286,6 @@ public static partial class ClinicaPlatformEndpointExtensions
                 await transaction.CommitAsync(operationCancellationToken);
             }
 
-            await SynchronizePublicClinicDirectoryAsync(
-                context,
-                publicClinicDirectory,
-                cancellationToken);
-
             var userCount = await ClinicEmployees(context)
                 .CountAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
             return (IResult)Results.Created($"/api/platform/clinicas/{clinica.Id}", ToResponse(clinica, userCount));
@@ -307,7 +301,6 @@ public static partial class ClinicaPlatformEndpointExtensions
         ClinicaContext clinicaContext,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage photoStorage,
-        PublicClinicDirectory publicClinicDirectory,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -523,11 +516,6 @@ public static partial class ClinicaPlatformEndpointExtensions
                 cancellationToken);
         }
 
-        await SynchronizePublicClinicDirectoryAsync(
-            context,
-            publicClinicDirectory,
-            cancellationToken);
-
         return Results.Ok(ToResponse(clinica, null));
     }
 
@@ -535,7 +523,6 @@ public static partial class ClinicaPlatformEndpointExtensions
         int id,
         HttpContext httpContext,
         IPlatformClinicDbContext context,
-        PublicClinicDirectory publicClinicDirectory,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -569,31 +556,7 @@ public static partial class ClinicaPlatformEndpointExtensions
             true,
             cancellationToken);
 
-        await SynchronizePublicClinicDirectoryAsync(
-            context,
-            publicClinicDirectory,
-            cancellationToken);
-
         return Results.NoContent();
-    }
-
-    private static async Task SynchronizePublicClinicDirectoryAsync(
-        IClinicDirectoryDbContext context,
-        PublicClinicDirectory publicClinicDirectory,
-        CancellationToken cancellationToken)
-    {
-        var activeClinics = await context.Clinicas
-            .AsNoTracking()
-            .Where(item => item.Ativa)
-            .OrderBy(item => item.Nome)
-            .Select(item => new PublicClinicDirectoryItem(
-                item.Id,
-                item.Nome,
-                item.Slug,
-                item.FotoClinica != null && item.FotoClinica != string.Empty))
-            .ToListAsync(cancellationToken);
-
-        await publicClinicDirectory.ReplaceAsync(activeClinics, cancellationToken);
     }
 
     private static async Task<User?> AddPlatformShadowUserAsync(
