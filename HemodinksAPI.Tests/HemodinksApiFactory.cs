@@ -13,39 +13,11 @@ namespace HemodinksAPI.Tests;
 internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
 {
     private readonly Action<IServiceCollection>? _configureServices;
-    private readonly string _publicClinicDirectoryPath = Path.Combine(
-        Path.GetTempPath(),
-        $"hemodinks-public-clinics-{Guid.NewGuid():N}.json");
 
     public HemodinksApiFactory(Action<IServiceCollection>? configureServices = null)
     {
         _configureServices = configureServices;
-        File.WriteAllText(
-            _publicClinicDirectoryPath,
-            """
-            [
-              {
-                "id": 1,
-                "nome": "Hemodinks - Gestão de Cirurgias",
-                "slug": "hemodinks",
-                "temFoto": false
-              }
-            ]
-            """);
         ConfigureEnvironment();
-    }
-
-    public void DeletePublicClinicDirectory()
-    {
-        if (File.Exists(_publicClinicDirectoryPath))
-        {
-            File.Delete(_publicClinicDirectoryPath);
-        }
-    }
-
-    public void EmptyPublicClinicDirectory()
-    {
-        File.WriteAllText(_publicClinicDirectoryPath, "[]");
     }
 
     private static void ConfigureEnvironment()
@@ -78,8 +50,7 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
                 ["Seed:InitialPassword"] = Domain.Utils.DefaultUserPassword.Value,
                 ["Platform:SuperAdminEmails:0"] = "gmarcone@gmail.com",
                 ["PasswordReset:UseEmail"] = "true",
-                ["PasswordReset:ExposeTokenInResponse"] = "true",
-                ["PublicClinicDirectory:FilePath"] = _publicClinicDirectoryPath
+                ["PasswordReset:ExposeTokenInResponse"] = "true"
             });
         });
 
@@ -122,15 +93,6 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
 
             _configureServices?.Invoke(services);
         });
-    }
-
-    protected override void Dispose(bool disposing)
-    {
-        base.Dispose(disposing);
-        if (disposing && File.Exists(_publicClinicDirectoryPath))
-        {
-            File.Delete(_publicClinicDirectoryPath);
-        }
     }
 
     private sealed class TestingPasswordResetNotificationSender : IPasswordResetNotificationSender

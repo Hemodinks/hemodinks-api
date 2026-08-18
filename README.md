@@ -202,12 +202,9 @@ Features atuais de licenca:
 | `GET` | `/api/session/clinicas` | autenticado | lista associacoes ativas da identidade global |
 | `POST` | `/api/session/selecionar-clinica` | autenticado | valida `UsuarioClinica` e emite novo JWT para a clinica |
 
-O seletor publico do login e servido pelo arquivo `HemodinksAPI.Api/Data/public-clinics.json`,
-carregado uma vez em memoria sem consultar o SQL Server. O cadastro, a edicao, a ativacao e a
-desativacao de clinicas sincronizam esse catalogo automaticamente. As demais operacoes continuam
-usando exclusivamente o banco de dados. O caminho pode ser alterado com
-`PublicClinicDirectory__FilePath`; em ambientes com filesystem efemero, configure esse caminho
-em um volume persistente para que as alteracoes sobrevivam a novos deploys.
+O seletor publico do login consulta diretamente o banco de dados e retorna somente as clinicas
+ativas. A listagem e a foto publica usam a mesma fonte de dados utilizada na resolucao da clinica
+durante a autenticacao.
 
 Configure os emails autorizados com `Platform__SuperAdminEmails__0`. No startup, o usuario correspondente e promovido e recebe uma associacao `UsuarioClinica` em cada clinica ativa. Administradores comuns permanecem restritos as associacoes explicitamente cadastradas.
 
@@ -241,7 +238,7 @@ O nome e a foto institucionais pertencem a `Clinica` e somente o SuperAdministra
 | `GET` | `/api/pacientes/{id}` | licenca | detalhe do paciente |
 | `POST` | `/api/pacientes` | admin/medico/controller | cria paciente |
 | `PUT` | `/api/pacientes/{id}` | admin/medico/controller | atualiza paciente |
-| `DELETE` | `/api/pacientes/{id}` | admin | exclui paciente |
+| `DELETE` | `/api/pacientes/{id}` | admin/medico | exclui paciente |
 | `POST` | `/api/pacientes/{id}/arquivos` | admin/medico vinculado/controller | upload de anexo |
 | `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | admin/medico vinculado/controller | exclui anexo |
 | `GET` | `/api/pacientes/{id}/observacoes` | sim | lista observacoes do paciente |

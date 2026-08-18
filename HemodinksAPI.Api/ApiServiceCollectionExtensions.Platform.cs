@@ -76,7 +76,7 @@ public static partial class ApiServiceCollectionExtensions
                         AutoReplenishment = true
                     });
             });
-            options.AddPolicy("PublicClinicDirectory", context =>
+            options.AddPolicy("PublicClinics", context =>
             {
                 var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
                 return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ =>

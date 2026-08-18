@@ -9,7 +9,7 @@ public static class PublicClinicaEndpointExtensions
         var group = app.MapGroup("/api/public/clinicas")
             .WithTags("Clinicas - Publico")
             .AllowAnonymous()
-            .RequireRateLimiting("PublicClinicDirectory");
+            .RequireRateLimiting("PublicClinics");
 
         group.MapGet("/", ListActiveClinicas);
         group.MapGet("/{slug}/foto", GetClinicPhoto);
@@ -17,19 +17,9 @@ public static class PublicClinicaEndpointExtensions
 
     private static async Task<IResult> ListActiveClinicas(
         string? busca,
-        PublicClinicDirectory directory,
         PublicClinicQueries queries,
-        ILogger<PublicClinicDirectory> logger,
         CancellationToken cancellationToken)
     {
-        var cachedClinics = await directory.TryListAsync(busca, cancellationToken);
-        if (cachedClinics != null)
-        {
-            return Results.Ok(cachedClinics);
-        }
-
-        logger.LogWarning(
-            "Catalogo JSON publico de clinicas ausente; consultando o banco de dados para o login.");
         return Results.Ok(await queries.ListActiveAsync(busca, cancellationToken));
     }
 
