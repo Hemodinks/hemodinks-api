@@ -24,7 +24,14 @@ internal static class MedicalGroupScope
             return users.Where(user => memberUserIds.Contains(user.Id) && (!onlyActive || user.Ativo));
         }
 
-        var query = users.Where(user => user.PerfilId == Perfil.MedicosId);
+        var query = Perfil.IsAdministradorOuSuper(currentPerfilId)
+            ? users.Where(user =>
+                user.PerfilId == Perfil.MedicosId
+                || context.EquipeMembros.Any(member =>
+                    member.UserId == user.Id
+                    && member.Ativo
+                    && member.Equipe.Ativa))
+            : users.Where(user => user.PerfilId == Perfil.MedicosId);
 
         if (onlyActive)
         {

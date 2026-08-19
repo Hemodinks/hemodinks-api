@@ -164,7 +164,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 Pagamento = PacienteRules.TrimOptional(request.Pagamento),
                 RepasseGlosa = PacienteRules.TrimOptional(request.RepasseGlosa),
                 StatusPago = request.StatusPago,
-                Procedimentos = PacienteRules.ToPacienteProcedimentos(procedimentos)
+                Procedimentos = PacienteRules.ToPacienteProcedimentos(procedimentos, clinicaId)
             };
 
             _context.Pacientes.Add(paciente);

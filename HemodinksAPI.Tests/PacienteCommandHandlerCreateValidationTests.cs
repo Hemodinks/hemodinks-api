@@ -1,6 +1,8 @@
 using HemodinksAPI.Application.Features.Pacientes.Commands;
+using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
+using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -9,6 +11,103 @@ namespace HemodinksAPI.Tests;
 
 public partial class PacienteCommandHandlerTests
 {
+    [Fact]
+    public async Task CreatePaciente_WithProcedureInNonDefaultClinic_UsesCurrentClinicForProcedure()
+    {
+        const int clinicId = 7;
+        var clinicContext = new ClinicaContext();
+        clinicContext.SetCurrent(clinicId, "clinica-sete");
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+        await using var context = new AppDbContext(options, clinicContext);
+        context.Database.EnsureCreated();
+        context.Clinicas.Add(new Clinica
+        {
+            Id = clinicId,
+            Nome = "Clinica Sete",
+            Slug = "clinica-sete"
+        });
+        await context.SaveChangesAsync();
+
+        var handler = new CreatePacienteCommandHandler(
+            context,
+            CreateCbhpmCache(context),
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            clinicContext,
+            NullLogger<CreatePacienteCommandHandler>.Instance);
+
+        await handler.Handle(new CreatePacienteCommand
+        {
+            NomePaciente = "Paciente com procedimento cirurgico",
+            Procedimentos =
+            [
+                new PacienteProcedimentoCommandDto
+                {
+                    Procedimento = "Procedimento cirurgico manual",
+                    CbhpmPorte = "2A"
+                }
+            ],
+            CurrentPerfilId = Perfil.AdministradorId
+        }, CancellationToken.None);
+
+        var procedure = await context.PacienteProcedimentos.SingleAsync();
+        Assert.Equal(clinicId, procedure.ClinicaId);
+    }
+
+    [Theory]
+    [InlineData(Perfil.AdministradorId)]
+    [InlineData(Perfil.SuperAdministradorId)]
+    public async Task CreatePaciente_WhenAdministratorSelectsTeamMember_AcceptsMemberAsSurgeon(int perfilId)
+    {
+        await using var context = TestDbContextFactory.Create();
+        var teamMember = new User
+        {
+            Nome = "Pessoa da Equipe",
+            Email = $"pessoa.equipe-{perfilId}@hemodinks.com",
+            Telefone = "+5581999887700",
+            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            PerfilId = Perfil.EquipeId
+        };
+        context.Equipes.Add(new Equipe
+        {
+            ClinicaId = Clinica.DefaultId,
+            Nome = "Equipe Cirurgica",
+            UsuarioLogin = new User
+            {
+                Nome = "Login da Equipe",
+                Email = $"login.equipe-{perfilId}@hemodinks.com",
+                Telefone = "+5581999887701",
+                Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+                PerfilId = Perfil.EquipeId
+            },
+            Membros =
+            [
+                new EquipeMembro { ClinicaId = Clinica.DefaultId, User = teamMember }
+            ]
+        });
+        await context.SaveChangesAsync();
+
+        var handler = new CreatePacienteCommandHandler(
+            context,
+            CreateCbhpmCache(context),
+            new PasswordHasher(),
+            new FakeProfilePhotoStorage(),
+            NullLogger<CreatePacienteCommandHandler>.Instance);
+
+        var response = await handler.Handle(new CreatePacienteCommand
+        {
+            NomePaciente = "Paciente da Equipe",
+            HospitalId = 1,
+            MedicoUserId = teamMember.Id,
+            CurrentPerfilId = perfilId
+        }, CancellationToken.None);
+
+        Assert.Equal(teamMember.Id, response.MedicoUserId);
+        Assert.Equal(teamMember.Nome, response.Medico);
+    }
+
     [Fact]
     public async Task CreatePaciente_WhenControllerProfile_CreatesPaciente()
     {

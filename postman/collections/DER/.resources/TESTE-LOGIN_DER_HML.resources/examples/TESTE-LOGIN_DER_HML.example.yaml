@@ -1,0 +1,28 @@
+$kind: http-example
+request:
+  url: https://portalhml.der.mg.gov.br/siagp/rs/UsuarioSiagpService/validaUsuarioLogin/02991611456/s3`qfj
+  method: GET
+response:
+  statusCode: 500
+  statusText: Internal Server Error
+  headers:
+    date: Wed, 19 Aug 2026 13:28:51 GMT
+    server: Apache
+    content-type: text/plain; charset=UTF-8
+    content-length: "24"
+    x-xss-protection: 1; mode=block
+    cache-control: no-cache, no-store, max-age=0, must-revalidate
+    pragma: no-cache
+    expires: "0"
+    x-frame-options: DENY
+    x-envoy-upstream-service-time: "49"
+    content-security-policy: upgrade-insecure-requests;
+    referrer-policy: no-referrer
+    x-download-options: noopen
+    x-dns-prefetch-control: off
+    strict-transport-security: max-age=31536000; includeSubDomains
+    connection: close
+  body:
+    type: text
+    content: Usuario não encontrado!
+order: 1787146138909

@@ -1,0 +1,6 @@
+$kind: http-request
+name: TESTE-LOGIN_DER_HML
+description: ""
+url: https://portalhml.der.mg.gov.br/siagp/rs/UsuarioSiagpService/validaUsuarioLogin/02991611456/s3`qfj
+method: GET
+order: 2474217781113708
