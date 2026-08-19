@@ -7,11 +7,12 @@ internal static partial class PacienteRules
 {
     public static async Task<ResolvedHospital> ResolveHospitalAsync(
         IAppDbContext context,
+        int clinicaId,
         int? hospitalId,
         string? hospitalNome,
         CancellationToken cancellationToken)
     {
         return await ClinicalReferenceResolver.ResolveHospitalAsync(
-            context, hospitalId, hospitalNome, cancellationToken);
+            context, clinicaId, hospitalId, hospitalNome, cancellationToken);
     }
 }

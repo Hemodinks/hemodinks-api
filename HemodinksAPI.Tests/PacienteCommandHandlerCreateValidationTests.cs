@@ -41,6 +41,9 @@ public partial class PacienteCommandHandlerTests
         await handler.Handle(new CreatePacienteCommand
         {
             NomePaciente = "Paciente com procedimento cirurgico",
+            Hospital = "Hospital Manual da Clinica Sete",
+            Convenio = "Convenio Manual da Clinica Sete",
+            OpmeFornecedor = "OPME Manual da Clinica Sete",
             Procedimentos =
             [
                 new PacienteProcedimentoCommandDto
@@ -54,6 +57,9 @@ public partial class PacienteCommandHandlerTests
 
         var procedure = await context.PacienteProcedimentos.SingleAsync();
         Assert.Equal(clinicId, procedure.ClinicaId);
+        Assert.Equal(clinicId, (await context.Hospitais.SingleAsync()).ClinicaId);
+        Assert.Equal(clinicId, (await context.Convenios.SingleAsync()).ClinicaId);
+        Assert.Equal(clinicId, (await context.OPME.SingleAsync()).ClinicaId);
     }
 
     [Theory]

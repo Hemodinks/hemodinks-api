@@ -1,9 +1,11 @@
 using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.IdentityModel.Tokens.Jwt;
 using System.Text.Json;
 using HemodinksAPI.Api;
 using HemodinksAPI.Application.Authentication;
+using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Data;
@@ -376,6 +378,67 @@ public partial class ApiEndpointIntegrationTests
             item.Acao == "team.create" && item.ClinicaId == targetClinicId && item.Sucesso));
         Assert.True(await context.AuditoriasPlataforma.AnyAsync(item =>
             item.Acao == "session.clinic.switch" && item.ClinicaId == targetClinicId && item.Sucesso));
+    }
+
+    [Fact]
+    public async Task SelectClinic_PreservesSessionAndRejectsPreviousClinicToken()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+
+        var authResponse = await PostAsJsonWithClinicHeaderAsync(
+            client,
+            Clinica.DefaultSlug,
+            "/api/users/authenticate",
+            new
+            {
+                Email = "gmarcone@gmail.com",
+                Senha = DefaultUserPassword.Value
+            });
+        authResponse.EnsureSuccessStatusCode();
+        using var authJson = await ReadJsonAsync(authResponse);
+        var previousToken = authJson.RootElement.GetProperty("token").GetString()!;
+        var tokenHandler = new JwtSecurityTokenHandler();
+        var previousJwt = tokenHandler.ReadJwtToken(previousToken);
+        var sessionId = Guid.Parse(previousJwt.Claims.Single(claim =>
+            claim.Type == AuthenticationSessionClaimTypes.SessionId).Value);
+        var previousMembershipId = int.Parse(previousJwt.Claims.Single(claim =>
+            claim.Type == GlobalIdentityClaimTypes.UsuarioClinicaId).Value);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", previousToken);
+
+        var switchResponse = await client.PostAsJsonAsync("/api/session/selecionar-clinica", new
+        {
+            clinicaId = beta.Id
+        });
+        switchResponse.EnsureSuccessStatusCode();
+        using var switchJson = await ReadJsonAsync(switchResponse);
+        var switchedToken = switchJson.RootElement.GetProperty("token").GetString()!;
+        var switchedJwt = tokenHandler.ReadJwtToken(switchedToken);
+        var switchedSessionId = Guid.Parse(switchedJwt.Claims.Single(claim =>
+            claim.Type == AuthenticationSessionClaimTypes.SessionId).Value);
+        var switchedMembershipId = int.Parse(switchedJwt.Claims.Single(claim =>
+            claim.Type == GlobalIdentityClaimTypes.UsuarioClinicaId).Value);
+
+        Assert.Equal(sessionId, switchedSessionId);
+        Assert.NotEqual(previousMembershipId, switchedMembershipId);
+        Assert.Equal(beta.Id.ToString(), switchedJwt.Claims.Single(claim =>
+            claim.Type == ClinicaClaimTypes.ClinicaId).Value);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var session = await context.AuthenticationSessions
+                .IgnoreQueryFilters()
+                .SingleAsync(item => item.Id == sessionId);
+            Assert.Equal(switchedMembershipId, session.UsuarioClinicaId);
+        }
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", previousToken);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/users/")).StatusCode);
+
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", switchedToken);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/api/users/")).StatusCode);
     }
 
     [Fact]
