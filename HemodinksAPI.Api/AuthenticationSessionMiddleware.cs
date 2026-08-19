@@ -30,12 +30,16 @@ public sealed class AuthenticationSessionMiddleware
             var validation = await sessionService.ValidateAndTouchAsync(sessionId, context.RequestAborted);
             if (!validation.IsValid)
             {
-                sessionCookie.Delete(context);
-                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
-                await context.Response.WriteAsJsonAsync(new
-                {
-                    message = "Sessao expirada ou usuario inativo. Autentique-se novamente."
-                }, context.RequestAborted);
+                await RejectSessionAsync(context, sessionCookie);
+                return;
+            }
+
+            var membershipIdClaim = context.User.FindFirst(
+                GlobalIdentityClaimTypes.UsuarioClinicaId)?.Value;
+            if (!int.TryParse(membershipIdClaim, out var membershipId)
+                || validation.UsuarioClinicaId != membershipId)
+            {
+                await RejectSessionAsync(context, sessionCookie);
                 return;
             }
 
@@ -43,6 +47,18 @@ public sealed class AuthenticationSessionMiddleware
         }
 
         await _next(context);
+    }
+
+    private static async Task RejectSessionAsync(
+        HttpContext context,
+        AuthenticationSessionCookie sessionCookie)
+    {
+        sessionCookie.Delete(context);
+        context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+        await context.Response.WriteAsJsonAsync(new
+        {
+            message = "Sessao expirada ou usuario inativo. Autentique-se novamente."
+        }, context.RequestAborted);
     }
 
     private static void SynchronizeProfileClaims(

@@ -49,6 +49,7 @@ public sealed class SessionUseCases(
     public async Task<SelectClinicResponse?> SelectClinicAsync(
         int clinicId,
         CurrentUserContext currentUser,
+        Guid? sessionId,
         CancellationToken cancellationToken)
     {
         clinicaContext.SetPlatformScope();
@@ -66,7 +67,11 @@ public sealed class SessionUseCases(
 
         if (membership == null) return null;
 
-        var token = jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, membership.User);
+        var token = jwtTokenService.GenerateToken(
+            membership.UsuarioGlobal,
+            membership,
+            membership.User,
+            sessionId);
         return new SelectClinicResponse(token, membership.UsuarioGlobalId, new SessionClinicResponse(
             membership.ClinicaId, membership.Clinica.Nome, membership.Clinica.Slug,
             membership.UserId, membership.PerfilId, membership.Perfil.Nome,

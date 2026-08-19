@@ -104,10 +104,10 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 cancellationToken);
             PacienteRules.ValidateDistinctMedicos(medico, medicoAuxiliar1, medicoAuxiliar2);
             var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
-                ? await PacienteRules.ResolveHospitalAsync(_context, request.HospitalId, request.Hospital, cancellationToken)
+                ? await PacienteRules.ResolveHospitalAsync(_context, clinicaId, request.HospitalId, request.Hospital, cancellationToken)
                 : null;
-            var convenio = await PacienteRules.ResolveConvenioAsync(_context, request.ConvenioId, request.Convenio, cancellationToken);
-            var opmeFornecedor = await PacienteRules.ResolveOpmeFornecedorAsync(_context, request.OpmeFornecedorId, request.OpmeFornecedor, cancellationToken);
+            var convenio = await PacienteRules.ResolveConvenioAsync(_context, clinicaId, request.ConvenioId, request.Convenio, cancellationToken);
+            var opmeFornecedor = await PacienteRules.ResolveOpmeFornecedorAsync(_context, clinicaId, request.OpmeFornecedorId, request.OpmeFornecedor, cancellationToken);
             var procedimentos = await PacienteRules.ResolveProcedimentosAsync(_cbhpmCache, request.Procedimentos,
                 request.CbhpmCodigo, request.Procedimento, request.CbhpmPorte, cancellationToken);
             var procedimentoPrincipal = procedimentos.FirstOrDefault();
@@ -164,7 +164,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 Pagamento = PacienteRules.TrimOptional(request.Pagamento),
                 RepasseGlosa = PacienteRules.TrimOptional(request.RepasseGlosa),
                 StatusPago = request.StatusPago,
-                Procedimentos = PacienteRules.ToPacienteProcedimentos(procedimentos)
+                Procedimentos = PacienteRules.ToPacienteProcedimentos(procedimentos, clinicaId)
             };
 
             _context.Pacientes.Add(paciente);

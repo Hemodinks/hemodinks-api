@@ -26,7 +26,8 @@ public sealed record IssuedAuthenticationSession(
 public sealed record AuthenticationSessionValidation(
     bool IsValid,
     int? PerfilId = null,
-    string? PerfilNome = null);
+    string? PerfilNome = null,
+    int? UsuarioClinicaId = null);
 
 public sealed class AuthenticationSessionService
 {
@@ -197,7 +198,8 @@ public sealed class AuthenticationSessionService
         return new AuthenticationSessionValidation(
             true,
             currentProfileId,
-            session.UsuarioClinica.User.Perfil.Nome);
+            session.UsuarioClinica.User.Perfil.Nome,
+            session.UsuarioClinicaId);
     }
 
     public async Task<bool> ChangeMembershipAsync(

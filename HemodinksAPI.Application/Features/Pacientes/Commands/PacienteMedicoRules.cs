@@ -65,9 +65,9 @@ internal static partial class PacienteRules
 
         if (medicoUserId.HasValue)
         {
-            var medico = await context.Users
-                .AsNoTracking()
-                .Where(user => user.Id == medicoUserId.Value && user.PerfilId == Perfil.MedicosId)
+            var medico = await MedicalGroupScope.BuildScopedMedicalUsersQuery(
+                    context, currentPerfilId, currentUserId, currentEquipeId, onlyActive: false)
+                .Where(user => user.Id == medicoUserId.Value)
                 .Select(user => new { user.Id, user.Nome })
                 .FirstOrDefaultAsync(cancellationToken);
 
@@ -84,9 +84,9 @@ internal static partial class PacienteRules
             return new ResolvedMedico(null, null);
         }
 
-        var medicoPorNome = await context.Users
-            .AsNoTracking()
-            .Where(user => user.Nome == nome && user.PerfilId == Perfil.MedicosId)
+        var medicoPorNome = await MedicalGroupScope.BuildScopedMedicalUsersQuery(
+                context, currentPerfilId, currentUserId, currentEquipeId, onlyActive: false)
+            .Where(user => user.Nome == nome)
             .Select(user => new { user.Id, user.Nome })
             .FirstOrDefaultAsync(cancellationToken);
 

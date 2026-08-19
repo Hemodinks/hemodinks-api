@@ -50,7 +50,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
     {
         try
         {
-            _clinicaContext.GetRequiredClinicaId();
+            var clinicaId = _clinicaContext.GetRequiredClinicaId();
             PacienteRules.ValidateNome(request.NomePaciente);
 
             var paciente = await _context.Pacientes
@@ -107,10 +107,10 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 cancellationToken);
             PacienteRules.ValidateDistinctMedicos(medico, medicoAuxiliar1, medicoAuxiliar2);
             var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
-                ? await PacienteRules.ResolveHospitalAsync(_context, request.HospitalId, request.Hospital, cancellationToken)
+                ? await PacienteRules.ResolveHospitalAsync(_context, clinicaId, request.HospitalId, request.Hospital, cancellationToken)
                 : null;
-            var convenio = await PacienteRules.ResolveConvenioAsync(_context, request.ConvenioId, request.Convenio, cancellationToken);
-            var opmeFornecedor = await PacienteRules.ResolveOpmeFornecedorAsync(_context, request.OpmeFornecedorId, request.OpmeFornecedor, cancellationToken);
+            var convenio = await PacienteRules.ResolveConvenioAsync(_context, clinicaId, request.ConvenioId, request.Convenio, cancellationToken);
+            var opmeFornecedor = await PacienteRules.ResolveOpmeFornecedorAsync(_context, clinicaId, request.OpmeFornecedorId, request.OpmeFornecedor, cancellationToken);
             var procedimentos = await PacienteRules.ResolveProcedimentosAsync(_cbhpmCache, request.Procedimentos,
                 request.CbhpmCodigo, request.Procedimento, request.CbhpmPorte, cancellationToken);
             var procedimentoPrincipal = procedimentos.FirstOrDefault();
@@ -152,7 +152,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             paciente.RepasseGlosa = PacienteRules.TrimOptional(request.RepasseGlosa);
             paciente.StatusPago = request.StatusPago;
             paciente.Procedimentos.Clear();
-            foreach (var procedimentoItem in PacienteRules.ToPacienteProcedimentos(procedimentos))
+            foreach (var procedimentoItem in PacienteRules.ToPacienteProcedimentos(procedimentos, clinicaId))
                 paciente.Procedimentos.Add(procedimentoItem);
             var faturamento = FaturamentoMedicoSync.EnsureSynced(paciente, DateTime.UtcNow);
             faturamento.DataPagamento = request.StatusPago ? request.DataPagamento : null;

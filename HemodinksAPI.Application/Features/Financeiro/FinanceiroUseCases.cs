@@ -25,17 +25,11 @@ public sealed class CriarAtendimentoCommandHandler(IAppDbContext db, IClinicaCon
         var paciente = await db.Pacientes.SingleOrDefaultAsync(x => x.Id == request.PacienteId, ct)
             ?? throw new KeyNotFoundException("Paciente nao encontrado.");
         var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
-            ? await ClinicalReferenceResolver.ResolveHospitalAsync(db, request.HospitalId, request.Hospital, ct)
+            ? await ClinicalReferenceResolver.ResolveHospitalAsync(db, clinicaId, request.HospitalId, request.Hospital, ct)
             : null;
-        var convenio = await ClinicalReferenceResolver.ResolveConvenioAsync(db, request.ConvenioId, request.Convenio, ct);
+        var convenio = await ClinicalReferenceResolver.ResolveConvenioAsync(db, clinicaId, request.ConvenioId, request.Convenio, ct);
         var opmeFornecedor = await ClinicalReferenceResolver.ResolveOpmeFornecedorAsync(
-            db, request.OpmeFornecedorId, request.OpmeFornecedor, ct);
-        if (hospital != null)
-            hospital.Referencia.ClinicaId = clinicaId;
-        if (convenio != null)
-            convenio.Referencia.ClinicaId = clinicaId;
-        if (opmeFornecedor != null)
-            opmeFornecedor.FornecedorReferencia.ClinicaId = clinicaId;
+            db, clinicaId, request.OpmeFornecedorId, request.OpmeFornecedor, ct);
         if (await db.Users.CountAsync(x => ids.Contains(x.Id) && x.PerfilId == Perfil.MedicosId && x.Ativo, ct) != ids.Count)
             throw new InvalidOperationException("Selecione apenas medicos ativos da clinica.");
 

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Sessions;
 using HemodinksAPI.Application.Tenancy;
 
@@ -34,6 +35,7 @@ public static class SessionEndpointExtensions
         SelectClinicRequest request,
         HttpContext httpContext,
         SessionUseCases useCases,
+        AuthenticationSessionService sessionService,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
@@ -43,13 +45,31 @@ public static class SessionEndpointExtensions
             return Results.BadRequest(new { message = "ClinicaId invalido ou identidade global ausente." });
         }
 
-        var result = await useCases.SelectClinicAsync(request.ClinicaId, currentUser, cancellationToken);
+        var sessionId = Guid.TryParse(
+            httpContext.User.FindFirstValue(AuthenticationSessionClaimTypes.SessionId),
+            out var parsedSessionId)
+            ? parsedSessionId
+            : (Guid?)null;
+        var result = await useCases.SelectClinicAsync(
+            request.ClinicaId,
+            currentUser,
+            sessionId,
+            cancellationToken);
         if (result == null)
         {
             await auditService.RecordAsync(httpContext, "session.clinic.switch.denied", "session",
                 request.ClinicaId.ToString(), null, new { requestedClinicId = request.ClinicaId }, false,
                 cancellationToken);
             return Results.Forbid();
+        }
+
+        if (sessionId.HasValue
+            && !await sessionService.ChangeMembershipAsync(
+                sessionId.Value,
+                result.Clinica.UsuarioClinicaId,
+                cancellationToken))
+        {
+            return Results.Unauthorized();
         }
 
         var previousClinicId = int.TryParse(

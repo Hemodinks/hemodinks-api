@@ -46,11 +46,14 @@ internal static partial class PacienteRules
         return resolvedItems;
     }
 
-    public static List<PacienteProcedimento> ToPacienteProcedimentos(IReadOnlyList<ResolvedProcedimento> procedimentos)
+    public static List<PacienteProcedimento> ToPacienteProcedimentos(
+        IReadOnlyList<ResolvedProcedimento> procedimentos,
+        int clinicaId)
     {
         return procedimentos
             .Select((procedimento, index) => new PacienteProcedimento
             {
+                ClinicaId = clinicaId,
                 CbhpmCodigo = procedimento.Codigo,
                 CbhpmPorte = procedimento.Porte,
                 Procedimento = procedimento.Nome,

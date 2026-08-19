@@ -5,6 +5,60 @@ namespace HemodinksAPI.Tests;
 
 public class EquipeMedicalUserScopeTests
 {
+    [Theory]
+    [InlineData(Perfil.AdministradorId)]
+    [InlineData(Perfil.SuperAdministradorId)]
+    public async Task ScopedUsers_WhenLoggedAsAdministrator_ReturnsActiveClinicTeamMembers(int perfilId)
+    {
+        await using var context = TestDbContextFactory.Create();
+        var administrator = CreateUser("Administrador", $"admin-{perfilId}@hemodinks.com", perfilId);
+        var doctor = CreateUser("Dra. Ana", "ana.admin@hemodinks.com", Perfil.MedicosId);
+        var controllerMember = CreateUser("Bruno Controller", "bruno.admin@hemodinks.com", Perfil.ControllerId);
+        var nominalMember = CreateUser("Clara Equipe", "clara.admin@hemodinks.com", Perfil.EquipeId);
+        var inactiveMembership = CreateUser("Daniel Fora da Equipe", "daniel.admin@hemodinks.com", Perfil.EquipeId);
+        var inactiveTeamMember = CreateUser("Elisa Equipe Inativa", "elisa.admin@hemodinks.com", Perfil.EquipeId);
+        var outsider = CreateUser("Fabio Externo", "fabio.admin@hemodinks.com", Perfil.EquipeId);
+
+        context.Users.AddRange(administrator, doctor, outsider);
+        context.Equipes.AddRange(
+            new Equipe
+            {
+                ClinicaId = Clinica.DefaultId,
+                Nome = "Equipe Ativa",
+                UsuarioLogin = CreateUser("Login Equipe Ativa", "login.ativa@hemodinks.com", Perfil.EquipeId),
+                Membros =
+                [
+                    new EquipeMembro { ClinicaId = Clinica.DefaultId, User = controllerMember },
+                    new EquipeMembro { ClinicaId = Clinica.DefaultId, User = nominalMember },
+                    new EquipeMembro { ClinicaId = Clinica.DefaultId, User = inactiveMembership, Ativo = false }
+                ]
+            },
+            new Equipe
+            {
+                ClinicaId = Clinica.DefaultId,
+                Nome = "Equipe Inativa",
+                Ativa = false,
+                UsuarioLogin = CreateUser("Login Equipe Inativa", "login.inativa@hemodinks.com", Perfil.EquipeId),
+                Membros =
+                [
+                    new EquipeMembro { ClinicaId = Clinica.DefaultId, User = inactiveTeamMember }
+                ]
+            });
+        await context.SaveChangesAsync();
+
+        var handler = new GetScopedMedicalUsersQueryHandler(context);
+        var result = await handler.Handle(new GetScopedMedicalUsersQuery
+        {
+            CurrentPerfilId = perfilId,
+            CurrentUserId = administrator.Id
+        }, CancellationToken.None);
+
+        Assert.Equal(["Bruno Controller", "Clara Equipe", "Dra. Ana"], result.Select(user => user.Nome));
+        Assert.DoesNotContain(result, user => user.Nome == inactiveMembership.Nome);
+        Assert.DoesNotContain(result, user => user.Nome == inactiveTeamMember.Nome);
+        Assert.DoesNotContain(result, user => user.Nome == outsider.Nome);
+    }
+
     [Fact]
     public async Task ScopedUsers_WhenLoggedAsTeam_ReturnsAllActiveTeamMembers()
     {

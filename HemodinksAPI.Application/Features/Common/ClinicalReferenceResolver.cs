@@ -17,6 +17,7 @@ internal static class ClinicalReferenceResolver
 {
     public static async Task<ResolvedHospital> ResolveHospitalAsync(
         IAppDbContext context,
+        int clinicaId,
         int? hospitalId,
         string? hospitalNome,
         CancellationToken cancellationToken)
@@ -39,7 +40,7 @@ internal static class ClinicalReferenceResolver
 
             if (hospital == null)
             {
-                hospital = new Hospital { Nome = nome };
+                hospital = new Hospital { ClinicaId = clinicaId, Nome = nome };
                 context.Hospitais.Add(hospital);
             }
         }
@@ -52,6 +53,7 @@ internal static class ClinicalReferenceResolver
 
     public static async Task<ResolvedConvenio?> ResolveConvenioAsync(
         IAppDbContext context,
+        int clinicaId,
         int? convenioId,
         string? convenioDescricao,
         CancellationToken cancellationToken)
@@ -74,7 +76,7 @@ internal static class ClinicalReferenceResolver
 
             if (convenio == null)
             {
-                convenio = new Convenio { DescricaoConvenio = descricao };
+                convenio = new Convenio { ClinicaId = clinicaId, DescricaoConvenio = descricao };
                 context.Convenios.Add(convenio);
             }
         }
@@ -87,6 +89,7 @@ internal static class ClinicalReferenceResolver
 
     public static async Task<ResolvedOpmeFornecedor?> ResolveOpmeFornecedorAsync(
         IAppDbContext context,
+        int clinicaId,
         int? fornecedorId,
         string? fornecedorNome,
         CancellationToken cancellationToken)
@@ -109,7 +112,11 @@ internal static class ClinicalReferenceResolver
 
             if (fornecedor == null)
             {
-                fornecedor = new HemodinksAPI.Domain.Models.Opme { Fornecedor = nome };
+                fornecedor = new HemodinksAPI.Domain.Models.Opme
+                {
+                    ClinicaId = clinicaId,
+                    Fornecedor = nome
+                };
                 context.OPME.Add(fornecedor);
             }
         }
