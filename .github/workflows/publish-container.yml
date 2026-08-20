@@ -260,6 +260,9 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      - name: Checkout revision policy script
+        uses: actions/checkout@v4
+
       - name: Log in to Azure
         uses: azure/login@v2
         with:
@@ -343,10 +346,12 @@ jobs:
             --name "$API_NAME" \
             --resource-group "$API_RESOURCE_GROUP" \
             --query properties.configuration.ingress.traffic -o json)"
+          total_weight="$(jq '[.[] | (.weight // 0)] | add // 0' <<<"$traffic_json")"
+          production_count="$(jq '[.[] | select((.weight // 0) == 100 and (.label == "blue" or .label == "green"))] | length' <<<"$traffic_json")"
           active_label="$(jq -r '[.[] | select(.weight == 100 and (.label == "blue" or .label == "green"))][0].label // empty' <<<"$traffic_json")"
           previous_revision="$(jq -r --arg label "$active_label" '[.[] | select(.label == $label)][0].revisionName // empty' <<<"$traffic_json")"
-          if [ -z "$active_label" ] || [ -z "$previous_revision" ]; then
-            echo "::error::No 100% blue/green labeled Production revision was found. Run the bootstrap/recovery procedure."
+          if [ "$total_weight" -ne 100 ] || [ "$production_count" -ne 1 ] || [ -z "$active_label" ] || [ -z "$previous_revision" ]; then
+            echo "::error::Could not uniquely identify the 100% blue/green CURRENT_REVISION. Run the bootstrap/recovery procedure."
             exit 5
           fi
 
@@ -547,16 +552,93 @@ jobs:
           fi
           echo "result=passed" >> "$GITHUB_OUTPUT"
 
-      - name: Atomically switch Production traffic
+      - name: Promote candidate and verify Production traffic
+        id: promotion
         env:
           ACTIVE_LABEL: ${{ steps.candidate.outputs.active_label }}
           CANDIDATE_LABEL: ${{ steps.candidate.outputs.candidate_label }}
+          PREVIOUS_REVISION: ${{ steps.candidate.outputs.previous_revision }}
+          CANDIDATE_REVISION: ${{ steps.candidate.outputs.candidate_revision }}
         run: |
-          az containerapp ingress traffic set \
+          set -euo pipefail
+
+          traffic_matches() {
+            local label="$1"
+            local revision="$2"
+            local traffic
+            traffic="$(az containerapp show \
+              --name "$API_NAME" \
+              --resource-group "$API_RESOURCE_GROUP" \
+              --query properties.configuration.ingress.traffic -o json 2>/dev/null || echo '[]')"
+            jq -e --arg label "$label" --arg revision "$revision" '
+              ([.[] | (.weight // 0)] | add // 0) == 100 and
+              ([.[] | select((.weight // 0) > 0)] | length) == 1 and
+              any(.[]; .label == $label and .revisionName == $revision and (.weight // 0) == 100)
+            ' <<<"$traffic" >/dev/null
+          }
+
+          if ! az containerapp ingress traffic set \
             --name "$API_NAME" \
             --resource-group "$API_RESOURCE_GROUP" \
             --label-weight "$ACTIVE_LABEL=0" "$CANDIDATE_LABEL=100" \
-            --output none
+            --output none; then
+            echo "::warning::The traffic command failed; the observed Azure state will determine whether rollback is required."
+          fi
+
+          promoted=false
+          for attempt in $(seq 1 12); do
+            if traffic_matches "$CANDIDATE_LABEL" "$CANDIDATE_REVISION"; then
+              promoted=true
+              break
+            fi
+            echo "Waiting for candidate traffic confirmation, attempt ${attempt}/12."
+            sleep 5
+          done
+
+          if [ "$promoted" = "true" ]; then
+            echo "result=promoted" >> "$GITHUB_OUTPUT"
+            echo "rollback_result=not-needed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "::error::Candidate was not confirmed as the unique revision receiving 100% of traffic. Restoring PREVIOUS_REVISION."
+          echo "result=failed" >> "$GITHUB_OUTPUT"
+          if ! az containerapp ingress traffic set \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --label-weight "$ACTIVE_LABEL=100" "$CANDIDATE_LABEL=0" \
+            --output none; then
+            echo "::warning::The rollback traffic command returned an error; validating the observed state."
+          fi
+
+          rolled_back=false
+          for attempt in $(seq 1 12); do
+            if traffic_matches "$ACTIVE_LABEL" "$PREVIOUS_REVISION"; then
+              rolled_back=true
+              break
+            fi
+            echo "Waiting for rollback traffic confirmation, attempt ${attempt}/12."
+            sleep 5
+          done
+          if [ "$rolled_back" = "true" ]; then
+            echo "rollback_result=passed" >> "$GITHUB_OUTPUT"
+            echo "::error::Promotion failed and Production traffic was safely restored. Cleanup was skipped."
+            exit 8
+          fi
+
+          echo "rollback_result=failed" >> "$GITHUB_OUTPUT"
+          echo "::error::URGENT: neither promotion nor rollback traffic could be confirmed. Cleanup was skipped."
+          exit 9
+
+      - name: Enforce CURRENT/PREVIOUS revision policy
+        id: cleanup
+        env:
+          CURRENT_REVISION: ${{ steps.candidate.outputs.candidate_revision }}
+          PREVIOUS_REVISION: ${{ steps.candidate.outputs.previous_revision }}
+        run: |
+          bash scripts/Enforce-ProductionRevisionPolicy.sh \
+            "$CURRENT_REVISION" \
+            "$PREVIOUS_REVISION"
 
       - name: Deployment summary
         if: always()
@@ -565,6 +647,11 @@ jobs:
           CANDIDATE_REVISION: ${{ steps.candidate.outputs.candidate_revision }}
           ACTIVE_LABEL: ${{ steps.candidate.outputs.candidate_label }}
           SMOKE_RESULT: ${{ steps.smoke.outputs.result || 'failed/not-run' }}
+          PROMOTION_RESULT: ${{ steps.promotion.outputs.result || 'failed/not-run' }}
+          ROLLBACK_RESULT: ${{ steps.promotion.outputs.rollback_result || 'not-run' }}
+          REVISION_POLICY: ${{ steps.cleanup.outputs.status || 'not-run' }}
+          ACTIVE_REVISION_COUNT: ${{ steps.cleanup.outputs.active_count || 'unknown' }}
+          OLD_REVISIONS_DEACTIVATED: ${{ steps.cleanup.outputs.old_revisions_deactivated || '0' }}
           DEPLOYMENT_RESULT: ${{ job.status }}
         run: |
           final_traffic="$(az containerapp show \
@@ -581,6 +668,11 @@ jobs:
             echo "- Active label after success: \`${ACTIVE_LABEL:-unchanged}\`"
             echo "- Migration: **passed**"
             echo "- Smoke test: **${SMOKE_RESULT}**"
+            echo "- Promotion: **${PROMOTION_RESULT}**"
+            echo "- Automatic traffic rollback: **${ROLLBACK_RESULT}**"
+            echo "- Revision policy: **${REVISION_POLICY}**"
+            echo "- Active revisions: **${ACTIVE_REVISION_COUNT}**"
+            echo "- Old revisions deactivated: **${OLD_REVISIONS_DEACTIVATED}**"
             echo "- Deployment: **${DEPLOYMENT_RESULT}**"
             echo "- Final traffic: \`${final_traffic}\`"
           } >> "$GITHUB_STEP_SUMMARY"

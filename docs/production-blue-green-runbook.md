@@ -12,10 +12,55 @@ label da candidata passa por warm-up, liveness e readiness (incluindo acesso ao
 banco e ausencia de migrations pendentes). Apenas depois disso o trafego muda de
 100/0 para 0/100.
 
-A revisao anterior continua ativa, com label e 0% de trafego. Nenhuma revisao e
-excluida ou desativada pelo workflow. Os limites de replicas nao sao alterados.
-Quando `minReplicas=0`, a primeira chamada ao label pode sofrer cold start; os
-retries do warm-up absorvem esse custo antes da troca.
+A revisao anterior continua ativa, com label e 0% de trafego, para um rollback
+rapido. Depois que a nova revisao e confirmada como a unica com 100%, o workflow
+desativa todas as demais revisoes ativas com `az containerapp revision
+deactivate`; nenhuma revisao e excluida. Os limites de replicas nao sao
+alterados. Como `minReplicas=0` e aplicado por revisao, a anterior pode escalar a
+zero depois do periodo de scale-down e nao gera uso de compute enquanto estiver
+em zero. A primeira chamada ao label pode sofrer cold start; os retries de
+warm-up absorvem esse custo antes da troca. Scale-to-zero nao e instantaneo nem
+uma garantia de que o portal mostrara zero replicas imediatamente depois do
+deploy.
+Chamadas externas, monitores ou testes recorrentes na URL do label inativo podem
+acordar `PREVIOUS` e prolongar o consumo; monitore somente o FQDN principal em
+operacao normal.
+
+## Politica de ciclo de vida das revisoes
+
+Antes desta correcao, cada rollout criava uma candidata, movia o label inativo,
+validava a candidata e trocava o trafego, mas nunca executava `revision
+deactivate`. Em modo `Multiple`, o Azure deixa o ciclo de vida das revisoes sob
+controle do operador. `maxReplicas=1` e um limite por revisao, nao para o
+Container App inteiro; por isso cada revisao antiga ainda ativa podia manter sua
+propria replica e acumular custo.
+
+Depois de um deploy ou rollback bem-sucedido, podem permanecer ativas somente:
+
+- `CURRENT_REVISION`: a unica revisao com 100% do trafego;
+- `PREVIOUS_REVISION`: a revisao que tinha 100% imediatamente antes da troca,
+  preservada com 0% para rollback rapido.
+
+O script `scripts/Enforce-ProductionRevisionPolicy.sh` implementa essa politica.
+Ele e restrito por nome e Resource Group de Producao, exige modo `Multiple`, le
+todas as revisoes (incluindo inativas), soma o trafego por revisao e registra
+`Revision`, `Traffic`, `Active` e `Action` antes de cada decisao. A operacao e
+idempotente: somente revisoes ainda ativas, diferentes de `CURRENT` e `PREVIOUS`
+e com trafego zero recebem `revision deactivate`.
+
+O workflow manual `azure-operational-tasks.yml` tambem pode criar revisoes ao
+ligar e desligar o seed CBHPM. Depois de uma execucao bem-sucedida, ele aplica a
+mesma politica somente quando o alvo e exatamente
+`hemodinks-api-prod/rg-hemodinks-prod`. Outros nomes ou Resource Groups nao
+executam esse cleanup, evitando mudar o comportamento de homologacao.
+
+O cleanup so e chamado depois de smoke tests e da confirmacao de que `CURRENT`
+e a unica revisao com 100%. Ele e bloqueado se o alvo exato nao puder ser
+identificado, se `CURRENT` nao estiver ativa, se `PREVIOUS` nao estiver ativa,
+se qualquer terceira revisao tiver trafego ou se o modo deixar de ser
+`Multiple`. O trafego e relido imediatamente antes de cada deactivate. Ao final,
+o workflow exige exatamente duas revisoes ativas, imprime a tabela de revisoes e
+falha explicitamente se a politica nao for satisfeita.
 
 ## GitHub Environment
 
@@ -97,8 +142,11 @@ Ordem esperada:
 3. aprovacao de `migrate-production`;
 4. execucao unica do bundle;
 5. aprovacao de `deploy-api`;
-6. candidata a 0%, warm-up/smoke e troca atomica;
-7. workers depois da migration.
+6. candidata a 0% e warm-up/smoke pela URL do label;
+7. troca de trafego, confirmacao de `CURRENT=100%` e restauracao automatica da
+   revisao anterior se a promocao nao puder ser confirmada;
+8. cleanup idempotente, preservando somente `CURRENT` e `PREVIOUS`;
+9. workers depois da migration.
 
 O SQL idempotente e o bundle ficam no artifact
 `production-migrations-<commit>` por 30 dias. O Job Summary registra commit,
@@ -110,9 +158,11 @@ gera o mesmo bundle/SQL, usa o mesmo lock e so avanca para a ultima migration.
 Ele nao publica a API; prefira sempre o fluxo completo **Publish Containers**.
 
 Se build, testes, auditoria, bundle, migration, provisionamento ou smoke falhar,
-o step de troca nao e executado e o trafego permanece na revisao anterior. Uma
-migration concluida nao e revertida automaticamente quando o deploy posterior
-falha.
+o step de troca nao e executado e o trafego permanece na revisao anterior. Se o
+comando de promocao ocorrer, mas a candidata nao puder ser confirmada como a
+unica revisao com 100%, o workflow tenta restaurar e confirmar 100% na anterior.
+Qualquer um desses erros impede o cleanup. Uma migration concluida nao e
+revertida automaticamente quando o deploy posterior falha.
 
 ## Migrations expand/contract
 
@@ -145,9 +195,16 @@ Em Actions, abra **Roll back Production API**:
    ou copie exatamente uma revisao listada no Azure;
 3. aprove o Environment `production`.
 
-O workflow valida o alvo, move o label inativo para ele, testa `/livez` e
-`/healthz` pela URL do label e somente depois troca o trafego. Ele nao executa ou
-desfaz migrations e nao exclui revisoes.
+Sem `target_revision`, o workflow usa exatamente a revisao do label blue/green
+com 0%, isto e, `PREVIOUS_REVISION`; ele nao escolhe uma terceira revisao antiga.
+O alvo pode estar em scale-to-zero: precisa estar ativo e `Healthy`, e a chamada
+ao label o acorda durante os retries. O workflow move o label inativo para o
+alvo, testa `/livez` e `/healthz` e somente depois troca o trafego. A troca e
+confirmada no estado retornado pelo Azure; se ela nao puder ser confirmada, o
+workflow restaura a revisao original e nao faz cleanup. Depois de um rollback
+confirmado, o alvo passa a ser `CURRENT`, a revisao substituida passa a ser
+`PREVIOUS`, e quaisquer outras revisoes ativas com zero trafego sao desativadas.
+O rollback nao executa ou desfaz migrations e nao exclui revisoes.
 
 ## Diagnostico
 
@@ -165,7 +222,7 @@ Labels/revisoes:
 az containerapp show -g rg-hemodinks-prod -n hemodinks-api-prod \
   --query properties.configuration.ingress.traffic -o table
 az containerapp revision list -g rg-hemodinks-prod -n hemodinks-api-prod \
-  --all -o table
+  --all --query "[].{Revision:name,Active:properties.active,Replicas:properties.replicas,Traffic:properties.trafficWeight}" -o table
 az containerapp revision label add -g rg-hemodinks-prod \
   -n hemodinks-api-prod --revision "<ready-revision>" --label blue --yes
 az containerapp ingress traffic set -g rg-hemodinks-prod \
@@ -173,8 +230,27 @@ az containerapp ingress traffic set -g rg-hemodinks-prod \
 ```
 
 Antes dos dois ultimos comandos, valide nome, RG, revision state, imagem e commit.
-Use-os somente para recuperacao consciente. Nunca desative/exclua a revisao
-anterior como parte de um rollout.
+Use-os somente para recuperacao consciente. Para conferir o modo e contar as
+revisoes ativas:
+
+```bash
+az containerapp show -g rg-hemodinks-prod -n hemodinks-api-prod \
+  --query properties.configuration.activeRevisionsMode -o tsv
+az containerapp revision list -g rg-hemodinks-prod -n hemodinks-api-prod \
+  --all --query "[?properties.active].name" -o tsv
+```
+
+Nunca desative/exclua `CURRENT` nem uma revisao com trafego. Para um rollback
+mais antigo que `PREVIOUS`, e necessario primeiro revisar compatibilidade de
+schema e imagem e reativar conscientemente a revisao com `az containerapp
+revision activate`; o rollback rapido normal mantem apenas uma versao anterior.
+
+## Concorrencia
+
+`publish-container.yml` e `rollback-production.yml` compartilham o grupo
+`production-container-publish`, com `cancel-in-progress: false`. Assim, deploy e
+rollback de Producao aguardam um ao outro e nao manipulam labels, trafego ou
+revisoes simultaneamente. Workflows de homologacao nao foram alterados.
 
 ## Azure SQL privado: Container Apps Job
 

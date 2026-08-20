@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       target_revision:
-        description: Ready revision name; leave empty to select the newest previous ready revision
+        description: Active Healthy revision name; leave empty to use the blue/green PREVIOUS revision
         required: false
         type: string
 
@@ -33,6 +33,9 @@ jobs:
     environment: production
 
     steps:
+      - name: Checkout revision policy script
+        uses: actions/checkout@v4
+
       - name: Log in to Azure
         uses: azure/login@v2
         with:
@@ -66,9 +69,11 @@ jobs:
             --name "$API_NAME" \
             --resource-group "$API_RESOURCE_GROUP" \
             --query properties.configuration.ingress.traffic -o json)"
+          total_weight="$(jq '[.[] | (.weight // 0)] | add // 0' <<<"$traffic")"
+          production_count="$(jq '[.[] | select((.weight // 0) == 100 and (.label == "blue" or .label == "green"))] | length' <<<"$traffic")"
           current_label="$(jq -r '[.[] | select(.weight == 100 and (.label == "blue" or .label == "green"))][0].label // empty' <<<"$traffic")"
           current_revision="$(jq -r --arg label "$current_label" '[.[] | select(.label == $label)][0].revisionName // empty' <<<"$traffic")"
-          if [ -z "$current_label" ] || [ -z "$current_revision" ]; then
+          if [ "$total_weight" -ne 100 ] || [ "$production_count" -ne 1 ] || [ -z "$current_label" ] || [ -z "$current_revision" ]; then
             echo "::error::Current labeled Production revision could not be identified."
             exit 4
           fi
@@ -77,7 +82,7 @@ jobs:
             --name "$API_NAME" \
             --resource-group "$API_RESOURCE_GROUP" \
             --output json)"
-          echo "$revisions" | jq -r '.[] | select(.properties.active == true and .properties.healthState == "Healthy" and .properties.runningState == "Running") | [.name, .properties.createdTime] | @tsv'
+          echo "$revisions" | jq -r '.[] | select(.properties.active == true and .properties.healthState == "Healthy") | [.name, .properties.runningState, .properties.createdTime] | @tsv'
 
           if [ -n "$REQUESTED_REVISION" ]; then
             target_revision="$REQUESTED_REVISION"
@@ -85,23 +90,19 @@ jobs:
             target_revision="$(jq -r --arg current "$current_revision" '
               [.[] |
                 select(
-                  .name != $current and
-                  .properties.active == true and
-                  .properties.healthState == "Healthy" and
-                  .properties.runningState == "Running"
+                  .revisionName != $current and
+                  (.label == "blue" or .label == "green") and
+                  (.weight // 0) == 0
                 )
-              ] |
-              sort_by(.properties.createdTime) |
-              reverse |
-              .[0].name // empty
-            ' <<<"$revisions")"
+              ][0].revisionName // empty
+            ' <<<"$traffic")"
           fi
 
           valid="$(jq -r --arg target "$target_revision" '
-            any(.[]; .name == $target and .properties.active == true and .properties.healthState == "Healthy" and .properties.runningState == "Running")
+            any(.[]; .name == $target and .properties.active == true and .properties.healthState == "Healthy")
           ' <<<"$revisions")"
           if [ -z "$target_revision" ] || [ "$valid" != "true" ] || [ "$target_revision" = "$current_revision" ]; then
-            echo "::error::Target must be a different active, Healthy and Running revision."
+            echo "::error::Target must be the different active and Healthy PREVIOUS revision. Scale-to-zero is allowed."
             exit 5
           fi
 
@@ -152,16 +153,82 @@ jobs:
           fi
           echo "result=passed" >> "$GITHUB_OUTPUT"
 
-      - name: Switch traffic back
+      - name: Switch traffic back and verify
+        id: traffic_switch
         env:
           CURRENT_LABEL: ${{ steps.target.outputs.current_label }}
+          CURRENT_REVISION: ${{ steps.target.outputs.current_revision }}
           TARGET_LABEL: ${{ steps.target.outputs.target_label }}
+          TARGET_REVISION: ${{ steps.target.outputs.target_revision }}
         run: |
-          az containerapp ingress traffic set \
+          set -euo pipefail
+
+          traffic_matches() {
+            local label="$1"
+            local revision="$2"
+            local traffic
+            traffic="$(az containerapp show \
+              --name "$API_NAME" \
+              --resource-group "$API_RESOURCE_GROUP" \
+              --query properties.configuration.ingress.traffic -o json 2>/dev/null || echo '[]')"
+            jq -e --arg label "$label" --arg revision "$revision" '
+              ([.[] | (.weight // 0)] | add // 0) == 100 and
+              ([.[] | select((.weight // 0) > 0)] | length) == 1 and
+              any(.[]; .label == $label and .revisionName == $revision and (.weight // 0) == 100)
+            ' <<<"$traffic" >/dev/null
+          }
+
+          if ! az containerapp ingress traffic set \
             --name "$API_NAME" \
             --resource-group "$API_RESOURCE_GROUP" \
             --label-weight "$CURRENT_LABEL=0" "$TARGET_LABEL=100" \
-            --output none
+            --output none; then
+            echo "::warning::The rollback traffic command failed; validating the observed Azure state."
+          fi
+
+          switched=false
+          for attempt in $(seq 1 12); do
+            if traffic_matches "$TARGET_LABEL" "$TARGET_REVISION"; then
+              switched=true
+              break
+            fi
+            echo "Waiting for rollback traffic confirmation, attempt ${attempt}/12."
+            sleep 5
+          done
+          if [ "$switched" = "true" ]; then
+            echo "result=confirmed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "::error::Rollback target was not confirmed at 100%; restoring the original CURRENT_REVISION."
+          if ! az containerapp ingress traffic set \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --label-weight "$CURRENT_LABEL=100" "$TARGET_LABEL=0" \
+            --output none; then
+            echo "::warning::The restoration command failed; validating the observed Azure state."
+          fi
+          for attempt in $(seq 1 12); do
+            if traffic_matches "$CURRENT_LABEL" "$CURRENT_REVISION"; then
+              echo "result=restored-original" >> "$GITHUB_OUTPUT"
+              echo "::error::Rollback failed; original Production traffic was restored. Cleanup was skipped."
+              exit 7
+            fi
+            sleep 5
+          done
+          echo "result=unconfirmed" >> "$GITHUB_OUTPUT"
+          echo "::error::URGENT: rollback and restoration traffic are both unconfirmed. Cleanup was skipped."
+          exit 8
+
+      - name: Enforce CURRENT/PREVIOUS revision policy
+        id: cleanup
+        env:
+          CURRENT_REVISION: ${{ steps.target.outputs.target_revision }}
+          PREVIOUS_REVISION: ${{ steps.target.outputs.current_revision }}
+        run: |
+          bash scripts/Enforce-ProductionRevisionPolicy.sh \
+            "$CURRENT_REVISION" \
+            "$PREVIOUS_REVISION"
 
       - name: Rollback summary
         if: always()
@@ -170,6 +237,10 @@ jobs:
           TARGET_REVISION: ${{ steps.target.outputs.target_revision }}
           TARGET_LABEL: ${{ steps.target.outputs.target_label }}
           SMOKE_RESULT: ${{ steps.smoke.outputs.result || 'failed/not-run' }}
+          TRAFFIC_SWITCH_RESULT: ${{ steps.traffic_switch.outputs.result || 'failed/not-run' }}
+          REVISION_POLICY: ${{ steps.cleanup.outputs.status || 'not-run' }}
+          ACTIVE_REVISION_COUNT: ${{ steps.cleanup.outputs.active_count || 'unknown' }}
+          OLD_REVISIONS_DEACTIVATED: ${{ steps.cleanup.outputs.old_revisions_deactivated || '0' }}
           ROLLBACK_RESULT: ${{ job.status }}
         run: |
           final_traffic="$(az containerapp show \
@@ -183,6 +254,10 @@ jobs:
             echo "- Target revision: \`${TARGET_REVISION:-unavailable}\`"
             echo "- Active label after success: \`${TARGET_LABEL:-unchanged}\`"
             echo "- Smoke test: **${SMOKE_RESULT}**"
+            echo "- Traffic confirmation: **${TRAFFIC_SWITCH_RESULT}**"
+            echo "- Revision policy: **${REVISION_POLICY}**"
+            echo "- Active revisions: **${ACTIVE_REVISION_COUNT}**"
+            echo "- Old revisions deactivated: **${OLD_REVISIONS_DEACTIVATED}**"
             echo "- Result: **${ROLLBACK_RESULT}**"
             echo "- Final traffic: \`${final_traffic}\`"
             echo ""
