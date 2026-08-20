@@ -32,6 +32,9 @@ jobs:
     if: ${{ inputs.task == 'cbhpm-seed' }}
 
     steps:
+      - name: Checkout revision policy script
+        uses: actions/checkout@v4
+
       - name: Log in to Azure
         uses: azure/login@v2
         with:
@@ -116,3 +119,28 @@ jobs:
             --set-env-vars \
               Seed__CbhpmOnStartup=false \
               OperationalRun__CbhpmSeedRunId="completed-$RUN_ID"
+
+      - name: Enforce Production CURRENT/PREVIOUS revision policy
+        if: ${{ success() && steps.enable_seed.outputs.app_name == 'hemodinks-api-prod' && vars.AZURE_RESOURCE_GROUP == 'rg-hemodinks-prod' }}
+        env:
+          API_NAME: hemodinks-api-prod
+          API_RESOURCE_GROUP: rg-hemodinks-prod
+        run: |
+          set -euo pipefail
+          traffic="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.configuration.ingress.traffic \
+            --output json)"
+          total_weight="$(jq '[.[] | (.weight // 0)] | add // 0' <<<"$traffic")"
+          current_revision="$(jq -r '[.[] | select((.weight // 0) == 100 and (.label == "blue" or .label == "green"))][0].revisionName // empty' <<<"$traffic")"
+          previous_revision="$(jq -r --arg current "$current_revision" '[.[] | select(.revisionName != $current and (.weight // 0) == 0 and (.label == "blue" or .label == "green"))][0].revisionName // empty' <<<"$traffic")"
+          production_count="$(jq '[.[] | select((.weight // 0) == 100 and (.label == "blue" or .label == "green"))] | length' <<<"$traffic")"
+          if [ "$total_weight" -ne 100 ] || [ "$production_count" -ne 1 ] || [ -z "$current_revision" ] || [ -z "$previous_revision" ]; then
+            echo "::error::Operational cleanup could not safely identify CURRENT_REVISION and PREVIOUS_REVISION."
+            exit 4
+          fi
+
+          bash scripts/Enforce-ProductionRevisionPolicy.sh \
+            "$current_revision" \
+            "$previous_revision"
