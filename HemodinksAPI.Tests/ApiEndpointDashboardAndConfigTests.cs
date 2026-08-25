@@ -69,6 +69,27 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task MonitoringErrors_RequiresAdministratorAndReturnsPagedResult()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+
+        var unauthorizedResponse = await client.GetAsync("/api/monitoramento/erros");
+        Assert.Equal(HttpStatusCode.Unauthorized, unauthorizedResponse.StatusCode);
+        var unauthorizedClearResponse = await client.DeleteAsync("/api/monitoramento/erros");
+        Assert.Equal(HttpStatusCode.Unauthorized, unauthorizedClearResponse.StatusCode);
+
+        await AuthenticateAsync(client);
+        var response = await client.GetAsync("/api/monitoramento/erros?page=1&pageSize=10");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        Assert.Equal(1, json.RootElement.GetProperty("page").GetInt32());
+        Assert.Equal(10, json.RootElement.GetProperty("pageSize").GetInt32());
+        Assert.True(json.RootElement.TryGetProperty("items", out _));
+    }
+
+    [Fact]
     public async Task PasswordResetFlow_WhenTokenIsValid_AllowsAuthenticationWithNewPassword()
     {
         using var factory = new HemodinksApiFactory();

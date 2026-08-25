@@ -1,10 +1,14 @@
 using System.Diagnostics;
+using System.Security.Claims;
 using System.Text.Json.Serialization;
 using HemodinksAPI.Api;
+using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Infrastructure.Storage;
 using Microsoft.Extensions.FileProviders;
 using Serilog;
+using Serilog.Context;
 using Serilog.Events;
+using Serilog.Formatting.Json;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
@@ -129,6 +133,22 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<AuthenticationSessionMiddleware>();
 app.UseMiddleware<ClinicaResolutionMiddleware>();
+app.Use(async (context, next) =>
+{
+    var userName = context.User.FindFirstValue(ClaimTypes.Name);
+    var userEmail = context.User.FindFirstValue(ClaimTypes.Email);
+    var clinicId = context.User.FindFirstValue(ClinicaClaimTypes.ClinicaId);
+
+    using (LogContext.PushProperty("RequestId", context.TraceIdentifier))
+    using (LogContext.PushProperty("RequestMethod", context.Request.Method))
+    using (LogContext.PushProperty("RequestPath", context.Request.Path.Value ?? string.Empty))
+    using (LogContext.PushProperty("UserName", userName ?? string.Empty))
+    using (LogContext.PushProperty("UserEmail", userEmail ?? string.Empty))
+    using (LogContext.PushProperty("ClinicId", clinicId ?? string.Empty))
+    {
+        await next();
+    }
+});
 app.UseMiddleware<ClinicaModuleAccessMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<EquipeMutationAuditMiddleware>();
@@ -145,6 +165,7 @@ public partial class Program
         var logDirectory = Path.Combine(contentRootPath, "logs");
         Directory.CreateDirectory(logDirectory);
         var logFilePath = Path.Combine(logDirectory, "hemodinks-api-.txt");
+        var errorLogFilePath = Path.Combine(logDirectory, MonitoringLogReader.ErrorFilePattern);
 
         loggerConfiguration
             .MinimumLevel.Information()
@@ -152,6 +173,14 @@ public partial class Program
             .WriteTo.File(logFilePath,
                 rollingInterval: RollingInterval.Day,
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .WriteTo.Logger(errorLogger => errorLogger
+                .MinimumLevel.Error()
+                .WriteTo.File(
+                    new JsonFormatter(renderMessage: true),
+                    errorLogFilePath,
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 30,
+                    shared: true))
             .Enrich.FromLogContext()
             .Enrich.WithEnvironmentUserName()
             .Enrich.WithThreadId();
