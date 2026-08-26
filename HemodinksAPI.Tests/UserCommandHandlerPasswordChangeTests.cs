@@ -1,17 +1,10 @@
-using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Authorization;
-using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Application.Services;
-using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
-using HemodinksAPI.Infrastructure.Services;
-using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Tests;
 
