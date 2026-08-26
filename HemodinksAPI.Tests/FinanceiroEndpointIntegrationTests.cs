@@ -15,6 +15,52 @@ namespace HemodinksAPI.Tests;
 public partial class ApiEndpointIntegrationTests
 {
     [Fact]
+    public async Task ArquivoDoHistorico_PodeSerEnviadoListadoBaixadoEExcluidoPorMes()
+    {
+        var fileStorage = new TestingFinancialFileStorage();
+        using var factory = new HemodinksApiFactory(services =>
+        {
+            services.RemoveAll<IPatientFileStorage>();
+            services.AddSingleton<IPatientFileStorage>(fileStorage);
+        });
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        using var attachment = new MultipartFormDataContent();
+        attachment.Add(
+            new ByteArrayContent(Encoding.UTF8.GetBytes("relatorio mensal"))
+            {
+                Headers = { ContentType = new("application/pdf") }
+            },
+            "arquivo",
+            "historico-julho.pdf");
+
+        var uploadResponse = await client.PostAsync(
+            "/api/faturamentos-medicos/historico/2026/7/arquivos",
+            attachment);
+        Assert.Equal(HttpStatusCode.OK, uploadResponse.StatusCode);
+        using var uploadJson = await ReadJsonAsync(uploadResponse);
+        var fileId = uploadJson.RootElement.GetProperty("id").GetInt32();
+        Assert.Equal(2026, uploadJson.RootElement.GetProperty("ano").GetInt32());
+        Assert.Equal(7, uploadJson.RootElement.GetProperty("mes").GetInt32());
+
+        var list = await client.GetFromJsonAsync<JsonElement[]>(
+            "/api/faturamentos-medicos/historico/arquivos?ano=2026&mes=7");
+        Assert.NotNull(list);
+        Assert.Contains(list, item => item.GetProperty("id").GetInt32() == fileId);
+
+        var downloadResponse = await client.GetAsync(
+            $"/api/faturamentos-medicos/historico/arquivos/{fileId}/download");
+        Assert.Equal(HttpStatusCode.OK, downloadResponse.StatusCode);
+        Assert.Equal("relatorio mensal", await downloadResponse.Content.ReadAsStringAsync());
+
+        var deleteResponse = await client.DeleteAsync(
+            $"/api/faturamentos-medicos/historico/arquivos/{fileId}");
+        Assert.Equal(HttpStatusCode.NoContent, deleteResponse.StatusCode);
+        Assert.True(fileStorage.DeleteCalled);
+    }
+
+    [Fact]
     public async Task GlosaDoAtendimento_PropagaParaFaturamentoPopupEFinanceiro()
     {
         var fileStorage = new TestingFinancialFileStorage();
@@ -618,6 +664,7 @@ public partial class ApiEndpointIntegrationTests
     {
         private byte[] _content = [];
         public string? LastSavedName { get; private set; }
+        public bool DeleteCalled { get; private set; }
         public async Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
         {
             LastSavedName = file.FileName; await using var stream = new MemoryStream();
@@ -626,6 +673,10 @@ public partial class ApiEndpointIntegrationTests
         }
         public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken) =>
             Task.FromResult<StoredPatientFileContent?>(new(new MemoryStream(_content)));
-        public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken) => Task.CompletedTask;
+        public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
+        {
+            DeleteCalled = true;
+            return Task.CompletedTask;
+        }
     }
 }

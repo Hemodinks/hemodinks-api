@@ -49,6 +49,14 @@ public record AtendimentoProcedimentoDto(int Id, string? CbhpmCodigo, string? Cb
     decimal Quantidade, decimal PesoPercentual, decimal? ValorReferencia, decimal? ValorNegociado, int Ordem);
 public record AtendimentoArquivoDto(int Id, string NomeOriginal, string ContentType, long TamanhoBytes,
     string Url, DateTime DataUpload);
+public record FaturamentoHistoricoArquivoDto(
+    int Id,
+    int Ano,
+    int Mes,
+    string NomeOriginal,
+    string ContentType,
+    long TamanhoBytes,
+    DateTime DataUpload);
 public record AtendimentoDto(int Id, int PacienteId, string Paciente, DateTime DataProcedimento, int? HospitalId,
     int? ConvenioId, int? OpmeFornecedorId, string? OpmeFornecedor, int MedicoResponsavelId,
     int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,

@@ -120,6 +120,7 @@ internal sealed class RelationalCbhpmTestAppDbContext : IAppDbContext
     public DbSet<AtendimentoProcedimento> AtendimentoProcedimentos => throw new NotSupportedException();
     public DbSet<AtendimentoArquivo> AtendimentoArquivos => throw new NotSupportedException();
     public DbSet<Faturamento> Faturamentos => throw new NotSupportedException();
+    public DbSet<FaturamentoHistoricoArquivo> FaturamentoHistoricoArquivos => throw new NotSupportedException();
     public DbSet<FaturamentoItem> FaturamentoItens => throw new NotSupportedException();
     public DbSet<Glosa> Glosas => throw new NotSupportedException();
     public DbSet<RecursoGlosa> RecursosGlosa => throw new NotSupportedException();
