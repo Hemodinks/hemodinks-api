@@ -15,6 +15,103 @@ public sealed class FinanceiroFileUseCases(
     IClinicaContext tenant,
     ISender sender)
 {
+    public async Task<List<FaturamentoHistoricoArquivoDto>> ListHistoryFilesAsync(
+        int? year,
+        int? month,
+        CancellationToken cancellationToken)
+    {
+        ValidateHistoryPeriod(year, month, requireBoth: false);
+        var clinicId = tenant.GetRequiredClinicaId();
+        var query = db.FaturamentoHistoricoArquivos.AsNoTracking()
+            .Where(item => item.ClinicaId == clinicId);
+        if (year.HasValue) query = query.Where(item => item.Ano == year.Value);
+        if (month.HasValue) query = query.Where(item => item.Mes == month.Value);
+
+        return await query
+            .OrderByDescending(item => item.Ano)
+            .ThenByDescending(item => item.Mes)
+            .ThenByDescending(item => item.DataUpload)
+            .Select(item => new FaturamentoHistoricoArquivoDto(
+                item.Id,
+                item.Ano,
+                item.Mes,
+                item.NomeOriginal,
+                item.ContentType,
+                item.TamanhoBytes,
+                item.DataUpload))
+            .ToListAsync(cancellationToken);
+    }
+
+    public async Task<FaturamentoHistoricoArquivoDto> UploadHistoryFileAsync(
+        int year,
+        int month,
+        UploadedFile file,
+        CancellationToken cancellationToken)
+    {
+        ValidateHistoryPeriod(year, month, requireBoth: true);
+        var clinicId = tenant.GetRequiredClinicaId();
+        var stored = await storage.SaveAsync(file, cancellationToken);
+        try
+        {
+            var entity = new FaturamentoHistoricoArquivo
+            {
+                ClinicaId = clinicId,
+                Ano = year,
+                Mes = month,
+                NomeOriginal = stored.OriginalName,
+                ContentType = stored.ContentType,
+                TamanhoBytes = stored.SizeBytes,
+                Url = stored.Url,
+                DataUpload = DateTime.UtcNow
+            };
+            db.FaturamentoHistoricoArquivos.Add(entity);
+            await db.SaveChangesAsync(cancellationToken);
+            return new FaturamentoHistoricoArquivoDto(
+                entity.Id,
+                entity.Ano,
+                entity.Mes,
+                entity.NomeOriginal,
+                entity.ContentType,
+                entity.TamanhoBytes,
+                entity.DataUpload);
+        }
+        catch
+        {
+            await storage.DeleteAsync(stored.Url, CancellationToken.None);
+            throw;
+        }
+    }
+
+    public async Task<PrivateFileDownload> DownloadHistoryFileAsync(
+        int fileId,
+        CancellationToken cancellationToken)
+    {
+        var clinicId = tenant.GetRequiredClinicaId();
+        var entity = await db.FaturamentoHistoricoArquivos.AsNoTracking()
+            .SingleOrDefaultAsync(item => item.Id == fileId && item.ClinicaId == clinicId, cancellationToken)
+            ?? throw new KeyNotFoundException("Arquivo do histórico não encontrado.");
+        var stored = await storage.GetAsync(entity.Url, cancellationToken)
+            ?? throw new KeyNotFoundException("Arquivo do histórico não encontrado.");
+        return new PrivateFileDownload
+        {
+            Content = stored.Content,
+            ContentType = entity.ContentType,
+            FileName = entity.NomeOriginal
+        };
+    }
+
+    public async Task DeleteHistoryFileAsync(int fileId, CancellationToken cancellationToken)
+    {
+        var clinicId = tenant.GetRequiredClinicaId();
+        var entity = await db.FaturamentoHistoricoArquivos
+            .SingleOrDefaultAsync(item => item.Id == fileId && item.ClinicaId == clinicId, cancellationToken)
+            ?? throw new KeyNotFoundException("Arquivo do histórico não encontrado.");
+        var url = entity.Url;
+        db.FaturamentoHistoricoArquivos.Remove(entity);
+        await db.SaveChangesAsync(cancellationToken);
+        await storage.DeleteAsync(url, cancellationToken);
+    }
+
     public async Task DeleteAtendimentoAsync(
         int id,
         CurrentUserContext user,
@@ -162,6 +259,18 @@ public sealed class FinanceiroFileUseCases(
             && atendimento.MedicoAuxiliar1Id != user.Id
             && atendimento.MedicoAuxiliar2Id != user.Id)
             throw new UnauthorizedAccessException(message);
+    }
+
+    private static void ValidateHistoryPeriod(int? year, int? month, bool requireBoth)
+    {
+        if (requireBoth && (!year.HasValue || !month.HasValue))
+            throw new InvalidOperationException("Ano e mês são obrigatórios.");
+        if (year.HasValue && year is < 1900 or > 2100)
+            throw new InvalidOperationException("O ano deve estar entre 1900 e 2100.");
+        if (month.HasValue && month is < 1 or > 12)
+            throw new InvalidOperationException("O mês deve estar entre 1 e 12.");
+        if (month.HasValue && !year.HasValue)
+            throw new InvalidOperationException("Informe o ano ao filtrar por mês.");
     }
 }
 

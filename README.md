@@ -280,6 +280,8 @@ O nome e a foto institucionais pertencem a `Clinica` e somente o SuperAdministra
 | `GET` | `/api/configuracoes-sistema/current` | nao | configuracao publica do sistema |
 | `GET` | `/api/configuracoes-sistema/current/foto-empresa` | nao | foto da empresa |
 | `PUT` | `/api/configuracoes-sistema/current` | admin | atualiza nome e foto da empresa |
+| `GET` | `/api/monitoramento/erros` | admin | erros tecnicos paginados; administrador ve a propria clinica e SuperAdministrador ve todas |
+| `DELETE` | `/api/monitoramento/erros` | admin | limpa o histórico visível no escopo atual sem interromper novos logs |
 | `GET` | `/api/licencas/current` | sim | licenca do usuario autenticado |
 | `GET` | `/api/licencas/users/{userId}` | admin | consulta licenca de medico |
 | `PUT` | `/api/licencas/users/{userId}` | admin | atualiza licenca |

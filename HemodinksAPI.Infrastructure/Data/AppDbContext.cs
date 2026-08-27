@@ -50,6 +50,7 @@ public class AppDbContext : DbContext, IAppDbContext
     public DbSet<AtendimentoCirurgico> AtendimentosCirurgicos { get; set; } = null!;
     public DbSet<AtendimentoProcedimento> AtendimentoProcedimentos { get; set; } = null!;
     public DbSet<AtendimentoArquivo> AtendimentoArquivos { get; set; } = null!;
+    public DbSet<FaturamentoHistoricoArquivo> FaturamentoHistoricoArquivos { get; set; } = null!;
     public DbSet<Faturamento> Faturamentos { get; set; } = null!;
     public DbSet<FaturamentoItem> FaturamentoItens { get; set; } = null!;
     public DbSet<Glosa> Glosas { get; set; } = null!;

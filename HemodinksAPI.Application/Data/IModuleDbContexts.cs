@@ -68,5 +68,6 @@ public interface IFinanceEndpointDbContext : IUnitOfWork, IAuditDbContext
 {
     DbSet<AtendimentoCirurgico> AtendimentosCirurgicos { get; }
     DbSet<AtendimentoArquivo> AtendimentoArquivos { get; }
+    DbSet<FaturamentoHistoricoArquivo> FaturamentoHistoricoArquivos { get; }
     DbSet<Recebimento> Recebimentos { get; }
 }

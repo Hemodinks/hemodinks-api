@@ -38,5 +38,6 @@ public static partial class ApiApplicationExtensions
         app.MapSessionEndpoints();
         app.MapClinicaPlatformEndpoints();
         app.MapEquipeEndpoints();
+        app.MapMonitoringEndpoints();
     }
 }
