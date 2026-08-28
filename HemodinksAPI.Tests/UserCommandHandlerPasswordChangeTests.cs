@@ -134,7 +134,7 @@ public partial class UserCommandHandlerTests
     }
 
     [Fact]
-    public async Task ResetUserPassword_WhenUserExists_SetsDefaultPasswordAndRequiresPasswordChange()
+    public async Task ResetUserPassword_WhenUserExists_GeneratesUniqueTemporaryPasswordAndRequiresPasswordChange()
     {
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
@@ -160,7 +160,9 @@ public partial class UserCommandHandlerTests
         Assert.Equal(user.Id, response.Id);
         Assert.True(response.PrecisaTrocarSenha);
         Assert.True(storedUser.PrecisaTrocarSenha);
-        Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+        Assert.NotNull(response.SenhaTemporaria);
+        Assert.True(hasher.VerifyPassword(response.SenhaTemporaria, storedUser.Senha));
+        Assert.False(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
         Assert.False(hasher.VerifyPassword("SenhaAntiga@123", storedUser.Senha));
     }
 

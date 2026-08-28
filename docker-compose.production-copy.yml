@@ -7,6 +7,5 @@ services:
       Seed__CbhpmOnStartup: "false"
       Seed__UsersOnStartup: "false"
       EventReminders__RunHostedProcessor: "false"
-      PasswordReset__UseEmail: "false"
       PasswordReset__ExposeTokenInResponse: "true"
       AsyncQueues__Enabled: "false"

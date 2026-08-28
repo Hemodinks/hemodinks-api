@@ -1,6 +1,7 @@
 using HemodinksAPI.Api;
 using HemodinksAPI.Application.Async;
 using HemodinksAPI.Application.Services;
+using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Infrastructure.Queues;
 using HemodinksAPI.Infrastructure.Services;
 using HemodinksAPI.Application.Storage;
@@ -11,11 +12,32 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Tests;
 
 public class StorageRegistrationTests
 {
+    [Fact]
+    public void AddApplicationServices_InProduction_NeverExposesPasswordResetToken()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging();
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["PasswordReset:ExposeTokenInResponse"] = "true"
+            })
+            .Build();
+
+        services.AddApplicationServices(configuration, new TestWebHostEnvironment(Environments.Production));
+
+        using var serviceProvider = services.BuildServiceProvider();
+        var options = serviceProvider.GetRequiredService<IOptions<PasswordResetOptions>>().Value;
+
+        Assert.False(options.ExposeTokenInResponse);
+    }
+
     [Fact]
     public void AddStorage_WhenAzureConnectionStringIsMissingInDevelopment_RegistersLocalDiskStorage()
     {

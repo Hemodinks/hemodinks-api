@@ -1,19 +1,19 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Domain.Utils;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
 internal static class PasswordCommandMutations
 {
-    public static void ApplyDefaultPassword(
+    public static void ApplyTemporaryPassword(
         User user,
         IPasswordHasher passwordHasher,
+        string temporaryPassword,
         DateTime now)
     {
-        user.Senha = passwordHasher.HashPassword(DefaultUserPassword.Value);
+        user.Senha = passwordHasher.HashPassword(temporaryPassword);
         user.PrecisaTrocarSenha = true;
         user.DataAtualizacao = now;
     }

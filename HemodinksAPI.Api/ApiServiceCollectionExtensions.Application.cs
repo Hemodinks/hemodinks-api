@@ -129,29 +129,15 @@ public static partial class ApiServiceCollectionExtensions
         services.Configure<PasswordResetOptions>(options =>
         {
             configuration.GetSection("PasswordReset").Bind(options);
-            var useEmail = ResolvePasswordResetUseEmail(configuration);
-
-            if (useEmail.HasValue)
+            if (environment.IsProduction())
             {
-                options.UseEmail = useEmail.Value;
+                options.ExposeTokenInResponse = false;
             }
-
-            if (!environment.IsProduction() && !configuration.GetSection("PasswordReset").Exists())
+            else if (!configuration.GetSection("PasswordReset").Exists())
             {
                 options.ExposeTokenInResponse = true;
             }
         });
-    }
-
-    private static bool? ResolvePasswordResetUseEmail(IConfiguration configuration)
-    {
-        return configuration.GetValue<bool?>("COM_EMAIL")
-            ?? configuration.GetValue<bool?>("PASSWORD_RESET_USE_EMAIL")
-            ?? configuration.GetValue<bool?>("PASSWORD_RESET_COM_EMAIL")
-            ?? configuration.GetValue<bool?>("com-email")
-            ?? configuration.GetValue<bool?>("PasswordReset:com-email")
-            ?? configuration.GetValue<bool?>("PasswordReset:ComEmail")
-            ?? configuration.GetValue<bool?>("PasswordReset:UseEmail");
     }
 
     private static bool ResolveAsyncQueueFeatureEnabled(

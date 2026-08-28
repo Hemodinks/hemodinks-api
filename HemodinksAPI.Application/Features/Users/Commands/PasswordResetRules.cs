@@ -3,12 +3,6 @@ using System.Text;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
-internal static class PasswordResetModes
-{
-    public const string EmailToken = "email-token";
-    public const string DefaultPassword = "default-password";
-}
-
 internal static class PasswordResetRules
 {
     private const int TokenBytes = 32;

@@ -32,8 +32,6 @@ services:
         sync: false
       - key: NEW_RELIC_APP_NAME
         value: Hemodinks API Confirmation
-      - key: PasswordReset__UseEmail
-        value: "true"
       - key: Frontend__ResetPasswordUrl
         value: https://hemodinks-homologacao.gestao-saude.tec.br/reset-password
       - key: AsyncQueues__Enabled
