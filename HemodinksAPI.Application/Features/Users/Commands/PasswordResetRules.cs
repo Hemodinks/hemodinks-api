@@ -3,12 +3,6 @@ using System.Text;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
-internal static class PasswordResetModes
-{
-    public const string EmailToken = "email-token";
-    public const string DefaultPassword = "default-password";
-}
-
 internal static class PasswordResetRules
 {
     private const int TokenBytes = 32;
@@ -38,12 +32,11 @@ internal static class PasswordResetRules
 
     }
 
-    public static RequestPasswordResetResponse CreateRequestResponse(DateTime now)
+    public static RequestPasswordResetResponse CreateRequestResponse()
     {
         return new RequestPasswordResetResponse
         {
-            Message = "Se o email estiver cadastrado, enviaremos as instrucoes para redefinir a senha.",
-            ExpiresAt = now.AddMinutes(30)
+            Message = "Se o email estiver cadastrado, enviaremos as instrucoes para redefinir a senha."
         };
     }
 

@@ -23,6 +23,15 @@ public sealed class ClinicaResolutionMiddleware
         AppDbContext dbContext,
         ILogger<ClinicaResolutionMiddleware> logger)
     {
+        if (IsPasswordResetConfirmation(httpContext.Request))
+        {
+            // O token e a credencial deste endpoint e identifica a clinica dona do
+            // reset. O endpoint resolve esse tenant antes de acessar os dados.
+            clinicaContext.SetPlatformScope();
+            await _next(httpContext);
+            return;
+        }
+
         if (!ShouldResolveClinica(httpContext.Request.Path))
         {
             await _next(httpContext);
@@ -77,6 +86,12 @@ public sealed class ClinicaResolutionMiddleware
     {
         return path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase)
             && !path.StartsWithSegments("/api/public/clinicas", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsPasswordResetConfirmation(HttpRequest request)
+    {
+        return HttpMethods.IsPost(request.Method)
+            && request.Path.Equals("/api/users/password/reset/confirm", StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<bool> ValidateActiveMembershipAsync(
