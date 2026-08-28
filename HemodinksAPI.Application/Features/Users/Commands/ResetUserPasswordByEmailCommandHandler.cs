@@ -1,7 +1,6 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Services;
 using MediatR;
-using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -9,18 +8,15 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
 {
     private readonly IAppDbContext _context;
     private readonly IPasswordResetNotificationSender _passwordResetNotificationSender;
-    private readonly PasswordResetOptions _options;
     private readonly ILogger<ResetUserPasswordByEmailCommandHandler> _logger;
 
     public ResetUserPasswordByEmailCommandHandler(
         IAppDbContext context,
         IPasswordResetNotificationSender passwordResetNotificationSender,
-        IOptions<PasswordResetOptions> options,
         ILogger<ResetUserPasswordByEmailCommandHandler> logger)
     {
         _context = context;
         _passwordResetNotificationSender = passwordResetNotificationSender;
-        _options = options.Value;
         _logger = logger;
     }
 
@@ -40,7 +36,7 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
         DateTime now,
         CancellationToken cancellationToken)
     {
-        var response = PasswordResetRules.CreateRequestResponse(now);
+        var response = PasswordResetRules.CreateRequestResponse();
         var user = await PasswordCommandQueries.GetActiveUserByEmailAsync(_context, email, cancellationToken);
 
         if (user == null)
@@ -67,7 +63,6 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
                 tokenEntity.ExpiresAt,
                 user.ClinicaId), cancellationToken);
 
-            response.DebugToken = _options.ExposeTokenInResponse ? token : null;
             return response;
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -75,7 +70,7 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
             _logger.LogError(ex, "Erro ao enviar email de reset de senha para usuario {UserId}", user.Id);
             tokenEntity.UsedAt = now;
             await _context.SaveChangesAsync(cancellationToken);
-            return PasswordResetRules.CreateRequestResponse(now);
+            return PasswordResetRules.CreateRequestResponse();
         }
     }
 }

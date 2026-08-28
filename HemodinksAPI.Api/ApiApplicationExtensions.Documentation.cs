@@ -14,9 +14,6 @@ public static partial class ApiApplicationExtensions
             return;
         }
 
-        // Necessario para identificar HTTPS corretamente atras do proxy do Render.
-        app.UseForwardedHeaders();
-
         app.UseSwagger();
         app.UseSwaggerUI(options =>
         {

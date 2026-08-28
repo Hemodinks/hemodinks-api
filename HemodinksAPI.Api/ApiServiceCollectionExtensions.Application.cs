@@ -2,7 +2,6 @@ using HemodinksAPI.Application;
 using HemodinksAPI.Application.Async;
 using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.ConfiguracoesSistema;
-using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Application.Features.Sessions;
 using HemodinksAPI.Application.Features.Clinics;
 using HemodinksAPI.Application.Features.Financeiro;
@@ -33,7 +32,6 @@ public static partial class ApiServiceCollectionExtensions
         services.Configure<EmailOptions>(configuration.GetSection("Email"));
         services.Configure<FrontendOptions>(configuration.GetSection("Frontend"));
         services.ConfigureAsyncQueueOptions(configuration);
-        services.ConfigurePasswordResetOptions(configuration, environment);
         services.AddAsyncQueueServices(configuration);
 
         services.AddMemoryCache();
@@ -119,25 +117,6 @@ public static partial class ApiServiceCollectionExtensions
 
         services.AddScoped<IPasswordResetNotificationTransport, SmtpPasswordResetNotificationSender>();
         services.AddScoped<IPasswordResetNotificationSender, FallbackPasswordResetNotificationSender>();
-    }
-
-    private static void ConfigurePasswordResetOptions(
-        this IServiceCollection services,
-        IConfiguration configuration,
-        IWebHostEnvironment environment)
-    {
-        services.Configure<PasswordResetOptions>(options =>
-        {
-            configuration.GetSection("PasswordReset").Bind(options);
-            if (environment.IsProduction())
-            {
-                options.ExposeTokenInResponse = false;
-            }
-            else if (!configuration.GetSection("PasswordReset").Exists())
-            {
-                options.ExposeTokenInResponse = true;
-            }
-        });
     }
 
     private static bool ResolveAsyncQueueFeatureEnabled(

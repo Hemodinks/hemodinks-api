@@ -32,12 +32,11 @@ internal static class PasswordResetRules
 
     }
 
-    public static RequestPasswordResetResponse CreateRequestResponse(DateTime now)
+    public static RequestPasswordResetResponse CreateRequestResponse()
     {
         return new RequestPasswordResetResponse
         {
-            Message = "Se o email estiver cadastrado, enviaremos as instrucoes para redefinir a senha.",
-            ExpiresAt = now.AddMinutes(30)
+            Message = "Se o email estiver cadastrado, enviaremos as instrucoes para redefinir a senha."
         };
     }
 

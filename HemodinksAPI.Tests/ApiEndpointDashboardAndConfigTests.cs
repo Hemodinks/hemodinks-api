@@ -92,7 +92,13 @@ public partial class ApiEndpointIntegrationTests
     [Fact]
     public async Task PasswordResetFlow_WhenTokenIsValid_AllowsAuthenticationWithNewPassword()
     {
-        using var factory = new HemodinksApiFactory();
+        var passwordResetSender = new RecordingPasswordResetNotificationSender();
+        using var factory = new HemodinksApiFactory(services =>
+        {
+            var descriptor = services.First(item => item.ServiceType == typeof(IPasswordResetNotificationSender));
+            services.Remove(descriptor);
+            services.AddSingleton<IPasswordResetNotificationSender>(passwordResetSender);
+        });
         using var client = factory.CreateClient();
 
         var requestResponse = await client.PostAsJsonAsync("/api/users/password/reset", new
@@ -101,9 +107,7 @@ public partial class ApiEndpointIntegrationTests
         });
 
         Assert.Equal(HttpStatusCode.OK, requestResponse.StatusCode);
-        using var requestJson = await ReadJsonAsync(requestResponse);
-        var token = requestJson.RootElement.GetProperty("debugToken").GetString();
-        Assert.False(string.IsNullOrWhiteSpace(token));
+        var token = passwordResetSender.Notifications.Single().Token;
 
         var confirmResponse = await client.PostAsJsonAsync("/api/users/password/reset/confirm", new
         {
