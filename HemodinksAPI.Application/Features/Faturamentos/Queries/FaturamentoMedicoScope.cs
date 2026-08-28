@@ -6,7 +6,7 @@ namespace HemodinksAPI.Application.Features.Faturamentos.Queries;
 internal static class FaturamentoMedicoScope
 {
     public static IQueryable<Paciente> ApplyScope(
-        IAppDbContext context,
+        IFaturamentoMedicoFeatureDbContext context,
         IQueryable<Paciente> query,
         int perfilId,
         int currentUserId,

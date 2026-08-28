@@ -1,6 +1,6 @@
+using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
@@ -17,7 +17,7 @@ public sealed class ClinicaModuleAccessMiddleware
     public async Task InvokeAsync(
         HttpContext context,
         ClinicaContext clinicaContext,
-        AppDbContext dbContext)
+        IClinicDirectoryDbContext dbContext)
     {
         var requiredModule = ResolveRequiredModule(context.Request.Path);
         if (requiredModule == null

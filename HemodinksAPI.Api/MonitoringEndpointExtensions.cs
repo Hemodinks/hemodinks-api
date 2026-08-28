@@ -260,10 +260,11 @@ public sealed class MonitoringLogReader
                 frames.Select(frame => frame.ClassName).ToList(),
                 firstFrame?.Method ?? ResolveSourceMethod(sourceContext),
                 firstFrame?.Line,
-                ResolveTechnicalDescription(exception, renderedMessage),
-                ReadProperty(properties, "UserName") ?? string.Empty,
-                ReadProperty(properties, "UserEmail") ?? string.Empty,
-                string.IsNullOrWhiteSpace(query) ? null : query,
+                ResolveTechnicalDescription(renderedMessage),
+                string.Empty,
+                HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(
+                    ReadProperty(properties, "UserEmail")),
+                null,
                 operationMatch is { Success: true } ? operationMatch.Value.ToUpperInvariant() : null,
                 ReadFirstProperty(properties, "RequestId", "TraceIdentifier"));
             return true;
@@ -327,14 +328,9 @@ public sealed class MonitoringLogReader
         return separator >= 0 ? sourceContext[(separator + 1)..] : sourceContext;
     }
 
-    private static string ResolveTechnicalDescription(string? exception, string renderedMessage)
+    private static string ResolveTechnicalDescription(string renderedMessage)
     {
-        if (string.IsNullOrWhiteSpace(exception))
-        {
-            return renderedMessage.Trim('"');
-        }
-
-        return exception.Split(['\r', '\n'], StringSplitOptions.RemoveEmptyEntries)[0].Trim();
+        return renderedMessage.Trim('"');
     }
 
     private static string? ReadFirstProperty(JsonElement properties, params string[] names)

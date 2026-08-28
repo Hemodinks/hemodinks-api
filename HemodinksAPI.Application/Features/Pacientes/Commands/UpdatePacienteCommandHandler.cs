@@ -12,14 +12,14 @@ namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
 public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteCommand, PacienteDto>
 {
-    private readonly IAppDbContext _context;
+    private readonly IPatientFeatureDbContext _context;
     private readonly ICbhpmCache _cbhpmCache;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<UpdatePacienteCommandHandler> _logger;
 
-    public UpdatePacienteCommandHandler(
-        IAppDbContext context,
+    internal UpdatePacienteCommandHandler(
+        IPatientFeatureDbContext context,
         ICbhpmCache cbhpmCache,
         IProfilePhotoStorage profilePhotoStorage,
         ILogger<UpdatePacienteCommandHandler> logger)
@@ -33,7 +33,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
     }
 
     public UpdatePacienteCommandHandler(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         ICbhpmCache cbhpmCache,
         IProfilePhotoStorage profilePhotoStorage,
         IClinicaContext clinicaContext,

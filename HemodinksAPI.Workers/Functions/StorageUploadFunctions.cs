@@ -76,7 +76,7 @@ public class StorageUploadFunctions
 
         var storedFile = await _patientFileStorage.SaveAsync(uploadedFile, cancellationToken);
 
-        _logger.LogInformation("Upload de arquivo processado pela Function para {FileName}", payload.FileName);
+        _logger.LogInformation("Upload de arquivo processado pela Function");
 
         var response = request.CreateResponse(HttpStatusCode.OK);
         response.Headers.Add("Content-Type", "application/json; charset=utf-8");

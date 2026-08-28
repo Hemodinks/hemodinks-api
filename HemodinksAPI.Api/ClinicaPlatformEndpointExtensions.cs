@@ -94,7 +94,6 @@ public static partial class ClinicaPlatformEndpointExtensions
     private static async Task<IResult> GetClinica(
         int id,
         IPlatformClinicDbContext context,
-        ClinicaContext clinicaContext,
         CancellationToken cancellationToken)
     {
         var clinica = await context.Clinicas.AsNoTracking().FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -103,7 +102,6 @@ public static partial class ClinicaPlatformEndpointExtensions
             return Results.NotFound();
         }
 
-        clinicaContext.SetPlatformScope();
         var userCount = await ClinicEmployees(context)
             .CountAsync(item => item.ClinicaId == id, cancellationToken);
         return Results.Ok(ToResponse(clinica, userCount));
@@ -116,7 +114,6 @@ public static partial class ClinicaPlatformEndpointExtensions
         IPlatformClinicDbContext context,
         IDataExecutionStrategy executionStrategy,
         IDataTransactionManager transactionManager,
-        ClinicaContext clinicaContext,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage photoStorage,
         PlatformAuditService auditService,
@@ -195,7 +192,6 @@ public static partial class ClinicaPlatformEndpointExtensions
                 clinica.FotoClinica = await photoStorage.SaveAsync(request.FotoClinica, null, cancellationToken);
             }
 
-            clinicaContext.SetPlatformScope();
             var admin = new User
             {
                 ClinicaId = clinica.Id,
@@ -298,13 +294,11 @@ public static partial class ClinicaPlatformEndpointExtensions
         ClaimsPrincipal principal,
         HttpContext httpContext,
         IPlatformClinicDbContext context,
-        ClinicaContext clinicaContext,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage photoStorage,
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
-        clinicaContext.SetPlatformScope();
         var administratorNewPassword = string.IsNullOrWhiteSpace(request.AdministradorNovaSenha)
             ? null
             : RequireText(request.AdministradorNovaSenha, "Nova senha do administrador invalida", 200);
@@ -415,7 +409,6 @@ public static partial class ClinicaPlatformEndpointExtensions
         clinica.DataAtualizacao = DateTime.UtcNow;
 
         var legacySettings = await context.ConfiguracoesSistema
-            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(item => item.ClinicaId == clinica.Id, cancellationToken);
         if (legacySettings != null)
         {
@@ -567,11 +560,10 @@ public static partial class ClinicaPlatformEndpointExtensions
     {
         var sourceId = int.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var parsedId) ? parsedId : 0;
         var source = await context.Users
-            .IgnoreQueryFilters()
             .AsNoTracking()
             .FirstOrDefaultAsync(item => item.Id == sourceId && item.PerfilId == Perfil.SuperAdministradorId, cancellationToken);
 
-        if (source == null || await context.Users.IgnoreQueryFilters().AnyAsync(
+        if (source == null || await context.Users.AnyAsync(
                 item => item.ClinicaId == clinicaId && item.Email == source.Email,
                 cancellationToken))
         {
@@ -646,7 +638,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         IPlatformClinicDbContext context,
         CancellationToken cancellationToken)
     {
-        var convenios = await context.Convenios.IgnoreQueryFilters().AsNoTracking()
+        var convenios = await context.Convenios.AsNoTracking()
             .Where(item => item.ClinicaId == Clinica.DefaultId)
             .Select(item => item.DescricaoConvenio)
             .ToListAsync(cancellationToken);
@@ -656,13 +648,13 @@ public static partial class ClinicaPlatformEndpointExtensions
             DescricaoConvenio = descricao
         }));
 
-        var hospitais = await context.Hospitais.IgnoreQueryFilters().AsNoTracking()
+        var hospitais = await context.Hospitais.AsNoTracking()
             .Where(item => item.ClinicaId == Clinica.DefaultId)
             .Select(item => item.Nome)
             .ToListAsync(cancellationToken);
         context.Hospitais.AddRange(hospitais.Select(nome => new Hospital { ClinicaId = targetClinicaId, Nome = nome }));
 
-        var fornecedores = await context.OPME.IgnoreQueryFilters().AsNoTracking()
+        var fornecedores = await context.OPME.AsNoTracking()
             .Where(item => item.ClinicaId == Clinica.DefaultId)
             .Select(item => item.Fornecedor)
             .ToListAsync(cancellationToken);

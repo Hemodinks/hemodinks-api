@@ -8,7 +8,7 @@ namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 internal static partial class PacienteRules
 {
     public static async Task<ResolvedMedico> ResolveMedicoAsync(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         int currentPerfilId,
         int currentUserId,
         string currentUserName,
@@ -99,7 +99,7 @@ internal static partial class PacienteRules
     }
 
     public static Task<ResolvedMedico> ResolveOptionalMedicoAsync(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         int currentPerfilId,
         int currentUserId,
         int? currentEquipeId,

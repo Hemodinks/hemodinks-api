@@ -156,6 +156,7 @@ if (-not $SkipEfCli) {
     }
 
     $commonArguments = @(
+        "--context", "AppDbContext",
         "--configuration", $Configuration,
         "--project", $infraProject,
         "--startup-project", $apiProject

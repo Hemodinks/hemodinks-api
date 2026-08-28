@@ -7,12 +7,12 @@ namespace HemodinksAPI.Application.Features.Users.Queries;
 
 public class GetUserProfilePhotoQueryHandler : IRequestHandler<GetUserProfilePhotoQuery, UserProfilePhotoDto?>
 {
-    private readonly IAppDbContext _context;
+    private readonly IUserFeatureDbContext _context;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly ILogger<GetUserProfilePhotoQueryHandler> _logger;
 
     public GetUserProfilePhotoQueryHandler(
-        IAppDbContext context,
+        IUserFeatureDbContext context,
         IProfilePhotoStorage profilePhotoStorage,
         ILogger<GetUserProfilePhotoQueryHandler> logger)
     {

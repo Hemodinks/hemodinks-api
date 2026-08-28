@@ -136,6 +136,7 @@ jobs:
         run: |
           mkdir -p artifacts
           dotnet tool run dotnet-ef migrations bundle \
+            --context AppDbContext \
             --self-contained \
             --target-runtime linux-x64 \
             --configuration Release \
@@ -144,6 +145,7 @@ jobs:
             --startup-project ./HemodinksAPI.Api/HemodinksAPI.Api.csproj \
             --output ./artifacts/hemodinks-efbundle
           dotnet tool run dotnet-ef migrations script \
+            --context AppDbContext \
             --idempotent \
             --configuration Release \
             --no-build \

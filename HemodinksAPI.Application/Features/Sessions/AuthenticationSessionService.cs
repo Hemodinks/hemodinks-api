@@ -1,10 +1,8 @@
 using System.Security.Cryptography;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api;
+namespace HemodinksAPI.Application.Features.Sessions;
 
 public sealed class AuthenticationSessionOptions
 {
@@ -31,20 +29,20 @@ public sealed record AuthenticationSessionValidation(
 
 public sealed class AuthenticationSessionService
 {
-    private readonly AppDbContext _context;
+    private readonly IAuthenticationSessionStore _store;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly AuthenticationSessionOptions _options;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<AuthenticationSessionService> _logger;
 
     public AuthenticationSessionService(
-        AppDbContext context,
+        IAuthenticationSessionStore store,
         IJwtTokenService jwtTokenService,
         AuthenticationSessionOptions options,
         TimeProvider timeProvider,
         ILogger<AuthenticationSessionService> logger)
     {
-        _context = context;
+        _store = store;
         _jwtTokenService = jwtTokenService;
         _options = options;
         _timeProvider = timeProvider;
@@ -59,11 +57,11 @@ public sealed class AuthenticationSessionService
         string? userAgent,
         CancellationToken cancellationToken)
     {
-        var membership = await ActiveMemberships()
-            .FirstOrDefaultAsync(item => item.UsuarioGlobalId == usuarioGlobalId
-                && item.UserId == userId
-                && item.ClinicaId == clinicaId,
-                cancellationToken);
+        var membership = await _store.FindActiveMembershipAsync(
+            usuarioGlobalId,
+            userId,
+            clinicaId,
+            cancellationToken);
 
         if (membership == null)
         {
@@ -84,8 +82,8 @@ public sealed class AuthenticationSessionService
             UserAgent = Truncate(userAgent, 512)
         };
 
-        _context.AuthenticationSessions.Add(session);
-        await _context.SaveChangesAsync(cancellationToken);
+        _store.Add(session);
+        await _store.SaveChangesAsync(cancellationToken);
 
         return Issue(session, membership, refreshToken);
     }
@@ -100,14 +98,7 @@ public sealed class AuthenticationSessionService
         }
 
         var tokenHash = HashRefreshToken(refreshToken);
-        var session = await _context.AuthenticationSessions
-            .IgnoreQueryFilters()
-            .Include(item => item.UsuarioClinica).ThenInclude(item => item.UsuarioGlobal)
-            .Include(item => item.UsuarioClinica).ThenInclude(item => item.Clinica)
-            .Include(item => item.UsuarioClinica).ThenInclude(item => item.Perfil)
-            .Include(item => item.UsuarioClinica).ThenInclude(item => item.User).ThenInclude(item => item.Perfil)
-            .Include(item => item.UsuarioClinica).ThenInclude(item => item.User).ThenInclude(item => item.Clinica)
-            .FirstOrDefaultAsync(item => item.RefreshTokenHash == tokenHash, cancellationToken);
+        var session = await _store.FindByRefreshTokenHashAsync(tokenHash, cancellationToken);
 
         var now = UtcNow();
         if (session == null)
@@ -138,13 +129,9 @@ public sealed class AuthenticationSessionService
         var newRefreshToken = GenerateRefreshToken();
         session.RefreshTokenHash = HashRefreshToken(newRefreshToken);
 
-        try
+        if (!await _store.TrySaveChangesAsync(cancellationToken))
         {
-            await _context.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException exception)
-        {
-            _logger.LogWarning(exception, "Tentativa concorrente de renovar a sessao {SessionId}", session.Id);
+            _logger.LogWarning("Tentativa concorrente de renovar a sessao {SessionId}", session.Id);
             return null;
         }
 
@@ -155,12 +142,7 @@ public sealed class AuthenticationSessionService
         Guid sessionId,
         CancellationToken cancellationToken)
     {
-        var session = await _context.AuthenticationSessions
-            .IgnoreQueryFilters()
-            .Include(item => item.UsuarioClinica).ThenInclude(item => item.UsuarioGlobal)
-            .Include(item => item.UsuarioClinica).ThenInclude(item => item.Clinica)
-            .Include(item => item.UsuarioClinica).ThenInclude(item => item.User).ThenInclude(item => item.Perfil)
-            .FirstOrDefaultAsync(item => item.Id == sessionId, cancellationToken);
+        var session = await _store.FindByIdAsync(sessionId, cancellationToken);
         var now = UtcNow();
 
         if (session == null || !IsActive(session, now) || !IsActive(session.UsuarioClinica))
@@ -185,14 +167,10 @@ public sealed class AuthenticationSessionService
         }
 
         session.LastActivityAt = now;
-        try
-        {
-            await _context.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException exception)
+        if (!await _store.TrySaveChangesAsync(cancellationToken))
         {
             // Outra requisicao da mesma sessao atualizou a atividade primeiro.
-            _logger.LogDebug(exception, "Atividade concorrente na sessao {SessionId}", sessionId);
+            _logger.LogDebug("Atividade concorrente na sessao {SessionId}", sessionId);
         }
 
         return new AuthenticationSessionValidation(
@@ -207,8 +185,11 @@ public sealed class AuthenticationSessionService
         int usuarioClinicaId,
         CancellationToken cancellationToken)
     {
-        var session = await _context.AuthenticationSessions
-            .FirstOrDefaultAsync(item => item.Id == sessionId && item.RevokedAt == null, cancellationToken);
+        var session = await _store.FindByIdAsync(sessionId, cancellationToken);
+        if (session?.RevokedAt != null)
+        {
+            session = null;
+        }
         if (session == null)
         {
             return false;
@@ -216,7 +197,7 @@ public sealed class AuthenticationSessionService
 
         session.UsuarioClinicaId = usuarioClinicaId;
         session.LastActivityAt = UtcNow();
-        await _context.SaveChangesAsync(cancellationToken);
+        await _store.SaveChangesAsync(cancellationToken);
         return true;
     }
 
@@ -226,41 +207,19 @@ public sealed class AuthenticationSessionService
         if (!string.IsNullOrWhiteSpace(refreshToken))
         {
             var tokenHash = HashRefreshToken(refreshToken);
-            session = await _context.AuthenticationSessions
-                .FirstOrDefaultAsync(item => item.RefreshTokenHash == tokenHash, cancellationToken);
+            session = await _store.FindByRefreshTokenHashAsync(tokenHash, cancellationToken);
         }
 
         if (session == null && sessionId.HasValue)
         {
-            session = await _context.AuthenticationSessions
-                .FirstOrDefaultAsync(item => item.Id == sessionId.Value, cancellationToken);
+            session = await _store.FindByIdAsync(sessionId.Value, cancellationToken);
         }
 
         if (session is { RevokedAt: null })
         {
             session.RevokedAt = UtcNow();
-            await _context.SaveChangesAsync(cancellationToken);
+            await _store.SaveChangesAsync(cancellationToken);
         }
-    }
-
-    private IQueryable<UsuarioClinica> ActiveMemberships()
-    {
-        return _context.UsuariosClinicas
-            .IgnoreQueryFilters()
-            .Include(item => item.UsuarioGlobal)
-            .Include(item => item.Clinica)
-            .Include(item => item.Perfil)
-            .Include(item => item.User).ThenInclude(item => item.Perfil)
-            .Include(item => item.User).ThenInclude(item => item.Clinica)
-            .Where(IsActiveExpression());
-    }
-
-    private static System.Linq.Expressions.Expression<Func<UsuarioClinica, bool>> IsActiveExpression()
-    {
-        return item => item.Ativo
-            && item.UsuarioGlobal.Ativo
-            && item.User.Ativo
-            && item.Clinica.Ativa;
     }
 
     private static bool IsActive(UsuarioClinica membership)
@@ -295,14 +254,8 @@ public sealed class AuthenticationSessionService
 
     private async Task SaveRevocationAsync(CancellationToken cancellationToken)
     {
-        try
-        {
-            await _context.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateConcurrencyException)
-        {
-            // A sessao ja foi atualizada ou revogada por outra requisicao.
-        }
+        // A sessao pode ter sido atualizada ou revogada por outra requisicao.
+        _ = await _store.TrySaveChangesAsync(cancellationToken);
     }
 
     private DateTime UtcNow() => _timeProvider.GetUtcNow().UtcDateTime;

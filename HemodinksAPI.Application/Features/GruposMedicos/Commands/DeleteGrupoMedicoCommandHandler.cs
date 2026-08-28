@@ -6,9 +6,9 @@ namespace HemodinksAPI.Application.Features.GruposMedicos.Commands;
 
 public class DeleteGrupoMedicoCommandHandler : IRequestHandler<DeleteGrupoMedicoCommand>
 {
-    private readonly IAppDbContext _context;
+    private readonly IMedicalGroupFeatureDbContext _context;
 
-    public DeleteGrupoMedicoCommandHandler(IAppDbContext context)
+    public DeleteGrupoMedicoCommandHandler(IMedicalGroupFeatureDbContext context)
     {
         _context = context;
     }

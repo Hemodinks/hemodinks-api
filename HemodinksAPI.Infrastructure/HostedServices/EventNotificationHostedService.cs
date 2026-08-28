@@ -20,10 +20,10 @@ public class EventNotificationHostedService : BackgroundService
             try
             {
                 using var scope = _serviceProvider.CreateScope();
-                scope.ServiceProvider
-                    .GetRequiredService<HemodinksAPI.Application.Tenancy.ClinicaContext>()
-                    .SetPlatformScope();
-                var processor = scope.ServiceProvider.GetRequiredService<IEventReminderProcessor>();
+                var processor = new Services.EventReminderProcessor(
+                    scope.ServiceProvider.GetRequiredService<Data.PlatformDbContext>(),
+                    scope.ServiceProvider.GetRequiredService<INotificationService>(),
+                    scope.ServiceProvider.GetRequiredService<ILogger<Services.EventReminderProcessor>>());
                 var processedCount = await processor.ProcessDueRemindersAsync(stoppingToken);
 
                 if (processedCount > 0)

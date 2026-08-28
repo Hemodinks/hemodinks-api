@@ -9,9 +9,9 @@ namespace HemodinksAPI.Application.Features.Events.Queries;
 public sealed class GetEventMedicalUsersQueryHandler
     : IRequestHandler<GetEventMedicalUsersQuery, IReadOnlyList<EventMedicalUserDto>>
 {
-    private readonly IAppDbContext _context;
+    private readonly IEventFeatureDbContext _context;
 
-    public GetEventMedicalUsersQueryHandler(IAppDbContext context)
+    public GetEventMedicalUsersQueryHandler(IEventFeatureDbContext context)
     {
         _context = context;
     }
@@ -46,10 +46,10 @@ public sealed class GetEventsQueryHandler
     : IRequestHandler<GetEventsQuery, IReadOnlyList<EventDto>>,
       IRequestHandler<GetEventByIdQuery, EventDto?>
 {
-    private readonly IAppDbContext _context;
+    private readonly IEventFeatureDbContext _context;
     private readonly IEventReminderProcessor _reminderProcessor;
 
-    public GetEventsQueryHandler(IAppDbContext context, IEventReminderProcessor reminderProcessor)
+    public GetEventsQueryHandler(IEventFeatureDbContext context, IEventReminderProcessor reminderProcessor)
     {
         _context = context;
         _reminderProcessor = reminderProcessor;

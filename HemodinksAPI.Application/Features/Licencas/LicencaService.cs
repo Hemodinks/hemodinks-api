@@ -8,10 +8,10 @@ namespace HemodinksAPI.Application.Features.Licencas;
 
 public class LicencaService : ILicencaService
 {
-    private readonly IAppDbContext _context;
+    private readonly ILicensingFeatureDbContext _context;
     private readonly LicencaOptions _options;
 
-    public LicencaService(IAppDbContext context, IOptions<LicencaOptions> options)
+    public LicencaService(ILicensingFeatureDbContext context, IOptions<LicencaOptions> options)
     {
         _context = context;
         _options = options.Value;

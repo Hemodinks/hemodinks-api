@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Storage;
 
 namespace HemodinksAPI.Infrastructure.Data;
 
-public sealed class EfDataExecution(AppDbContext context) : IDataExecutionStrategy, IDataTransactionManager
+public sealed class EfDataExecution(PlatformDbContext context) : IDataExecutionStrategy, IDataTransactionManager
 {
     public Task<T> ExecuteAsync<T>(
         Func<CancellationToken, Task<T>> operation,

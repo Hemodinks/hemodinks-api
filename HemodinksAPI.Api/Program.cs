@@ -2,6 +2,7 @@ using System.Diagnostics;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 using HemodinksAPI.Api;
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Infrastructure.Storage;
 using Microsoft.Extensions.FileProviders;
@@ -25,7 +26,7 @@ builder.Services
     .AddProxyForwarding(builder.Configuration)
     .AddTenancy()
     .AddAuth(builder.Configuration, builder.Environment)
-    .AddFrontendCors(builder.Configuration)
+    .AddFrontendCors(builder.Configuration, builder.Environment)
     .AddApiRateLimiting()
     .AddLicensing(builder.Configuration)
     .AddStorage(builder.Configuration, builder.Environment)
@@ -129,23 +130,48 @@ app.UseSerilogRequestLogging(options =>
         }
     };
 });
+if (app.Environment.IsProduction())
+{
+    app.UseHsts();
+}
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
 app.UseRateLimiter();
 app.UseAuthentication();
+app.Use(async (context, next) =>
+{
+    context.Response.OnStarting(() =>
+    {
+        context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+        context.Response.Headers["X-Frame-Options"] = "DENY";
+        context.Response.Headers["Referrer-Policy"] = "no-referrer";
+        context.Response.Headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
+
+        if (context.User.Identity?.IsAuthenticated == true
+            && IsPrivateFileRequest(context.Request.Path))
+        {
+            context.Response.Headers["Cache-Control"] = "no-store, private";
+            context.Response.Headers["Pragma"] = "no-cache";
+        }
+
+        return Task.CompletedTask;
+    });
+
+    await next();
+});
 app.UseMiddleware<AuthenticationSessionMiddleware>();
 app.UseMiddleware<ClinicaResolutionMiddleware>();
 app.Use(async (context, next) =>
 {
-    var userName = context.User.FindFirstValue(ClaimTypes.Name);
-    var userEmail = context.User.FindFirstValue(ClaimTypes.Email);
+    var userId = context.User.FindFirstValue(System.Security.Claims.ClaimTypes.NameIdentifier);
+    var globalUserId = context.User.FindFirstValue(GlobalIdentityClaimTypes.UsuarioGlobalId);
     var clinicId = context.User.FindFirstValue(ClinicaClaimTypes.ClinicaId);
 
     using (LogContext.PushProperty("RequestId", context.TraceIdentifier))
     using (LogContext.PushProperty("RequestMethod", context.Request.Method))
     using (LogContext.PushProperty("RequestPath", context.Request.Path.Value ?? string.Empty))
-    using (LogContext.PushProperty("UserName", userName ?? string.Empty))
-    using (LogContext.PushProperty("UserEmail", userEmail ?? string.Empty))
+    using (LogContext.PushProperty("UserId", userId ?? string.Empty))
+    using (LogContext.PushProperty("GlobalUserId", globalUserId ?? string.Empty))
     using (LogContext.PushProperty("ClinicId", clinicId ?? string.Empty))
     {
         await next();
@@ -162,6 +188,13 @@ app.Run();
 
 public partial class Program
 {
+    private static bool IsPrivateFileRequest(PathString path)
+    {
+        return path.Value?.Contains("/download", StringComparison.OrdinalIgnoreCase) == true
+            || path.Value?.Contains("/comprovante", StringComparison.OrdinalIgnoreCase) == true
+            || path.Value?.Contains("/foto-perfil", StringComparison.OrdinalIgnoreCase) == true;
+    }
+
     public static void ConfigureSerilog(LoggerConfiguration loggerConfiguration, string contentRootPath)
     {
         var logDirectory = Path.Combine(contentRootPath, "logs");
@@ -174,6 +207,7 @@ public partial class Program
             .WriteTo.Console()
             .WriteTo.File(logFilePath,
                 rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 30,
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
             .WriteTo.Logger(errorLogger => errorLogger
                 .MinimumLevel.Error()
@@ -184,7 +218,6 @@ public partial class Program
                     retainedFileCountLimit: 30,
                     shared: true))
             .Enrich.FromLogContext()
-            .Enrich.WithEnvironmentUserName()
             .Enrich.WithThreadId();
     }
 }

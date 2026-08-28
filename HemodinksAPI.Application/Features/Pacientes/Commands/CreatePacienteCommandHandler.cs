@@ -16,7 +16,7 @@ namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
 public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteCommand, PacienteDto>
 {
-    private readonly IAppDbContext _context;
+    private readonly IPatientFeatureDbContext _context;
     private readonly ICbhpmCache _cbhpmCache;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
@@ -24,8 +24,8 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
     private readonly ILogger<CreatePacienteCommandHandler> _logger;
     private readonly IPasswordResetNotificationSender? _passwordResetNotificationSender;
 
-    public CreatePacienteCommandHandler(
-        IAppDbContext context,
+    internal CreatePacienteCommandHandler(
+        IPatientFeatureDbContext context,
         ICbhpmCache cbhpmCache,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
@@ -43,7 +43,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
     }
 
     public CreatePacienteCommandHandler(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         ICbhpmCache cbhpmCache,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
@@ -184,7 +184,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao criar paciente: {NomePaciente}", request.NomePaciente);
+            _logger.LogError(ex, "Erro ao criar paciente");
             throw;
         }
     }

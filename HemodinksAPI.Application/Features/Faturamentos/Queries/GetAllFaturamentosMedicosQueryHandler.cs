@@ -8,12 +8,12 @@ namespace HemodinksAPI.Application.Features.Faturamentos.Queries;
 
 public class GetAllFaturamentosMedicosQueryHandler : IRequestHandler<GetAllFaturamentosMedicosQuery, PagedResult<PacienteDto>>
 {
-    private readonly IAppDbContext _context;
+    private readonly IFaturamentoMedicoFeatureDbContext _context;
     private readonly ILogger<GetAllFaturamentosMedicosQueryHandler> _logger;
     private readonly bool _supportsFullTextSearch;
 
     public GetAllFaturamentosMedicosQueryHandler(
-        IAppDbContext context,
+        IFaturamentoMedicoFeatureDbContext context,
         ILogger<GetAllFaturamentosMedicosQueryHandler> logger,
         IFullTextSearchCapability? fullTextSearchCapability = null)
     {

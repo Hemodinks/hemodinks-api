@@ -15,11 +15,11 @@ public sealed record DownloadPacienteArquivoQuery(
 public sealed class DownloadPacienteArquivoQueryHandler
     : IRequestHandler<DownloadPacienteArquivoQuery, PrivateFileDownload?>
 {
-    private readonly IAppDbContext _context;
+    private readonly IPatientFeatureDbContext _context;
     private readonly IPatientFileStorage _patientFileStorage;
 
     public DownloadPacienteArquivoQueryHandler(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         IPatientFileStorage patientFileStorage)
     {
         _context = context;

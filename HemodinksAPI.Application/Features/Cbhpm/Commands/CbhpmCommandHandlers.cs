@@ -7,12 +7,12 @@ namespace HemodinksAPI.Application.Features.Cbhpm.Commands;
 
 public class ImportCbhpmGeralCommandHandler : IRequestHandler<ImportCbhpmGeralCommand, CbhpmImportResultDto>
 {
-    private readonly IAppDbContext _context;
+    private readonly ICbhpmFeatureDbContext _context;
     private readonly ICbhpmCache _cbhpmCache;
     private readonly ILogger<ImportCbhpmGeralCommandHandler> _logger;
 
     public ImportCbhpmGeralCommandHandler(
-        IAppDbContext context,
+        ICbhpmFeatureDbContext context,
         ICbhpmCache cbhpmCache,
         ILogger<ImportCbhpmGeralCommandHandler> logger)
     {

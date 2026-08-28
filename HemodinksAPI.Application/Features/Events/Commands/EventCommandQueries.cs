@@ -8,7 +8,7 @@ namespace HemodinksAPI.Application.Features.Events.Commands;
 internal static class EventCommandQueries
 {
     public static async Task<EventDto> FindEventDtoAsync(
-        IAppDbContext context,
+        IEventFeatureDbContext context,
         int eventId,
         CancellationToken cancellationToken)
     {
@@ -23,7 +23,7 @@ internal static class EventCommandQueries
     }
 
     public static async Task<int> ResolveOwnerUserIdAsync(
-        IAppDbContext context,
+        IEventFeatureDbContext context,
         int? requestedUserId,
         CurrentUserContext currentUser,
         CancellationToken cancellationToken)
@@ -48,7 +48,7 @@ internal static class EventCommandQueries
     }
 
     public static async Task<int?> ResolveMedicalUserIdAsync(
-        IAppDbContext context,
+        IEventFeatureDbContext context,
         EventRequest request,
         CurrentUserContext currentUser,
         CancellationToken cancellationToken)
