@@ -1,9 +1,6 @@
 using System.Security.Claims;
 using HemodinksAPI.Application.Features.Users.Commands;
-using HemodinksAPI.Application.Tenancy;
-using HemodinksAPI.Infrastructure.Data;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
 
@@ -84,8 +81,7 @@ public static partial class UserEndpointExtensions
     private static Task<IResult> ConfirmPasswordReset(
         ConfirmPasswordResetCommand command,
         HttpContext httpContext,
-        ClinicaContext clinicaContext,
-        AppDbContext dbContext,
+        PasswordResetTenantResolver tenantResolver,
         RequestIdempotencyService requestIdempotencyService,
         IMediator mediator,
         ILogger<Program> logger,
@@ -93,19 +89,7 @@ public static partial class UserEndpointExtensions
     {
         return EndpointExecution.RunAsync(async () =>
         {
-            var tokenHash = PasswordResetTokenHasher.ComputeHash(command.Token);
-            var tokenClinica = await dbContext.PasswordResetTokens
-                .AsNoTracking()
-                .Where(item => item.TokenHash == tokenHash)
-                .Select(item => new { item.ClinicaId, item.Clinica.Slug })
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (tokenClinica == null)
-            {
-                throw new InvalidOperationException("Token de reset invalido ou expirado");
-            }
-
-            clinicaContext.SetCurrent(tokenClinica.ClinicaId, tokenClinica.Slug);
+            await tenantResolver.ResolveAsync(command.Token, cancellationToken);
 
             var execution = await requestIdempotencyService.ExecuteAsync(
                 httpContext,
