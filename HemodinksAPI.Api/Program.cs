@@ -207,6 +207,7 @@ public partial class Program
             .WriteTo.Console()
             .WriteTo.File(logFilePath,
                 rollingInterval: RollingInterval.Day,
+                retainedFileCountLimit: 30,
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
             .WriteTo.Logger(errorLogger => errorLogger
                 .MinimumLevel.Error()
@@ -217,7 +218,6 @@ public partial class Program
                     retainedFileCountLimit: 30,
                     shared: true))
             .Enrich.FromLogContext()
-            .Enrich.WithEnvironmentUserName()
             .Enrich.WithThreadId();
     }
 }

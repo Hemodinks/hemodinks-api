@@ -12,15 +12,18 @@ public sealed class RequestIdempotencyService
     private readonly IIdempotencyRequestStore _store;
     private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<RequestIdempotencyService> _logger;
+    private readonly TimeProvider _timeProvider;
 
     public RequestIdempotencyService(
         IIdempotencyRequestStore store,
         IClinicaContext clinicaContext,
-        ILogger<RequestIdempotencyService> logger)
+        ILogger<RequestIdempotencyService> logger,
+        TimeProvider timeProvider)
     {
         _store = store;
         _clinicaContext = clinicaContext;
         _logger = logger;
+        _timeProvider = timeProvider;
     }
 
     public async Task<RequestIdempotencyExecutionResult<TResponse>> ExecuteAsync<TResponse>(
@@ -67,7 +70,7 @@ public sealed class RequestIdempotencyService
             IdempotencyKey = key,
             RequestHash = requestHash,
             State = IdempotencyRequestStates.InProgress,
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = _timeProvider.GetUtcNow().UtcDateTime
         };
 
         if (!await _store.TryAddAsync(record, cancellationToken))
@@ -81,7 +84,8 @@ public sealed class RequestIdempotencyService
                     requestHash);
             }
 
-            throw;
+            throw new InvalidOperationException(
+                "Nao foi possivel confirmar a reserva da chave de idempotencia.");
         }
 
         try
@@ -92,7 +96,8 @@ public sealed class RequestIdempotencyService
                 record,
                 response.Payload,
                 response.ResourceLocation,
-                successStatusCode);
+                successStatusCode,
+                _timeProvider.GetUtcNow().UtcDateTime);
 
             await _store.CompleteAsync(record, cancellationToken);
 

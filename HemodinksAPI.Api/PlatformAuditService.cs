@@ -8,10 +8,12 @@ namespace HemodinksAPI.Api;
 public sealed class PlatformAuditService
 {
     private readonly IPlatformAuditWriter _writer;
+    private readonly TimeProvider _timeProvider;
 
-    public PlatformAuditService(IPlatformAuditWriter writer)
+    public PlatformAuditService(IPlatformAuditWriter writer, TimeProvider timeProvider)
     {
         _writer = writer;
+        _timeProvider = timeProvider;
     }
 
     public async Task RecordAsync(
@@ -54,6 +56,6 @@ public sealed class PlatformAuditService
             httpContext.Request.Headers.UserAgent.ToString(),
             httpContext.TraceIdentifier,
             success,
-            DateTime.UtcNow), cancellationToken);
+            _timeProvider.GetUtcNow().UtcDateTime), cancellationToken);
     }
 }

@@ -1,6 +1,6 @@
 using System.Security.Claims;
+using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Tenancy;
-using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
@@ -12,9 +12,9 @@ public sealed class ClinicaResolutionService
     public const string ClinicaIdHeaderName = "X-Clinica-Id";
     public const string ClinicaSlugHeaderName = "X-Clinica-Slug";
 
-    private readonly AppDbContext _context;
+    private readonly IPlatformTeamDbContext _context;
 
-    public ClinicaResolutionService(AppDbContext context)
+    public ClinicaResolutionService(IPlatformTeamDbContext context)
     {
         _context = context;
     }

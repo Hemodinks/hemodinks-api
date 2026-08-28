@@ -1,8 +1,8 @@
 using HemodinksAPI.Application.Tenancy;
 using System.Security.Claims;
 using HemodinksAPI.Application.Authentication;
+using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
@@ -20,7 +20,7 @@ public sealed class ClinicaResolutionMiddleware
         HttpContext httpContext,
         ClinicaContext clinicaContext,
         ClinicaResolutionService clinicaResolutionService,
-        AppDbContext dbContext,
+        IPlatformTeamDbContext dbContext,
         ILogger<ClinicaResolutionMiddleware> logger)
     {
         if (IsPasswordResetConfirmation(httpContext.Request))
@@ -97,7 +97,7 @@ public sealed class ClinicaResolutionMiddleware
     private static async Task<bool> ValidateActiveMembershipAsync(
         ClaimsPrincipal principal,
         ResolvedClinica clinica,
-        AppDbContext context,
+        IPlatformTeamDbContext context,
         CancellationToken cancellationToken)
     {
         if (principal.Identity?.IsAuthenticated != true)

@@ -9,20 +9,31 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
     private readonly IUserFeatureDbContext _context;
     private readonly IPasswordResetNotificationSender _passwordResetNotificationSender;
     private readonly ILogger<ResetUserPasswordByEmailCommandHandler> _logger;
+    private readonly TimeProvider _timeProvider;
+
+    internal ResetUserPasswordByEmailCommandHandler(
+        IUserFeatureDbContext context,
+        IPasswordResetNotificationSender passwordResetNotificationSender,
+        ILogger<ResetUserPasswordByEmailCommandHandler> logger)
+        : this(context, passwordResetNotificationSender, logger, TimeProvider.System)
+    {
+    }
 
     public ResetUserPasswordByEmailCommandHandler(
         IUserFeatureDbContext context,
         IPasswordResetNotificationSender passwordResetNotificationSender,
-        ILogger<ResetUserPasswordByEmailCommandHandler> logger)
+        ILogger<ResetUserPasswordByEmailCommandHandler> logger,
+        TimeProvider timeProvider)
     {
         _context = context;
         _passwordResetNotificationSender = passwordResetNotificationSender;
         _logger = logger;
+        _timeProvider = timeProvider;
     }
 
     public async Task<RequestPasswordResetResponse> Handle(ResetUserPasswordByEmailCommand request, CancellationToken cancellationToken)
     {
-        var now = DateTime.UtcNow;
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
         var email = request.Email.Trim();
 
         var maskedEmail = HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(email);
