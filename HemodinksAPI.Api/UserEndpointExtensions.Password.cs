@@ -81,6 +81,7 @@ public static partial class UserEndpointExtensions
     private static Task<IResult> ConfirmPasswordReset(
         ConfirmPasswordResetCommand command,
         HttpContext httpContext,
+        PasswordResetTenantResolver tenantResolver,
         RequestIdempotencyService requestIdempotencyService,
         IMediator mediator,
         ILogger<Program> logger,
@@ -88,6 +89,8 @@ public static partial class UserEndpointExtensions
     {
         return EndpointExecution.RunAsync(async () =>
         {
+            await tenantResolver.ResolveAsync(command.Token, cancellationToken);
+
             var execution = await requestIdempotencyService.ExecuteAsync(
                 httpContext,
                 operation: "users.password-reset.confirm",

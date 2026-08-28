@@ -30,6 +30,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddTransient<IRequestValidator<UpdateUserCommand>, UpdateUserCommandValidator>();
         services.AddTransient<IRequestValidator<ChangePasswordCommand>, ChangePasswordCommandValidator>();
         services.AddTransient<IRequestValidator<UpdateConfiguracaoSistemaCommand>, UpdateConfiguracaoSistemaCommandValidator>();
+        services.AddScoped<PasswordResetTenantResolver>();
 
         return services;
     }

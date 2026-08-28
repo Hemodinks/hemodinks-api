@@ -8,7 +8,7 @@ Este checklist registra o que ja esta coberto no repositorio e o que ainda depen
 - [x] API com `/healthz` publico.
 - [x] `/healthz` e `/` validam conectividade com o banco e migrations pendentes.
 - [x] Logs HTTP com Serilog, `TraceIdentifier` e header `X-Request-ID`.
-- [x] Reset de senha alternavel por ambiente: `PasswordReset__UseEmail=true|false`.
+- [x] Reset de senha exclusivamente por token, sem modo de senha padrao compartilhada.
 - [x] Reset por email com cadeia Function HTTP -> fila Azure -> SMTP, sem alterar a senha quando todos os transportes falham.
 - [x] Filas opcionais por recurso para reset de senha e exportacao PDF/XLSX.
 - [x] Trial/licenca com politicas por feature.
@@ -159,7 +159,6 @@ Obrigatorias:
 - `JwtSettings__ExpirationMinutes`
 - `Database__RunMigrationsOnStartup=false`
 - `Database__RunMaintenanceOnStartup=false`
-- `PasswordReset__UseEmail`
 
 Quando usar storage:
 
@@ -180,7 +179,6 @@ Quando usar email real:
 
 Quando usar reset direto por Azure Function HTTP:
 
-- `PasswordReset__UseEmail=true`
 - `PasswordResetFunctions__BaseUrl` com `http://` ou `https://`
 - `PasswordResetFunctions__FunctionKey`
 - Function App `HemodinksAPI.Workers` publicado com o endpoint HTTP de reset

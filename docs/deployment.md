@@ -270,7 +270,6 @@ Variaveis ja declaradas no blueprint:
 | `AuthenticationSession__RefreshCookieName` | `hemodinks_refresh` |
 | `AuthenticationSession__RefreshCookieLifetimeDays` | `30` |
 | `NEW_RELIC_APP_NAME` | `Hemodinks API Production` |
-| `PasswordReset__UseEmail` | `true` |
 | `AsyncQueues__Enabled` | `false` |
 | `AsyncQueues__PasswordResetEnabled` | `true` |
 | `AsyncQueues__FileExportEnabled` | `true` |

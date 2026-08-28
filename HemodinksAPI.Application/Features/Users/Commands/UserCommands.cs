@@ -181,30 +181,7 @@ public partial class ConfirmPasswordResetCommand : IRequest<ResetUserPasswordRes
 
 public class RequestPasswordResetResponse
 {
-    public int? Id { get; set; }
-
-    public bool? PrecisaTrocarSenha { get; set; }
-
     public string Message { get; set; } = null!;
-
-    public DateTime? ExpiresAt { get; set; }
-
-    public string? DebugToken { get; set; }
-
-    public string? Mode { get; set; }
-}
-
-public class PasswordResetOptions
-{
-    public bool UseEmail { get; set; } = true;
-
-    public bool ComEmail
-    {
-        get => UseEmail;
-        set => UseEmail = value;
-    }
-
-    public bool ExposeTokenInResponse { get; set; }
 }
 
 /// <summary>

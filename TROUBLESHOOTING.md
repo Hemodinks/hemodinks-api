@@ -48,13 +48,7 @@ ApiDocumentation__Enabled=true
 
 ## Reset de senha por email nao chega
 
-Confira primeiro se o fluxo por email esta ativo:
-
-```text
-PasswordReset__UseEmail=true
-```
-
-Depois valide a ordem de tentativa da API. Quando um canal configurado falha em runtime, a API registra o erro e tenta o proximo:
+Valide a ordem de tentativa da API. O reset sempre exige confirmacao por token; quando um canal configurado falha em runtime, a API registra o erro, tenta o proximo e nunca altera a senha atual:
 
 1. `PasswordResetFunctions__BaseUrl` valida + `PasswordResetFunctions__FunctionKey` preenchida -> chamada HTTP direta para o Function App.
 2. `AsyncQueues__PasswordResetEnabled=true` -> fila Azure `password-reset-emails`.

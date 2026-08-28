@@ -22,6 +22,7 @@ builder.Host.UseSerilog(
 
 builder.Services
     .AddDatabase(builder.Configuration)
+    .AddProxyForwarding(builder.Configuration)
     .AddTenancy()
     .AddAuth(builder.Configuration, builder.Environment)
     .AddFrontendCors(builder.Configuration)
@@ -32,6 +33,7 @@ builder.Services
     .AddApiDocumentation();
 
 var app = builder.Build();
+app.UseForwardedHeaders();
 app.Use(async (context, next) =>
 {
     try

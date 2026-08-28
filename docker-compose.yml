@@ -55,7 +55,6 @@ services:
       Seed__CbhpmOnStartup: "${Seed__CbhpmOnStartup:-true}"
       Seed__UsersOnStartup: "${Seed__UsersOnStartup:-true}"
       EventReminders__RunHostedProcessor: "${EventReminders__RunHostedProcessor:-true}"
-      PasswordReset__UseEmail: "${PasswordReset__UseEmail:-true}"
       AsyncQueues__Enabled: "${AsyncQueues__Enabled:-false}"
       AsyncQueues__PasswordResetEnabled: "${AsyncQueues__PasswordResetEnabled:-false}"
       AsyncQueues__FileExportEnabled: "${AsyncQueues__FileExportEnabled:-true}"

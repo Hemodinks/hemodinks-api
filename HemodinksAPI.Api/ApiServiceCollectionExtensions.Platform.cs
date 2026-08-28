@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using System.Net;
 using HemodinksAPI.Application.Features.Licencas;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -8,6 +9,70 @@ namespace HemodinksAPI.Api;
 
 public static partial class ApiServiceCollectionExtensions
 {
+    public static IServiceCollection AddProxyForwarding(this IServiceCollection services, IConfiguration configuration)
+    {
+        var section = configuration.GetSection("ForwardedHeaders");
+        var enabled = section.GetValue<bool>("Enabled");
+        var trustAnyImmediateProxy = section.GetValue<bool>("TrustAnyImmediateProxy");
+        var forwardLimit = section.GetValue<int?>("ForwardLimit") ?? 1;
+
+        if (forwardLimit < 1)
+        {
+            throw new InvalidOperationException("ForwardedHeaders:ForwardLimit deve ser maior que zero.");
+        }
+
+        services.Configure<ForwardedHeadersOptions>(options =>
+        {
+            options.ForwardedHeaders = enabled
+                ? ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
+                : ForwardedHeaders.None;
+            options.ForwardLimit = forwardLimit;
+
+            if (!enabled)
+            {
+                return;
+            }
+
+            if (trustAnyImmediateProxy)
+            {
+                options.KnownIPNetworks.Clear();
+                options.KnownProxies.Clear();
+                return;
+            }
+
+            var configuredProxies = section.GetSection("KnownProxies").Get<string[]>() ?? [];
+            var configuredNetworks = section.GetSection("KnownNetworks").Get<string[]>() ?? [];
+
+            if (configuredProxies.Length > 0 || configuredNetworks.Length > 0)
+            {
+                options.KnownIPNetworks.Clear();
+                options.KnownProxies.Clear();
+            }
+
+            foreach (var configuredProxy in configuredProxies)
+            {
+                if (!IPAddress.TryParse(configuredProxy, out var proxy))
+                {
+                    throw new InvalidOperationException($"Proxy confiavel invalido em ForwardedHeaders:KnownProxies: {configuredProxy}");
+                }
+
+                options.KnownProxies.Add(proxy);
+            }
+
+            foreach (var configuredNetwork in configuredNetworks)
+            {
+                if (!System.Net.IPNetwork.TryParse(configuredNetwork, out var network))
+                {
+                    throw new InvalidOperationException($"Rede confiavel invalida em ForwardedHeaders:KnownNetworks: {configuredNetwork}");
+                }
+
+                options.KnownIPNetworks.Add(network);
+            }
+        });
+
+        return services;
+    }
+
     public static IServiceCollection AddFrontendCors(this IServiceCollection services, IConfiguration configuration)
     {
         var defaultAllowedOrigins = new[]
@@ -133,13 +198,6 @@ public static partial class ApiServiceCollectionExtensions
             {
                 [new OpenApiSecuritySchemeReference("Bearer", document)] = new List<string>()
             });
-        });
-
-        services.Configure<ForwardedHeadersOptions>(options =>
-        {
-            options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-            options.KnownIPNetworks.Clear();
-            options.KnownProxies.Clear();
         });
 
         return services;

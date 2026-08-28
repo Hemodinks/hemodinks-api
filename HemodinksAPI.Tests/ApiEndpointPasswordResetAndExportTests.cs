@@ -1,6 +1,5 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using HemodinksAPI.Api;
 using HemodinksAPI.Application.Async;
 using HemodinksAPI.Infrastructure.Data;
@@ -13,7 +12,8 @@ public partial class ApiEndpointIntegrationTests
     [Fact]
     public async Task PasswordResetRequest_WhenRetriedWithSameIdempotencyKey_ReplaysSameToken()
     {
-        using var factory = new HemodinksApiFactory();
+        var passwordResetSender = new RecordingPasswordResetNotificationSender();
+        using var factory = CreateFactoryWithPasswordResetSender(passwordResetSender);
         using var client = factory.CreateClient();
 
         var key = Guid.NewGuid().ToString("N");
@@ -37,8 +37,9 @@ public partial class ApiEndpointIntegrationTests
         using var secondJson = await ReadJsonAsync(secondResponse);
 
         Assert.Equal(
-            firstJson.RootElement.GetProperty("debugToken").GetString(),
-            secondJson.RootElement.GetProperty("debugToken").GetString());
+            firstJson.RootElement.GetProperty("message").GetString(),
+            secondJson.RootElement.GetProperty("message").GetString());
+        Assert.Single(passwordResetSender.Notifications);
 
         using var scope = factory.Services.CreateScope();
         var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -50,7 +51,8 @@ public partial class ApiEndpointIntegrationTests
     [Fact]
     public async Task PasswordResetConfirm_WhenRetriedWithSameIdempotencyKey_ReplaysSuccess()
     {
-        using var factory = new HemodinksApiFactory();
+        var passwordResetSender = new RecordingPasswordResetNotificationSender();
+        using var factory = CreateFactoryWithPasswordResetSender(passwordResetSender);
         using var client = factory.CreateClient();
 
         var requestResponse = await client.PostAsJsonAsync("/api/users/password/reset", new
@@ -59,9 +61,7 @@ public partial class ApiEndpointIntegrationTests
         });
 
         Assert.Equal(HttpStatusCode.OK, requestResponse.StatusCode);
-        using var requestJson = await ReadJsonAsync(requestResponse);
-        var token = requestJson.RootElement.GetProperty("debugToken").GetString();
-        Assert.False(string.IsNullOrWhiteSpace(token));
+        var token = passwordResetSender.Notifications.Single().Token;
 
         var key = Guid.NewGuid().ToString("N");
         var firstConfirm = await PostAsJsonWithIdempotencyKeyAsync(client, "/api/users/password/reset/confirm", key, new
@@ -110,8 +110,7 @@ public partial class ApiEndpointIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var json = await ReadJsonAsync(response);
-        Assert.False(json.RootElement.TryGetProperty("debugToken", out var token)
-            && token.ValueKind != JsonValueKind.Null);
+        Assert.Equal(["message"], json.RootElement.EnumerateObject().Select(property => property.Name).ToArray());
     }
 
     [Fact]
@@ -148,6 +147,17 @@ public partial class ApiEndpointIntegrationTests
         Assert.Equal("xlsx", json.RootElement.GetProperty("format").GetString());
         Assert.Single(fileExportQueue.Messages);
         Assert.Equal("Dr. Teste", fileExportQueue.Messages[0].Filters["medico"]);
+    }
+
+    private static HemodinksApiFactory CreateFactoryWithPasswordResetSender(
+        RecordingPasswordResetNotificationSender passwordResetSender)
+    {
+        return new HemodinksApiFactory(services =>
+        {
+            var descriptor = services.First(item => item.ServiceType == typeof(HemodinksAPI.Application.Services.IPasswordResetNotificationSender));
+            services.Remove(descriptor);
+            services.AddSingleton<HemodinksAPI.Application.Services.IPasswordResetNotificationSender>(passwordResetSender);
+        });
     }
 
 }

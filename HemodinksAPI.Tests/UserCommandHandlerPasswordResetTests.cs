@@ -1,15 +1,25 @@
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Application.Services;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Tests;
 
 public partial class UserCommandHandlerTests
 {
+    [Fact]
+    public void RequestPasswordResetResponse_DoesNotExposeAccountState()
+    {
+        var publicProperties = typeof(RequestPasswordResetResponse)
+            .GetProperties()
+            .Select(property => property.Name)
+            .OrderBy(name => name)
+            .ToArray();
+
+        Assert.Equal(["Message"], publicProperties);
+    }
+
     [Fact]
     public async Task ResetUserPasswordByEmail_WhenUserExists_CreatesTokenWithoutChangingPassword()
     {
@@ -26,9 +36,7 @@ public partial class UserCommandHandlerTests
         var passwordResetSender = new FakePasswordResetNotificationSender();
         var handler = new ResetUserPasswordByEmailCommandHandler(
             context,
-            hasher,
             passwordResetSender,
-            Options.Create(new PasswordResetOptions { ExposeTokenInResponse = true }),
             NullLogger<ResetUserPasswordByEmailCommandHandler>.Instance);
 
         var response = await handler.Handle(new ResetUserPasswordByEmailCommand
@@ -39,11 +47,8 @@ public partial class UserCommandHandlerTests
         var storedUser = await context.Users.SingleAsync();
         Assert.False(storedUser.PrecisaTrocarSenha);
         Assert.True(hasher.VerifyPassword("SenhaAntiga@123", storedUser.Senha));
-        Assert.NotNull(response.DebugToken);
-        Assert.NotNull(response.ExpiresAt);
-        Assert.Equal("email-token", response.Mode);
         Assert.Equal(
-            "Enviamos um email com o link para redefinir sua senha. Use o link recebido para cadastrar uma nova senha.",
+            "Se o email estiver cadastrado, enviaremos as instrucoes para redefinir a senha.",
             response.Message);
         Assert.Equal(1, await context.PasswordResetTokens.CountAsync());
         Assert.Single(passwordResetSender.Notifications);
@@ -69,9 +74,7 @@ public partial class UserCommandHandlerTests
         };
         var handler = new ResetUserPasswordByEmailCommandHandler(
             context,
-            hasher,
             passwordResetSender,
-            Options.Create(new PasswordResetOptions { ExposeTokenInResponse = true }),
             NullLogger<ResetUserPasswordByEmailCommandHandler>.Instance);
 
         var response = await handler.Handle(new ResetUserPasswordByEmailCommand
@@ -79,11 +82,9 @@ public partial class UserCommandHandlerTests
             Email = "reset-queue@email.com"
         }, CancellationToken.None);
 
-        Assert.Equal("email-token", response.Mode);
         Assert.Equal(
-            "Recebemos sua solicitacao. Se o email estiver cadastrado, enviaremos as instrucoes para redefinir a senha.",
+            "Se o email estiver cadastrado, enviaremos as instrucoes para redefinir a senha.",
             response.Message);
-        Assert.NotNull(response.DebugToken);
         Assert.Single(passwordResetSender.Notifications);
     }
 
@@ -100,14 +101,13 @@ public partial class UserCommandHandlerTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
+        var passwordResetSender = new FakePasswordResetNotificationSender();
         var requestHandler = new ResetUserPasswordByEmailCommandHandler(
             context,
-            hasher,
-            new FakePasswordResetNotificationSender(),
-            Options.Create(new PasswordResetOptions { ExposeTokenInResponse = true }),
+            passwordResetSender,
             NullLogger<ResetUserPasswordByEmailCommandHandler>.Instance);
 
-        var requestResponse = await requestHandler.Handle(new ResetUserPasswordByEmailCommand
+        await requestHandler.Handle(new ResetUserPasswordByEmailCommand
         {
             Email = "confirm-reset@email.com"
         }, CancellationToken.None);
@@ -119,7 +119,7 @@ public partial class UserCommandHandlerTests
 
         var response = await confirmHandler.Handle(new ConfirmPasswordResetCommand
         {
-            Token = requestResponse.DebugToken!,
+            Token = passwordResetSender.Notifications.Single().Token,
             NovaSenha = "NovaSenha@123"
         }, CancellationToken.None);
 
@@ -140,9 +140,7 @@ public partial class UserCommandHandlerTests
         var passwordResetSender = new FakePasswordResetNotificationSender();
         var handler = new ResetUserPasswordByEmailCommandHandler(
             context,
-            new PasswordHasher(),
             passwordResetSender,
-            Options.Create(new PasswordResetOptions { ExposeTokenInResponse = true }),
             NullLogger<ResetUserPasswordByEmailCommandHandler>.Instance);
 
         var response = await handler.Handle(new ResetUserPasswordByEmailCommand
@@ -150,52 +148,15 @@ public partial class UserCommandHandlerTests
             Email = "nao-existe@email.com"
         }, CancellationToken.None);
 
-        Assert.Null(response.DebugToken);
-        Assert.NotNull(response.ExpiresAt);
+        Assert.Equal(
+            "Se o email estiver cadastrado, enviaremos as instrucoes para redefinir a senha.",
+            response.Message);
         Assert.Equal(0, await context.PasswordResetTokens.CountAsync());
         Assert.Empty(passwordResetSender.Notifications);
     }
 
     [Fact]
-    public async Task ResetUserPasswordByEmail_WhenUseEmailIsFalse_ResetsToDefaultPasswordWithoutSendingEmail()
-    {
-        await using var context = TestDbContextFactory.Create();
-        var hasher = new PasswordHasher();
-        var user = CreateUser(
-            id: 18,
-            email: "reset-legado@email.com",
-            passwordHash: hasher.HashPassword("SenhaAntiga@123"),
-            precisaTrocarSenha: false);
-        context.Users.Add(user);
-        await context.SaveChangesAsync();
-
-        var passwordResetSender = new FakePasswordResetNotificationSender();
-        var handler = new ResetUserPasswordByEmailCommandHandler(
-            context,
-            hasher,
-            passwordResetSender,
-            Options.Create(new PasswordResetOptions { UseEmail = false }),
-            NullLogger<ResetUserPasswordByEmailCommandHandler>.Instance);
-
-        var response = await handler.Handle(new ResetUserPasswordByEmailCommand
-        {
-            Email = "reset-legado@email.com"
-        }, CancellationToken.None);
-
-        var storedUser = await context.Users.SingleAsync();
-        Assert.Equal(user.Id, response.Id);
-        Assert.True(response.PrecisaTrocarSenha);
-        Assert.Equal("default-password", response.Mode);
-        Assert.Equal("Senha resetada para a senha padrao", response.Message);
-        Assert.True(storedUser.PrecisaTrocarSenha);
-        Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
-        Assert.False(hasher.VerifyPassword("SenhaAntiga@123", storedUser.Senha));
-        Assert.Equal(0, await context.PasswordResetTokens.CountAsync());
-        Assert.Empty(passwordResetSender.Notifications);
-    }
-
-    [Fact]
-    public async Task ResetUserPasswordByEmail_WhenNotificationFails_FallsBackToDefaultPassword()
+    public async Task ResetUserPasswordByEmail_WhenNotificationFails_PreservesPasswordAndInvalidatesToken()
     {
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
@@ -213,9 +174,7 @@ public partial class UserCommandHandlerTests
         };
         var handler = new ResetUserPasswordByEmailCommandHandler(
             context,
-            hasher,
             passwordResetSender,
-            Options.Create(new PasswordResetOptions { ExposeTokenInResponse = true }),
             NullLogger<ResetUserPasswordByEmailCommandHandler>.Instance);
 
         var response = await handler.Handle(new ResetUserPasswordByEmailCommand
@@ -225,15 +184,11 @@ public partial class UserCommandHandlerTests
 
         var storedUser = await context.Users.SingleAsync();
         var storedToken = await context.PasswordResetTokens.SingleAsync();
-        Assert.Equal(user.Id, response.Id);
-        Assert.True(response.PrecisaTrocarSenha);
-        Assert.Equal("default-password", response.Mode);
         Assert.Equal(
-            "Nao foi possivel enviar o email de redefinicao agora. A senha padrao foi aplicada para voce entrar e trocar a seguir.",
+            "Se o email estiver cadastrado, enviaremos as instrucoes para redefinir a senha.",
             response.Message);
-        Assert.True(storedUser.PrecisaTrocarSenha);
-        Assert.True(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
-        Assert.False(hasher.VerifyPassword("SenhaAntiga@123", storedUser.Senha));
+        Assert.False(storedUser.PrecisaTrocarSenha);
+        Assert.True(hasher.VerifyPassword("SenhaAntiga@123", storedUser.Senha));
         Assert.NotNull(storedToken.UsedAt);
         Assert.Single(passwordResetSender.Notifications);
     }
