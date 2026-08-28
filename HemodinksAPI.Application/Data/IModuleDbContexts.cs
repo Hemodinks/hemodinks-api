@@ -64,6 +64,11 @@ public interface IPlatformClinicDbContext : IPlatformTeamDbContext, IAuditDbCont
 
 public interface ISessionDbContext : IGlobalIdentityDbContext, IClinicDirectoryDbContext, IUserDbContext;
 
+public interface IAuthenticationSessionDbContext : ISessionDbContext
+{
+    DbSet<AuthenticationSession> AuthenticationSessions { get; }
+}
+
 public interface IFinanceEndpointDbContext : IUnitOfWork, IAuditDbContext
 {
     DbSet<AtendimentoCirurgico> AtendimentosCirurgicos { get; }
@@ -71,3 +76,113 @@ public interface IFinanceEndpointDbContext : IUnitOfWork, IAuditDbContext
     DbSet<FaturamentoHistoricoArquivo> FaturamentoHistoricoArquivos { get; }
     DbSet<Recebimento> Recebimentos { get; }
 }
+
+public interface IClinicalReferenceDbContext
+{
+    DbSet<CbhpmGeral> CbhpmGeral { get; }
+    DbSet<Convenio> Convenios { get; }
+    DbSet<Hospital> Hospitais { get; }
+    DbSet<Opme> OPME { get; }
+}
+
+public interface IPatientDataDbContext : IUserDbContext
+{
+    DbSet<Paciente> Pacientes { get; }
+    DbSet<PacienteArquivo> PacienteArquivos { get; }
+    DbSet<PacienteProcedimento> PacienteProcedimentos { get; }
+    DbSet<Observacao> Observacoes { get; }
+    DbSet<FaturamentoMedico> FaturamentosMedicos { get; }
+}
+
+public interface IMedicalGroupDataDbContext : IUserDbContext
+{
+    DbSet<GrupoMedico> GruposMedicos { get; }
+    DbSet<GrupoMedicoUsuario> GrupoMedicoUsuarios { get; }
+}
+
+public interface IMedicalUserScopeDbContext : ITeamDbContext, IMedicalGroupDataDbContext;
+
+public interface IEventDataDbContext
+{
+    DbSet<Event> Events { get; }
+    DbSet<AgendaNotification> AgendaNotifications { get; }
+}
+
+public interface IFinancialDataDbContext : IFinanceEndpointDbContext
+{
+    DbSet<AtendimentoProcedimento> AtendimentoProcedimentos { get; }
+    DbSet<Faturamento> Faturamentos { get; }
+    DbSet<FaturamentoItem> FaturamentoItens { get; }
+    DbSet<Glosa> Glosas { get; }
+    DbSet<RecursoGlosa> RecursosGlosa { get; }
+    DbSet<ContaReceber> ContasReceber { get; }
+    DbSet<ConvenioProcedimentoPreco> ConvenioProcedimentoPrecos { get; }
+    DbSet<FinanceiroMigracaoInconsistencia> FinanceiroMigracaoInconsistencias { get; }
+}
+
+public interface IUserAdministrationDataDbContext : IPasswordResetDbContext
+{
+    DbSet<Perfil> Perfis { get; }
+    DbSet<UserArquivo> UserArquivos { get; }
+    DbSet<Licenca> Licencas { get; }
+}
+
+public interface IPasswordResetDbContext : IUnitOfWork
+{
+    DbSet<PasswordResetToken> PasswordResetTokens { get; }
+}
+
+public interface IUserFeatureDbContext :
+    IUnitOfWork,
+    ITeamDbContext,
+    IClinicDirectoryDbContext,
+    IPatientDataDbContext,
+    IMedicalUserScopeDbContext,
+    IUserAdministrationDataDbContext;
+
+public interface IPatientFeatureDbContext :
+    IUnitOfWork,
+    IPatientDataDbContext,
+    IMedicalUserScopeDbContext,
+    IClinicalReferenceDbContext,
+    IPasswordResetDbContext;
+
+public interface ICbhpmFeatureDbContext : IUnitOfWork, IClinicalReferenceDbContext;
+
+public interface IMedicalGroupFeatureDbContext :
+    IUnitOfWork,
+    IMedicalUserScopeDbContext;
+
+public interface IEventFeatureDbContext :
+    IUnitOfWork,
+    IMedicalUserScopeDbContext,
+    IEventDataDbContext;
+
+public interface IFinanceFeatureDbContext :
+    IUnitOfWork,
+    IFinancialDataDbContext,
+    IPatientDataDbContext,
+    IClinicalReferenceDbContext;
+
+public interface IFaturamentoMedicoFeatureDbContext :
+    IUnitOfWork,
+    IPatientDataDbContext,
+    IMedicalUserScopeDbContext,
+    IClinicalReferenceDbContext;
+
+public interface IDashboardFeatureDbContext :
+    IUnitOfWork,
+    IPatientDataDbContext,
+    IMedicalUserScopeDbContext,
+    IEventDataDbContext,
+    IFinancialDataDbContext;
+
+public interface ILicensingFeatureDbContext :
+    IUnitOfWork,
+    IUserDbContext,
+    IClinicDirectoryDbContext
+{
+    DbSet<Licenca> Licencas { get; }
+}
+
+public interface ICatalogQueryDbContext : IClinicalReferenceDbContext;

@@ -11,6 +11,9 @@ using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Infrastructure.Data.Repositories;
 using HemodinksAPI.Infrastructure.HostedServices;
 using HemodinksAPI.Infrastructure.PasswordReset;
+using HemodinksAPI.Application.Idempotency;
+using HemodinksAPI.Application.Auditing;
+using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.Queues;
 using HemodinksAPI.Infrastructure.Seeders;
 using HemodinksAPI.Infrastructure.Services;
@@ -39,6 +42,8 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<UserSeeder>();
         services.AddScoped<CbhpmSeeder>();
         services.AddScoped<RequestIdempotencyService>();
+        services.AddScoped<IIdempotencyRequestStore, EfIdempotencyRequestStore>();
+        services.AddScoped<IPlatformAuditWriter, EfPlatformAuditWriter>();
         services.AddScoped<PlatformAuditService>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IEventReminderProcessor, EventReminderProcessor>();

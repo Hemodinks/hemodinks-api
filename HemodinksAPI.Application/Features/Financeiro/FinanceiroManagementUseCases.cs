@@ -23,7 +23,7 @@ internal static class FinanceiroManagementQueries
     }
 }
 
-public sealed class ObterAtendimentoQueryHandler(IAppDbContext db) : IRequestHandler<ObterAtendimentoQuery, AtendimentoDto>
+public sealed class ObterAtendimentoQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ObterAtendimentoQuery, AtendimentoDto>
 {
     public async Task<AtendimentoDto> Handle(ObterAtendimentoQuery request, CancellationToken ct)
     {
@@ -35,7 +35,7 @@ public sealed class ObterAtendimentoQueryHandler(IAppDbContext db) : IRequestHan
     }
 }
 
-public sealed class AtualizarAtendimentoCommandHandler(IAppDbContext db) : IRequestHandler<AtualizarAtendimentoCommand, AtendimentoDto>
+public sealed class AtualizarAtendimentoCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<AtualizarAtendimentoCommand, AtendimentoDto>
 {
     public async Task<AtendimentoDto> Handle(AtualizarAtendimentoCommand request, CancellationToken ct)
     {
@@ -132,7 +132,7 @@ public sealed class AtualizarAtendimentoCommandHandler(IAppDbContext db) : IRequ
     }
 }
 
-public sealed class ExcluirAtendimentoCommandHandler(IAppDbContext db) : IRequestHandler<ExcluirAtendimentoCommand>
+public sealed class ExcluirAtendimentoCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<ExcluirAtendimentoCommand>
 {
     public async Task Handle(ExcluirAtendimentoCommand request, CancellationToken ct)
     {
@@ -151,7 +151,7 @@ public sealed class ExcluirAtendimentoCommandHandler(IAppDbContext db) : IReques
     }
 }
 
-public sealed class ObterFaturamentoQueryHandler(IAppDbContext db) : IRequestHandler<ObterFaturamentoQuery, FaturamentoDto>
+public sealed class ObterFaturamentoQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ObterFaturamentoQuery, FaturamentoDto>
 {
     public async Task<FaturamentoDto> Handle(ObterFaturamentoQuery request, CancellationToken ct)
     {
@@ -163,7 +163,7 @@ public sealed class ObterFaturamentoQueryHandler(IAppDbContext db) : IRequestHan
     }
 }
 
-public sealed class AtualizarFaturamentoCommandHandler(IAppDbContext db) : IRequestHandler<AtualizarFaturamentoCommand, FaturamentoDto>
+public sealed class AtualizarFaturamentoCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<AtualizarFaturamentoCommand, FaturamentoDto>
 {
     public async Task<FaturamentoDto> Handle(AtualizarFaturamentoCommand request, CancellationToken ct)
     {
@@ -178,7 +178,7 @@ public sealed class AtualizarFaturamentoCommandHandler(IAppDbContext db) : IRequ
     }
 }
 
-public sealed class ExcluirFaturamentoCommandHandler(IAppDbContext db) : IRequestHandler<ExcluirFaturamentoCommand>
+public sealed class ExcluirFaturamentoCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<ExcluirFaturamentoCommand>
 {
     public async Task Handle(ExcluirFaturamentoCommand request, CancellationToken ct)
     {
@@ -190,7 +190,7 @@ public sealed class ExcluirFaturamentoCommandHandler(IAppDbContext db) : IReques
     }
 }
 
-public sealed class AtualizarFaturamentoItemCommandHandler(IAppDbContext db)
+public sealed class AtualizarFaturamentoItemCommandHandler(IFinanceFeatureDbContext db)
     : IRequestHandler<AtualizarFaturamentoItemCommand, FaturamentoDto>
 {
     public async Task<FaturamentoDto> Handle(AtualizarFaturamentoItemCommand request, CancellationToken ct)
@@ -216,7 +216,7 @@ public sealed class AtualizarFaturamentoItemCommandHandler(IAppDbContext db)
     }
 }
 
-public sealed class AtualizarGlosaCommandHandler(IAppDbContext db) : IRequestHandler<AtualizarGlosaCommand, FaturamentoDto>
+public sealed class AtualizarGlosaCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<AtualizarGlosaCommand, FaturamentoDto>
 {
     public async Task<FaturamentoDto> Handle(AtualizarGlosaCommand request, CancellationToken ct)
     {
@@ -236,7 +236,7 @@ public sealed class AtualizarGlosaCommandHandler(IAppDbContext db) : IRequestHan
     }
 }
 
-public sealed class ExcluirGlosaCommandHandler(IAppDbContext db) : IRequestHandler<ExcluirGlosaCommand, FaturamentoDto>
+public sealed class ExcluirGlosaCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<ExcluirGlosaCommand, FaturamentoDto>
 {
     public async Task<FaturamentoDto> Handle(ExcluirGlosaCommand request, CancellationToken ct)
     {
@@ -250,7 +250,7 @@ public sealed class ExcluirGlosaCommandHandler(IAppDbContext db) : IRequestHandl
     }
 }
 
-public sealed class AtualizarRecursoGlosaCommandHandler(IAppDbContext db) : IRequestHandler<AtualizarRecursoGlosaCommand, FaturamentoDto>
+public sealed class AtualizarRecursoGlosaCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<AtualizarRecursoGlosaCommand, FaturamentoDto>
 {
     public async Task<FaturamentoDto> Handle(AtualizarRecursoGlosaCommand request, CancellationToken ct)
     {
@@ -271,7 +271,7 @@ public sealed class AtualizarRecursoGlosaCommandHandler(IAppDbContext db) : IReq
     }
 }
 
-public sealed class ExcluirRecursoGlosaCommandHandler(IAppDbContext db) : IRequestHandler<ExcluirRecursoGlosaCommand, FaturamentoDto>
+public sealed class ExcluirRecursoGlosaCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<ExcluirRecursoGlosaCommand, FaturamentoDto>
 {
     public async Task<FaturamentoDto> Handle(ExcluirRecursoGlosaCommand request, CancellationToken ct)
     {
@@ -284,14 +284,14 @@ public sealed class ExcluirRecursoGlosaCommandHandler(IAppDbContext db) : IReque
     }
 }
 
-public sealed class ObterContaReceberQueryHandler(IAppDbContext db) : IRequestHandler<ObterContaReceberQuery, ContaReceberDto>
+public sealed class ObterContaReceberQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ObterContaReceberQuery, ContaReceberDto>
 {
     public async Task<ContaReceberDto> Handle(ObterContaReceberQuery request, CancellationToken ct) => FinanceiroMapper.ToDto(
         await FinanceiroManagementQueries.FullConta(db.ContasReceber.AsNoTracking()).SingleOrDefaultAsync(x => x.Id == request.Id, ct)
         ?? throw new KeyNotFoundException("Conta nao encontrada."));
 }
 
-public sealed class AtualizarContaReceberCommandHandler(IAppDbContext db) : IRequestHandler<AtualizarContaReceberCommand, ContaReceberDto>
+public sealed class AtualizarContaReceberCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<AtualizarContaReceberCommand, ContaReceberDto>
 {
     public async Task<ContaReceberDto> Handle(AtualizarContaReceberCommand request, CancellationToken ct)
     {
@@ -307,7 +307,7 @@ public sealed class AtualizarContaReceberCommandHandler(IAppDbContext db) : IReq
     }
 }
 
-public sealed class CancelarContaReceberCommandHandler(IAppDbContext db) : IRequestHandler<CancelarContaReceberCommand, ContaReceberDto>
+public sealed class CancelarContaReceberCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<CancelarContaReceberCommand, ContaReceberDto>
 {
     public async Task<ContaReceberDto> Handle(CancelarContaReceberCommand request, CancellationToken ct)
     {
@@ -321,7 +321,7 @@ public sealed class CancelarContaReceberCommandHandler(IAppDbContext db) : IRequ
     }
 }
 
-public sealed class ExcluirConvenioProcedimentoPrecoCommandHandler(IAppDbContext db) : IRequestHandler<ExcluirConvenioProcedimentoPrecoCommand>
+public sealed class ExcluirConvenioProcedimentoPrecoCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<ExcluirConvenioProcedimentoPrecoCommand>
 {
     public async Task Handle(ExcluirConvenioProcedimentoPrecoCommand request, CancellationToken ct)
     {
@@ -331,7 +331,7 @@ public sealed class ExcluirConvenioProcedimentoPrecoCommandHandler(IAppDbContext
     }
 }
 
-public sealed class PesquisarContasReceberQueryHandler(IAppDbContext db) : IRequestHandler<PesquisarContasReceberQuery, PagedResult<ContaReceberDto>>
+public sealed class PesquisarContasReceberQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<PesquisarContasReceberQuery, PagedResult<ContaReceberDto>>
 {
     public async Task<PagedResult<ContaReceberDto>> Handle(PesquisarContasReceberQuery request, CancellationToken ct)
     {
@@ -352,7 +352,7 @@ public sealed class PesquisarContasReceberQueryHandler(IAppDbContext db) : IRequ
     }
 }
 
-public sealed class PesquisarFaturamentosQueryHandler(IAppDbContext db) : IRequestHandler<PesquisarFaturamentosQuery, PagedResult<FaturamentoDto>>
+public sealed class PesquisarFaturamentosQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<PesquisarFaturamentosQuery, PagedResult<FaturamentoDto>>
 {
     public async Task<PagedResult<FaturamentoDto>> Handle(PesquisarFaturamentosQuery request, CancellationToken ct)
     {
@@ -370,7 +370,7 @@ public sealed class PesquisarFaturamentosQueryHandler(IAppDbContext db) : IReque
     }
 }
 
-public sealed class ObterFinanceiroResumoQueryHandler(IAppDbContext db) : IRequestHandler<ObterFinanceiroResumoQuery, FinanceiroResumoDto>
+public sealed class ObterFinanceiroResumoQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ObterFinanceiroResumoQuery, FinanceiroResumoDto>
 {
     public async Task<FinanceiroResumoDto> Handle(ObterFinanceiroResumoQuery request, CancellationToken ct)
     {
@@ -401,7 +401,7 @@ public sealed class ObterFinanceiroResumoQueryHandler(IAppDbContext db) : IReque
     }
 }
 
-public sealed class ObterPacienteFinanceiroResumoQueryHandler(IAppDbContext db)
+public sealed class ObterPacienteFinanceiroResumoQueryHandler(IFinanceFeatureDbContext db)
     : IRequestHandler<ObterPacienteFinanceiroResumoQuery, PacienteFinanceiroResumoDto>
 {
     public async Task<PacienteFinanceiroResumoDto> Handle(ObterPacienteFinanceiroResumoQuery request, CancellationToken ct)

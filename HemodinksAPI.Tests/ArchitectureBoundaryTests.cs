@@ -26,8 +26,17 @@ public sealed class ArchitectureBoundaryTests
 
         Assert.DoesNotContain("HemodinksAPI.Infrastructure", references);
         Assert.DoesNotContain("HemodinksAPI.Api", references);
+        Assert.DoesNotContain("Microsoft.EntityFrameworkCore.SqlServer", references);
         Assert.DoesNotContain(references, reference =>
             reference.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Application_does_not_expose_a_general_purpose_db_context()
+    {
+        var applicationAssembly = typeof(ApplicationServiceCollectionExtensions).Assembly;
+
+        Assert.Null(applicationAssembly.GetType("HemodinksAPI.Application.Data.IAppDbContext"));
     }
 
     [Fact]
@@ -36,10 +45,10 @@ public sealed class ArchitectureBoundaryTests
         var teamProperties = typeof(ITeamDbContext).GetProperties().Select(property => property.Name).ToHashSet();
         var financeProperties = typeof(IFinanceEndpointDbContext).GetProperties().Select(property => property.Name).ToHashSet();
 
-        Assert.DoesNotContain(nameof(IAppDbContext.Pacientes), teamProperties);
-        Assert.DoesNotContain(nameof(IAppDbContext.Faturamentos), teamProperties);
-        Assert.DoesNotContain(nameof(IAppDbContext.Users), financeProperties);
-        Assert.DoesNotContain(nameof(IAppDbContext.Pacientes), financeProperties);
+        Assert.DoesNotContain(nameof(IPatientDataDbContext.Pacientes), teamProperties);
+        Assert.DoesNotContain(nameof(IFinancialDataDbContext.Faturamentos), teamProperties);
+        Assert.DoesNotContain(nameof(IUserDbContext.Users), financeProperties);
+        Assert.DoesNotContain(nameof(IPatientDataDbContext.Pacientes), financeProperties);
     }
 
     [Fact]

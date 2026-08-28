@@ -8,9 +8,9 @@ namespace HemodinksAPI.Application.Features.Events;
 public sealed class GetAgendaNotificationRecipientOptionsQueryHandler
     : IRequestHandler<GetAgendaNotificationRecipientOptionsQuery, AgendaNotificationRecipientOptionsDto>
 {
-    private readonly IAppDbContext _context;
+    private readonly IEventFeatureDbContext _context;
 
-    public GetAgendaNotificationRecipientOptionsQueryHandler(IAppDbContext context)
+    public GetAgendaNotificationRecipientOptionsQueryHandler(IEventFeatureDbContext context)
     {
         _context = context;
     }

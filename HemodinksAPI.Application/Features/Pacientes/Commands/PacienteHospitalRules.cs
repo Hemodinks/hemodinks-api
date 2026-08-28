@@ -6,7 +6,7 @@ namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 internal static partial class PacienteRules
 {
     public static async Task<ResolvedHospital> ResolveHospitalAsync(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         int clinicaId,
         int? hospitalId,
         string? hospitalNome,

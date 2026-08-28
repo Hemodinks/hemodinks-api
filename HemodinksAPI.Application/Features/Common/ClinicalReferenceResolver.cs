@@ -16,7 +16,7 @@ internal sealed record ResolvedOpmeFornecedor(
 internal static class ClinicalReferenceResolver
 {
     public static async Task<ResolvedHospital> ResolveHospitalAsync(
-        IAppDbContext context,
+        IClinicalReferenceDbContext context,
         int clinicaId,
         int? hospitalId,
         string? hospitalNome,
@@ -52,7 +52,7 @@ internal static class ClinicalReferenceResolver
     }
 
     public static async Task<ResolvedConvenio?> ResolveConvenioAsync(
-        IAppDbContext context,
+        IClinicalReferenceDbContext context,
         int clinicaId,
         int? convenioId,
         string? convenioDescricao,
@@ -88,7 +88,7 @@ internal static class ClinicalReferenceResolver
     }
 
     public static async Task<ResolvedOpmeFornecedor?> ResolveOpmeFornecedorAsync(
-        IAppDbContext context,
+        IClinicalReferenceDbContext context,
         int clinicaId,
         int? fornecedorId,
         string? fornecedorNome,

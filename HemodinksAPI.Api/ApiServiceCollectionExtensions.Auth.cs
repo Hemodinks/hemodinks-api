@@ -1,6 +1,7 @@
 using System.Text;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Licencas;
+using HemodinksAPI.Application.Features.Sessions;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;

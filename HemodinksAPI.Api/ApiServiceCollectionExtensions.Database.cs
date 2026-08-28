@@ -23,13 +23,24 @@ public static partial class ApiServiceCollectionExtensions
                 sqlOptions.EnableRetryOnFailure();
             }));
 
-        services.AddScoped<IAppDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IUserFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IPatientFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<ICbhpmFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IMedicalGroupFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IEventFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IFinanceFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IFaturamentoMedicoFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IDashboardFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<ILicensingFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<ICatalogQueryDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IClinicalReferenceDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IClinicDirectoryDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IGlobalIdentityDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<ITeamDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IPlatformTeamDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IPlatformClinicDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<ISessionDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IAuthenticationSessionDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IFinanceEndpointDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<EfDataExecution>();
         services.AddScoped<IDataExecutionStrategy>(provider => provider.GetRequiredService<EfDataExecution>());

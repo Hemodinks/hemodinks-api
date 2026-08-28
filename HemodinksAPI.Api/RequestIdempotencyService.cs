@@ -1,7 +1,6 @@
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Idempotency;
 using HemodinksAPI.Application.Tenancy;
-using HemodinksAPI.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
 
@@ -10,16 +9,16 @@ public sealed class RequestIdempotencyService
     public const string IdempotencyKeyHeaderName = "Idempotency-Key";
     public const string IdempotencyStatusHeaderName = "Idempotency-Status";
 
-    private readonly AppDbContext _context;
+    private readonly IIdempotencyRequestStore _store;
     private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<RequestIdempotencyService> _logger;
 
     public RequestIdempotencyService(
-        AppDbContext context,
+        IIdempotencyRequestStore store,
         IClinicaContext clinicaContext,
         ILogger<RequestIdempotencyService> logger)
     {
-        _context = context;
+        _store = store;
         _clinicaContext = clinicaContext;
         _logger = logger;
     }
@@ -71,20 +70,11 @@ public sealed class RequestIdempotencyService
             CreatedAt = DateTime.UtcNow
         };
 
-        _context.IdempotencyRequests.Add(record);
-
-        try
+        if (!await _store.TryAddAsync(record, cancellationToken))
         {
-            await _context.SaveChangesAsync(cancellationToken);
-        }
-        catch (DbUpdateException ex)
-        {
-            _logger.LogDebug(ex, "Conflito ao registrar idempotencia para {Operation}/{Scope}", operation, normalizedScope);
-
             existingRequest = await FindExistingAsync(operation, normalizedScope, key, cancellationToken);
             if (existingRequest is not null)
             {
-                _context.Entry(record).State = EntityState.Detached;
                 return RequestIdempotencyReplay.BuildExistingResult<TResponse>(
                     httpContext,
                     existingRequest,
@@ -104,7 +94,7 @@ public sealed class RequestIdempotencyService
                 response.ResourceLocation,
                 successStatusCode);
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await _store.CompleteAsync(record, cancellationToken);
 
             httpContext.Response.Headers[IdempotencyStatusHeaderName] = "stored";
 
@@ -114,11 +104,9 @@ public sealed class RequestIdempotencyService
         }
         catch
         {
-            _context.IdempotencyRequests.Remove(record);
-
             try
             {
-                await _context.SaveChangesAsync(cancellationToken);
+                await _store.RemoveAsync(record, cancellationToken);
             }
             catch (Exception cleanupException)
             {
@@ -144,13 +132,12 @@ public sealed class RequestIdempotencyService
         string key,
         CancellationToken cancellationToken)
     {
-        return _context.IdempotencyRequests
-            .AsNoTracking()
-            .FirstOrDefaultAsync(
-                item => item.Operation == operation
-                    && item.Scope == scope
-                    && item.IdempotencyKey == key,
-                cancellationToken);
+        return _store.FindAsync(
+            _clinicaContext.GetRequiredClinicaId(),
+            operation,
+            scope,
+            key,
+            cancellationToken);
     }
 
     private string BuildScopedScope(string scope)

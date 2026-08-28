@@ -8,7 +8,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
-public sealed class CriarAtendimentoCommandHandler(IAppDbContext db, IClinicaContext tenant)
+public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, IClinicaContext tenant)
     : IRequestHandler<CriarAtendimentoCommand, AtendimentoDto>
 {
     public async Task<AtendimentoDto> Handle(CriarAtendimentoCommand request, CancellationToken ct)
@@ -74,7 +74,7 @@ public sealed class CriarAtendimentoCommandHandler(IAppDbContext db, IClinicaCon
     }
 }
 
-public sealed class ListarAtendimentosQueryHandler(IAppDbContext db) : IRequestHandler<ListarAtendimentosQuery, List<AtendimentoDto>>
+public sealed class ListarAtendimentosQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ListarAtendimentosQuery, List<AtendimentoDto>>
 {
     public async Task<List<AtendimentoDto>> Handle(ListarAtendimentosQuery request, CancellationToken ct)
     {
@@ -88,7 +88,7 @@ public sealed class ListarAtendimentosQueryHandler(IAppDbContext db) : IRequestH
     }
 }
 
-public sealed class CriarFaturamentoCommandHandler(IAppDbContext db, IClinicaContext tenant)
+public sealed class CriarFaturamentoCommandHandler(IFinanceFeatureDbContext db, IClinicaContext tenant)
     : IRequestHandler<CriarFaturamentoCommand, FaturamentoDto>
 {
     public async Task<FaturamentoDto> Handle(CriarFaturamentoCommand request, CancellationToken ct)
@@ -139,7 +139,7 @@ public sealed class CriarFaturamentoCommandHandler(IAppDbContext db, IClinicaCon
     }
 }
 
-public sealed class ListarFaturamentosQueryHandler(IAppDbContext db) : IRequestHandler<ListarFaturamentosQuery, List<FaturamentoDto>>
+public sealed class ListarFaturamentosQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ListarFaturamentosQuery, List<FaturamentoDto>>
 {
     public async Task<List<FaturamentoDto>> Handle(ListarFaturamentosQuery request, CancellationToken ct) =>
         (await ApplyScope(Full(db.Faturamentos.AsNoTracking()), request)
@@ -157,7 +157,7 @@ public sealed class ListarFaturamentosQueryHandler(IAppDbContext db) : IRequestH
         .Include(x => x.ContasReceber).ThenInclude(x => x.Recebimentos);
 }
 
-public sealed class AtualizarStatusFaturamentoCommandHandler(IAppDbContext db) : IRequestHandler<AtualizarStatusFaturamentoCommand, FaturamentoDto>
+public sealed class AtualizarStatusFaturamentoCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<AtualizarStatusFaturamentoCommand, FaturamentoDto>
 {
     public async Task<FaturamentoDto> Handle(AtualizarStatusFaturamentoCommand request, CancellationToken ct)
     {
@@ -180,7 +180,7 @@ public sealed class AtualizarStatusFaturamentoCommandHandler(IAppDbContext db) :
     }
 }
 
-public sealed class RegistrarGlosaCommandHandler(IAppDbContext db, IClinicaContext tenant) : IRequestHandler<RegistrarGlosaCommand, FaturamentoDto>
+public sealed class RegistrarGlosaCommandHandler(IFinanceFeatureDbContext db, IClinicaContext tenant) : IRequestHandler<RegistrarGlosaCommand, FaturamentoDto>
 {
     public async Task<FaturamentoDto> Handle(RegistrarGlosaCommand request, CancellationToken ct)
     {
@@ -202,7 +202,7 @@ public sealed class RegistrarGlosaCommandHandler(IAppDbContext db, IClinicaConte
     }
 }
 
-public sealed class RegistrarRetornoFaturamentoCommandHandler(IAppDbContext db, IClinicaContext tenant)
+public sealed class RegistrarRetornoFaturamentoCommandHandler(IFinanceFeatureDbContext db, IClinicaContext tenant)
     : IRequestHandler<RegistrarRetornoFaturamentoCommand, FaturamentoDto>
 {
     public async Task<FaturamentoDto> Handle(RegistrarRetornoFaturamentoCommand request, CancellationToken ct)
@@ -239,7 +239,7 @@ public sealed class RegistrarRetornoFaturamentoCommandHandler(IAppDbContext db, 
     }
 }
 
-public sealed class RegistrarRecursoGlosaCommandHandler(IAppDbContext db, IClinicaContext tenant) : IRequestHandler<RegistrarRecursoGlosaCommand, FaturamentoDto>
+public sealed class RegistrarRecursoGlosaCommandHandler(IFinanceFeatureDbContext db, IClinicaContext tenant) : IRequestHandler<RegistrarRecursoGlosaCommand, FaturamentoDto>
 {
     public async Task<FaturamentoDto> Handle(RegistrarRecursoGlosaCommand request, CancellationToken ct)
     {
@@ -263,7 +263,7 @@ public sealed class RegistrarRecursoGlosaCommandHandler(IAppDbContext db, IClini
     }
 }
 
-public sealed class GerarContaReceberCommandHandler(IAppDbContext db, IClinicaContext tenant) : IRequestHandler<GerarContaReceberCommand, ContaReceberDto>
+public sealed class GerarContaReceberCommandHandler(IFinanceFeatureDbContext db, IClinicaContext tenant) : IRequestHandler<GerarContaReceberCommand, ContaReceberDto>
 {
     public async Task<ContaReceberDto> Handle(GerarContaReceberCommand request, CancellationToken ct)
     {
@@ -304,7 +304,7 @@ public sealed class GerarContaReceberCommandHandler(IAppDbContext db, IClinicaCo
     }
 }
 
-public sealed class ListarContasReceberQueryHandler(IAppDbContext db) : IRequestHandler<ListarContasReceberQuery, List<ContaReceberDto>>
+public sealed class ListarContasReceberQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ListarContasReceberQuery, List<ContaReceberDto>>
 {
     public async Task<List<ContaReceberDto>> Handle(ListarContasReceberQuery request, CancellationToken ct)
     {
@@ -321,7 +321,7 @@ public sealed class ListarContasReceberQueryHandler(IAppDbContext db) : IRequest
     }
 }
 
-public sealed class RegistrarRecebimentoCommandHandler(IAppDbContext db, IClinicaContext tenant) : IRequestHandler<RegistrarRecebimentoCommand, ContaReceberDto>
+public sealed class RegistrarRecebimentoCommandHandler(IFinanceFeatureDbContext db, IClinicaContext tenant) : IRequestHandler<RegistrarRecebimentoCommand, ContaReceberDto>
 {
     public async Task<ContaReceberDto> Handle(RegistrarRecebimentoCommand request, CancellationToken ct)
     {
@@ -343,7 +343,7 @@ public sealed class RegistrarRecebimentoCommandHandler(IAppDbContext db, IClinic
     }
 }
 
-public sealed class EstornarRecebimentoCommandHandler(IAppDbContext db) : IRequestHandler<EstornarRecebimentoCommand, ContaReceberDto>
+public sealed class EstornarRecebimentoCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<EstornarRecebimentoCommand, ContaReceberDto>
 {
     public async Task<ContaReceberDto> Handle(EstornarRecebimentoCommand request, CancellationToken ct)
     {
@@ -363,7 +363,7 @@ public sealed class EstornarRecebimentoCommandHandler(IAppDbContext db) : IReque
     }
 }
 
-public sealed class SalvarConvenioProcedimentoPrecoCommandHandler(IAppDbContext db, IClinicaContext tenant)
+public sealed class SalvarConvenioProcedimentoPrecoCommandHandler(IFinanceFeatureDbContext db, IClinicaContext tenant)
     : IRequestHandler<SalvarConvenioProcedimentoPrecoCommand, ConvenioProcedimentoPrecoDto>
 {
     public async Task<ConvenioProcedimentoPrecoDto> Handle(SalvarConvenioProcedimentoPrecoCommand request, CancellationToken ct)
@@ -400,7 +400,7 @@ public sealed class SalvarConvenioProcedimentoPrecoCommandHandler(IAppDbContext 
         x.VigenciaInicio, x.VigenciaFinal, x.Ativo);
 }
 
-public sealed class ListarConvenioProcedimentoPrecosQueryHandler(IAppDbContext db)
+public sealed class ListarConvenioProcedimentoPrecosQueryHandler(IFinanceFeatureDbContext db)
     : IRequestHandler<ListarConvenioProcedimentoPrecosQuery, List<ConvenioProcedimentoPrecoDto>>
 {
     public async Task<List<ConvenioProcedimentoPrecoDto>> Handle(ListarConvenioProcedimentoPrecosQuery request, CancellationToken ct)

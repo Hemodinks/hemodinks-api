@@ -7,7 +7,7 @@ namespace HemodinksAPI.Application.Features.Pacientes.Observacoes;
 internal static class PacienteObservacaoRecipients
 {
     public static async Task<List<int>> ResolveReplyRecipientsAsync(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         CreatePacienteObservacaoCommand request,
         CancellationToken cancellationToken)
     {
@@ -41,7 +41,7 @@ internal static class PacienteObservacaoRecipients
     }
 
     public static async Task<List<int>> ResolveRootRecipientsAsync(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         CreatePacienteObservacaoCommand request,
         PacienteObservacaoContext paciente,
         CancellationToken cancellationToken)

@@ -7,7 +7,7 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 internal static class PasswordCommandQueries
 {
     public static Task<User?> GetActiveUserByEmailAsync(
-        IAppDbContext context,
+        IUserFeatureDbContext context,
         string email,
         CancellationToken cancellationToken)
     {
@@ -16,7 +16,7 @@ internal static class PasswordCommandQueries
     }
 
     public static Task<PasswordResetToken?> GetValidResetTokenAsync(
-        IAppDbContext context,
+        IUserFeatureDbContext context,
         string token,
         DateTime now,
         CancellationToken cancellationToken)

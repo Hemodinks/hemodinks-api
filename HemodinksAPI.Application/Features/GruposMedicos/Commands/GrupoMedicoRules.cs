@@ -8,7 +8,7 @@ namespace HemodinksAPI.Application.Features.GruposMedicos.Commands;
 internal static class GrupoMedicoRules
 {
     public static async Task ValidateAsync(
-        IAppDbContext context,
+        IMedicalGroupFeatureDbContext context,
         int? currentGroupId,
         string nome,
         IReadOnlyCollection<int> memberIds,
@@ -69,7 +69,7 @@ internal static class GrupoMedicoRules
         }
     }
 
-    public static Task<GrupoMedicoDto> GetDtoAsync(IAppDbContext context, int id, CancellationToken cancellationToken)
+    public static Task<GrupoMedicoDto> GetDtoAsync(IMedicalGroupFeatureDbContext context, int id, CancellationToken cancellationToken)
     {
         return context.GruposMedicos
             .AsNoTracking()

@@ -1,10 +1,10 @@
 using System.Security.Cryptography;
 using HemodinksAPI.Application.Authentication;
+using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace HemodinksAPI.Api;
+namespace HemodinksAPI.Application.Features.Sessions;
 
 public sealed class AuthenticationSessionOptions
 {
@@ -31,14 +31,14 @@ public sealed record AuthenticationSessionValidation(
 
 public sealed class AuthenticationSessionService
 {
-    private readonly AppDbContext _context;
+    private readonly IAuthenticationSessionDbContext _context;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly AuthenticationSessionOptions _options;
     private readonly TimeProvider _timeProvider;
     private readonly ILogger<AuthenticationSessionService> _logger;
 
     public AuthenticationSessionService(
-        AppDbContext context,
+        IAuthenticationSessionDbContext context,
         IJwtTokenService jwtTokenService,
         AuthenticationSessionOptions options,
         TimeProvider timeProvider,

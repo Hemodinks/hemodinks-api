@@ -7,7 +7,7 @@ namespace HemodinksAPI.Application.Features.Financeiro;
 internal static class FinanceiroProcedimentoResolver
 {
     public static async Task<ProcedimentoFinanceiroResolvido> ResolveAsync(
-        IAppDbContext db,
+        IFinanceFeatureDbContext db,
         AtendimentoProcedimentoInput input,
         int? convenioId,
         DateTime dataProcedimento,

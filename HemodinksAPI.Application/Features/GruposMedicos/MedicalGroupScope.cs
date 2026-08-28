@@ -7,7 +7,7 @@ namespace HemodinksAPI.Application.Features.GruposMedicos;
 internal static class MedicalGroupScope
 {
     public static IQueryable<User> BuildScopedMedicalUsersQuery(
-        IAppDbContext context,
+        IMedicalUserScopeDbContext context,
         int currentPerfilId,
         int currentUserId,
         int? currentEquipeId = null,
@@ -59,7 +59,7 @@ internal static class MedicalGroupScope
     }
 
     public static IQueryable<int> BuildScopedMedicalUserIdsQuery(
-        IAppDbContext context,
+        IMedicalUserScopeDbContext context,
         int currentPerfilId,
         int currentUserId,
         int? currentEquipeId = null)
@@ -69,7 +69,7 @@ internal static class MedicalGroupScope
     }
 
     public static async Task<HashSet<int>> GetScopedMedicalUserIdsAsync(
-        IAppDbContext context,
+        IMedicalUserScopeDbContext context,
         int currentPerfilId,
         int currentUserId,
         int? currentEquipeId,

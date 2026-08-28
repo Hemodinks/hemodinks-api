@@ -12,10 +12,10 @@ public sealed class EventCommandHandler :
     IRequestHandler<CompleteEventCommand>,
     IRequestHandler<DeleteEventCommand>
 {
-    private readonly IAppDbContext _context;
+    private readonly IEventFeatureDbContext _context;
     private readonly IClinicaContext _clinicaContext;
 
-    public EventCommandHandler(IAppDbContext context, IClinicaContext clinicaContext)
+    public EventCommandHandler(IEventFeatureDbContext context, IClinicaContext clinicaContext)
     {
         _context = context;
         _clinicaContext = clinicaContext;

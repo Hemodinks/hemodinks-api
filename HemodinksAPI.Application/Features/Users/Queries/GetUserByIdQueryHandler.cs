@@ -6,10 +6,10 @@ namespace HemodinksAPI.Application.Features.Users.Queries;
 
 public class GetUserByIdQueryHandler : IRequestHandler<GetUserByIdQuery, UserDto?>
 {
-    private readonly IAppDbContext _context;
+    private readonly IUserFeatureDbContext _context;
     private readonly ILogger<GetUserByIdQueryHandler> _logger;
 
-    public GetUserByIdQueryHandler(IAppDbContext context, ILogger<GetUserByIdQueryHandler> logger)
+    public GetUserByIdQueryHandler(IUserFeatureDbContext context, ILogger<GetUserByIdQueryHandler> logger)
     {
         _context = context;
         _logger = logger;

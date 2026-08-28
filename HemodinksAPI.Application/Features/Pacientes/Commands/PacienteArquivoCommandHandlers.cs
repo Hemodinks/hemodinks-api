@@ -9,12 +9,12 @@ namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
 public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacienteArquivoCommand, PacienteArquivoDto>
 {
-    private readonly IAppDbContext _context;
+    private readonly IPatientFeatureDbContext _context;
     private readonly IPatientFileStorage _patientFileStorage;
     private readonly ILogger<UploadPacienteArquivoCommandHandler> _logger;
 
     public UploadPacienteArquivoCommandHandler(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         IPatientFileStorage patientFileStorage,
         ILogger<UploadPacienteArquivoCommandHandler> logger)
     {
@@ -69,12 +69,12 @@ public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacient
 
 public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacienteArquivoCommand>
 {
-    private readonly IAppDbContext _context;
+    private readonly IPatientFeatureDbContext _context;
     private readonly IPatientFileStorage _patientFileStorage;
     private readonly ILogger<DeletePacienteArquivoCommandHandler> _logger;
 
     public DeletePacienteArquivoCommandHandler(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         IPatientFileStorage patientFileStorage,
         ILogger<DeletePacienteArquivoCommandHandler> logger)
     {

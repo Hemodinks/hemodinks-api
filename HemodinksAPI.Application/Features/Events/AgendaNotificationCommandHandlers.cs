@@ -6,9 +6,9 @@ namespace HemodinksAPI.Application.Features.Events;
 
 public sealed class MarkAgendaNotificationsAsReadCommandHandler : IRequestHandler<MarkAgendaNotificationsAsReadCommand, int>
 {
-    private readonly IAppDbContext _context;
+    private readonly IEventFeatureDbContext _context;
 
-    public MarkAgendaNotificationsAsReadCommandHandler(IAppDbContext context)
+    public MarkAgendaNotificationsAsReadCommandHandler(IEventFeatureDbContext context)
     {
         _context = context;
     }

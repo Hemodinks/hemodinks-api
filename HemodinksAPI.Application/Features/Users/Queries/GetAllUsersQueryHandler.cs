@@ -8,12 +8,12 @@ namespace HemodinksAPI.Application.Features.Users.Queries;
 
 public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedResult<UserDto>>
 {
-    private readonly IAppDbContext _context;
+    private readonly IUserFeatureDbContext _context;
     private readonly ILogger<GetAllUsersQueryHandler> _logger;
     private readonly bool _supportsFullTextSearch;
 
     public GetAllUsersQueryHandler(
-        IAppDbContext context,
+        IUserFeatureDbContext context,
         ILogger<GetAllUsersQueryHandler> logger,
         IFullTextSearchCapability? fullTextSearchCapability = null)
     {
@@ -92,7 +92,7 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedRe
             var condition = FullTextSearchTermBuilder.BuildPrefixCondition(search);
             query = supportsFullTextSearch && condition != null
                 ? query.Where(u =>
-                    EF.Functions.Contains(u.Nome, condition)
+                    FullTextSearch.Contains(u.Nome, condition)
                     || u.Email.Contains(search)
                     || u.Telefone.Contains(search)
                     || u.Perfil.Nome.Contains(search)

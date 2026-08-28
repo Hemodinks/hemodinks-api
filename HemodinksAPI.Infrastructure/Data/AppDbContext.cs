@@ -8,7 +8,19 @@ namespace HemodinksAPI.Infrastructure.Data;
 /// <summary>
 /// Contexto de banco de dados da aplicação
 /// </summary>
-public class AppDbContext : DbContext, IAppDbContext
+public class AppDbContext : DbContext,
+    IUserFeatureDbContext,
+    IPatientFeatureDbContext,
+    ICbhpmFeatureDbContext,
+    IMedicalGroupFeatureDbContext,
+    IEventFeatureDbContext,
+    IFinanceFeatureDbContext,
+    IFaturamentoMedicoFeatureDbContext,
+    IDashboardFeatureDbContext,
+    ILicensingFeatureDbContext,
+    ICatalogQueryDbContext,
+    IPlatformClinicDbContext,
+    IAuthenticationSessionDbContext
 {
     private static readonly MethodInfo ApplyClinicaQueryFilterMethod = typeof(AppDbContext)
         .GetMethod(nameof(ApplyClinicaQueryFilter), BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -109,6 +121,10 @@ public class AppDbContext : DbContext, IAppDbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
+        modelBuilder
+            .HasDbFunction(typeof(FullTextSearch).GetMethod(nameof(FullTextSearch.Contains))!)
+            .HasName("CONTAINS")
+            .IsBuiltIn();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
         ApplyClinicaQueryFilters(modelBuilder);
     }

@@ -1,18 +1,17 @@
 using System.Security.Claims;
 using System.Text.Json;
+using HemodinksAPI.Application.Auditing;
 using HemodinksAPI.Application.Authentication;
-using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Infrastructure.Data;
 
 namespace HemodinksAPI.Api;
 
 public sealed class PlatformAuditService
 {
-    private readonly AppDbContext _context;
+    private readonly IPlatformAuditWriter _writer;
 
-    public PlatformAuditService(AppDbContext context)
+    public PlatformAuditService(IPlatformAuditWriter writer)
     {
-        _context = context;
+        _writer = writer;
     }
 
     public async Task RecordAsync(
@@ -43,22 +42,18 @@ public sealed class PlatformAuditService
             ? new { EquipeId = equipeId, EquipeOperadorId = equipeOperadorId, Detalhes = details }
             : details;
 
-        _context.AuditoriasPlataforma.Add(new AuditoriaPlataforma
-        {
-            UsuarioGlobalId = globalUserId,
-            ClinicaId = clinicId,
-            UserId = localUserId,
-            Acao = action,
-            Recurso = resource,
-            EntidadeId = entityId,
-            DetalhesJson = auditDetails == null ? null : JsonSerializer.Serialize(auditDetails),
-            Ip = httpContext.Connection.RemoteIpAddress?.ToString(),
-            UserAgent = httpContext.Request.Headers.UserAgent.ToString(),
-            RequestId = httpContext.TraceIdentifier,
-            Sucesso = success,
-            DataCadastro = DateTime.UtcNow
-        });
-
-        await _context.SaveChangesAsync(cancellationToken);
+        await _writer.WriteAsync(new PlatformAuditEntry(
+            globalUserId,
+            clinicId,
+            localUserId,
+            action,
+            resource,
+            entityId,
+            auditDetails == null ? null : JsonSerializer.Serialize(auditDetails),
+            httpContext.Connection.RemoteIpAddress?.ToString(),
+            httpContext.Request.Headers.UserAgent.ToString(),
+            httpContext.TraceIdentifier,
+            success,
+            DateTime.UtcNow), cancellationToken);
     }
 }

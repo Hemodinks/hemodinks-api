@@ -7,12 +7,12 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 
 public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswordResetCommand, ResetUserPasswordResponse>
 {
-    private readonly IAppDbContext _context;
+    private readonly IUserFeatureDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<ConfirmPasswordResetCommandHandler> _logger;
 
     public ConfirmPasswordResetCommandHandler(
-        IAppDbContext context,
+        IUserFeatureDbContext context,
         IPasswordHasher passwordHasher,
         ILogger<ConfirmPasswordResetCommandHandler> logger)
     {

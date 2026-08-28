@@ -6,12 +6,12 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 
 public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserPasswordByEmailCommand, RequestPasswordResetResponse>
 {
-    private readonly IAppDbContext _context;
+    private readonly IUserFeatureDbContext _context;
     private readonly IPasswordResetNotificationSender _passwordResetNotificationSender;
     private readonly ILogger<ResetUserPasswordByEmailCommandHandler> _logger;
 
     public ResetUserPasswordByEmailCommandHandler(
-        IAppDbContext context,
+        IUserFeatureDbContext context,
         IPasswordResetNotificationSender passwordResetNotificationSender,
         ILogger<ResetUserPasswordByEmailCommandHandler> logger)
     {
@@ -25,7 +25,8 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
         var now = DateTime.UtcNow;
         var email = request.Email.Trim();
 
-        _logger.LogInformation("Solicitacao de reset de senha recebida para {Email}", email);
+        var maskedEmail = HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(email);
+        _logger.LogInformation("Solicitacao de reset de senha recebida para {MaskedEmail}", maskedEmail);
 
         return await HandleEmailPasswordResetAsync(email, request.RequestIp, now, cancellationToken);
     }
@@ -41,7 +42,9 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
 
         if (user == null)
         {
-            _logger.LogInformation("Solicitacao de reset ignorada porque email nao foi encontrado: {Email}", email);
+            _logger.LogInformation(
+                "Solicitacao de reset ignorada porque email nao foi encontrado: {MaskedEmail}",
+                HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(email));
             return response;
         }
 

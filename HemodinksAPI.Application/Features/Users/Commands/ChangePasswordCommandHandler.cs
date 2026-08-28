@@ -11,12 +11,12 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 /// </summary>
 public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordCommand, ChangePasswordResponse>
 {
-    private readonly IAppDbContext _context;
+    private readonly IUserFeatureDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<ChangePasswordCommandHandler> _logger;
 
     public ChangePasswordCommandHandler(
-        IAppDbContext context,
+        IUserFeatureDbContext context,
         IPasswordHasher passwordHasher,
         ILogger<ChangePasswordCommandHandler> logger)
     {
