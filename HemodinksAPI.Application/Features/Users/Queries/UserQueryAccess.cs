@@ -8,7 +8,7 @@ namespace HemodinksAPI.Application.Features.Users.Queries;
 internal static class UserQueryAccess
 {
     public static async Task EnsureCanAccessUserAsync(
-        IUserFeatureDbContext context,
+        IUserSearchDbContext context,
         CurrentUserContext? currentUser,
         int requestedUserId,
         CancellationToken cancellationToken)

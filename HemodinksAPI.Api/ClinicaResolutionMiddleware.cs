@@ -27,7 +27,6 @@ public sealed class ClinicaResolutionMiddleware
         {
             // O token e a credencial deste endpoint e identifica a clinica dona do
             // reset. O endpoint resolve esse tenant antes de acessar os dados.
-            clinicaContext.SetPlatformScope();
             await _next(httpContext);
             return;
         }

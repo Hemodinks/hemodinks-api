@@ -17,10 +17,16 @@ public class AppDbContext : DbContext,
     IFinanceFeatureDbContext,
     IFaturamentoMedicoFeatureDbContext,
     IDashboardFeatureDbContext,
+    IDashboardFinancialReadDbContext,
     ILicensingFeatureDbContext,
     ICatalogQueryDbContext,
+    IUserSearchDbContext,
+    IProfileDirectoryDbContext,
+    IPasswordCredentialDbContext,
+    IPasswordResetOperationsDbContext,
+    IPlatformPasswordResetDbContext,
     IPlatformClinicDbContext,
-    IAuthenticationSessionDbContext
+    ISessionDbContext
 {
     private static readonly MethodInfo ApplyClinicaQueryFilterMethod = typeof(AppDbContext)
         .GetMethod(nameof(ApplyClinicaQueryFilter), BindingFlags.Instance | BindingFlags.NonPublic)!;

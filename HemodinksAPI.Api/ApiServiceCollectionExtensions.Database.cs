@@ -22,8 +22,10 @@ public static partial class ApiServiceCollectionExtensions
                 sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name);
                 sqlOptions.EnableRetryOnFailure();
             }));
+        services.AddScoped<PlatformDbContext>();
 
         services.AddScoped<IUserFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IUserDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IPatientFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<ICbhpmFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IMedicalGroupFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
@@ -37,10 +39,14 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<IClinicDirectoryDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IGlobalIdentityDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<ITeamDbContext>(provider => provider.GetRequiredService<AppDbContext>());
-        services.AddScoped<IPlatformTeamDbContext>(provider => provider.GetRequiredService<AppDbContext>());
-        services.AddScoped<IPlatformClinicDbContext>(provider => provider.GetRequiredService<AppDbContext>());
-        services.AddScoped<ISessionDbContext>(provider => provider.GetRequiredService<AppDbContext>());
-        services.AddScoped<IAuthenticationSessionDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IUserSearchDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IProfileDirectoryDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IPasswordCredentialDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IPasswordResetOperationsDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<IPlatformPasswordResetDbContext>(provider => provider.GetRequiredService<PlatformDbContext>());
+        services.AddScoped<IPlatformTeamDbContext>(provider => provider.GetRequiredService<PlatformDbContext>());
+        services.AddScoped<IPlatformClinicDbContext>(provider => provider.GetRequiredService<PlatformDbContext>());
+        services.AddScoped<ISessionDbContext>(provider => provider.GetRequiredService<PlatformDbContext>());
         services.AddScoped<IFinanceEndpointDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<EfDataExecution>();
         services.AddScoped<IDataExecutionStrategy>(provider => provider.GetRequiredService<EfDataExecution>());

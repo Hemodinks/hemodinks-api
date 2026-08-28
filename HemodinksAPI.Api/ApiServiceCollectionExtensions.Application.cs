@@ -48,6 +48,7 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IEventReminderProcessor, EventReminderProcessor>();
         services.AddScoped<SessionUseCases>();
+        services.AddScoped<IAuthenticationSessionStore, EfAuthenticationSessionStore>();
         services.AddScoped<PublicClinicQueries>();
         services.AddScoped<FinanceiroFileUseCases>();
         services.AddScoped<TeamUseCases>();

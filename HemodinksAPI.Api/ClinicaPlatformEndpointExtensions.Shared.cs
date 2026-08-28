@@ -9,12 +9,11 @@ public static partial class ClinicaPlatformEndpointExtensions
     private static IQueryable<User> ClinicEmployees(IPlatformTeamDbContext context)
     {
         return context.Users
-            .IgnoreQueryFilters()
             .Where(user => (user.PerfilId == Perfil.AdministradorId
                     || user.PerfilId == Perfil.MedicosId
                     || user.PerfilId == Perfil.ControllerId
                     || user.PerfilId == Perfil.EquipeId)
-                && !context.Equipes.IgnoreQueryFilters().Any(team => team.UsuarioLoginId == user.Id));
+                && !context.Equipes.Any(team => team.UsuarioLoginId == user.Id));
     }
 
     private static string NormalizeSlug(string? value)

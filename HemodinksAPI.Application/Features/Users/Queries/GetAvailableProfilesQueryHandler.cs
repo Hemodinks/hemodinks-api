@@ -8,9 +8,9 @@ namespace HemodinksAPI.Application.Features.Users.Queries;
 public sealed class GetAvailableProfilesQueryHandler
     : IRequestHandler<GetAvailableProfilesQuery, IReadOnlyList<UserProfileOptionDto>>
 {
-    private readonly IUserFeatureDbContext _context;
+    private readonly IProfileDirectoryDbContext _context;
 
-    public GetAvailableProfilesQueryHandler(IUserFeatureDbContext context)
+    public GetAvailableProfilesQueryHandler(IProfileDirectoryDbContext context)
     {
         _context = context;
     }

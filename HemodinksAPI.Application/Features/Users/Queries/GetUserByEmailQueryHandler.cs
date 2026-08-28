@@ -6,10 +6,10 @@ namespace HemodinksAPI.Application.Features.Users.Queries;
 
 public class GetUserByEmailQueryHandler : IRequestHandler<GetUserByEmailQuery, UserDto?>
 {
-    private readonly IUserFeatureDbContext _context;
+    private readonly IUserDbContext _context;
     private readonly ILogger<GetUserByEmailQueryHandler> _logger;
 
-    public GetUserByEmailQueryHandler(IUserFeatureDbContext context, ILogger<GetUserByEmailQueryHandler> logger)
+    public GetUserByEmailQueryHandler(IUserDbContext context, ILogger<GetUserByEmailQueryHandler> logger)
     {
         _context = context;
         _logger = logger;

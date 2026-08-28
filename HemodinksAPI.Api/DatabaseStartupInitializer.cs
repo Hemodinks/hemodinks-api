@@ -1,7 +1,6 @@
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.Seeders;
-using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Application.Authentication;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,9 +11,7 @@ internal static class DatabaseStartupInitializer
     public static async Task InitializeAsync(WebApplication app)
     {
         using var scope = app.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var clinicaContext = scope.ServiceProvider.GetRequiredService<ClinicaContext>();
-        clinicaContext.SetPlatformScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
         try
@@ -56,16 +53,13 @@ internal static class DatabaseStartupInitializer
     private static async Task SynchronizeGlobalIdentitiesAsync(AppDbContext dbContext, ILogger logger)
     {
         var users = await dbContext.Users
-            .IgnoreQueryFilters()
             .OrderBy(item => item.Id)
             .ToListAsync();
 
         var linkedUserIds = await dbContext.UsuariosClinicas
-            .IgnoreQueryFilters()
             .Select(item => item.UserId)
             .ToHashSetAsync();
         var teamLoginUserIds = await dbContext.Equipes
-            .IgnoreQueryFilters()
             .Select(item => item.UsuarioLoginId)
             .ToHashSetAsync();
 
@@ -116,7 +110,6 @@ internal static class DatabaseStartupInitializer
         foreach (var email in configuredEmails)
         {
             var existingUsers = await dbContext.Users
-                .IgnoreQueryFilters()
                 .Where(item => item.Email == email)
                 .OrderBy(item => item.ClinicaId == Clinica.DefaultId ? 0 : 1)
                 .ThenBy(item => item.Id)

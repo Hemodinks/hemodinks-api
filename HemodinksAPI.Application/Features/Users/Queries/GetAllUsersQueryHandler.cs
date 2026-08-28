@@ -8,12 +8,12 @@ namespace HemodinksAPI.Application.Features.Users.Queries;
 
 public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedResult<UserDto>>
 {
-    private readonly IUserFeatureDbContext _context;
+    private readonly IUserSearchDbContext _context;
     private readonly ILogger<GetAllUsersQueryHandler> _logger;
     private readonly bool _supportsFullTextSearch;
 
     public GetAllUsersQueryHandler(
-        IUserFeatureDbContext context,
+        IUserSearchDbContext context,
         ILogger<GetAllUsersQueryHandler> logger,
         IFullTextSearchCapability? fullTextSearchCapability = null)
     {

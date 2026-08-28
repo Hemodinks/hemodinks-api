@@ -3,7 +3,7 @@ using HemodinksAPI.Domain.Models;
 
 namespace HemodinksAPI.Infrastructure.Data;
 
-public sealed class EfPlatformAuditWriter(AppDbContext context) : IPlatformAuditWriter
+public sealed class EfPlatformAuditWriter(PlatformDbContext context) : IPlatformAuditWriter
 {
     public async Task WriteAsync(PlatformAuditEntry entry, CancellationToken cancellationToken)
     {

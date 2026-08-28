@@ -72,7 +72,6 @@ public sealed class ClinicaResolutionService
         }
 
         return await _context.Users
-            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(item => item.Id == userId && item.Ativo)
             .Select(item => new ResolvedClinica(item.ClinicaId, item.Clinica.Nome, item.Clinica.Slug))

@@ -39,10 +39,23 @@ public interface IUserDbContext
     DbSet<User> Users { get; }
 }
 
-public interface ITeamDbContext : IGlobalIdentityDbContext, IUserDbContext
+public interface IUserSearchDbContext : IUserDbContext
+{
+    DbSet<EquipeMembro> EquipeMembros { get; }
+}
+
+public interface IEquipeDirectoryDbContext
 {
     DbSet<Equipe> Equipes { get; }
-    DbSet<EquipeMembro> EquipeMembros { get; }
+}
+
+public interface IProfileDirectoryDbContext
+{
+    DbSet<Perfil> Perfis { get; }
+}
+
+public interface ITeamDbContext : IGlobalIdentityDbContext, IUserSearchDbContext, IEquipeDirectoryDbContext
+{
     DbSet<EquipeOperador> EquipeOperadores { get; }
     DbSet<EquipeLoginDesafio> EquipeLoginDesafios { get; }
 }
@@ -63,11 +76,6 @@ public interface IPlatformClinicDbContext : IPlatformTeamDbContext, IAuditDbCont
 }
 
 public interface ISessionDbContext : IGlobalIdentityDbContext, IClinicDirectoryDbContext, IUserDbContext;
-
-public interface IAuthenticationSessionDbContext : ISessionDbContext
-{
-    DbSet<AuthenticationSession> AuthenticationSessions { get; }
-}
 
 public interface IFinanceEndpointDbContext : IUnitOfWork, IAuditDbContext
 {
@@ -100,7 +108,10 @@ public interface IMedicalGroupDataDbContext : IUserDbContext
     DbSet<GrupoMedicoUsuario> GrupoMedicoUsuarios { get; }
 }
 
-public interface IMedicalUserScopeDbContext : ITeamDbContext, IMedicalGroupDataDbContext;
+public interface IMedicalUserScopeDbContext :
+    IUserSearchDbContext,
+    IEquipeDirectoryDbContext,
+    IMedicalGroupDataDbContext;
 
 public interface IEventDataDbContext
 {
@@ -120,6 +131,13 @@ public interface IFinancialDataDbContext : IFinanceEndpointDbContext
     DbSet<FinanceiroMigracaoInconsistencia> FinanceiroMigracaoInconsistencias { get; }
 }
 
+public interface IDashboardFinancialReadDbContext
+{
+    DbSet<AtendimentoCirurgico> AtendimentosCirurgicos { get; }
+    DbSet<Faturamento> Faturamentos { get; }
+    DbSet<ContaReceber> ContasReceber { get; }
+}
+
 public interface IUserAdministrationDataDbContext : IPasswordResetDbContext
 {
     DbSet<Perfil> Perfis { get; }
@@ -131,6 +149,14 @@ public interface IPasswordResetDbContext : IUnitOfWork
 {
     DbSet<PasswordResetToken> PasswordResetTokens { get; }
 }
+
+public interface IPasswordCredentialDbContext : IUnitOfWork, IUserDbContext, IGlobalIdentityDbContext;
+
+public interface IPasswordResetOperationsDbContext :
+    IPasswordCredentialDbContext,
+    IPasswordResetDbContext;
+
+public interface IPlatformPasswordResetDbContext : IPasswordResetOperationsDbContext;
 
 public interface IUserFeatureDbContext :
     IUnitOfWork,
@@ -144,6 +170,7 @@ public interface IPatientFeatureDbContext :
     IUnitOfWork,
     IPatientDataDbContext,
     IMedicalUserScopeDbContext,
+    IGlobalIdentityDbContext,
     IClinicalReferenceDbContext,
     IPasswordResetDbContext;
 
@@ -171,11 +198,10 @@ public interface IFaturamentoMedicoFeatureDbContext :
     IClinicalReferenceDbContext;
 
 public interface IDashboardFeatureDbContext :
-    IUnitOfWork,
     IPatientDataDbContext,
     IMedicalUserScopeDbContext,
     IEventDataDbContext,
-    IFinancialDataDbContext;
+    IDashboardFinancialReadDbContext;
 
 public interface ILicensingFeatureDbContext :
     IUnitOfWork,

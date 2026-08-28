@@ -24,7 +24,7 @@ public sealed class ClinicaContext : IClinicaContext
         IsPlatformScope = false;
     }
 
-    public void SetPlatformScope()
+    internal void SetPlatformScope()
     {
         ClinicaId = null;
         ClinicaSlug = null;

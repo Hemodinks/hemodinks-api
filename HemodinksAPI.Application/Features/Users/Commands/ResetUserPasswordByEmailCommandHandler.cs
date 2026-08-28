@@ -6,13 +6,13 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 
 public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserPasswordByEmailCommand, RequestPasswordResetResponse>
 {
-    private readonly IUserFeatureDbContext _context;
+    private readonly IPasswordResetOperationsDbContext _context;
     private readonly IPasswordResetNotificationSender _passwordResetNotificationSender;
     private readonly ILogger<ResetUserPasswordByEmailCommandHandler> _logger;
     private readonly TimeProvider _timeProvider;
 
     internal ResetUserPasswordByEmailCommandHandler(
-        IUserFeatureDbContext context,
+        IPasswordResetOperationsDbContext context,
         IPasswordResetNotificationSender passwordResetNotificationSender,
         ILogger<ResetUserPasswordByEmailCommandHandler> logger)
         : this(context, passwordResetNotificationSender, logger, TimeProvider.System)
@@ -20,7 +20,7 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
     }
 
     public ResetUserPasswordByEmailCommandHandler(
-        IUserFeatureDbContext context,
+        IPasswordResetOperationsDbContext context,
         IPasswordResetNotificationSender passwordResetNotificationSender,
         ILogger<ResetUserPasswordByEmailCommandHandler> logger,
         TimeProvider timeProvider)

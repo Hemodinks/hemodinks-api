@@ -7,13 +7,13 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 
 public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswordResetCommand, ResetUserPasswordResponse>
 {
-    private readonly IUserFeatureDbContext _context;
+    private readonly IPlatformPasswordResetDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<ConfirmPasswordResetCommandHandler> _logger;
     private readonly TimeProvider _timeProvider;
 
     internal ConfirmPasswordResetCommandHandler(
-        IUserFeatureDbContext context,
+        IPlatformPasswordResetDbContext context,
         IPasswordHasher passwordHasher,
         ILogger<ConfirmPasswordResetCommandHandler> logger)
         : this(context, passwordHasher, logger, TimeProvider.System)
@@ -21,7 +21,7 @@ public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswor
     }
 
     public ConfirmPasswordResetCommandHandler(
-        IUserFeatureDbContext context,
+        IPlatformPasswordResetDbContext context,
         IPasswordHasher passwordHasher,
         ILogger<ConfirmPasswordResetCommandHandler> logger,
         TimeProvider timeProvider)

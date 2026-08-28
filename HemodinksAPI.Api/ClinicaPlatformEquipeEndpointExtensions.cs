@@ -20,7 +20,6 @@ public static partial class ClinicaPlatformEndpointExtensions
         }
 
         var teams = await context.Equipes
-            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(item => item.ClinicaId == id)
             .OrderBy(item => item.Nome)
@@ -58,13 +57,12 @@ public static partial class ClinicaPlatformEndpointExtensions
         }
 
         var eligibleMemberships = await context.UsuariosClinicas
-            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(item => item.ClinicaId == id
                 && item.Ativo
                 && item.UsuarioGlobal.Ativo
                 && item.User.Ativo
-                && !context.Equipes.IgnoreQueryFilters().Any(team => team.UsuarioLoginId == item.UserId)
+                && !context.Equipes.Any(team => team.UsuarioLoginId == item.UserId)
                 && (item.PerfilId == Perfil.MedicosId
                     || item.PerfilId == Perfil.ControllerId))
             .Select(item => new
@@ -79,7 +77,6 @@ public static partial class ClinicaPlatformEndpointExtensions
             .ToListAsync(cancellationToken);
 
         var targetUsers = await context.UsuariosClinicas
-            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(item => item.ClinicaId == id)
             .Select(item => new { item.UsuarioGlobalId, item.UserId })
@@ -102,13 +99,12 @@ public static partial class ClinicaPlatformEndpointExtensions
             .ToList();
 
         var localTeamUsers = await context.Users
-            .IgnoreQueryFilters()
             .AsNoTracking()
             .Where(item => item.ClinicaId == id
                 && item.Ativo
                 && item.PerfilId == Perfil.EquipeId
-                && !context.UsuariosClinicas.IgnoreQueryFilters().Any(link => link.UserId == item.Id)
-                && !context.Equipes.IgnoreQueryFilters().Any(team => team.UsuarioLoginId == item.Id))
+                && !context.UsuariosClinicas.Any(link => link.UserId == item.Id)
+                && !context.Equipes.Any(team => team.UsuarioLoginId == item.Id))
             .Select(item => new ClinicTeamUserResponse(
                 null,
                 item.Id,
@@ -136,7 +132,6 @@ public static partial class ClinicaPlatformEndpointExtensions
         CancellationToken cancellationToken)
     {
         var team = await context.Equipes
-            .IgnoreQueryFilters()
             .FirstOrDefaultAsync(item => item.Id == teamId && item.ClinicaId == id, cancellationToken);
         if (team == null) return Results.NotFound();
 
@@ -175,7 +170,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         {
             return Results.BadRequest(new { message = "Selecione entre 1 e 100 funcionarios" });
         }
-        var team = await context.Equipes.IgnoreQueryFilters()
+        var team = await context.Equipes
             .Include(item => item.UsuarioLogin)
             .FirstOrDefaultAsync(item => item.Id == teamId && item.ClinicaId == id && item.Ativa, cancellationToken);
         if (team == null) return Results.NotFound();
@@ -185,7 +180,6 @@ public static partial class ClinicaPlatformEndpointExtensions
         }
 
         var sourceMemberships = await context.UsuariosClinicas
-            .IgnoreQueryFilters()
             .Include(item => item.UsuarioGlobal)
             .Include(item => item.User)
             .Where(item => globalUserIds.Contains(item.UsuarioGlobalId)
@@ -193,7 +187,7 @@ public static partial class ClinicaPlatformEndpointExtensions
                 && item.Ativo
                 && item.UsuarioGlobal.Ativo
                 && item.User.Ativo
-                && !context.Equipes.IgnoreQueryFilters().Any(team => team.UsuarioLoginId == item.UserId)
+                && !context.Equipes.Any(team => team.UsuarioLoginId == item.UserId)
                 && (item.PerfilId == Perfil.MedicosId
                     || item.PerfilId == Perfil.ControllerId))
             .ToListAsync(cancellationToken);
@@ -205,12 +199,12 @@ public static partial class ClinicaPlatformEndpointExtensions
             return Results.BadRequest(new { message = "A selecao deve conter apenas medicos ou controllers ativos desta clinica" });
         }
 
-        var localUsers = await context.Users.IgnoreQueryFilters()
+        var localUsers = await context.Users
             .Where(item => localUserIds.Contains(item.Id)
                 && item.ClinicaId == id
                 && item.Ativo
                 && item.PerfilId == Perfil.EquipeId
-                && !context.Equipes.IgnoreQueryFilters().Any(team => team.UsuarioLoginId == item.Id))
+                && !context.Equipes.Any(team => team.UsuarioLoginId == item.Id))
             .ToDictionaryAsync(item => item.Id, cancellationToken);
         if (localUsers.Count != localUserIds.Length)
         {
@@ -218,7 +212,6 @@ public static partial class ClinicaPlatformEndpointExtensions
         }
 
         var targetMemberships = await context.UsuariosClinicas
-            .IgnoreQueryFilters()
             .Include(item => item.User)
             .Where(item => item.ClinicaId == id && globalUserIds.Contains(item.UsuarioGlobalId))
             .ToDictionaryAsync(item => item.UsuarioGlobalId, cancellationToken);
@@ -241,10 +234,10 @@ public static partial class ClinicaPlatformEndpointExtensions
             .Concat(localUserIds)
             .Distinct()
             .ToArray();
-        var existingMembers = await context.EquipeMembros.IgnoreQueryFilters()
+        var existingMembers = await context.EquipeMembros
             .Where(item => item.ClinicaId == id && item.EquipeId == teamId && targetUserIds.Contains(item.UserId))
             .ToDictionaryAsync(item => item.UserId, cancellationToken);
-        var existingOperators = await context.EquipeOperadores.IgnoreQueryFilters()
+        var existingOperators = await context.EquipeOperadores
             .Where(item => item.ClinicaId == id && item.EquipeId == teamId && targetUserIds.Contains(item.UserId))
             .ToDictionaryAsync(item => item.UserId, cancellationToken);
         var associations = new List<(User User, EquipeOperador Operator, string? Pin, bool Imported)>();
@@ -445,15 +438,15 @@ public static partial class ClinicaPlatformEndpointExtensions
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
-        var team = await context.Equipes.IgnoreQueryFilters()
+        var team = await context.Equipes
             .FirstOrDefaultAsync(item => item.Id == teamId && item.ClinicaId == id, cancellationToken);
-        var member = await context.EquipeMembros.IgnoreQueryFilters()
+        var member = await context.EquipeMembros
             .FirstOrDefaultAsync(item => item.ClinicaId == id && item.EquipeId == teamId && item.UserId == userId, cancellationToken);
         if (team == null || member == null) return Results.NotFound();
 
         member.Ativo = false;
         member.DataAtualizacao = DateTime.UtcNow;
-        var op = await context.EquipeOperadores.IgnoreQueryFilters()
+        var op = await context.EquipeOperadores
             .FirstOrDefaultAsync(item => item.ClinicaId == id && item.EquipeId == teamId && item.UserId == userId, cancellationToken);
         if (op != null)
         {
@@ -478,7 +471,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         PlatformAuditService auditService,
         CancellationToken cancellationToken)
     {
-        var team = await context.Equipes.IgnoreQueryFilters().AsNoTracking()
+        var team = await context.Equipes.AsNoTracking()
             .FirstOrDefaultAsync(item => item.Id == teamId && item.ClinicaId == id && item.Ativa, cancellationToken);
         if (team == null) return Results.NotFound();
         if (!team.ModoIdentificacao.Equals(EquipeModosIdentificacao.Pin, StringComparison.OrdinalIgnoreCase))
@@ -486,7 +479,7 @@ public static partial class ClinicaPlatformEndpointExtensions
             return Results.BadRequest(new { message = "A equipe nao utiliza identificacao por PIN" });
         }
 
-        var op = await context.EquipeOperadores.IgnoreQueryFilters()
+        var op = await context.EquipeOperadores
             .FirstOrDefaultAsync(item => item.Id == operatorId && item.EquipeId == teamId && item.ClinicaId == id && item.Ativo, cancellationToken);
         if (op == null) return Results.NotFound();
         var pin = EquipeAuthenticationRules.GeneratePin();
