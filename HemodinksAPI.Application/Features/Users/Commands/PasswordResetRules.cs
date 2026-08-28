@@ -14,13 +14,7 @@ internal static class PasswordResetRules
 
     public static string HashToken(string token)
     {
-        if (string.IsNullOrWhiteSpace(token))
-        {
-            throw new InvalidOperationException("Token de reset obrigatorio");
-        }
-
-        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token.Trim()));
-        return Convert.ToHexString(bytes);
+        return PasswordResetTokenHasher.ComputeHash(token);
     }
 
     public static void ValidateNewPassword(string? password)
@@ -43,5 +37,19 @@ internal static class PasswordResetRules
     public static string? TrimRequestIp(string? requestIp)
     {
         return string.IsNullOrWhiteSpace(requestIp) ? null : requestIp.Trim()[..Math.Min(requestIp.Trim().Length, 45)];
+    }
+}
+
+public static class PasswordResetTokenHasher
+{
+    public static string ComputeHash(string token)
+    {
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            throw new InvalidOperationException("Token de reset obrigatorio");
+        }
+
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token.Trim()));
+        return Convert.ToHexString(bytes);
     }
 }

@@ -381,6 +381,39 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task PasswordResetConfirm_WhenMultipleClinicasAndNoHintIsProvided_ResolvesClinicFromToken()
+    {
+        var passwordResetSender = new RecordingPasswordResetNotificationSender();
+        using var factory = CreateFactoryWithPasswordResetSender(passwordResetSender);
+        using var client = factory.CreateClient();
+        await SeedClinicaBetaAsync(factory);
+
+        var requestResponse = await PostAsJsonWithClinicHeaderAsync(
+            client,
+            Clinica.DefaultSlug,
+            "/api/users/password/reset",
+            new { email = "gmarcone@gmail.com" });
+
+        Assert.Equal(HttpStatusCode.OK, requestResponse.StatusCode);
+        var token = passwordResetSender.Notifications.Single().Token;
+
+        var confirmResponse = await PostAsJsonWithIdempotencyKeyAsync(
+            client,
+            "/api/users/password/reset/confirm",
+            Guid.NewGuid().ToString("N"),
+            new
+            {
+                token,
+                novaSenha = "NovaSenhaSemSlug@123"
+            });
+
+        Assert.Equal(HttpStatusCode.OK, confirmResponse.StatusCode);
+        Assert.Equal(
+            "stored",
+            confirmResponse.Headers.GetValues(RequestIdempotencyService.IdempotencyStatusHeaderName).Single());
+    }
+
+    [Fact]
     public async Task SelectClinic_PreservesSessionAndRejectsPreviousClinicToken()
     {
         using var factory = new HemodinksApiFactory();
