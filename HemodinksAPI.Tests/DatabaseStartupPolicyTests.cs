@@ -1,4 +1,7 @@
 using HemodinksAPI.Api;
+using HemodinksAPI.Application.Tenancy;
+using HemodinksAPI.Infrastructure.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
@@ -7,6 +10,18 @@ namespace HemodinksAPI.Tests;
 
 public sealed class DatabaseStartupPolicyTests
 {
+    [Fact]
+    public void Migration_context_discovers_latest_schema_change()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlServer("Server=unused;Database=unused;Integrated Security=true;TrustServerCertificate=true")
+            .Options;
+
+        using var context = new AppDbContext(options, ClinicaContextFactory.CreatePlatform());
+
+        Assert.Contains("20260831150919_AddLoginAccountProtection", context.Database.GetMigrations());
+    }
+
     [Fact]
     public void Production_RunsMigrationsOnStartup_WhenExplicitlyEnabled()
     {

@@ -11,7 +11,8 @@ internal static class DatabaseStartupInitializer
     public static async Task InitializeAsync(WebApplication app)
     {
         using var scope = app.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var migrationDbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var platformDbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
         try
@@ -19,21 +20,26 @@ internal static class DatabaseStartupInitializer
             logger.LogInformation("Iniciando migracao do banco de dados");
 
             var runMigrations = ShouldRunMigrations(app.Environment, app.Configuration);
-            var isRelational = dbContext.Database.IsRelational();
+            var isRelational = migrationDbContext.Database.IsRelational();
             var pendingMigrations = isRelational
-                ? (await dbContext.Database.GetPendingMigrationsAsync()).ToList()
+                ? (await migrationDbContext.Database.GetPendingMigrationsAsync()).ToList()
                 : [];
 
             LogPendingMigrations(logger, isRelational, pendingMigrations);
 
-            await ApplyDatabaseSchemaAsync(dbContext, logger, runMigrations, isRelational, pendingMigrations);
+            await ApplyDatabaseSchemaAsync(
+                migrationDbContext,
+                logger,
+                runMigrations,
+                isRelational,
+                pendingMigrations);
 
             logger.LogInformation("Inicializacao do banco de dados concluida");
 
-            await SeedReferenceDataAsync(app, scope.ServiceProvider, dbContext, logger);
-            await ProvisionSuperAdministratorsAsync(app.Configuration, dbContext, logger);
-            await SynchronizeGlobalIdentitiesAsync(dbContext, logger);
-            await SyncPatientRecordsAsync(dbContext, logger);
+            await SeedReferenceDataAsync(app, scope.ServiceProvider, platformDbContext, logger);
+            await ProvisionSuperAdministratorsAsync(app.Configuration, platformDbContext, logger);
+            await SynchronizeGlobalIdentitiesAsync(platformDbContext, logger);
+            await SyncPatientRecordsAsync(platformDbContext, logger);
         }
         catch (Exception ex)
         {
@@ -187,7 +193,13 @@ internal static class DatabaseStartupInitializer
         }
         else
         {
-            logger.LogWarning("Migracao automatica desabilitada. Se tabelas estiverem faltando, defina Database:RunMigrationsOnStartup=true");
+            if (pendingMigrations.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Existem migrations pendentes e a migracao automatica esta desabilitada: {string.Join(", ", pendingMigrations)}");
+            }
+
+            logger.LogInformation("Migracao automatica desabilitada e schema atualizado");
         }
     }
 
