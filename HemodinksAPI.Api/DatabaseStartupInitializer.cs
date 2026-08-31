@@ -34,12 +34,20 @@ internal static class DatabaseStartupInitializer
                 isRelational,
                 pendingMigrations);
 
-            logger.LogInformation("Inicializacao do banco de dados concluida");
-
             await SeedReferenceDataAsync(app, scope.ServiceProvider, platformDbContext, logger);
-            await ProvisionSuperAdministratorsAsync(app.Configuration, platformDbContext, logger);
-            await SynchronizeGlobalIdentitiesAsync(platformDbContext, logger);
-            await SyncPatientRecordsAsync(platformDbContext, logger);
+
+            if (ShouldRunMaintenance(app.Environment, app.Configuration))
+            {
+                await ProvisionSuperAdministratorsAsync(app.Configuration, platformDbContext, logger);
+                await SynchronizeGlobalIdentitiesAsync(platformDbContext, logger);
+                await SyncPatientRecordsAsync(platformDbContext, logger);
+            }
+            else
+            {
+                logger.LogInformation("Manutencao de dados no startup desabilitada");
+            }
+
+            logger.LogInformation("Inicializacao do banco de dados concluida");
         }
         catch (Exception ex)
         {
@@ -54,6 +62,14 @@ internal static class DatabaseStartupInitializer
     {
         return configuration.GetValue<bool?>("Database:RunMigrationsOnStartup")
             ?? !environment.IsProduction();
+    }
+
+    internal static bool ShouldRunMaintenance(
+        IHostEnvironment environment,
+        IConfiguration configuration)
+    {
+        return configuration.GetValue<bool?>("Database:RunMaintenanceOnStartup")
+            ?? environment.IsDevelopment();
     }
 
     private static async Task SynchronizeGlobalIdentitiesAsync(AppDbContext dbContext, ILogger logger)

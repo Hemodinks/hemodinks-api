@@ -49,6 +49,24 @@ public sealed class DatabaseStartupPolicyTests
         Assert.True(DatabaseStartupInitializer.ShouldRunMigrations(environment, configuration));
     }
 
+    [Fact]
+    public void Production_SkipsStartupMaintenance_WhenExplicitlyDisabled()
+    {
+        var environment = new TestHostEnvironment(Environments.Production);
+        var configuration = BuildConfiguration(("Database:RunMaintenanceOnStartup", "false"));
+
+        Assert.False(DatabaseStartupInitializer.ShouldRunMaintenance(environment, configuration));
+    }
+
+    [Fact]
+    public void Development_RunsStartupMaintenance_ByDefault()
+    {
+        var environment = new TestHostEnvironment(Environments.Development);
+        var configuration = BuildConfiguration();
+
+        Assert.True(DatabaseStartupInitializer.ShouldRunMaintenance(environment, configuration));
+    }
+
     private static IConfiguration BuildConfiguration(params (string Key, string Value)[] values) =>
         new ConfigurationBuilder()
             .AddInMemoryCollection(values.ToDictionary(item => item.Key, item => (string?)item.Value))
