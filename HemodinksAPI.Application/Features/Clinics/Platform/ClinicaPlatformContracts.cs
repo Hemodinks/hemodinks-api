@@ -1,4 +1,22 @@
-namespace HemodinksAPI.Api;
+namespace HemodinksAPI.Application.Features.Clinics.Platform;
+
+public sealed record ClinicTeamUserResponse(
+    int? UsuarioGlobalId,
+    int? UserIdNaClinica,
+    string Nome,
+    string Email,
+    int PerfilId,
+    string PerfilNome,
+    string OrigemClinica,
+    bool CadastradoNaClinica);
+
+public sealed record AssociateClinicTeamMembersRequest(
+    IReadOnlyList<int>? UsuarioGlobalIds,
+    IReadOnlyList<int>? UserIds,
+    IReadOnlyList<CreateClinicTeamUserRequest>? NovosUsuarios,
+    bool GerarPin);
+
+public sealed record CreateClinicTeamUserRequest(string Nome, string? Telefone);
 
 public sealed record CreateClinicaRequest(
     string Nome,

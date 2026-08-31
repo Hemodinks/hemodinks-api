@@ -4,6 +4,7 @@ using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.ConfiguracoesSistema;
 using HemodinksAPI.Application.Features.Sessions;
 using HemodinksAPI.Application.Features.Clinics;
+using HemodinksAPI.Application.Features.Clinics.Platform;
 using HemodinksAPI.Application.Features.Financeiro;
 using HemodinksAPI.Application.Features.Teams;
 using HemodinksAPI.Application.Services;
@@ -13,6 +14,8 @@ using HemodinksAPI.Infrastructure.HostedServices;
 using HemodinksAPI.Infrastructure.PasswordReset;
 using HemodinksAPI.Application.Idempotency;
 using HemodinksAPI.Application.Auditing;
+using HemodinksAPI.Application.Authentication;
+using HemodinksAPI.Infrastructure.Authentication;
 using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.Queues;
 using HemodinksAPI.Infrastructure.Seeders;
@@ -29,6 +32,16 @@ public static partial class ApiServiceCollectionExtensions
         IWebHostEnvironment environment)
     {
         services.AddSingleton(TimeProvider.System);
+        services.AddOptions<LoginAccountProtectionOptions>()
+            .Bind(configuration.GetSection(LoginAccountProtectionOptions.SectionName))
+            .Validate(options => options.MaximumFailedAttempts is >= 3 and <= 20,
+                "LoginProtection:MaximumFailedAttempts deve estar entre 3 e 20.")
+            .Validate(options => options.AttemptWindowMinutes is >= 1 and <= 1440,
+                "LoginProtection:AttemptWindowMinutes deve estar entre 1 e 1440.")
+            .Validate(options => options.LockoutMinutes is >= 1 and <= 1440,
+                "LoginProtection:LockoutMinutes deve estar entre 1 e 1440.")
+            .ValidateOnStart();
+        services.AddScoped<ILoginAccountProtection, EfLoginAccountProtection>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IConfiguracaoSistemaRepository, ConfiguracaoSistemaRepository>();
         services.AddScoped<IUserPatientSyncService, UserPatientSyncService>();
@@ -45,6 +58,9 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<IIdempotencyRequestStore, EfIdempotencyRequestStore>();
         services.AddScoped<IPlatformAuditWriter, EfPlatformAuditWriter>();
         services.AddScoped<PlatformAuditService>();
+        services.AddScoped<PlatformAuditRecorder>();
+        services.AddScoped<ClinicaPlatformRequestHandler>();
+        services.AddScoped<ClinicaPlatformTeamRequestHandler>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IEventReminderProcessor, EventReminderProcessor>();
         services.AddScoped<SessionUseCases>();

@@ -590,7 +590,7 @@ public partial class ApiEndpointIntegrationTests
             client,
             Clinica.DefaultSlug,
             "maria.silva@email.com",
-            HemodinksAPI.Domain.Utils.DefaultUserPassword.Value);
+            TestPasswords.Valid);
 
         var updateResponse = await client.PutAsJsonAsync($"/api/atendimentos-cirurgicos/{atendimentoId}", new
         {

@@ -109,6 +109,8 @@ O bootstrap:
 - valida subscription, Resource Group e nome exatos antes de alterar;
 - muda para multiple revisions;
 - reforca `Database__RunMigrationsOnStartup=false`;
+- habilita `ForwardedHeaders` com `ForwardLimit=1` para confiar somente no salto
+  imediato do ingress gerenciado do Azure Container Apps;
 - configura inicialmente probes HTTP compatíveis em `/healthz`, usando o target
   port atual; no primeiro rollout, o pipeline substitui startup/liveness por
   `/livez` e mantém readiness em `/healthz`;
@@ -147,6 +149,11 @@ Ordem esperada:
    revisao anterior se a promocao nao puder ser confirmada;
 8. cleanup idempotente, preservando somente `CURRENT` e `PREVIOUS`;
 9. workers depois da migration.
+
+Em cada revisao candidata, o workflow substitui explicitamente
+`ForwardedHeaders__Enabled`, `ForwardedHeaders__ForwardLimit` e
+`ForwardedHeaders__TrustAnyImmediateProxy`. Assim, a configuracao nao depende de
+valores herdados de uma revisao anterior.
 
 O SQL idempotente e o bundle ficam no artifact
 `production-migrations-<commit>` por 30 dias. O Job Summary registra commit,

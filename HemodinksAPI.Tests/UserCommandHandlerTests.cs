@@ -2,7 +2,6 @@ using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 using HemodinksAPI.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
@@ -60,7 +59,7 @@ public partial class UserCommandHandlerTests
     }
 
     [Fact]
-    public async Task CreateUser_WhenEmailIsNew_CreatesActiveUserWithDefaultPassword()
+    public async Task CreateUser_WhenEmailIsNew_CreatesActiveUserWithRandomTemporaryPassword()
     {
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
@@ -105,7 +104,7 @@ public partial class UserCommandHandlerTests
         Assert.Single(invitationSender.Notifications);
         Assert.Equal(storedUser.Email, invitationSender.Notifications[0].Email);
         Assert.NotEmpty(await context.PasswordResetTokens.ToListAsync());
-        Assert.False(hasher.VerifyPassword(DefaultUserPassword.Value, storedUser.Senha));
+        Assert.False(hasher.VerifyPassword(TestPasswords.RetiredSharedCredential, storedUser.Senha));
         Assert.NotNull(await context.Licencas.SingleOrDefaultAsync(item => item.UserId == storedUser.Id));
     }
 
@@ -293,7 +292,7 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
-        context.Users.Add(CreateUser(email: "duplicado@email.com", passwordHash: hasher.HashPassword("Senha@123")));
+        context.Users.Add(CreateUser(email: "duplicado@email.com", passwordHash: hasher.HashPassword("TestPassword@123")));
         await context.SaveChangesAsync();
 
         var handler = new CreateUserCommandHandler(

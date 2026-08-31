@@ -2582,6 +2582,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<DateTime?>("BloqueadoAte")
+                        .HasColumnType("datetime2");
+
                     b.Property<DateTime?>("DataAtualizacao")
                         .HasColumnType("datetime2");
 
@@ -2605,9 +2608,19 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<int>("TentativasLoginFalhas")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<DateTime?>("UltimaFalhaLoginEm")
+                        .HasColumnType("datetime2");
+
                     b.HasKey("Id");
 
                     b.HasIndex("Ativo");
+
+                    b.HasIndex("BloqueadoAte");
 
                     b.HasIndex("Email")
                         .IsUnique();

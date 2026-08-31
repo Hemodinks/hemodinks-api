@@ -10,8 +10,7 @@ public static class EquipeEndpointExtensions
     {
         var admin = app.MapGroup("/api/equipes")
             .WithTags("Equipes")
-            .RequireAuthorization("Administrador")
-            .AddEndpointFilter(new EquipeExceptionFilter());
+            .RequireAuthorization("Administrador");
 
         admin.MapGet("/", Listar);
         admin.MapPost("/", Criar);

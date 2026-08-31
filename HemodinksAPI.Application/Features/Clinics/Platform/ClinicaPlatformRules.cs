@@ -1,12 +1,14 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
-using Microsoft.EntityFrameworkCore;
+using System.Text.RegularExpressions;
 
-namespace HemodinksAPI.Api;
+namespace HemodinksAPI.Application.Features.Clinics.Platform;
 
-public static partial class ClinicaPlatformEndpointExtensions
+internal static class ClinicaPlatformRules
 {
-    private static IQueryable<User> ClinicEmployees(IPlatformTeamDbContext context)
+    private static readonly Regex SlugPattern = new("^[a-z0-9]+(?:-[a-z0-9]+)*$", RegexOptions.Compiled);
+
+    internal static IQueryable<User> ClinicEmployees(IPlatformTeamDbContext context)
     {
         return context.Users
             .Where(user => (user.PerfilId == Perfil.AdministradorId
@@ -16,7 +18,7 @@ public static partial class ClinicaPlatformEndpointExtensions
                 && !context.Equipes.Any(team => team.UsuarioLoginId == user.Id));
     }
 
-    private static string NormalizeSlug(string? value)
+    internal static string NormalizeSlug(string? value)
     {
         var slug = RequireText(value, "Slug da clinica obrigatorio", 120).ToLowerInvariant();
         if (!SlugPattern.IsMatch(slug))
@@ -27,7 +29,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         return slug;
     }
 
-    private static string NormalizePlano(string? value)
+    internal static string NormalizePlano(string? value)
     {
         var plano = string.IsNullOrWhiteSpace(value) ? ClinicaPlanos.Trial : value.Trim();
         if (plano.Equals(ClinicaPlanos.Trial, StringComparison.OrdinalIgnoreCase)) return ClinicaPlanos.Trial;
@@ -36,7 +38,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         throw new InvalidOperationException("Plano deve ser Trial, Parcial ou Completa");
     }
 
-    private static string? NormalizeModulos(string plano, IEnumerable<string>? values)
+    internal static string? NormalizeModulos(string plano, IEnumerable<string>? values)
     {
         if (plano != ClinicaPlanos.Parcial) return null;
 
@@ -56,7 +58,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         return string.Join(',', normalized);
     }
 
-    private static string RequireText(string? value, string message, int maxLength)
+    internal static string RequireText(string? value, string message, int maxLength)
     {
         var normalized = value?.Trim();
         if (string.IsNullOrWhiteSpace(normalized) || normalized.Length > maxLength)
@@ -67,7 +69,7 @@ public static partial class ClinicaPlatformEndpointExtensions
         return normalized;
     }
 
-    private static string NormalizeOptional(string? value, string fallback, int maxLength)
+    internal static string NormalizeOptional(string? value, string fallback, int maxLength)
     {
         var normalized = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
         return normalized.Length <= maxLength

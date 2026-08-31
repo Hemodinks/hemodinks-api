@@ -4,7 +4,6 @@ using HemodinksAPI.Application.Features.Licencas;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
-using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
 
@@ -13,7 +12,7 @@ public static class FinanceiroEndpointExtensions
     public static void MapFinanceiroEndpoints(this WebApplication app)
     {
         var atendimentos = app.MapGroup("/api/atendimentos-cirurgicos").WithTags("Atendimentos cirurgicos").RequireAuthorization()
-            .AddEndpointFilter(new FinanceiroExceptionFilter()).AddEndpointFilter<FinanceiroAuditFilter>();
+            .AddEndpointFilter<FinanceiroAuditFilter>();
         atendimentos.MapGet("/", async (int? pacienteId, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
@@ -52,7 +51,7 @@ public static class FinanceiroEndpointExtensions
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
             return Results.Ok(await files.UploadAtendimentoFileAsync(id, arquivo.ToUploadedFile(), user, ct));
-        }).DisableAntiforgery().RequireAuthorization("AtendimentoGerenciar");
+        }).LimitPatientFileUpload().DisableAntiforgery().RequireAuthorization("AtendimentoGerenciar");
         atendimentos.MapGet("/{id:int}/arquivos/{arquivoId:int}/download", async (int id, int arquivoId,
             ClaimsPrincipal principal, FinanceiroFileUseCases files, CancellationToken ct) =>
         {
@@ -69,7 +68,7 @@ public static class FinanceiroEndpointExtensions
         }).RequireAuthorization("AtendimentoGerenciar");
 
         var faturamentos = app.MapGroup("/api/faturamentos").WithTags("Faturamento").RequireAuthorization()
-            .AddEndpointFilter(new FinanceiroExceptionFilter()).AddEndpointFilter<FinanceiroAuditFilter>();
+            .AddEndpointFilter<FinanceiroAuditFilter>();
         faturamentos.MapGet("/", async (ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
@@ -122,7 +121,7 @@ public static class FinanceiroEndpointExtensions
             Results.Ok(await mediator.Send(command with { FaturamentoId = id }, ct))).RequireAuthorization("FinanceiroGerenciar");
 
         var financeiro = app.MapGroup("/api/financeiro/contas-receber").WithTags("Contas a receber").RequireAuthorization()
-            .AddEndpointFilter(new FinanceiroExceptionFilter()).AddEndpointFilter<FinanceiroAuditFilter>();
+            .AddEndpointFilter<FinanceiroAuditFilter>();
         financeiro.MapGet("/", async (IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ListarContasReceberQuery(), ct))).RequireAuthorization("FinanceiroVisualizar");
         financeiro.MapGet("/{id:int}", async (int id, IMediator mediator, CancellationToken ct) =>
@@ -152,7 +151,7 @@ public static class FinanceiroEndpointExtensions
             FinanceiroFileUseCases files, CancellationToken ct) =>
         {
             return Results.Ok(await files.UploadReceiptAsync(id, arquivo.ToUploadedFile(), ct));
-        }).DisableAntiforgery().RequireAuthorization("FinanceiroGerenciar");
+        }).LimitPatientFileUpload().DisableAntiforgery().RequireAuthorization("FinanceiroGerenciar");
         financeiro.MapGet("/recebimentos/{id:int}/comprovante", async (int id,
             FinanceiroFileUseCases files, CancellationToken ct) =>
         {
@@ -161,7 +160,7 @@ public static class FinanceiroEndpointExtensions
         }).RequireAuthorization("FinanceiroVisualizar");
 
         var precos = app.MapGroup("/api/convenios-procedimentos-precos").WithTags("Precos por convenio").RequireAuthorization()
-            .AddEndpointFilter(new FinanceiroExceptionFilter()).AddEndpointFilter<FinanceiroAuditFilter>();
+            .AddEndpointFilter<FinanceiroAuditFilter>();
         precos.MapGet("/", async (int? convenioId, string? cbhpmCodigo, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ListarConvenioProcedimentoPrecosQuery(convenioId, cbhpmCodigo), ct)))
             .RequireAuthorization("TabelaPrecoVisualizar");
@@ -174,8 +173,7 @@ public static class FinanceiroEndpointExtensions
             await mediator.Send(new ExcluirConvenioProcedimentoPrecoCommand(id), ct); return Results.NoContent();
         }).RequireAuthorization("TabelaPrecoGerenciar");
 
-        var reports = app.MapGroup("/api/financeiro").WithTags("Relatorios financeiros").RequireAuthorization()
-            .AddEndpointFilter(new FinanceiroExceptionFilter());
+        var reports = app.MapGroup("/api/financeiro").WithTags("Relatorios financeiros").RequireAuthorization();
         reports.MapGet("/relatorios/resumo", async (DateTime? inicio, DateTime? fim, int? convenioId, int? medicoId,
             int? pacienteId,
             IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(
@@ -190,10 +188,9 @@ public static class FinanceiroEndpointExtensions
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
             return Results.Ok(await mediator.Send(new ObterPacienteFinanceiroResumoQuery(id, user.Id, user.PerfilId), ct));
-        }).WithTags("Pacientes").RequireAuthorization(LicencaPolicies.PacientesVisualizar).AddEndpointFilter(new FinanceiroExceptionFilter());
+        }).WithTags("Pacientes").RequireAuthorization(LicencaPolicies.PacientesVisualizar);
     }
 }
-
 internal sealed class FinanceiroAuditFilter(PlatformAuditService audit, IClinicaContext tenant,
     ILogger<FinanceiroAuditFilter> logger) : IEndpointFilter
 {
@@ -217,16 +214,5 @@ internal sealed class FinanceiroAuditFilter(PlatformAuditService audit, IClinica
             logger.LogError(ex, "Falha ao registrar auditoria financeira da requisicao {RequestId}", http.TraceIdentifier);
         }
         return result;
-    }
-}
-
-internal sealed class FinanceiroExceptionFilter : IEndpointFilter
-{
-    public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
-    {
-        try { return await next(context); }
-        catch (KeyNotFoundException ex) { return Results.NotFound(new { message = ex.Message }); }
-        catch (DbUpdateConcurrencyException ex) { return Results.Conflict(new { message = ex.Message }); }
-        catch (InvalidOperationException ex) { return Results.BadRequest(new { message = ex.Message }); }
     }
 }

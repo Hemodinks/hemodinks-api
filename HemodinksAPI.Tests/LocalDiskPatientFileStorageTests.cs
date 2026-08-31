@@ -22,7 +22,7 @@ public sealed class LocalDiskPatientFileStorageTests : IDisposable
             }),
             NullLogger<LocalDiskPatientFileStorage>.Instance);
 
-        var content = "conteudo"u8.ToArray();
+        var content = "%PDF-1.7\nconteudo\n%%EOF"u8.ToArray();
         var file = new UploadedFile("laudo.pdf", "application/pdf", content.LongLength,
             () => new MemoryStream(content, writable: false));
 

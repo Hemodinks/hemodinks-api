@@ -4,8 +4,13 @@
 # Este script testa os endpoints principais da API
 
 param(
-    [string]$baseUrl = "http://localhost:5000"
+    [string]$baseUrl = "http://localhost:5000",
+    [string]$password = $env:HEMODINKS_TEST_PASSWORD
 )
+
+if ([string]::IsNullOrWhiteSpace($password)) {
+    throw "Informe -password ou configure HEMODINKS_TEST_PASSWORD."
+}
 
 Write-Host "╔════════════════════════════════════════════════════╗" -ForegroundColor Cyan
 Write-Host "║  TESTE RÁPIDO - HEMODINKS API v1.0                ║" -ForegroundColor Cyan
@@ -39,7 +44,7 @@ Write-Host "2️⃣  Autenticando como George Marcone..." -ForegroundColor $info
 try {
     $authBody = @{
         email = "gmarcone@gmail.com"
-        senha = "Senha@123"
+        senha = $password
     } | ConvertTo-Json
 
     $authResponse = Invoke-RestMethod -Uri "$baseUrl/api/users/authenticate" `
@@ -117,7 +122,6 @@ try {
         nome = "Usuario Teste $(Get-Random)"
         email = "teste$(Get-Random)@example.com"
         telefone = "+5511987654321"
-        senha = "Senha@123"
         dataNascimento = "1990-01-15T00:00:00Z"
     } | ConvertTo-Json
 

@@ -18,7 +18,7 @@ Content-Type: {{contentType}}
 
 {
   "email": "admin@hemodinks.com",
-  "senha": "Senha@123"
+  "senha": "{{$processEnv HEMODINKS_HTTP_CURRENT_PASSWORD}}"
 }
 
 ### Reset de senha por email
@@ -37,7 +37,7 @@ Idempotency-Key: {{idempotencyKey}}
 
 {
   "token": "cole_o_token_aqui",
-  "novaSenha": "SenhaNova@123"
+  "novaSenha": "{{$processEnv HEMODINKS_HTTP_NEW_PASSWORD}}"
 }
 
 ### Listar usuarios
@@ -75,8 +75,8 @@ Authorization: Bearer {{token}}
 Content-Type: {{contentType}}
 
 {
-  "senhaAtual": "Senha@123",
-  "novaSenha": "SenhaAlterada@123"
+  "senhaAtual": "{{$processEnv HEMODINKS_HTTP_CURRENT_PASSWORD}}",
+  "novaSenha": "{{$processEnv HEMODINKS_HTTP_NEW_PASSWORD}}"
 }
 
 ### Dashboard resumo

@@ -10,27 +10,27 @@ public class PasswordHasherTests
     [Fact]
     public void HashPassword_WhenPasswordIsValid_ReturnsVerifiableHash()
     {
-        var hash = _hasher.HashPassword("Senha@123");
+        var hash = _hasher.HashPassword("TestPassword@123");
 
         Assert.StartsWith("PBKDF2-SHA256$", hash);
-        Assert.True(_hasher.VerifyPassword("Senha@123", hash));
+        Assert.True(_hasher.VerifyPassword("TestPassword@123", hash));
     }
 
     [Fact]
     public void HashPassword_WhenCalledTwiceForSamePassword_ReturnsDifferentHashes()
     {
-        var firstHash = _hasher.HashPassword("Senha@123");
-        var secondHash = _hasher.HashPassword("Senha@123");
+        var firstHash = _hasher.HashPassword("TestPassword@123");
+        var secondHash = _hasher.HashPassword("TestPassword@123");
 
         Assert.NotEqual(firstHash, secondHash);
-        Assert.True(_hasher.VerifyPassword("Senha@123", firstHash));
-        Assert.True(_hasher.VerifyPassword("Senha@123", secondHash));
+        Assert.True(_hasher.VerifyPassword("TestPassword@123", firstHash));
+        Assert.True(_hasher.VerifyPassword("TestPassword@123", secondHash));
     }
 
     [Fact]
     public void VerifyPassword_WhenPasswordDoesNotMatch_ReturnsFalse()
     {
-        var hash = _hasher.HashPassword("Senha@123");
+        var hash = _hasher.HashPassword("TestPassword@123");
 
         Assert.False(_hasher.VerifyPassword("Senha@456", hash));
     }
@@ -41,15 +41,15 @@ public class PasswordHasherTests
     [InlineData("U2VuaGFA")]
     public void VerifyPassword_WhenHashIsInvalid_ReturnsFalse(string invalidHash)
     {
-        Assert.False(_hasher.VerifyPassword("Senha@123", invalidHash));
+        Assert.False(_hasher.VerifyPassword("TestPassword@123", invalidHash));
     }
 
     [Fact]
     public void VerifyPassword_WhenHashUsesLegacyFormat_ReturnsTrue()
     {
-        var legacyHash = CreateLegacyHash("Senha@123");
+        var legacyHash = CreateLegacyHash("TestPassword@123");
 
-        Assert.True(_hasher.VerifyPassword("Senha@123", legacyHash));
+        Assert.True(_hasher.VerifyPassword("TestPassword@123", legacyHash));
         Assert.False(_hasher.VerifyPassword("Senha@456", legacyHash));
     }
 

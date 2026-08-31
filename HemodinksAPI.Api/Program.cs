@@ -35,23 +35,7 @@ builder.Services
 
 var app = builder.Build();
 app.UseForwardedHeaders();
-app.Use(async (context, next) =>
-{
-    try
-    {
-        await next();
-    }
-    catch (BadHttpRequestException exception)
-    {
-        app.Logger.LogWarning(exception, "Invalid request body for {Path}", context.Request.Path);
-        if (context.Response.HasStarted) throw;
-        context.Response.StatusCode = StatusCodes.Status400BadRequest;
-        await context.Response.WriteAsJsonAsync(new
-        {
-            message = "Alguns campos estao ausentes ou possuem formato invalido. Revise os dados informados."
-        });
-    }
-});
+app.UseMiddleware<ApiExceptionHandlingMiddleware>();
 app.UseStatusCodePages(async statusCodeContext =>
 {
     var response = statusCodeContext.HttpContext.Response;
@@ -204,6 +188,8 @@ public partial class Program
 
         loggerConfiguration
             .MinimumLevel.Information()
+            .MinimumLevel.Override("Microsoft.EntityFrameworkCore", LogEventLevel.Warning)
+            .MinimumLevel.Override("Microsoft.EntityFrameworkCore.Database.Command", LogEventLevel.Warning)
             .WriteTo.Console()
             .WriteTo.File(logFilePath,
                 rollingInterval: RollingInterval.Day,

@@ -18,7 +18,7 @@ public partial class UserCommandHandlerTests
         var hasher = new PasswordHasher();
         context.Users.Add(CreateUser(
             email: "login@email.com",
-            passwordHash: hasher.HashPassword("Senha@123"),
+            passwordHash: hasher.HashPassword("TestPassword@123"),
             precisaTrocarSenha: true,
             fotoPerfil: "https://storage.example/login.png"));
         await context.SaveChangesAsync();
@@ -34,7 +34,7 @@ public partial class UserCommandHandlerTests
         var response = await handler.Handle(new AuthenticateUserCommand
         {
             Email = "login@email.com",
-            Senha = "Senha@123"
+            Senha = "TestPassword@123"
         }, CancellationToken.None);
 
         Assert.Equal("login@email.com", response.Email);
@@ -58,7 +58,7 @@ public partial class UserCommandHandlerTests
         var hasher = new PasswordHasher();
         context.Users.Add(CreateUser(
             email: "controller.login@email.com",
-            passwordHash: hasher.HashPassword("Senha@123"),
+            passwordHash: hasher.HashPassword("TestPassword@123"),
             perfilId: Perfil.ControllerId));
         await context.SaveChangesAsync();
         context.ChangeTracker.Clear();
@@ -73,7 +73,7 @@ public partial class UserCommandHandlerTests
         var response = await handler.Handle(new AuthenticateUserCommand
         {
             Email = "controller.login@email.com",
-            Senha = "Senha@123"
+            Senha = "TestPassword@123"
         }, CancellationToken.None);
 
         Assert.Equal(Perfil.ControllerId, response.PerfilId);
@@ -93,7 +93,7 @@ public partial class UserCommandHandlerTests
         var user = CreateUser(
             id: 25,
             email: "edita@email.com",
-            passwordHash: hasher.HashPassword("Senha@123"));
+            passwordHash: hasher.HashPassword("TestPassword@123"));
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
@@ -138,7 +138,7 @@ public partial class UserCommandHandlerTests
         var user = CreateUser(
             id: 26,
             email: "limpa.cpf@email.com",
-            passwordHash: hasher.HashPassword("Senha@123"),
+            passwordHash: hasher.HashPassword("TestPassword@123"),
             perfilId: Perfil.AdministradorId);
         context.Users.Add(user);
         await context.SaveChangesAsync();
@@ -173,7 +173,7 @@ public partial class UserCommandHandlerTests
         var user = CreateUser(
             id: 25,
             email: "edita.negada@email.com",
-            passwordHash: hasher.HashPassword("Senha@123"));
+            passwordHash: hasher.HashPassword("TestPassword@123"));
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
@@ -205,7 +205,7 @@ public partial class UserCommandHandlerTests
         var user = CreateUser(
             id: 26,
             email: "paciente.original@email.com",
-            passwordHash: hasher.HashPassword("Senha@123"));
+            passwordHash: hasher.HashPassword("TestPassword@123"));
         user.Nome = "Paciente Original";
         user.Telefone = "+5511999999999";
         user.Cpf = "52998224725";
@@ -257,7 +257,7 @@ public partial class UserCommandHandlerTests
         var hasher = new PasswordHasher();
         context.Users.Add(CreateUser(
             email: "login@email.com",
-            passwordHash: hasher.HashPassword("Senha@123")));
+            passwordHash: hasher.HashPassword("TestPassword@123")));
         await context.SaveChangesAsync();
 
         var handler = new AuthenticateUserCommandHandler(
