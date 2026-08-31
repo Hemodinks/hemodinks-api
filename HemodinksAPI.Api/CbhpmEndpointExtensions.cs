@@ -24,7 +24,7 @@ public static class CbhpmEndpointExtensions
             .WithSummary("Importar procedimentos CBHPM");
     }
 
-    private static async Task<IResult> GetCbhpmGeral(
+    private static Task<IResult> GetCbhpmGeral(
         int? page,
         int? pageSize,
         string? search,
@@ -36,7 +36,7 @@ public static class CbhpmEndpointExtensions
         IMediator mediator,
         ILogger<Program> logger)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
             return Results.Ok(await mediator.Send(new GetCbhpmGeralQuery
             {
@@ -49,35 +49,17 @@ public static class CbhpmEndpointExtensions
                 SortBy = sortBy,
                 SortDirection = sortDirection
             }));
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao buscar procedimentos CBHPM");
-            return Results.Problem(
-                title: "Erro ao buscar procedimentos CBHPM",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
+        }, logger, "Erro ao buscar procedimentos CBHPM", "Erro ao buscar procedimentos CBHPM");
     }
 
-    private static async Task<IResult> ImportCbhpmGeral(
+    private static Task<IResult> ImportCbhpmGeral(
         ImportCbhpmGeralCommand command,
         IMediator mediator,
         ILogger<Program> logger)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
             return Results.Ok(await mediator.Send(command));
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao importar procedimentos CBHPM");
-            return Results.Problem(
-                title: "Erro ao importar procedimentos CBHPM",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
+        }, logger, "Erro ao importar procedimentos CBHPM", "Erro ao importar procedimentos CBHPM");
     }
 }

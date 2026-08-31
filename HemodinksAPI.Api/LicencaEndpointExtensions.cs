@@ -31,13 +31,13 @@ public static class LicencaEndpointExtensions
             .RequireAuthorization("Administrador");
     }
 
-    private static async Task<IResult> GetCurrentLicenca(
+    private static Task<IResult> GetCurrentLicenca(
         ClaimsPrincipal claimsPrincipal,
         ILicencaService licencaService,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
             var currentUser = claimsPrincipal.ToCurrentUserContext();
             if (currentUser == null)
@@ -47,96 +47,44 @@ public static class LicencaEndpointExtensions
 
             var licenca = await licencaService.GetCurrentAsync(currentUser, cancellationToken);
             return Results.Ok(licenca);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao consultar licenca atual");
-            return Results.Problem(
-                title: "Erro ao consultar licenca",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
+        }, logger, "Erro ao consultar licenca atual", "Erro ao consultar licenca");
     }
 
-    private static async Task<IResult> GetUserLicenca(
+    private static Task<IResult> GetUserLicenca(
         int userId,
         ILicencaService licencaService,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
             return Results.Ok(await licencaService.GetOrCreateForMedicoAsync(userId, cancellationToken));
-        }
-        catch (KeyNotFoundException)
-        {
-            return Results.NotFound();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao consultar licenca do usuario {UserId}", userId);
-            return Results.Problem(
-                title: "Erro ao consultar licenca",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
+        }, logger, "Erro ao consultar licenca do usuario {UserId}", "Erro ao consultar licenca");
     }
 
-    private static async Task<IResult> UpdateUserLicenca(
+    private static Task<IResult> UpdateUserLicenca(
         int userId,
         UpdateLicencaRequest request,
         ILicencaService licencaService,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
             return Results.Ok(await licencaService.UpdateAsync(userId, request, cancellationToken));
-        }
-        catch (KeyNotFoundException)
-        {
-            return Results.NotFound();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao atualizar licenca do usuario {UserId}", userId);
-            return Results.Problem(
-                title: "Erro ao atualizar licenca",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
+        }, logger, "Erro ao atualizar licenca do usuario {UserId}", "Erro ao atualizar licenca");
     }
 
-    private static async Task<IResult> LiberarLicencaCompleta(
+    private static Task<IResult> LiberarLicencaCompleta(
         int userId,
         LiberarLicencaCompletaRequest request,
         ILicencaService licencaService,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
             return Results.Ok(await licencaService.LiberarCompletaAsync(userId, request, cancellationToken));
-        }
-        catch (KeyNotFoundException)
-        {
-            return Results.NotFound();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.BadRequest(new { message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao liberar licenca completa do usuario {UserId}", userId);
-            return Results.Problem(
-                title: "Erro ao liberar licenca completa",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
+        }, logger, "Erro ao liberar licenca completa do usuario {UserId}", "Erro ao liberar licenca completa");
     }
 }

@@ -112,7 +112,7 @@ public partial class ApiEndpointIntegrationTests
         var confirmResponse = await client.PostAsJsonAsync("/api/users/password/reset/confirm", new
         {
             token,
-            novaSenha = "NovaSenha@123"
+            novaSenha = "NovaTestPassword@123"
         });
 
         Assert.Equal(HttpStatusCode.OK, confirmResponse.StatusCode);
@@ -120,7 +120,7 @@ public partial class ApiEndpointIntegrationTests
         var loginResponse = await client.PostAsJsonAsync("/api/users/authenticate", new
         {
             Email = "gmarcone@gmail.com",
-            Senha = "NovaSenha@123"
+            Senha = "NovaTestPassword@123"
         });
 
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);

@@ -1,9 +1,12 @@
 using System.Net;
 using System.Text.Json;
+using System.Text;
 using HemodinksAPI.Application.Storage;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using HemodinksAPI.Infrastructure.Storage;
 
 namespace HemodinksAPI.Workers.Functions;
 
@@ -14,14 +17,17 @@ public class StorageUploadFunctions
     private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly IPatientFileStorage _patientFileStorage;
     private readonly ILogger<StorageUploadFunctions> _logger;
+    private readonly PatientFileStorageOptions _patientFileOptions;
 
     public StorageUploadFunctions(
         IProfilePhotoStorage profilePhotoStorage,
         IPatientFileStorage patientFileStorage,
+        IOptions<PatientFileStorageOptions> patientFileOptions,
         ILogger<StorageUploadFunctions> logger)
     {
         _profilePhotoStorage = profilePhotoStorage;
         _patientFileStorage = patientFileStorage;
+        _patientFileOptions = patientFileOptions.Value;
         _logger = logger;
     }
 
@@ -56,23 +62,46 @@ public class StorageUploadFunctions
         [HttpTrigger(AuthorizationLevel.Function, "post", Route = "storage/patient-file")] HttpRequestData request,
         CancellationToken cancellationToken)
     {
-        var payload = await JsonSerializer.DeserializeAsync<RemotePatientFileUploadRequest>(
-            request.Body,
-            JsonOptions,
-            cancellationToken)
-            ?? throw new InvalidOperationException("Payload de upload de arquivo invalido.");
-
-        if (string.IsNullOrWhiteSpace(payload.FileName))
+        var encodedFileName = request.Headers.TryGetValues("X-File-Name-Base64", out var fileNameValues)
+            ? fileNameValues.SingleOrDefault()
+            : null;
+        if (string.IsNullOrWhiteSpace(encodedFileName))
         {
             throw new InvalidOperationException("Nome do arquivo obrigatorio.");
         }
 
-        var fileBytes = Convert.FromBase64String(payload.Base64Content);
+        string fileName;
+        try
+        {
+            fileName = Encoding.UTF8.GetString(Convert.FromBase64String(encodedFileName));
+        }
+        catch (FormatException)
+        {
+            throw new InvalidOperationException("Nome do arquivo invalido.");
+        }
+
+        var tempPath = Path.Combine(Path.GetTempPath(), $"hemodinks-upload-{Guid.NewGuid():N}.tmp");
+        await using var tempFile = new FileStream(
+            tempPath,
+            FileMode.CreateNew,
+            FileAccess.ReadWrite,
+            FileShare.None,
+            81920,
+            FileOptions.Asynchronous | FileOptions.DeleteOnClose);
+        var fileLength = await CopyWithLimitAsync(
+            request.Body,
+            tempFile,
+            _patientFileOptions.MaxBytes,
+            cancellationToken);
+        tempFile.Position = 0;
+
         var uploadedFile = new UploadedFile(
-            payload.FileName,
-            payload.ContentType ?? "application/octet-stream",
-            fileBytes.LongLength,
-            () => new MemoryStream(fileBytes, writable: false));
+            fileName,
+            request.Headers.TryGetValues("Content-Type", out var contentTypes)
+                ? contentTypes.SingleOrDefault() ?? "application/octet-stream"
+                : "application/octet-stream",
+            fileLength,
+            () => tempFile);
 
         var storedFile = await _patientFileStorage.SaveAsync(uploadedFile, cancellationToken);
 
@@ -88,5 +117,31 @@ public class StorageUploadFunctions
                 storedFile.Url), JsonOptions),
             cancellationToken);
         return response;
+    }
+
+    private static async Task<long> CopyWithLimitAsync(
+        Stream source,
+        Stream target,
+        long maxBytes,
+        CancellationToken cancellationToken)
+    {
+        var buffer = new byte[81920];
+        long total = 0;
+        while (true)
+        {
+            var read = await source.ReadAsync(buffer, cancellationToken);
+            if (read == 0)
+            {
+                return total;
+            }
+
+            total += read;
+            if (total > maxBytes)
+            {
+                throw new InvalidOperationException($"O arquivo deve ter no máximo {maxBytes / 1024 / 1024} MB");
+            }
+
+            await target.WriteAsync(buffer.AsMemory(0, read), cancellationToken);
+        }
     }
 }

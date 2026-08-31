@@ -4,27 +4,29 @@ public class FunctionBackedPatientFileStorage : IPatientFileStorage
 {
     private readonly StorageFunctionClient _storageFunctionClient;
     private readonly AzureBlobPatientFileStorage _fallbackStorage;
+    private readonly PatientFileStorageOptions _options;
 
     public FunctionBackedPatientFileStorage(
         StorageFunctionClient storageFunctionClient,
-        AzureBlobPatientFileStorage fallbackStorage)
+        AzureBlobPatientFileStorage fallbackStorage,
+        Microsoft.Extensions.Options.IOptions<PatientFileStorageOptions> options)
     {
         _storageFunctionClient = storageFunctionClient;
         _fallbackStorage = fallbackStorage;
+        _options = options.Value;
     }
 
     public async Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
     {
         await using var stream = file.OpenReadStream();
-        using var memoryStream = new MemoryStream();
-        await stream.CopyToAsync(memoryStream, cancellationToken);
+        var validated = await PatientFileValidation.ValidateAsync(file, stream, _options.MaxBytes, cancellationToken);
 
-        var response = await _storageFunctionClient.PostJsonAsync<RemotePatientFileUploadRequest, RemotePatientFileUploadResponse>(
+        var response = await _storageFunctionClient.PostFileAsync<RemotePatientFileUploadResponse>(
             "storage/patient-file",
-            new RemotePatientFileUploadRequest(
-                file.FileName,
-                file.ContentType,
-                Convert.ToBase64String(memoryStream.ToArray())),
+            validated.OriginalName,
+            validated.ContentType,
+            validated.SizeBytes,
+            stream,
             cancellationToken);
 
         return new StoredPatientFile(

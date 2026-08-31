@@ -6,22 +6,6 @@ namespace HemodinksAPI.Infrastructure.Storage;
 
 public class AzureBlobPatientFileStorage : IPatientFileStorage
 {
-    private static readonly IReadOnlyDictionary<string, string> AllowedExtensions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-    {
-        [".pdf"] = "application/pdf",
-        [".doc"] = "application/msword",
-        [".docx"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        [".jpg"] = "image/jpeg",
-        [".jpeg"] = "image/jpeg",
-        [".png"] = "image/png",
-        [".xls"] = "application/vnd.ms-excel",
-        [".xlsx"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        [".txt"] = "text/plain",
-        [".csv"] = "text/csv",
-        [".ppt"] = "application/vnd.ms-powerpoint",
-        [".pptx"] = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    };
-
     private readonly PatientFileStorageOptions _options;
     private readonly ILogger<AzureBlobPatientFileStorage> _logger;
 
@@ -35,41 +19,26 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
 
     public async Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
     {
-        if (file.Length <= 0)
-        {
-            throw new InvalidOperationException("Arquivo vazio");
-        }
-
-        if (file.Length > _options.MaxBytes)
-        {
-            throw new InvalidOperationException($"O arquivo deve ter no maximo {_options.MaxBytes / 1024 / 1024} MB");
-        }
-
-        var extension = Path.GetExtension(file.FileName);
-
-        if (string.IsNullOrWhiteSpace(extension) || !AllowedExtensions.TryGetValue(extension, out var contentType))
-        {
-            throw new InvalidOperationException("Use arquivo PDF, DOC, DOCX, JPG, JPEG, PNG, XLS, XLSX, TXT, CSV, PPT ou PPTX");
-        }
+        await using var stream = file.OpenReadStream();
+        var validated = await PatientFileValidation.ValidateAsync(file, stream, _options.MaxBytes, cancellationToken);
 
         var containerClient = await GetContainerClientAsync(cancellationToken);
-        var blobName = $"pacientes/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+        var blobName = $"pacientes/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{validated.Extension}";
         var blobClient = containerClient.GetBlobClient(blobName);
 
-        await using var stream = file.OpenReadStream();
         await blobClient.UploadAsync(stream, new BlobUploadOptions
         {
             HttpHeaders = new BlobHttpHeaders
             {
-                ContentType = contentType,
+                ContentType = validated.ContentType,
                 CacheControl = "private, max-age=3600"
             }
         }, cancellationToken);
 
         return new StoredPatientFile(
-            file.FileName,
-            contentType,
-            file.Length,
+            validated.OriginalName,
+            validated.ContentType,
+            validated.SizeBytes,
             BuildPublicUrl(blobClient, blobName));
     }
 

@@ -16,20 +16,13 @@ public static class HospitalEndpointExtensions
             .WithSummary("Listar hospitais");
     }
 
-    private static async Task<IResult> GetHospitais(
+    private static Task<IResult> GetHospitais(
         IMediator mediator,
         ILogger<Program> logger)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
             return Results.Ok(await mediator.Send(new GetHospitaisQuery()));
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao buscar hospitais");
-            return Results.Problem(
-                title: "Erro ao buscar hospitais",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
+        }, logger, "Erro ao buscar hospitais", "Erro ao buscar hospitais");
     }
 }

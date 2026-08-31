@@ -1,7 +1,6 @@
 using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Application.Features.Users.Queries;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -355,7 +354,7 @@ public class ListOrderingTests
             Email = email,
             Telefone = "+5511999999999",
             Cpf = cpf,
-            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            Senha = new PasswordHasher().HashPassword(TestPasswords.Valid),
             DataCadastro = dataCadastro,
             DataAtualizacao = dataAtualizacao,
             DataNascimento = new DateTime(1990, 1, 1),

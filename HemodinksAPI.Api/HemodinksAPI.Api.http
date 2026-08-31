@@ -26,7 +26,7 @@ Idempotency-Key: local-reset-confirm-001
 
 {
   "token": "cole_o_token_aqui",
-  "novaSenha": "NovaSenha@123"
+  "novaSenha": "{{$processEnv HEMODINKS_HTTP_NEW_PASSWORD}}"
 }
 
 ### Login
@@ -35,7 +35,7 @@ Content-Type: application/json
 
 {
   "email": "gmarcone@gmail.com",
-  "senha": "Senha@123"
+  "senha": "{{$processEnv HEMODINKS_HTTP_CURRENT_PASSWORD}}"
 }
 
 ### CBHPM

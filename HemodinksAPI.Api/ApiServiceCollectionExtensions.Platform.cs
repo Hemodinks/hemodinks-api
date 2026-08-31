@@ -9,6 +9,8 @@ namespace HemodinksAPI.Api;
 
 public static partial class ApiServiceCollectionExtensions
 {
+    private const int MaxClinicSlugLength = 120;
+
     public static IServiceCollection AddProxyForwarding(this IServiceCollection services, IConfiguration configuration)
     {
         var section = configuration.GetSection("ForwardedHeaders");
@@ -135,7 +137,9 @@ public static partial class ApiServiceCollectionExtensions
             options.AddPolicy("Login", context =>
             {
                 var clinic = context.Request.Headers[ClinicaResolutionService.ClinicaSlugHeaderName].ToString();
-                var partitionKey = $"{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}:{clinic}";
+                var partitionKey = BuildLoginRateLimitPartitionKey(
+                    context.Connection.RemoteIpAddress,
+                    clinic);
                 return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ =>
                     new FixedWindowRateLimiterOptions
                     {
@@ -172,6 +176,24 @@ public static partial class ApiServiceCollectionExtensions
         });
 
         return services;
+    }
+
+    internal static string BuildLoginRateLimitPartitionKey(IPAddress? remoteIpAddress, string? clinicSlug)
+    {
+        var normalizedClinic = NormalizeClinicSlugForRateLimit(clinicSlug);
+        return $"{remoteIpAddress?.ToString() ?? "unknown"}:{normalizedClinic}";
+    }
+
+    private static string NormalizeClinicSlugForRateLimit(string? clinicSlug)
+    {
+        if (string.IsNullOrWhiteSpace(clinicSlug))
+        {
+            return "unknown-clinic";
+        }
+
+        var trimmed = clinicSlug.AsSpan().Trim();
+        var bounded = trimmed[..Math.Min(trimmed.Length, MaxClinicSlugLength)];
+        return bounded.ToString().ToLowerInvariant();
     }
 
     public static IServiceCollection AddLicensing(this IServiceCollection services, IConfiguration configuration)

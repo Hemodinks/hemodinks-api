@@ -100,6 +100,10 @@ public static partial class ApiServiceCollectionExtensions
 
     private static void ConfigureAuthorizationPolicies(AuthorizationOptions options)
     {
+        options.FallbackPolicy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build();
+
         options.AddPolicy("Administrador", policy =>
             policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString()));
 

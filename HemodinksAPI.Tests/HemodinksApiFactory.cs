@@ -51,7 +51,7 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
                 ["Database:RunMaintenanceOnStartup"] = "true",
                 ["Seed:CbhpmOnStartup"] = "true",
                 ["Seed:UsersOnStartup"] = "true",
-                ["Seed:InitialPassword"] = Domain.Utils.DefaultUserPassword.Value,
+                ["Seed:InitialPassword"] = TestPasswords.Valid,
                 ["Platform:SuperAdminEmails:0"] = "gmarcone@gmail.com"
             });
         });

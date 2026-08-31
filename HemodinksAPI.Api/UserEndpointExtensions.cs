@@ -16,13 +16,14 @@ public static partial class UserEndpointExtensions
         group.MapPost("/", CreateUser)
             .WithName("CreateUser")
             .WithSummary("Criar novo usuario")
-            .WithDescription("Cria um novo usuario com a senha padrao")
+            .WithDescription("Cria um novo usuario e envia instrucoes seguras para o primeiro acesso")
             .RequireAuthorization("Administrador");
 
         group.MapPost("/authenticate", AuthenticateUser)
             .WithName("AuthenticateUser")
             .WithSummary("Autenticar usuario")
             .WithDescription("Autentica um usuario e retorna um token JWT")
+            .AllowAnonymous()
             .RequireRateLimiting("Login");
 
         group.MapGet("/", GetAllUsers)
@@ -77,12 +78,14 @@ public static partial class UserEndpointExtensions
             .WithName("ResetPasswordByEmail")
             .WithSummary("Resetar senha por email")
             .WithDescription("Solicita um token temporario para redefinicao de senha. A API prioriza Function HTTP valida, depois fila Azure e por fim SMTP. A senha atual permanece inalterada ate a confirmacao do token. Envie Idempotency-Key para tornar retries seguros.")
+            .AllowAnonymous()
             .RequireRateLimiting("PasswordReset");
 
         group.MapPost("/password/reset/confirm", ConfirmPasswordReset)
             .WithName("ConfirmPasswordReset")
             .WithSummary("Confirmar reset de senha")
             .WithDescription("Redefine a senha usando o token temporario gerado anteriormente. Envie Idempotency-Key para tornar retries seguros.")
+            .AllowAnonymous()
             .RequireRateLimiting("PasswordReset");
 
         group.MapPut("/{id}/password/reset", ResetPassword)
@@ -92,6 +95,7 @@ public static partial class UserEndpointExtensions
             .RequireAuthorization("Administrador");
 
         group.MapPost("/{id}/arquivos", UploadArquivo)
+            .LimitPatientFileUpload()
             .WithName("UploadUserArquivo")
             .WithSummary("Enviar arquivo do cadastro medico")
             .WithDescription("Adiciona documento ao cadastro de um usuario medico")

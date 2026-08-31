@@ -5,7 +5,6 @@ using HemodinksAPI.Api;
 using HemodinksAPI.Application.Async;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,7 +20,7 @@ public partial class ApiEndpointIntegrationTests
         string email = "gmarcone@gmail.com",
         string? senha = null)
     {
-        senha ??= DefaultUserPassword.Value;
+        senha ??= TestPasswords.Valid;
         var response = await PostAsJsonWithClinicHeaderAsync(client, clinicaSlug, "/api/users/authenticate", new
         {
             Email = email,
@@ -77,7 +76,7 @@ public partial class ApiEndpointIntegrationTests
         const string clinicaSlug = "clinica-beta";
         const string adminEmail = "gmarcone@gmail.com";
         // A credencial pertence a identidade global, nao a cada clinica.
-        var adminPassword = DefaultUserPassword.Value;
+        var adminPassword = TestPasswords.Valid;
         const string adminName = "George Beta";
         const string doctorName = "Dra. Beta";
 
@@ -124,7 +123,7 @@ public partial class ApiEndpointIntegrationTests
                 Cpf = "12345678902",
                 Crm = "99887",
                 CrmUf = "SP",
-                Senha = passwordHasher.HashPassword(DefaultUserPassword.Value),
+                Senha = passwordHasher.HashPassword(TestPasswords.Valid),
                 DataNascimento = new DateTime(1988, 5, 10),
                 DataCadastro = DateTime.UtcNow,
                 Ativo = true,

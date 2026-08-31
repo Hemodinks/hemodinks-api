@@ -1,4 +1,4 @@
-namespace HemodinksAPI.Api;
+namespace HemodinksAPI.Application.Features.Teams;
 
 public sealed record CriarEquipeRequest(string Nome, string Email, string Senha, string? Telefone, string? ModoIdentificacao);
 public sealed record AtualizarEquipeRequest(string? Nome, string? ModoIdentificacao, bool? Ativa);

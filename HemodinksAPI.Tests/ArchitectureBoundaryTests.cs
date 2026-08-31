@@ -100,7 +100,7 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
-    public void Only_platform_administration_endpoints_access_data_contexts_directly()
+    public void Http_endpoints_do_not_access_data_contexts_directly()
     {
         var endpointHandlersWithDataContext = typeof(Program).Assembly
             .GetTypes()
@@ -114,8 +114,7 @@ public sealed class ArchitectureBoundaryTests
             .Distinct()
             .ToArray();
 
-        Assert.All(endpointHandlersWithDataContext, typeName =>
-            Assert.Equal("ClinicaPlatformEndpointExtensions", typeName));
+        Assert.Empty(endpointHandlersWithDataContext);
     }
 
     [Fact]

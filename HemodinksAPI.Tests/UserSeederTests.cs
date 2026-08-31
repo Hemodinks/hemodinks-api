@@ -1,6 +1,5 @@
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Seeders;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 
 namespace HemodinksAPI.Tests;
@@ -22,7 +21,7 @@ public class UserSeederTests
         {
             Assert.True(user.Ativo);
             Assert.True(user.PrecisaTrocarSenha);
-            Assert.False(hasher.VerifyPassword(DefaultUserPassword.Value, user.Senha));
+            Assert.False(hasher.VerifyPassword(TestPasswords.RetiredSharedCredential, user.Senha));
             Assert.False(string.IsNullOrWhiteSpace(user.Senha));
         });
 

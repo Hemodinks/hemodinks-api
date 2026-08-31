@@ -21,6 +21,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
     private readonly ILicencaService _licencaService;
     private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<AuthenticateUserCommandHandler> _logger;
+    private readonly ILoginAccountProtection _loginProtection;
 
     internal AuthenticateUserCommandHandler(
         IUserFeatureDbContext context,
@@ -34,6 +35,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
             jwtTokenService,
             licencaService,
             ClinicaContextFactory.CreateDefaultResolved(),
+            new NoOpLoginAccountProtection(),
             logger)
     {
     }
@@ -44,6 +46,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
         IJwtTokenService jwtTokenService,
         ILicencaService licencaService,
         IClinicaContext clinicaContext,
+        ILoginAccountProtection loginProtection,
         ILogger<AuthenticateUserCommandHandler> logger)
     {
         _context = context;
@@ -51,6 +54,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
         _jwtTokenService = jwtTokenService;
         _licencaService = licencaService;
         _clinicaContext = clinicaContext;
+        _loginProtection = loginProtection;
         _logger = logger;
     }
 
@@ -70,9 +74,16 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 .ThenBy(u => u.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            var globalAuthentication = user == null
+            var membership = user == null
                 ? null
-                : await GlobalIdentityService.AuthenticateAsync(
+                : await GlobalIdentityService.EnsureForUserAsync(_context, user, cancellationToken);
+            if (membership != null && await _loginProtection.IsLockedAsync(membership.UsuarioGlobalId, cancellationToken))
+            {
+                _logger.LogWarning("Conta temporariamente bloqueada para: {MaskedEmail}", maskedEmail);
+                throw new UnauthorizedAccessException("Email ou senha invalidos");
+            }
+
+            var globalAuthentication = user == null ? null : await GlobalIdentityService.AuthenticateAsync(
                     _context,
                     _passwordHasher,
                     user,
@@ -81,9 +92,16 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
 
             if (user == null || globalAuthentication == null)
             {
+                if (membership != null)
+                {
+                    await _loginProtection.RegisterFailureAsync(membership.UsuarioGlobalId, cancellationToken);
+                }
+
                 _logger.LogWarning("Falha na autenticacao para: {MaskedEmail}", maskedEmail);
                 throw new UnauthorizedAccessException("Email ou senha invalidos");
             }
+
+            await _loginProtection.RegisterSuccessAsync(globalAuthentication.UsuarioGlobal.Id, cancellationToken);
 
             Equipe? equipe = null;
             EquipeLoginChallengeDto? equipeDesafio = null;
