@@ -47,14 +47,15 @@ public sealed class DownloadUserArquivoQueryHandler
             return null;
         }
 
-        var storedFile = await _patientFileStorage.GetAsync(arquivo.Url, cancellationToken);
-        return storedFile == null
-            ? null
-            : new PrivateFileDownload
-            {
-                Content = storedFile.Content,
-                ContentType = arquivo.ContentType,
-                FileName = arquivo.NomeOriginal
-            };
+        var storedFile = await _patientFileStorage.GetAsync(arquivo.Url, cancellationToken)
+            ?? throw new StoredFileUnavailableException(
+                "Arquivo do usuario registrado nao foi localizado no armazenamento.");
+
+        return new PrivateFileDownload
+        {
+            Content = storedFile.Content,
+            ContentType = arquivo.ContentType,
+            FileName = arquivo.NomeOriginal
+        };
     }
 }

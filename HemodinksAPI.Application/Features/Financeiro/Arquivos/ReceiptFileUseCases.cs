@@ -36,7 +36,8 @@ public sealed partial class FinanceiroFileUseCases
             ?? throw new KeyNotFoundException("Recebimento nao encontrado.");
         var storedUrl = receipt.DocumentoComprovante ?? throw new KeyNotFoundException("Comprovante nao encontrado.");
         var file = await storage.GetAsync(storedUrl, cancellationToken)
-            ?? throw new KeyNotFoundException("Comprovante nao encontrado.");
+            ?? throw new StoredFileUnavailableException(
+                "Comprovante registrado nao foi localizado no armazenamento.");
         var storedPath = Uri.TryCreate(storedUrl, UriKind.Absolute, out var storedUri) ? storedUri.AbsolutePath : storedUrl;
         var extension = Path.GetExtension(storedPath).ToLowerInvariant();
         var (contentType, downloadExtension) = extension switch

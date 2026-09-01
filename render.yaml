@@ -87,13 +87,13 @@ services:
       - key: AzureStorage__ConnectionString
         sync: false
       - key: AzureStorage__ContainerName
-        value: profile-photos
+        value: profile-photos-confirmation
       - key: AzureStorage__PublicBaseUrl
         sync: false
       - key: AzureStorage__MaxBytes
         value: 2097152
       - key: AzureStorage__PatientFilesContainerName
-        value: patient-files
+        value: patient-files-confirmation
       - key: AzureStorage__PatientFilesPublicBaseUrl
         sync: false
       - key: AzureStorage__PatientFileMaxBytes

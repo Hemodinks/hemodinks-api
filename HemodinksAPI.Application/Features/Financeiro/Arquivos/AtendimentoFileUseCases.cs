@@ -67,7 +67,8 @@ public sealed partial class FinanceiroFileUseCases
             ?? throw new KeyNotFoundException("Arquivo nao encontrado.");
         EnsureMedicalAccess(entity.AtendimentoCirurgico, user, "Sem permissao para baixar este arquivo.");
         var stored = await storage.GetAsync(entity.Url, cancellationToken)
-            ?? throw new KeyNotFoundException("Arquivo nao encontrado.");
+            ?? throw new StoredFileUnavailableException(
+                "Arquivo do atendimento registrado nao foi localizado no armazenamento.");
         return new PrivateFileDownload { Content = stored.Content, ContentType = entity.ContentType, FileName = entity.NomeOriginal };
     }
 

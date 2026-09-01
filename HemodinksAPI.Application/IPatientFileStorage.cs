@@ -23,6 +23,8 @@ public sealed record StoredPatientFileContent(Stream Content) : IDisposable
     }
 }
 
+public sealed class StoredFileUnavailableException(string message) : IOException(message);
+
 public sealed class PrivateFileDownload : IDisposable
 {
     public Stream Content { get; init; } = Stream.Null;
