@@ -91,7 +91,8 @@ public sealed partial class FinanceiroFileUseCases(
             .SingleOrDefaultAsync(item => item.Id == fileId && item.ClinicaId == clinicId, cancellationToken)
             ?? throw new KeyNotFoundException("Arquivo do histórico não encontrado.");
         var stored = await storage.GetAsync(entity.Url, cancellationToken)
-            ?? throw new KeyNotFoundException("Arquivo do histórico não encontrado.");
+            ?? throw new StoredFileUnavailableException(
+                "Arquivo do historico registrado nao foi localizado no armazenamento.");
         return new PrivateFileDownload
         {
             Content = stored.Content,
