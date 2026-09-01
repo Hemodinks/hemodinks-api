@@ -4,22 +4,6 @@ namespace HemodinksAPI.Infrastructure.Storage;
 
 public class LocalDiskPatientFileStorage : IPatientFileStorage
 {
-    private static readonly IReadOnlyDictionary<string, string> AllowedExtensions = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
-    {
-        [".pdf"] = "application/pdf",
-        [".doc"] = "application/msword",
-        [".docx"] = "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        [".jpg"] = "image/jpeg",
-        [".jpeg"] = "image/jpeg",
-        [".png"] = "image/png",
-        [".xls"] = "application/vnd.ms-excel",
-        [".xlsx"] = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        [".txt"] = "text/plain",
-        [".csv"] = "text/csv",
-        [".ppt"] = "application/vnd.ms-powerpoint",
-        [".pptx"] = "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    };
-
     private const string StorageFolder = "patient-files";
 
     private readonly PatientFileStorageOptions _options;
@@ -38,24 +22,10 @@ public class LocalDiskPatientFileStorage : IPatientFileStorage
 
     public async Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
     {
-        if (file.Length <= 0)
-        {
-            throw new InvalidOperationException("Arquivo vazio");
-        }
+        await using var source = file.OpenReadStream();
+        var validated = await PatientFileValidation.ValidateAsync(file, source, _options.MaxBytes, cancellationToken);
 
-        if (file.Length > _options.MaxBytes)
-        {
-            throw new InvalidOperationException($"O arquivo deve ter no maximo {_options.MaxBytes / 1024 / 1024} MB");
-        }
-
-        var extension = Path.GetExtension(file.FileName);
-
-        if (string.IsNullOrWhiteSpace(extension) || !AllowedExtensions.TryGetValue(extension, out var contentType))
-        {
-            throw new InvalidOperationException("Use arquivo PDF, DOC, DOCX, JPG, JPEG, PNG, XLS, XLSX, TXT, CSV, PPT ou PPTX");
-        }
-
-        var relativePath = $"pacientes/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+        var relativePath = $"pacientes/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{validated.Extension}";
         var physicalPath = LocalStoragePathHelper.GetPhysicalPath(_localOptions, StorageFolder, relativePath);
         var directoryPath = Path.GetDirectoryName(physicalPath)
             ?? throw new InvalidOperationException("Nao foi possivel resolver a pasta do arquivo");
@@ -63,12 +33,12 @@ public class LocalDiskPatientFileStorage : IPatientFileStorage
         Directory.CreateDirectory(directoryPath);
 
         await using var stream = File.Create(physicalPath);
-        await file.CopyToAsync(stream, cancellationToken);
+        await source.CopyToAsync(stream, cancellationToken);
 
         return new StoredPatientFile(
-            file.FileName,
-            contentType,
-            file.Length,
+            validated.OriginalName,
+            validated.ContentType,
+            validated.SizeBytes,
             LocalStoragePathHelper.BuildPublicUrl(_localOptions, StorageFolder, relativePath));
     }
 

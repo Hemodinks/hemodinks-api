@@ -1,7 +1,6 @@
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Data;
-using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,14 +8,12 @@ namespace HemodinksAPI.Application.Features.Sessions;
 
 public sealed class SessionUseCases(
     ISessionDbContext context,
-    IClinicaContext clinicaContext,
     IJwtTokenService jwtTokenService)
 {
     public async Task<IReadOnlyList<SessionClinicResponse>> ListClinicsAsync(
         CurrentUserContext currentUser,
         CancellationToken cancellationToken)
     {
-        clinicaContext.SetPlatformScope();
         await EnsureSuperAdministratorMembershipsAsync(currentUser, null, cancellationToken);
 
         var memberships = await context.UsuariosClinicas
@@ -52,7 +49,6 @@ public sealed class SessionUseCases(
         Guid? sessionId,
         CancellationToken cancellationToken)
     {
-        clinicaContext.SetPlatformScope();
         await EnsureSuperAdministratorMembershipsAsync(currentUser, clinicId, cancellationToken);
 
         var membership = await context.UsuariosClinicas
@@ -86,7 +82,7 @@ public sealed class SessionUseCases(
     {
         if (!currentUser.IsSuperAdministrador || currentUser.UsuarioGlobalId <= 0) return;
 
-        var source = await context.Users.IgnoreQueryFilters().AsNoTracking()
+        var source = await context.Users.AsNoTracking()
             .FirstOrDefaultAsync(item => item.Id == currentUser.Id
                 && item.PerfilId == Perfil.SuperAdministradorId && item.Ativo, cancellationToken);
         if (source == null) return;
@@ -116,7 +112,7 @@ public sealed class SessionUseCases(
                 continue;
             }
 
-            var localUser = await context.Users.IgnoreQueryFilters()
+            var localUser = await context.Users
                 .FirstOrDefaultAsync(item => item.ClinicaId == clinicId && item.Email == source.Email, cancellationToken);
             if (localUser == null)
             {

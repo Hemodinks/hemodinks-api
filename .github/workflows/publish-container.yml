@@ -169,6 +169,7 @@ jobs:
         run: |
           mkdir -p artifacts
           dotnet tool run dotnet-ef migrations bundle \
+            --context AppDbContext \
             --self-contained \
             --target-runtime linux-x64 \
             --configuration Release \
@@ -177,6 +178,7 @@ jobs:
             --startup-project ./HemodinksAPI.Api/HemodinksAPI.Api.csproj \
             --output ./artifacts/hemodinks-efbundle
           dotnet tool run dotnet-ef migrations script \
+            --context AppDbContext \
             --idempotent \
             --configuration Release \
             --no-build \
@@ -392,6 +394,9 @@ jobs:
                       and .name != "Database__RunMigrationsOnStartup"
                       and .name != "Database__RunMaintenanceOnStartup"
                       and .name != "EventReminders__RunHostedProcessor"
+                      and .name != "ForwardedHeaders__Enabled"
+                      and .name != "ForwardedHeaders__ForwardLimit"
+                      and .name != "ForwardedHeaders__TrustAnyImmediateProxy"
                       and ($new_relic_enabled != "true" or (
                         .name != "CORECLR_ENABLE_PROFILING"
                         and .name != "NEW_RELIC_LICENSE_KEY"
@@ -403,7 +408,10 @@ jobs:
                       {name: "Deployment__CommitSha", value: $commit},
                       {name: "Database__RunMigrationsOnStartup", value: "false"},
                       {name: "Database__RunMaintenanceOnStartup", value: "false"},
-                      {name: "EventReminders__RunHostedProcessor", value: "false"}
+                      {name: "EventReminders__RunHostedProcessor", value: "false"},
+                      {name: "ForwardedHeaders__Enabled", value: "true"},
+                      {name: "ForwardedHeaders__ForwardLimit", value: "1"},
+                      {name: "ForwardedHeaders__TrustAnyImmediateProxy", value: "true"}
                     ]
                   + (if $new_relic_enabled == "true" then [
                       {name: "CORECLR_ENABLE_PROFILING", value: "1"},
@@ -528,16 +536,17 @@ jobs:
           set -euo pipefail
           ready=false
           for attempt in $(seq 1 30); do
-            state="$(az containerapp revision show \
+            revision_json="$(az containerapp revision show \
               --name "$API_NAME" \
               --resource-group "$API_RESOURCE_GROUP" \
               --revision "$CANDIDATE_REVISION" \
-              --query '[properties.healthState,properties.runningState,properties.provisioningState]' -o tsv || true)"
+              --output json || true)"
+            state="$(jq -r '[.properties.healthState,.properties.runningState,.properties.provisioningState] | @tsv' <<< "$revision_json" 2>/dev/null || true)"
             live_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
               --connect-timeout 10 --max-time 20 "https://${CANDIDATE_FQDN}/livez" || true)"
             ready_status="$(curl --silent --show-error --output /tmp/readiness.json --write-out '%{http_code}' \
               --connect-timeout 10 --max-time 30 "https://${CANDIDATE_FQDN}/healthz" || true)"
-            commit="$(jq -r '.deployment.commitSha // empty' /tmp/readiness.json 2>/dev/null || true)"
+            commit="$(jq -r '.properties.template.containers[0].env[]? | select(.name == "Deployment__CommitSha") | .value' <<< "$revision_json" 2>/dev/null || true)"
             if [[ "$state" == *"Healthy"* && "$state" == *"Running"* && "$live_status" = "200" && "$ready_status" = "200" && "$commit" = "$GITHUB_SHA" ]]; then
               ready=true
               break

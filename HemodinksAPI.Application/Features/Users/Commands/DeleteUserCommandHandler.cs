@@ -11,11 +11,11 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 /// </summary>
 public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand>
 {
-    private readonly IAppDbContext _context;
+    private readonly IUserFeatureDbContext _context;
     private readonly ILogger<DeleteUserCommandHandler> _logger;
 
     public DeleteUserCommandHandler(
-        IAppDbContext context,
+        IUserFeatureDbContext context,
         ILogger<DeleteUserCommandHandler> logger)
     {
         _context = context;

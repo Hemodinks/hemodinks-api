@@ -6,9 +6,9 @@ namespace HemodinksAPI.Application.Features.Opme.Queries;
 
 public class GetOpmeQueryHandler : IRequestHandler<GetOpmeQuery, List<OpmeDto>>
 {
-    private readonly IAppDbContext _context;
+    private readonly ICatalogQueryDbContext _context;
 
-    public GetOpmeQueryHandler(IAppDbContext context)
+    public GetOpmeQueryHandler(ICatalogQueryDbContext context)
     {
         _context = context;
     }

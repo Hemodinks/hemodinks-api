@@ -1,6 +1,7 @@
 using System.Text;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Licencas;
+using HemodinksAPI.Application.Features.Sessions;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Authentication;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -99,6 +100,10 @@ public static partial class ApiServiceCollectionExtensions
 
     private static void ConfigureAuthorizationPolicies(AuthorizationOptions options)
     {
+        options.FallbackPolicy = new AuthorizationPolicyBuilder()
+            .RequireAuthenticatedUser()
+            .Build();
+
         options.AddPolicy("Administrador", policy =>
             policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString()));
 

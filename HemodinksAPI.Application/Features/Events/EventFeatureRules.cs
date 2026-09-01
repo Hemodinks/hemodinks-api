@@ -8,7 +8,7 @@ namespace HemodinksAPI.Application.Features.Events;
 
 internal static class EventFeatureRules
 {
-    public static IQueryable<Event> ApplyScope(IAppDbContext context, IQueryable<Event> query, CurrentUserContext currentUser)
+    public static IQueryable<Event> ApplyScope(IEventFeatureDbContext context, IQueryable<Event> query, CurrentUserContext currentUser)
     {
         var teamLoginUserIds = context.Equipes.AsNoTracking()
             .Where(team => team.Ativa)
@@ -51,7 +51,7 @@ internal static class EventFeatureRules
     }
 
     public static IReadOnlyList<int> ResolveNotificationRecipientUserIds(
-        IAppDbContext context,
+        IEventFeatureDbContext context,
         CurrentUserContext currentUser,
         EventRequest request)
     {
@@ -80,7 +80,7 @@ internal static class EventFeatureRules
         return recipientIds.ToList();
     }
 
-    public static HashSet<int> BuildAllowedNotificationRecipientUserIds(IAppDbContext context, CurrentUserContext currentUser)
+    public static HashSet<int> BuildAllowedNotificationRecipientUserIds(IEventFeatureDbContext context, CurrentUserContext currentUser)
     {
         if (currentUser.IsEquipe && currentUser.EquipeId.HasValue)
         {
@@ -114,7 +114,7 @@ internal static class EventFeatureRules
     }
 
     public static IReadOnlyList<int> BuildAllowedNotificationGroupMemberIds(
-        IAppDbContext context,
+        IEventFeatureDbContext context,
         CurrentUserContext currentUser,
         IEnumerable<int> requestedGroupIds)
     {

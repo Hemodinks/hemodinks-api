@@ -7,25 +7,36 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 
 public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswordResetCommand, ResetUserPasswordResponse>
 {
-    private readonly IAppDbContext _context;
+    private readonly IPlatformPasswordResetDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<ConfirmPasswordResetCommandHandler> _logger;
+    private readonly TimeProvider _timeProvider;
 
-    public ConfirmPasswordResetCommandHandler(
-        IAppDbContext context,
+    internal ConfirmPasswordResetCommandHandler(
+        IPlatformPasswordResetDbContext context,
         IPasswordHasher passwordHasher,
         ILogger<ConfirmPasswordResetCommandHandler> logger)
+        : this(context, passwordHasher, logger, TimeProvider.System)
+    {
+    }
+
+    public ConfirmPasswordResetCommandHandler(
+        IPlatformPasswordResetDbContext context,
+        IPasswordHasher passwordHasher,
+        ILogger<ConfirmPasswordResetCommandHandler> logger,
+        TimeProvider timeProvider)
     {
         _context = context;
         _passwordHasher = passwordHasher;
         _logger = logger;
+        _timeProvider = timeProvider;
     }
 
     public async Task<ResetUserPasswordResponse> Handle(ConfirmPasswordResetCommand request, CancellationToken cancellationToken)
     {
         PasswordResetRules.ValidateNewPassword(request.NovaSenha);
 
-        var now = DateTime.UtcNow;
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
         var resetToken = await PasswordCommandQueries.GetValidResetTokenAsync(_context, request.Token, now, cancellationToken);
         if (resetToken == null)
         {

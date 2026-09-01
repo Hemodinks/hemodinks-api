@@ -7,10 +7,10 @@ namespace HemodinksAPI.Application.Features.Pacientes.Queries;
 
 public class GetPacienteByIdQueryHandler : IRequestHandler<GetPacienteByIdQuery, PacienteDto?>
 {
-    private readonly IAppDbContext _context;
+    private readonly IPatientFeatureDbContext _context;
     private readonly ILogger<GetPacienteByIdQueryHandler> _logger;
 
-    public GetPacienteByIdQueryHandler(IAppDbContext context, ILogger<GetPacienteByIdQueryHandler> logger)
+    public GetPacienteByIdQueryHandler(IPatientFeatureDbContext context, ILogger<GetPacienteByIdQueryHandler> logger)
     {
         _context = context;
         _logger = logger;

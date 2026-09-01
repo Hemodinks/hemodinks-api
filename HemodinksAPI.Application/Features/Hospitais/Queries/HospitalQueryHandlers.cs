@@ -6,9 +6,9 @@ namespace HemodinksAPI.Application.Features.Hospitais.Queries;
 
 public class GetHospitaisQueryHandler : IRequestHandler<GetHospitaisQuery, List<HospitalDto>>
 {
-    private readonly IAppDbContext _context;
+    private readonly ICatalogQueryDbContext _context;
 
-    public GetHospitaisQueryHandler(IAppDbContext context)
+    public GetHospitaisQueryHandler(ICatalogQueryDbContext context)
     {
         _context = context;
     }

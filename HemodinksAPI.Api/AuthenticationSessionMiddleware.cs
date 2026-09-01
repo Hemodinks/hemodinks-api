@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Authentication;
+using HemodinksAPI.Application.Features.Sessions;
 
 namespace HemodinksAPI.Api;
 

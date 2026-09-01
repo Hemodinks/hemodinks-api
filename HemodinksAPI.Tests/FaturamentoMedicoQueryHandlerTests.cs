@@ -1,7 +1,6 @@
 using HemodinksAPI.Application.Features.Faturamentos.Queries;
 using HemodinksAPI.Application.Features.Faturamentos;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -303,7 +302,7 @@ public class FaturamentoMedicoQueryHandlerTests
             Email = email,
             Telefone = "+5581999887766",
             Cpf = cpf,
-            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            Senha = new PasswordHasher().HashPassword(TestPasswords.Valid),
             DataNascimento = new DateTime(1985, 1, 1),
             PerfilId = Perfil.MedicosId
         };
@@ -317,7 +316,7 @@ public class FaturamentoMedicoQueryHandlerTests
             Email = email,
             Telefone = "+5581999999999",
             Cpf = cpf,
-            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            Senha = new PasswordHasher().HashPassword(TestPasswords.Valid),
             DataNascimento = new DateTime(1990, 1, 1),
             PerfilId = Perfil.PacientesId
         };

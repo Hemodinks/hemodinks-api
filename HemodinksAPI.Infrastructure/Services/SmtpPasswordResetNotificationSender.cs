@@ -42,7 +42,9 @@ public class SmtpPasswordResetNotificationSender : IPasswordResetNotificationTra
         using var client = CreateClient();
 
         await client.SendMailAsync(message, cancellationToken);
-        _logger.LogInformation("Email de reset de senha enviado para {Email}", notification.Email);
+        _logger.LogInformation(
+            "Email de reset de senha enviado para {MaskedEmail}",
+            HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(notification.Email));
         return PasswordResetNotificationDispatchStatus.Sent;
     }
 

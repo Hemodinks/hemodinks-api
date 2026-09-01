@@ -7,7 +7,7 @@ namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 internal static partial class PacienteRules
 {
     public static async Task<string?> NormalizeAndValidateCpfAsync(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         string? cpf,
         int? currentUserId,
         CancellationToken cancellationToken)
@@ -35,7 +35,7 @@ internal static partial class PacienteRules
     }
 
     public static async Task<string> ResolveEmailAsync(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         string? email,
         string? cpf,
         int? currentUserId,
@@ -57,7 +57,7 @@ internal static partial class PacienteRules
     }
 
     public static async Task ValidateEmailAsync(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         string email,
         int? currentUserId,
         CancellationToken cancellationToken)

@@ -8,11 +8,11 @@ namespace HemodinksAPI.Application.Features.Dashboard.Queries;
 
 public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSummaryQuery, DashboardSummaryDto>
 {
-    private readonly IAppDbContext _context;
+    private readonly IDashboardFeatureDbContext _context;
     private readonly ILogger<GetDashboardSummaryQueryHandler> _logger;
 
     public GetDashboardSummaryQueryHandler(
-        IAppDbContext context,
+        IDashboardFeatureDbContext context,
         ILogger<GetDashboardSummaryQueryHandler> logger)
     {
         _context = context;

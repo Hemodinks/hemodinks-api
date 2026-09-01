@@ -36,13 +36,14 @@ internal static class RequestIdempotencySupport
         IdempotencyRequest record,
         TResponse payload,
         string? resourceLocation,
-        int successStatusCode)
+        int successStatusCode,
+        DateTime completedAt)
     {
         record.State = IdempotencyRequestStates.Completed;
         record.StatusCode = successStatusCode;
         record.ResourceLocation = resourceLocation;
         record.ResponseJson = JsonSerializer.Serialize(payload, SerializerOptions);
-        record.CompletedAt = DateTime.UtcNow;
+        record.CompletedAt = completedAt;
     }
 
     public static TResponse? DeserializePayload<TResponse>(string responseJson)

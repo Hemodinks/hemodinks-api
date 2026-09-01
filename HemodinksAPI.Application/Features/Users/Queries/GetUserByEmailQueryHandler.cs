@@ -6,10 +6,10 @@ namespace HemodinksAPI.Application.Features.Users.Queries;
 
 public class GetUserByEmailQueryHandler : IRequestHandler<GetUserByEmailQuery, UserDto?>
 {
-    private readonly IAppDbContext _context;
+    private readonly IUserDbContext _context;
     private readonly ILogger<GetUserByEmailQueryHandler> _logger;
 
-    public GetUserByEmailQueryHandler(IAppDbContext context, ILogger<GetUserByEmailQueryHandler> logger)
+    public GetUserByEmailQueryHandler(IUserDbContext context, ILogger<GetUserByEmailQueryHandler> logger)
     {
         _context = context;
         _logger = logger;
@@ -19,7 +19,8 @@ public class GetUserByEmailQueryHandler : IRequestHandler<GetUserByEmailQuery, U
     {
         try
         {
-            _logger.LogInformation("Buscando usuario por email: {Email}", request.Email);
+            var maskedEmail = HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(request.Email);
+            _logger.LogInformation("Buscando usuario por email: {MaskedEmail}", maskedEmail);
 
             var user = await _context.Users
                 .AsNoTracking()
@@ -29,14 +30,14 @@ public class GetUserByEmailQueryHandler : IRequestHandler<GetUserByEmailQuery, U
 
             if (user == null)
             {
-                _logger.LogWarning("Usuario nao encontrado. Email: {Email}", request.Email);
+                _logger.LogWarning("Usuario nao encontrado. Email: {MaskedEmail}", maskedEmail);
             }
 
             return user;
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao buscar usuario por email: {Email}", request.Email);
+            _logger.LogError(ex, "Erro ao buscar usuario por email");
             throw;
         }
     }

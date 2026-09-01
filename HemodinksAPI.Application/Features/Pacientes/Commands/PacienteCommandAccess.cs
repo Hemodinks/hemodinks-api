@@ -19,7 +19,7 @@ internal static class PacienteCommandAccess
         return Perfil.IsAdministradorOuSuper(perfilId);
     }
 
-    public static async Task<bool> CanEditPacienteAsync(IAppDbContext context, Paciente paciente, int perfilId, int currentUserId, int? equipeId, CancellationToken cancellationToken)
+    public static async Task<bool> CanEditPacienteAsync(IPatientFeatureDbContext context, Paciente paciente, int perfilId, int currentUserId, int? equipeId, CancellationToken cancellationToken)
     {
         if (Perfil.IsAdministradorOuSuper(perfilId) || perfilId == Perfil.ControllerId)
         {
@@ -46,7 +46,7 @@ internal static class PacienteCommandAccess
         return false;
     }
 
-    public static Task<bool> CanManagePacienteArquivoAsync(IAppDbContext context, Paciente paciente, int perfilId, int currentUserId, int? equipeId, CancellationToken cancellationToken)
+    public static Task<bool> CanManagePacienteArquivoAsync(IPatientFeatureDbContext context, Paciente paciente, int perfilId, int currentUserId, int? equipeId, CancellationToken cancellationToken)
     {
         return CanEditPacienteAsync(context, paciente, perfilId, currentUserId, equipeId, cancellationToken);
     }

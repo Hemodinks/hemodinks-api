@@ -1,6 +1,5 @@
 using HemodinksAPI.Application.Features.Pacientes.Commands;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,7 +18,7 @@ public partial class PacienteCommandHandlerTests
             Email = "paciente.bloqueado@hemodinks.com",
             Telefone = "+5581999999999",
             Cpf = "39053344705",
-            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            Senha = new PasswordHasher().HashPassword(TestPasswords.Valid),
             DataNascimento = new DateTime(1990, 1, 1),
             PerfilId = Perfil.PacientesId
         };
@@ -64,7 +63,7 @@ public partial class PacienteCommandHandlerTests
             Email = "dra.ana@hemodinks.com",
             Telefone = "+5581999887766",
             Cpf = "52998224725",
-            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            Senha = new PasswordHasher().HashPassword(TestPasswords.Valid),
             DataNascimento = new DateTime(1985, 1, 1),
             PerfilId = Perfil.MedicosId
         };
@@ -74,7 +73,7 @@ public partial class PacienteCommandHandlerTests
             Email = "paciente.relacionado@hemodinks.com",
             Telefone = "+5581999999999",
             Cpf = "11144477735",
-            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            Senha = new PasswordHasher().HashPassword(TestPasswords.Valid),
             DataNascimento = new DateTime(1990, 1, 1),
             PerfilId = Perfil.PacientesId
         };
@@ -147,7 +146,7 @@ public partial class PacienteCommandHandlerTests
             Email = "dra.ana.controller@hemodinks.com",
             Telefone = "+5581999887766",
             Cpf = "52998224725",
-            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            Senha = new PasswordHasher().HashPassword(TestPasswords.Valid),
             DataNascimento = new DateTime(1985, 1, 1),
             PerfilId = Perfil.MedicosId
         };
@@ -157,7 +156,7 @@ public partial class PacienteCommandHandlerTests
             Email = "paciente.controller@hemodinks.com",
             Telefone = "+5581999999999",
             Cpf = "11144477735",
-            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            Senha = new PasswordHasher().HashPassword(TestPasswords.Valid),
             DataNascimento = new DateTime(1990, 1, 1),
             PerfilId = Perfil.PacientesId
         };
@@ -206,7 +205,7 @@ public partial class PacienteCommandHandlerTests
             Email = "dra.ana.relacionada@hemodinks.com",
             Telefone = "+5581999887766",
             Cpf = "52998224725",
-            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            Senha = new PasswordHasher().HashPassword(TestPasswords.Valid),
             DataNascimento = new DateTime(1985, 1, 1),
             PerfilId = Perfil.MedicosId
         };
@@ -216,7 +215,7 @@ public partial class PacienteCommandHandlerTests
             Email = "paciente.relacionado.medico@hemodinks.com",
             Telefone = "+5581999999999",
             Cpf = "11144477735",
-            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            Senha = new PasswordHasher().HashPassword(TestPasswords.Valid),
             DataNascimento = new DateTime(1990, 1, 1),
             PerfilId = Perfil.PacientesId
         };

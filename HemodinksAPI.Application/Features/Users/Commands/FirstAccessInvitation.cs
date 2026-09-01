@@ -7,7 +7,7 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 internal static class FirstAccessInvitation
 {
     public static async Task<bool> TrySendAsync(
-        IAppDbContext context,
+        IPasswordResetDbContext context,
         IPasswordResetNotificationSender? notificationSender,
         User user,
         ILogger logger,

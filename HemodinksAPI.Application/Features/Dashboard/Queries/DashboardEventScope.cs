@@ -7,7 +7,7 @@ namespace HemodinksAPI.Application.Features.Dashboard.Queries;
 internal static class DashboardEventScope
 {
     public static async Task<int> CountUpcomingEventsAsync(
-        IAppDbContext context,
+        IDashboardFeatureDbContext context,
         ILogger logger,
         int perfilId,
         int userId,
@@ -31,7 +31,7 @@ internal static class DashboardEventScope
     }
 
     public static async Task<IReadOnlyList<DashboardNotificationDto>> GetUpcomingEventNotificationsAsync(
-        IAppDbContext context,
+        IDashboardFeatureDbContext context,
         ILogger logger,
         int perfilId,
         int userId,
@@ -85,7 +85,7 @@ internal static class DashboardEventScope
     }
 
     private static IQueryable<Event> ApplyEventScope(
-        IAppDbContext context,
+        IDashboardFeatureDbContext context,
         IQueryable<Event> query,
         int perfilId,
         int userId,

@@ -7,7 +7,7 @@ namespace HemodinksAPI.Application.Features.Events.Commands;
 internal static class EventNotificationMutations
 {
     public static void AddAgendaNotifications(
-        IAppDbContext context,
+        IEventFeatureDbContext context,
         Event ev,
         CurrentUserContext currentUser,
         EventRequest request,

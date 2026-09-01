@@ -130,7 +130,7 @@ PasswordResetEmailQueueName=password-reset-emails-confirmation
 Email__BrandLogoUrl=<url publica da logomarca>
 ```
 
-Se todos os canais falharem em runtime, a API registra erro e cai para senha padrao. Nesse caso, procure nos logs por:
+Se todos os canais falharem em runtime, a API registra o erro, invalida o token gerado e preserva a senha atual. Nesse caso, procure nos logs por:
 
 ```text
 Falha ao enviar reset de senha via
@@ -214,7 +214,7 @@ Teste:
 ```powershell
 curl -X POST http://localhost:5000/api/users/authenticate `
   -H "Content-Type: application/json" `
-  -d '{"email":"gmarcone@gmail.com","senha":"Senha@123"}'
+  -d '{"email":"gmarcone@gmail.com","senha":"SUA_SENHA"}'
 ```
 
 ## CBHPM retorna vazio

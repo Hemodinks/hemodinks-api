@@ -18,7 +18,7 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 /// </summary>
 public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, CreateUserResponse>
 {
-    private readonly IAppDbContext _context;
+    private readonly IUserFeatureDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly IUserPatientSyncService _userPatientSyncService;
@@ -27,8 +27,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
     private readonly ILogger<CreateUserCommandHandler> _logger;
     private readonly IPasswordResetNotificationSender? _passwordResetNotificationSender;
 
-    public CreateUserCommandHandler(
-        IAppDbContext context,
+    internal CreateUserCommandHandler(
+        IUserFeatureDbContext context,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
         IUserPatientSyncService userPatientSyncService,
@@ -48,7 +48,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
     }
 
     public CreateUserCommandHandler(
-        IAppDbContext context,
+        IUserFeatureDbContext context,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
         IUserPatientSyncService userPatientSyncService,
@@ -72,7 +72,9 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
         try
         {
             var clinicaId = _clinicaContext.GetRequiredClinicaId();
-            _logger.LogInformation("Criando novo usuario: {Email}", request.Email);
+            _logger.LogInformation(
+                "Criando novo usuario: {MaskedEmail}",
+                HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(request.Email));
 
             var existingUser = await _context.Users
                 .FirstOrDefaultAsync(u => u.Email == request.Email, cancellationToken);
@@ -188,7 +190,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao criar usuario: {Email}", request.Email);
+            _logger.LogError(ex, "Erro ao criar usuario");
             throw;
         }
     }

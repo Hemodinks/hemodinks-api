@@ -7,11 +7,6 @@ public sealed record RemoteProfilePhotoSaveRequest(
 public sealed record RemoteProfilePhotoSaveResponse(
     string? FotoPerfil);
 
-public sealed record RemotePatientFileUploadRequest(
-    string FileName,
-    string? ContentType,
-    string Base64Content);
-
 public sealed record RemotePatientFileUploadResponse(
     string OriginalName,
     string ContentType,

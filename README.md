@@ -226,7 +226,7 @@ O nome e a foto institucionais pertencem a `Clinica` e somente o SuperAdministra
 | `PUT` | `/api/users/{id}` | sim | atualiza usuario |
 | `DELETE` | `/api/users/{id}` | admin | exclui usuario |
 | `PUT` | `/api/users/{id}/password` | sim | altera senha |
-| `PUT` | `/api/users/{id}/password/reset` | admin | reset administrativo para senha padrao |
+| `PUT` | `/api/users/{id}/password/reset` | admin | gera senha temporaria aleatoria e exige troca no proximo acesso |
 | `POST` | `/api/users/{id}/arquivos` | sim | upload de documento medico |
 | `DELETE` | `/api/users/{id}/arquivos/{arquivoId}` | sim | exclui documento medico |
 

@@ -55,6 +55,28 @@ public class PrivateFileDownloadQueryHandlerTests
     }
 
     [Fact]
+    public async Task DownloadPacienteArquivo_WhenDatabaseRecordExistsButBlobIsMissing_ReportsStorageFailure()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var paciente = CreatePatient("Paciente Com Arquivo Ausente");
+        var arquivo = CreatePatientFile(paciente, "ausente.pdf");
+        context.PacienteArquivos.Add(arquivo);
+        await context.SaveChangesAsync();
+        var storage = new DownloadPatientFileStorage { ReturnMissing = true };
+        var handler = new DownloadPacienteArquivoQueryHandler(context, storage);
+
+        await Assert.ThrowsAsync<StoredFileUnavailableException>(() => handler.Handle(
+            new DownloadPacienteArquivoQuery(
+                paciente.Id,
+                arquivo.Id,
+                CurrentUserId: 99,
+                CurrentPerfilId: Perfil.AdministradorId),
+            CancellationToken.None));
+
+        Assert.Equal(1, storage.GetCalls);
+    }
+
+    [Fact]
     public async Task DownloadUserArquivo_WhenDoctorRequestsAnotherUser_IsRejectedBeforeReadingBlob()
     {
         await using var context = TestDbContextFactory.Create();
@@ -120,6 +142,8 @@ public class PrivateFileDownloadQueryHandlerTests
     {
         public int GetCalls { get; private set; }
 
+        public bool ReturnMissing { get; init; }
+
         public Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
@@ -128,6 +152,11 @@ public class PrivateFileDownloadQueryHandlerTests
         public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
         {
             GetCalls++;
+            if (ReturnMissing)
+            {
+                return Task.FromResult<StoredPatientFileContent?>(null);
+            }
+
             return Task.FromResult<StoredPatientFileContent?>(
                 new StoredPatientFileContent(new MemoryStream("conteudo"u8.ToArray())));
         }

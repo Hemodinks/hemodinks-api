@@ -120,7 +120,7 @@ public partial class UserCommandHandlerTests
         var response = await confirmHandler.Handle(new ConfirmPasswordResetCommand
         {
             Token = passwordResetSender.Notifications.Single().Token,
-            NovaSenha = "NovaSenha@123"
+            NovaSenha = "NovaTestPassword@123"
         }, CancellationToken.None);
 
         var storedUser = await context.Users.SingleAsync();
@@ -128,7 +128,7 @@ public partial class UserCommandHandlerTests
         Assert.Equal(user.Id, response.Id);
         Assert.False(response.PrecisaTrocarSenha);
         Assert.False(storedUser.PrecisaTrocarSenha);
-        Assert.True(hasher.VerifyPassword("NovaSenha@123", storedUser.Senha));
+        Assert.True(hasher.VerifyPassword("NovaTestPassword@123", storedUser.Senha));
         Assert.False(hasher.VerifyPassword("SenhaAntiga@123", storedUser.Senha));
         Assert.NotNull(storedToken.UsedAt);
     }

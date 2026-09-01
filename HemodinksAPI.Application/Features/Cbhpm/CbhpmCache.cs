@@ -15,11 +15,11 @@ public sealed class CbhpmCache : ICbhpmCache
 {
     private const string CacheKey = "cbhpm-geral:v1";
 
-    private readonly IAppDbContext _context;
+    private readonly ICbhpmFeatureDbContext _context;
     private readonly IMemoryCache _cache;
     private readonly ILogger<CbhpmCache> _logger;
 
-    public CbhpmCache(IAppDbContext context, IMemoryCache cache, ILogger<CbhpmCache> logger)
+    public CbhpmCache(ICbhpmFeatureDbContext context, IMemoryCache cache, ILogger<CbhpmCache> logger)
     {
         _context = context;
         _cache = cache;

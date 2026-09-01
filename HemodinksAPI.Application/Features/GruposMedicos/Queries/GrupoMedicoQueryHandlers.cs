@@ -8,11 +8,11 @@ namespace HemodinksAPI.Application.Features.GruposMedicos.Queries;
 
 public class GetAllGruposMedicosQueryHandler : IRequestHandler<GetAllGruposMedicosQuery, PagedResult<GrupoMedicoDto>>
 {
-    private readonly IAppDbContext _context;
+    private readonly IMedicalGroupFeatureDbContext _context;
     private readonly bool _supportsFullTextSearch;
 
     public GetAllGruposMedicosQueryHandler(
-        IAppDbContext context,
+        IMedicalGroupFeatureDbContext context,
         IFullTextSearchCapability? fullTextSearchCapability = null)
     {
         _context = context;
@@ -46,9 +46,9 @@ public class GetAllGruposMedicosQueryHandler : IRequestHandler<GetAllGruposMedic
             var condition = FullTextSearchTermBuilder.BuildPrefixCondition(search);
             query = _supportsFullTextSearch && condition != null
                 ? query.Where(group =>
-                    EF.Functions.Contains(group.Nome, condition)
+                    FullTextSearch.Contains(group.Nome, condition)
                     || group.Membros.Any(member =>
-                        EF.Functions.Contains(member.User.Nome, condition)
+                        FullTextSearch.Contains(member.User.Nome, condition)
                         || member.User.Email.Contains(search)))
                 : query.Where(group =>
                     group.Nome.Contains(search)
@@ -125,9 +125,9 @@ public class GetAllGruposMedicosQueryHandler : IRequestHandler<GetAllGruposMedic
 
 public class GetGrupoMedicoByIdQueryHandler : IRequestHandler<GetGrupoMedicoByIdQuery, GrupoMedicoDto?>
 {
-    private readonly IAppDbContext _context;
+    private readonly IMedicalGroupFeatureDbContext _context;
 
-    public GetGrupoMedicoByIdQueryHandler(IAppDbContext context)
+    public GetGrupoMedicoByIdQueryHandler(IMedicalGroupFeatureDbContext context)
     {
         _context = context;
     }
@@ -147,9 +147,9 @@ public class GetGrupoMedicoByIdQueryHandler : IRequestHandler<GetGrupoMedicoById
 
 public class GetScopedMedicalUsersQueryHandler : IRequestHandler<GetScopedMedicalUsersQuery, List<MedicalUserOptionDto>>
 {
-    private readonly IAppDbContext _context;
+    private readonly IMedicalGroupFeatureDbContext _context;
 
-    public GetScopedMedicalUsersQueryHandler(IAppDbContext context)
+    public GetScopedMedicalUsersQueryHandler(IMedicalGroupFeatureDbContext context)
     {
         _context = context;
     }
