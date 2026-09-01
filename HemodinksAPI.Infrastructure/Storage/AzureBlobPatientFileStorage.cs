@@ -44,17 +44,20 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
 
     public async Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
     {
-        var blobName = GetBlobNameFromUrl(fileUrl);
+        var location = GetBlobLocationFromUrl(fileUrl);
 
-        if (string.IsNullOrWhiteSpace(blobName))
+        if (location == null)
         {
             return;
         }
 
         try
         {
-            var containerClient = await GetContainerClientAsync(cancellationToken, createIfMissing: false);
-            await containerClient.GetBlobClient(blobName).DeleteIfExistsAsync(cancellationToken: cancellationToken);
+            var containerClient = await GetContainerClientAsync(
+                cancellationToken,
+                createIfMissing: false,
+                location.ContainerName);
+            await containerClient.GetBlobClient(location.BlobName).DeleteIfExistsAsync(cancellationToken: cancellationToken);
         }
         catch (Exception ex)
         {
@@ -64,19 +67,24 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
 
     private async Task<BlobContainerClient> GetContainerClientAsync(
         CancellationToken cancellationToken,
-        bool createIfMissing = true)
+        bool createIfMissing = true,
+        string? containerName = null)
     {
         if (string.IsNullOrWhiteSpace(_options.ConnectionString))
         {
             throw new InvalidOperationException("AzureStorage:ConnectionString deve ser configurado para salvar arquivos de paciente");
         }
 
-        if (string.IsNullOrWhiteSpace(_options.ContainerName))
+        var resolvedContainerName = string.IsNullOrWhiteSpace(containerName)
+            ? _options.ContainerName
+            : containerName;
+
+        if (string.IsNullOrWhiteSpace(resolvedContainerName))
         {
             throw new InvalidOperationException("AzureStorage:PatientFilesContainerName deve ser configurado para salvar arquivos de paciente");
         }
 
-        var containerClient = new BlobContainerClient(_options.ConnectionString, _options.ContainerName);
+        var containerClient = new BlobContainerClient(_options.ConnectionString, resolvedContainerName);
         if (createIfMissing)
         {
             await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
@@ -87,17 +95,20 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
 
     public async Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
     {
-        var blobName = GetBlobNameFromUrl(fileUrl);
+        var location = GetBlobLocationFromUrl(fileUrl);
 
-        if (string.IsNullOrWhiteSpace(blobName))
+        if (location == null)
         {
             return null;
         }
 
         try
         {
-            var containerClient = await GetContainerClientAsync(cancellationToken, createIfMissing: false);
-            var blobClient = containerClient.GetBlobClient(blobName);
+            var containerClient = await GetContainerClientAsync(
+                cancellationToken,
+                createIfMissing: false,
+                location.ContainerName);
+            var blobClient = containerClient.GetBlobClient(location.BlobName);
 
             if (!(await blobClient.ExistsAsync(cancellationToken)).Value)
             {
@@ -132,39 +143,16 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
         return $"{publicBaseUrl}/{_options.ContainerName.Trim('/')}/{encodedBlobName}";
     }
 
-    private string? GetBlobNameFromUrl(string? fileUrl)
+    private AzureBlobPatientFileLocation? GetBlobLocationFromUrl(string? fileUrl)
     {
-        if (string.IsNullOrWhiteSpace(fileUrl) || !Uri.TryCreate(fileUrl, UriKind.Absolute, out var uri))
+        if (string.IsNullOrWhiteSpace(fileUrl))
         {
             return null;
         }
 
-        if (!string.IsNullOrWhiteSpace(_options.PublicBaseUrl))
-        {
-            var publicBaseUrl = _options.PublicBaseUrl.TrimEnd('/');
-
-            if (fileUrl.StartsWith($"{publicBaseUrl}/", StringComparison.OrdinalIgnoreCase))
-            {
-                var blobName = Uri.UnescapeDataString(fileUrl[(publicBaseUrl.Length + 1)..]);
-                var containerPrefix = $"{_options.ContainerName.Trim('/')}/";
-
-                if (blobName.StartsWith(containerPrefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    return blobName[containerPrefix.Length..];
-                }
-
-                return blobName;
-            }
-        }
-
-        var containerPath = $"/{_options.ContainerName.Trim('/')}/";
-        var index = uri.AbsolutePath.IndexOf(containerPath, StringComparison.OrdinalIgnoreCase);
-
-        if (index < 0)
-        {
-            return null;
-        }
-
-        return Uri.UnescapeDataString(uri.AbsolutePath[(index + containerPath.Length)..]);
+        return AzureBlobPatientFileLocationResolver.Resolve(
+            fileUrl,
+            _options.ContainerName,
+            _options.PublicBaseUrl);
     }
 }
