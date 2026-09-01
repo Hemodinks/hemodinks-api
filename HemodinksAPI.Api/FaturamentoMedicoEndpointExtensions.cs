@@ -13,8 +13,7 @@ public static class FaturamentoMedicoEndpointExtensions
     {
         var group = app.MapGroup("/api/faturamentos-medicos")
             .WithTags("Faturamento medico")
-            .RequireAuthorization()
-            .AddEndpointFilter(new FinanceiroExceptionFilter());
+            .RequireAuthorization();
 
         group.MapGet("/", GetAllFaturamentosMedicos)
             .WithName("GetAllFaturamentosMedicos")
@@ -38,6 +37,7 @@ public static class FaturamentoMedicoEndpointExtensions
                 FinanceiroFileUseCases files,
                 CancellationToken cancellationToken) =>
             Results.Ok(await files.UploadHistoryFileAsync(ano, mes, arquivo.ToUploadedFile(), cancellationToken)))
+            .LimitPatientFileUpload()
             .DisableAntiforgery()
             .WithName("EnviarArquivoHistoricoFaturamento")
             .WithSummary("Anexar um arquivo a um mês do histórico")

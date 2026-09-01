@@ -1,6 +1,7 @@
 using System.Reflection;
 using HemodinksAPI.Application;
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Sessions;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.AspNetCore.Http;
@@ -26,8 +27,17 @@ public sealed class ArchitectureBoundaryTests
 
         Assert.DoesNotContain("HemodinksAPI.Infrastructure", references);
         Assert.DoesNotContain("HemodinksAPI.Api", references);
+        Assert.DoesNotContain("Microsoft.EntityFrameworkCore.SqlServer", references);
         Assert.DoesNotContain(references, reference =>
             reference.StartsWith("Microsoft.AspNetCore", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Application_does_not_expose_a_general_purpose_db_context()
+    {
+        var applicationAssembly = typeof(ApplicationServiceCollectionExtensions).Assembly;
+
+        Assert.Null(applicationAssembly.GetType("HemodinksAPI.Application.Data.IAppDbContext"));
     }
 
     [Fact]
@@ -36,10 +46,40 @@ public sealed class ArchitectureBoundaryTests
         var teamProperties = typeof(ITeamDbContext).GetProperties().Select(property => property.Name).ToHashSet();
         var financeProperties = typeof(IFinanceEndpointDbContext).GetProperties().Select(property => property.Name).ToHashSet();
 
-        Assert.DoesNotContain(nameof(IAppDbContext.Pacientes), teamProperties);
-        Assert.DoesNotContain(nameof(IAppDbContext.Faturamentos), teamProperties);
-        Assert.DoesNotContain(nameof(IAppDbContext.Users), financeProperties);
-        Assert.DoesNotContain(nameof(IAppDbContext.Pacientes), financeProperties);
+        Assert.DoesNotContain(nameof(IPatientDataDbContext.Pacientes), teamProperties);
+        Assert.DoesNotContain(nameof(IFinancialDataDbContext.Faturamentos), teamProperties);
+        Assert.DoesNotContain(nameof(IUserDbContext.Users), financeProperties);
+        Assert.DoesNotContain(nameof(IPatientDataDbContext.Pacientes), financeProperties);
+    }
+
+    [Fact]
+    public void Critical_user_queries_and_password_flows_use_narrow_data_contracts()
+    {
+        var searchProperties = DataContractProperties(typeof(IUserSearchDbContext));
+        var profileProperties = DataContractProperties(typeof(IProfileDirectoryDbContext));
+
+        Assert.Equal(
+            [nameof(IUserSearchDbContext.EquipeMembros), nameof(IUserDbContext.Users)],
+            searchProperties.Order().ToArray());
+        Assert.Equal([nameof(IProfileDirectoryDbContext.Perfis)], profileProperties.ToArray());
+        Assert.DoesNotContain(nameof(IPatientDataDbContext.Pacientes), searchProperties);
+        Assert.DoesNotContain(nameof(IFinancialDataDbContext.Faturamentos), searchProperties);
+        Assert.False(typeof(IUnitOfWork).IsAssignableFrom(typeof(IDashboardFeatureDbContext)));
+    }
+
+    [Fact]
+    public void Authentication_session_use_case_depends_on_a_persistence_port()
+    {
+        var dependencies = typeof(AuthenticationSessionService)
+            .GetConstructors()
+            .Single()
+            .GetParameters()
+            .Select(parameter => parameter.ParameterType)
+            .ToArray();
+
+        Assert.Contains(typeof(IAuthenticationSessionStore), dependencies);
+        Assert.DoesNotContain(dependencies, dependency =>
+            dependency.Name.EndsWith("DbContext", StringComparison.Ordinal));
     }
 
     [Fact]
@@ -60,7 +100,7 @@ public sealed class ArchitectureBoundaryTests
     }
 
     [Fact]
-    public void Only_platform_administration_endpoints_access_data_contexts_directly()
+    public void Http_endpoints_do_not_access_data_contexts_directly()
     {
         var endpointHandlersWithDataContext = typeof(Program).Assembly
             .GetTypes()
@@ -74,8 +114,7 @@ public sealed class ArchitectureBoundaryTests
             .Distinct()
             .ToArray();
 
-        Assert.All(endpointHandlersWithDataContext, typeName =>
-            Assert.Equal("ClinicaPlatformEndpointExtensions", typeName));
+        Assert.Empty(endpointHandlersWithDataContext);
     }
 
     [Fact]
@@ -99,6 +138,15 @@ public sealed class ArchitectureBoundaryTests
     {
         return assembly.GetReferencedAssemblies()
             .Select(reference => reference.Name!)
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    private static HashSet<string> DataContractProperties(Type contract)
+    {
+        return contract.GetInterfaces()
+            .Append(contract)
+            .SelectMany(type => type.GetProperties())
+            .Select(property => property.Name)
             .ToHashSet(StringComparer.Ordinal);
     }
 }

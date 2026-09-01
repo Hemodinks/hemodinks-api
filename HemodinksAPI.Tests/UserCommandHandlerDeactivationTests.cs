@@ -19,7 +19,7 @@ public partial class UserCommandHandlerTests
         await using var context = TestDbContextFactory.Create();
         var user = CreateUser(
             email: "inativar@email.com",
-            passwordHash: new PasswordHasher().HashPassword("Senha@123"),
+            passwordHash: new PasswordHasher().HashPassword("TestPassword@123"),
             perfilId: Perfil.AdministradorId);
         context.Users.Add(user);
         await context.SaveChangesAsync();
@@ -49,7 +49,7 @@ public partial class UserCommandHandlerTests
         await using var context = TestDbContextFactory.Create();
         var user = CreateUser(
             email: "superadmin@email.com",
-            passwordHash: new PasswordHasher().HashPassword("Senha@123"),
+            passwordHash: new PasswordHasher().HashPassword("TestPassword@123"),
             perfilId: Perfil.SuperAdministradorId);
         context.Users.Add(user);
         await context.SaveChangesAsync();
@@ -74,7 +74,7 @@ public partial class UserCommandHandlerTests
         var hasher = new PasswordHasher();
         var user = CreateUser(
             email: "reativar@email.com",
-            passwordHash: hasher.HashPassword("Senha@123"),
+            passwordHash: hasher.HashPassword("TestPassword@123"),
             perfilId: Perfil.AdministradorId);
         user.Ativo = false;
         context.Users.Add(user);

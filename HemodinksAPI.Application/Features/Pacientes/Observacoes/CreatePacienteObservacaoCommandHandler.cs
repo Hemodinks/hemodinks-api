@@ -5,11 +5,11 @@ namespace HemodinksAPI.Application.Features.Pacientes.Observacoes;
 
 public class CreatePacienteObservacaoCommandHandler : IRequestHandler<CreatePacienteObservacaoCommand, CreatePacienteObservacaoResult>
 {
-    private readonly IAppDbContext _context;
+    private readonly IPatientFeatureDbContext _context;
     private readonly ILogger<CreatePacienteObservacaoCommandHandler> _logger;
 
     public CreatePacienteObservacaoCommandHandler(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         ILogger<CreatePacienteObservacaoCommandHandler> logger)
     {
         _context = context;

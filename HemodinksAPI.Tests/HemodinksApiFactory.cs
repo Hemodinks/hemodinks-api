@@ -27,6 +27,8 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
         Environment.SetEnvironmentVariable("JwtSettings__Issuer", "HemodinksAPI");
         Environment.SetEnvironmentVariable("JwtSettings__Audience", "HemodinksAPI");
         Environment.SetEnvironmentVariable("JwtSettings__ExpirationMinutes", "30");
+        Environment.SetEnvironmentVariable("Cors__AllowedOrigins__0", "https://hemodinks.gestao-saude.tec.br");
+        Environment.SetEnvironmentVariable("Cors__AllowedOrigins__1", "https://hemodinks-homologacao.gestao-saude.tec.br");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -42,12 +44,14 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
                 ["JwtSettings:Issuer"] = "HemodinksAPI",
                 ["JwtSettings:Audience"] = "HemodinksAPI",
                 ["JwtSettings:ExpirationMinutes"] = "30",
+                ["Cors:AllowedOrigins:0"] = "https://hemodinks.gestao-saude.tec.br",
+                ["Cors:AllowedOrigins:1"] = "https://hemodinks-homologacao.gestao-saude.tec.br",
                 ["ApiDocumentation:Enabled"] = "true",
                 ["Database:RunMigrationsOnStartup"] = "true",
                 ["Database:RunMaintenanceOnStartup"] = "true",
                 ["Seed:CbhpmOnStartup"] = "true",
                 ["Seed:UsersOnStartup"] = "true",
-                ["Seed:InitialPassword"] = Domain.Utils.DefaultUserPassword.Value,
+                ["Seed:InitialPassword"] = TestPasswords.Valid,
                 ["Platform:SuperAdminEmails:0"] = "gmarcone@gmail.com"
             });
         });

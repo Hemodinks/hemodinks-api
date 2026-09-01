@@ -8,10 +8,10 @@ namespace HemodinksAPI.Application.Features.GruposMedicos.Commands;
 
 public class UpdateGrupoMedicoCommandHandler : IRequestHandler<UpdateGrupoMedicoCommand, GrupoMedicoDto>
 {
-    private readonly IAppDbContext _context;
+    private readonly IMedicalGroupFeatureDbContext _context;
     private readonly IClinicaContext _clinicaContext;
 
-    public UpdateGrupoMedicoCommandHandler(IAppDbContext context, IClinicaContext clinicaContext)
+    public UpdateGrupoMedicoCommandHandler(IMedicalGroupFeatureDbContext context, IClinicaContext clinicaContext)
     {
         _context = context;
         _clinicaContext = clinicaContext;

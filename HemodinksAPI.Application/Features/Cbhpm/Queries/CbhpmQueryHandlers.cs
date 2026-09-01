@@ -10,12 +10,12 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
 {
     private const string LikeEscapeCharacter = "\\";
 
-    private readonly IAppDbContext _context;
+    private readonly ICbhpmFeatureDbContext _context;
     private readonly ILogger<GetCbhpmGeralQueryHandler> _logger;
     private readonly bool _supportsFullTextSearch;
 
     public GetCbhpmGeralQueryHandler(
-        IAppDbContext context,
+        ICbhpmFeatureDbContext context,
         ILogger<GetCbhpmGeralQueryHandler> logger,
         IFullTextSearchCapability? fullTextSearchCapability = null)
     {
@@ -128,8 +128,8 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
         if (supportsFullTextSearch && fullTextCondition != null)
         {
             return query.Where(item =>
-                EF.Functions.Contains(item.Procedimento, fullTextCondition)
-                || (item.Grupo != null && EF.Functions.Contains(item.Grupo, fullTextCondition)));
+                FullTextSearch.Contains(item.Procedimento, fullTextCondition)
+                || (item.Grupo != null && FullTextSearch.Contains(item.Grupo, fullTextCondition)));
         }
 
         var procedimentoPattern = BuildContainsLikePattern(procedimento.ToUpperInvariant());
@@ -164,8 +164,8 @@ public class GetCbhpmGeralQueryHandler : IRequestHandler<GetCbhpmGeralQuery, Pag
                         LikeEscapeCharacter))
                 || (item.Porte != null
                     && EF.Functions.Like(item.Porte.ToUpper(), searchPattern, LikeEscapeCharacter))
-                || EF.Functions.Contains(item.Procedimento, fullTextCondition)
-                || (item.Grupo != null && EF.Functions.Contains(item.Grupo, fullTextCondition)));
+                || FullTextSearch.Contains(item.Procedimento, fullTextCondition)
+                || (item.Grupo != null && FullTextSearch.Contains(item.Grupo, fullTextCondition)));
         }
 
         return query.Where(item =>

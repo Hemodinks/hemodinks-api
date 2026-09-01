@@ -6,11 +6,11 @@ namespace HemodinksAPI.Application.Features.Pacientes.Observacoes;
 
 public class GetPacienteObservacoesQueryHandler : IRequestHandler<GetPacienteObservacoesQuery, IReadOnlyList<PacienteObservacaoDto>>
 {
-    private readonly IAppDbContext _context;
+    private readonly IPatientFeatureDbContext _context;
     private readonly ILogger<GetPacienteObservacoesQueryHandler> _logger;
 
     public GetPacienteObservacoesQueryHandler(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         ILogger<GetPacienteObservacoesQueryHandler> logger)
     {
         _context = context;

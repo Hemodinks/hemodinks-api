@@ -1,7 +1,6 @@
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.Seeders;
-using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Application.Authentication;
 using Microsoft.EntityFrameworkCore;
 
@@ -12,9 +11,8 @@ internal static class DatabaseStartupInitializer
     public static async Task InitializeAsync(WebApplication app)
     {
         using var scope = app.Services.CreateScope();
-        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var clinicaContext = scope.ServiceProvider.GetRequiredService<ClinicaContext>();
-        clinicaContext.SetPlatformScope();
+        var migrationDbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var platformDbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
         try
@@ -22,21 +20,34 @@ internal static class DatabaseStartupInitializer
             logger.LogInformation("Iniciando migracao do banco de dados");
 
             var runMigrations = ShouldRunMigrations(app.Environment, app.Configuration);
-            var isRelational = dbContext.Database.IsRelational();
+            var isRelational = migrationDbContext.Database.IsRelational();
             var pendingMigrations = isRelational
-                ? (await dbContext.Database.GetPendingMigrationsAsync()).ToList()
+                ? (await migrationDbContext.Database.GetPendingMigrationsAsync()).ToList()
                 : [];
 
             LogPendingMigrations(logger, isRelational, pendingMigrations);
 
-            await ApplyDatabaseSchemaAsync(dbContext, logger, runMigrations, isRelational, pendingMigrations);
+            await ApplyDatabaseSchemaAsync(
+                migrationDbContext,
+                logger,
+                runMigrations,
+                isRelational,
+                pendingMigrations);
+
+            await SeedReferenceDataAsync(app, scope.ServiceProvider, platformDbContext, logger);
+
+            if (ShouldRunMaintenance(app.Environment, app.Configuration))
+            {
+                await ProvisionSuperAdministratorsAsync(app.Configuration, platformDbContext, logger);
+                await SynchronizeGlobalIdentitiesAsync(platformDbContext, logger);
+                await SyncPatientRecordsAsync(platformDbContext, logger);
+            }
+            else
+            {
+                logger.LogInformation("Manutencao de dados no startup desabilitada");
+            }
 
             logger.LogInformation("Inicializacao do banco de dados concluida");
-
-            await SeedReferenceDataAsync(app, scope.ServiceProvider, dbContext, logger);
-            await ProvisionSuperAdministratorsAsync(app.Configuration, dbContext, logger);
-            await SynchronizeGlobalIdentitiesAsync(dbContext, logger);
-            await SyncPatientRecordsAsync(dbContext, logger);
         }
         catch (Exception ex)
         {
@@ -53,19 +64,24 @@ internal static class DatabaseStartupInitializer
             ?? !environment.IsProduction();
     }
 
+    internal static bool ShouldRunMaintenance(
+        IHostEnvironment environment,
+        IConfiguration configuration)
+    {
+        return configuration.GetValue<bool?>("Database:RunMaintenanceOnStartup")
+            ?? environment.IsDevelopment();
+    }
+
     private static async Task SynchronizeGlobalIdentitiesAsync(AppDbContext dbContext, ILogger logger)
     {
         var users = await dbContext.Users
-            .IgnoreQueryFilters()
             .OrderBy(item => item.Id)
             .ToListAsync();
 
         var linkedUserIds = await dbContext.UsuariosClinicas
-            .IgnoreQueryFilters()
             .Select(item => item.UserId)
             .ToHashSetAsync();
         var teamLoginUserIds = await dbContext.Equipes
-            .IgnoreQueryFilters()
             .Select(item => item.UsuarioLoginId)
             .ToHashSetAsync();
 
@@ -116,7 +132,6 @@ internal static class DatabaseStartupInitializer
         foreach (var email in configuredEmails)
         {
             var existingUsers = await dbContext.Users
-                .IgnoreQueryFilters()
                 .Where(item => item.Email == email)
                 .OrderBy(item => item.ClinicaId == Clinica.DefaultId ? 0 : 1)
                 .ThenBy(item => item.Id)
@@ -194,7 +209,13 @@ internal static class DatabaseStartupInitializer
         }
         else
         {
-            logger.LogWarning("Migracao automatica desabilitada. Se tabelas estiverem faltando, defina Database:RunMigrationsOnStartup=true");
+            if (pendingMigrations.Count > 0)
+            {
+                throw new InvalidOperationException(
+                    $"Existem migrations pendentes e a migracao automatica esta desabilitada: {string.Join(", ", pendingMigrations)}");
+            }
+
+            logger.LogInformation("Migracao automatica desabilitada e schema atualizado");
         }
     }
 

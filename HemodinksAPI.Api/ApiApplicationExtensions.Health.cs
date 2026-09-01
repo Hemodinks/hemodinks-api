@@ -6,27 +6,35 @@ public static partial class ApiApplicationExtensions
 {
     private static Task<IResult> ReadinessCheckAsync(
         HealthCheckService healthChecks,
-        IConfiguration configuration,
         CancellationToken cancellationToken) =>
-        HealthCheckAsync(healthChecks, configuration, _ => true, cancellationToken);
+        PublicHealthCheckAsync(healthChecks, _ => true, cancellationToken);
 
     private static Task<IResult> LivenessCheckAsync(
         HealthCheckService healthChecks,
-        IConfiguration configuration,
         CancellationToken cancellationToken) =>
-        HealthCheckAsync(
+        PublicHealthCheckAsync(
             healthChecks,
-            configuration,
             registration => registration.Tags.Contains("live"),
             cancellationToken);
 
-    private static async Task<IResult> HealthCheckAsync(
+    private static async Task<IResult> PublicHealthCheckAsync(
         HealthCheckService healthChecks,
-        IConfiguration configuration,
         Func<HealthCheckRegistration, bool> predicate,
         CancellationToken cancellationToken)
     {
         var report = await healthChecks.CheckHealthAsync(predicate, cancellationToken);
+        var payload = new { status = report.Status == HealthStatus.Healthy ? "Healthy" : "Unhealthy" };
+        return report.Status == HealthStatus.Healthy
+            ? Results.Ok(payload)
+            : Results.Json(payload, statusCode: StatusCodes.Status503ServiceUnavailable);
+    }
+
+    internal static async Task<IResult> DetailedHealthCheckAsync(
+        HealthCheckService healthChecks,
+        IConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        var report = await healthChecks.CheckHealthAsync(cancellationToken);
         var payload = new
         {
             status = report.Status.ToString(),

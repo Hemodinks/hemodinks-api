@@ -40,8 +40,8 @@ public class PasswordResetEmailFunction
             message.ClinicaId), cancellationToken);
 
         _logger.LogInformation(
-            "Email de reset de senha processado para {Email} na clinica {ClinicaId}",
-            message.Email,
+            "Email de reset de senha processado para {MaskedEmail} na clinica {ClinicaId}",
+            HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(message.Email),
             message.ClinicaId);
     }
 
@@ -63,7 +63,9 @@ public class PasswordResetEmailFunction
             payload.ExpiresAt,
             payload.ClinicaId > 0 ? payload.ClinicaId : 1), cancellationToken);
 
-        _logger.LogInformation("Email de reset de senha enviado pela function HTTP para {Email}", payload.Email);
+        _logger.LogInformation(
+            "Email de reset de senha enviado pela function HTTP para {MaskedEmail}",
+            HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(payload.Email));
 
         var response = request.CreateResponse(HttpStatusCode.OK);
         response.Headers.Add("Content-Type", "application/json; charset=utf-8");

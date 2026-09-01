@@ -59,6 +59,7 @@ else {
 $scriptPath = Join-Path $OutputDir $fileName
 
 $arguments += @(
+    "--context", "AppDbContext",
     "--project", $infraProject,
     "--startup-project", $apiProject,
     "--output", $scriptPath

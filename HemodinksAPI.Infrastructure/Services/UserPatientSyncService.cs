@@ -5,9 +5,9 @@ namespace HemodinksAPI.Infrastructure.Services;
 
 public class UserPatientSyncService : IUserPatientSyncService
 {
-    private readonly IAppDbContext _context;
+    private readonly IPatientFeatureDbContext _context;
 
-    public UserPatientSyncService(IAppDbContext context)
+    public UserPatientSyncService(IPatientFeatureDbContext context)
     {
         _context = context;
     }

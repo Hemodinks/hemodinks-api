@@ -49,7 +49,7 @@ internal static class PasswordCommandMutations
     }
 
     public static async Task InvalidateActiveTokensAsync(
-        IAppDbContext context,
+        IPasswordResetDbContext context,
         int userId,
         DateTime now,
         CancellationToken cancellationToken)

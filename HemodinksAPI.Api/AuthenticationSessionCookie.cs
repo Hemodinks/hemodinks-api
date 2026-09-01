@@ -1,3 +1,5 @@
+using HemodinksAPI.Application.Features.Sessions;
+
 namespace HemodinksAPI.Api;
 
 public sealed class AuthenticationSessionCookie

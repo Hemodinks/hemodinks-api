@@ -2,7 +2,6 @@ using HemodinksAPI.Application.Features.Dashboard.Queries;
 using HemodinksAPI.Application.Features.Pacientes.Observacoes;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -263,7 +262,7 @@ public class PacienteObservacaoHandlerTests
             Email = email,
             Telefone = "+5511999999999",
             Cpf = cpf,
-            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            Senha = new PasswordHasher().HashPassword(TestPasswords.Valid),
             DataNascimento = new DateTime(1990, 1, 1),
             Ativo = true,
             PrecisaTrocarSenha = false,

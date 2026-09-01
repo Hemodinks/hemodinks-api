@@ -16,5 +16,11 @@ public class UsuarioGlobal
 
     public DateTime? DataAtualizacao { get; set; }
 
+    public int TentativasLoginFalhas { get; set; }
+
+    public DateTime? UltimaFalhaLoginEm { get; set; }
+
+    public DateTime? BloqueadoAte { get; set; }
+
     public ICollection<UsuarioClinica> Clinicas { get; set; } = new List<UsuarioClinica>();
 }

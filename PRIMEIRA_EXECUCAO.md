@@ -69,7 +69,7 @@ As migrations sao aplicadas no startup. O seed inicial cria perfis, usuarios ini
 ```powershell
 curl -X POST http://localhost:5000/api/users/authenticate `
   -H "Content-Type: application/json" `
-  -d '{"email":"gmarcone@gmail.com","senha":"Senha@123"}'
+  -d '{"email":"gmarcone@gmail.com","senha":"SUA_SENHA"}'
 ```
 
 Copie o token retornado e use:

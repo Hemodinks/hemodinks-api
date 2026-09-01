@@ -211,7 +211,7 @@ Antes do primeiro cliente pagante:
 - [ ] Administrador real criado.
 - [ ] Usuarios de seed/teste removidos ou com senha trocada.
 - [ ] Politica de trial/licenca validada.
-- [ ] Reset de senha definido: temporario por senha padrao ou definitivo por email.
+- [ ] Reset por email validado com token expiravel e reset administrativo validado com senha temporaria aleatoria.
 - [ ] Se usar `PasswordResetFunctions__BaseUrl`, confirmar URL absoluta com `https://` e `FunctionKey` valida.
 - [ ] Se `AsyncQueues__FileExportEnabled=true`, Function App ativo e filas/containers separados por ambiente.
 - [ ] Se `AsyncQueues__PasswordResetEnabled=true`, confirmar que a fila de reset e o `HemodinksAPI.Workers` estao operacionais.

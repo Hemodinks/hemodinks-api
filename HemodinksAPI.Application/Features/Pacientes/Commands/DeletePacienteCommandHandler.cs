@@ -8,13 +8,13 @@ namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
 public class DeletePacienteCommandHandler : IRequestHandler<DeletePacienteCommand>
 {
-    private readonly IAppDbContext _context;
+    private readonly IPatientFeatureDbContext _context;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly IPatientFileStorage _patientFileStorage;
     private readonly ILogger<DeletePacienteCommandHandler> _logger;
 
     public DeletePacienteCommandHandler(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         IProfilePhotoStorage profilePhotoStorage,
         IPatientFileStorage patientFileStorage,
         ILogger<DeletePacienteCommandHandler> logger)

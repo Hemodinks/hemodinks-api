@@ -74,7 +74,7 @@ if ($LASTEXITCODE -ne 0 -or $null -eq $readyRevisionDetails) {
 
 if (-not $PSCmdlet.ShouldProcess(
     "$ContainerAppName/$ResourceGroup",
-    "habilitar multiple revisions, reforcar migrations=false e inicializar o label blue")) {
+    "habilitar multiple revisions, reforcar configuracoes de producao e inicializar o label blue")) {
     return
 }
 
@@ -96,7 +96,12 @@ if ($targetPort -le 0) {
 $environmentVariables = @($container.env)
 foreach ($setting in @(
     @{ name = "Database__RunMigrationsOnStartup"; value = "false" },
-    @{ name = "Database__RunMaintenanceOnStartup"; value = "false" }
+    @{ name = "Database__RunMaintenanceOnStartup"; value = "false" },
+    @{ name = "ForwardedHeaders__Enabled"; value = "true" },
+    @{ name = "ForwardedHeaders__ForwardLimit"; value = "1" },
+    # O Container App recebe trafego externo somente pelo ingress gerenciado.
+    # O limite de um salto impede que valores anteriores da cadeia sejam aceitos.
+    @{ name = "ForwardedHeaders__TrustAnyImmediateProxy"; value = "true" }
 )) {
     $existing = $environmentVariables | Where-Object { $_.name -eq $setting.name } | Select-Object -First 1
     if ($null -eq $existing) {
@@ -148,16 +153,9 @@ $patchBody = @{
     }
 } | ConvertTo-Json -Depth 30 -Compress
 $resourceUri = "https://management.azure.com$($app.id)?api-version=2025-07-01"
-$patchFile = [System.IO.Path]::GetTempFileName()
-try {
-    [System.IO.File]::WriteAllText($patchFile, $patchBody, [System.Text.UTF8Encoding]::new($false))
-    & az rest --method patch --uri $resourceUri --headers "Content-Type=application/json" --body "@$patchFile" --output none
-    if ($LASTEXITCODE -ne 0) {
-        throw "Falha ao reforcar migrations=false e configurar as probes HTTP."
-    }
-}
-finally {
-    Remove-Item -LiteralPath $patchFile -Force -ErrorAction SilentlyContinue
+& az rest --method patch --uri $resourceUri --body $patchBody --output none
+if ($LASTEXITCODE -ne 0) {
+    throw "Falha ao reforcar configuracoes de producao e configurar as probes HTTP."
 }
 
 $currentRevision = (& az containerapp show `

@@ -22,8 +22,7 @@ public partial class ApiEndpointIntegrationTests
 
         using var json = await ReadJsonAsync(response);
         Assert.Equal("Healthy", json.RootElement.GetProperty("status").GetString());
-        Assert.True(json.RootElement.GetProperty("checks").TryGetProperty("database", out var database));
-        Assert.Equal("Healthy", database.GetProperty("status").GetString());
+        Assert.Single(json.RootElement.EnumerateObject());
     }
 
     [Fact]
@@ -41,9 +40,9 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Theory]
-    [InlineData("/readyz", true)]
-    [InlineData("/livez", false)]
-    public async Task DeploymentHealthEndpoints_ReturnExpectedChecks(string path, bool includesDatabase)
+    [InlineData("/readyz")]
+    [InlineData("/livez")]
+    public async Task DeploymentHealthEndpoints_ReturnMinimalStatus(string path)
     {
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient();
@@ -52,9 +51,8 @@ public partial class ApiEndpointIntegrationTests
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var json = await ReadJsonAsync(response);
-        var checks = json.RootElement.GetProperty("checks");
-        Assert.Equal(includesDatabase, checks.TryGetProperty("database", out _));
-        Assert.True(checks.TryGetProperty("self", out _));
+        Assert.Equal("Healthy", json.RootElement.GetProperty("status").GetString());
+        Assert.Single(json.RootElement.EnumerateObject());
     }
 
     [Fact]

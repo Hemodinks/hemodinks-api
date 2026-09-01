@@ -16,20 +16,13 @@ public static class ConvenioEndpointExtensions
             .WithSummary("Listar convenios");
     }
 
-    private static async Task<IResult> GetConvenios(
+    private static Task<IResult> GetConvenios(
         IMediator mediator,
         ILogger<Program> logger)
     {
-        try
+        return EndpointExecution.RunAsync(async () =>
         {
             return Results.Ok(await mediator.Send(new GetConveniosQuery()));
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Erro ao buscar convenios");
-            return Results.Problem(
-                title: "Erro ao buscar convenios",
-                statusCode: StatusCodes.Status500InternalServerError);
-        }
+        }, logger, "Erro ao buscar convenios", "Erro ao buscar convenios");
     }
 }

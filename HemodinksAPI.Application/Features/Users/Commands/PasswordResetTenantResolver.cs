@@ -9,7 +9,7 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 /// O token e a credencial publica deste fluxo e nunca e exposto ao cliente em forma de hash.
 /// </summary>
 public sealed class PasswordResetTenantResolver(
-    IAppDbContext context,
+    IPlatformPasswordResetDbContext context,
     ClinicaContext clinicaContext)
 {
     public async Task ResolveAsync(string token, CancellationToken cancellationToken)

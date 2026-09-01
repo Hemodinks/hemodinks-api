@@ -59,7 +59,7 @@ public partial class ApiEndpointIntegrationTests
     {
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient();
-        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", TestPasswords.Valid);
 
         var response = await client.GetAsync("/api/users/perfis");
 
@@ -99,7 +99,7 @@ public partial class ApiEndpointIntegrationTests
         var response = await client.PostAsJsonAsync("/api/users/authenticate", new
         {
             Email = "gmarcone@gmail.com",
-            Senha = DefaultUserPassword.Value
+            Senha = TestPasswords.Valid
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -139,7 +139,7 @@ public partial class ApiEndpointIntegrationTests
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient();
         var beta = await SeedClinicaBetaAsync(factory);
-        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", TestPasswords.Valid);
 
         var request = new HttpRequestMessage(HttpMethod.Get, "/api/users/");
         request.Headers.Add(ClinicaResolutionService.ClinicaSlugHeaderName, beta.Slug);
@@ -204,7 +204,7 @@ public partial class ApiEndpointIntegrationTests
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient();
         var beta = await SeedClinicaBetaAsync(factory);
-        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", TestPasswords.Valid);
 
         var response = await client.PostAsJsonAsync("/api/session/selecionar-clinica", new
         {
@@ -260,7 +260,7 @@ public partial class ApiEndpointIntegrationTests
         using var clientB = factory.CreateClient();
         var beta = await SeedClinicaBetaAsync(factory);
 
-        await AuthenticateAsync(clientA, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        await AuthenticateAsync(clientA, Clinica.DefaultSlug, "gmarcone@gmail.com", TestPasswords.Valid);
         await AuthenticateAsync(clientB, beta.Slug, beta.AdminEmail, beta.AdminPassword);
 
         var key = Guid.NewGuid().ToString("N");
@@ -296,7 +296,7 @@ public partial class ApiEndpointIntegrationTests
     {
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient();
-        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", TestPasswords.Valid);
 
         var slug = $"clinica-{Guid.NewGuid():N}";
         var createResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
@@ -427,7 +427,7 @@ public partial class ApiEndpointIntegrationTests
             new
             {
                 Email = "gmarcone@gmail.com",
-                Senha = DefaultUserPassword.Value
+                Senha = TestPasswords.Valid
             });
         authResponse.EnsureSuccessStatusCode();
         using var authJson = await ReadJsonAsync(authResponse);
@@ -479,7 +479,7 @@ public partial class ApiEndpointIntegrationTests
     {
         using var factory = new HemodinksApiFactory();
         using var platformClient = factory.CreateClient();
-        await AuthenticateAsync(platformClient, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        await AuthenticateAsync(platformClient, Clinica.DefaultSlug, "gmarcone@gmail.com", TestPasswords.Valid);
 
         var slug = $"clinica-password-{Guid.NewGuid():N}";
         var email = $"admin-password-{Guid.NewGuid():N}@example.com";
@@ -533,7 +533,7 @@ public partial class ApiEndpointIntegrationTests
     {
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient();
-        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", TestPasswords.Valid);
 
         var response = await client.PostAsJsonAsync("/api/platform/clinicas", new
         {
@@ -587,7 +587,7 @@ public partial class ApiEndpointIntegrationTests
             betaDoctorGlobalId = betaMembership.UsuarioGlobalId;
         }
         using var client = factory.CreateClient();
-        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", TestPasswords.Valid);
         var teamEmail = $"equipe-{Guid.NewGuid():N}@example.com";
 
         var updateResponse = await client.PutAsJsonAsync($"/api/platform/clinicas/{Clinica.DefaultId}", new
@@ -740,7 +740,7 @@ public partial class ApiEndpointIntegrationTests
     {
         using var factory = new HemodinksApiFactory();
         using var client = factory.CreateClient();
-        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", TestPasswords.Valid);
 
         var slug = $"clinica-limite-{Guid.NewGuid():N}";
         var createResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
@@ -811,7 +811,7 @@ public partial class ApiEndpointIntegrationTests
     {
         using var factory = new HemodinksApiFactory();
         using var platformClient = factory.CreateClient();
-        await AuthenticateAsync(platformClient, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        await AuthenticateAsync(platformClient, Clinica.DefaultSlug, "gmarcone@gmail.com", TestPasswords.Valid);
         var teamEmail = $"equipe-sem-pin-{Guid.NewGuid():N}@example.com";
 
         var createTeamResponse = await platformClient.PutAsJsonAsync($"/api/platform/clinicas/{Clinica.DefaultId}", new
@@ -914,7 +914,7 @@ public partial class ApiEndpointIntegrationTests
     {
         using var factory = new HemodinksApiFactory();
         using var platformClient = factory.CreateClient();
-        await AuthenticateAsync(platformClient, Clinica.DefaultSlug, "gmarcone@gmail.com", DefaultUserPassword.Value);
+        await AuthenticateAsync(platformClient, Clinica.DefaultSlug, "gmarcone@gmail.com", TestPasswords.Valid);
 
         var slug = $"clinica-{Guid.NewGuid():N}";
         var adminEmail = $"admin-{Guid.NewGuid():N}@example.com";

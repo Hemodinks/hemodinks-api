@@ -51,7 +51,7 @@ internal sealed class RelationalCbhpmTestDbContextLease : IAsyncDisposable
 
     public RelationalCbhpmTestDbContext Context { get; }
 
-    public IAppDbContext AppContext => _appContext;
+    public ICbhpmFeatureDbContext AppContext => _appContext;
 
     public async ValueTask DisposeAsync()
     {
@@ -93,7 +93,7 @@ internal sealed class RelationalCbhpmTestDbContext : DbContext
     }
 }
 
-internal sealed class RelationalCbhpmTestAppDbContext : IAppDbContext
+internal sealed class RelationalCbhpmTestAppDbContext : ICbhpmFeatureDbContext
 {
     private readonly RelationalCbhpmTestDbContext _context;
 
@@ -104,45 +104,9 @@ internal sealed class RelationalCbhpmTestAppDbContext : IAppDbContext
 
     public DbSet<CbhpmGeral> CbhpmGeral => _context.CbhpmGeral;
 
-    public DbSet<Clinica> Clinicas => throw new NotSupportedException();
-    public DbSet<UsuarioGlobal> UsuariosGlobais => throw new NotSupportedException();
-    public DbSet<UsuarioClinica> UsuariosClinicas => throw new NotSupportedException();
-    public DbSet<AuditoriaPlataforma> AuditoriasPlataforma => throw new NotSupportedException();
-    public DbSet<Equipe> Equipes => throw new NotSupportedException();
-    public DbSet<EquipeMembro> EquipeMembros => throw new NotSupportedException();
-    public DbSet<EquipeOperador> EquipeOperadores => throw new NotSupportedException();
-    public DbSet<EquipeLoginDesafio> EquipeLoginDesafios => throw new NotSupportedException();
-    public DbSet<User> Users => throw new NotSupportedException();
-    public DbSet<Perfil> Perfis => throw new NotSupportedException();
-    public DbSet<Paciente> Pacientes => throw new NotSupportedException();
-    public DbSet<FaturamentoMedico> FaturamentosMedicos => throw new NotSupportedException();
-    public DbSet<AtendimentoCirurgico> AtendimentosCirurgicos => throw new NotSupportedException();
-    public DbSet<AtendimentoProcedimento> AtendimentoProcedimentos => throw new NotSupportedException();
-    public DbSet<AtendimentoArquivo> AtendimentoArquivos => throw new NotSupportedException();
-    public DbSet<Faturamento> Faturamentos => throw new NotSupportedException();
-    public DbSet<FaturamentoHistoricoArquivo> FaturamentoHistoricoArquivos => throw new NotSupportedException();
-    public DbSet<FaturamentoItem> FaturamentoItens => throw new NotSupportedException();
-    public DbSet<Glosa> Glosas => throw new NotSupportedException();
-    public DbSet<RecursoGlosa> RecursosGlosa => throw new NotSupportedException();
-    public DbSet<ContaReceber> ContasReceber => throw new NotSupportedException();
-    public DbSet<Recebimento> Recebimentos => throw new NotSupportedException();
-    public DbSet<ConvenioProcedimentoPreco> ConvenioProcedimentoPrecos => throw new NotSupportedException();
-    public DbSet<FinanceiroMigracaoInconsistencia> FinanceiroMigracaoInconsistencias => throw new NotSupportedException();
-    public DbSet<Observacao> Observacoes => throw new NotSupportedException();
-    public DbSet<GrupoMedico> GruposMedicos => throw new NotSupportedException();
-    public DbSet<GrupoMedicoUsuario> GrupoMedicoUsuarios => throw new NotSupportedException();
     public DbSet<Hospital> Hospitais => throw new NotSupportedException();
     public DbSet<Convenio> Convenios => throw new NotSupportedException();
     public DbSet<Opme> OPME => throw new NotSupportedException();
-    public DbSet<PacienteArquivo> PacienteArquivos => throw new NotSupportedException();
-    public DbSet<PacienteProcedimento> PacienteProcedimentos => throw new NotSupportedException();
-    public DbSet<UserArquivo> UserArquivos => throw new NotSupportedException();
-    public DbSet<Licenca> Licencas => throw new NotSupportedException();
-    public DbSet<Event> Events => throw new NotSupportedException();
-    public DbSet<AgendaNotification> AgendaNotifications => throw new NotSupportedException();
-    public DbSet<IdempotencyRequest> IdempotencyRequests => throw new NotSupportedException();
-    public DbSet<PasswordResetToken> PasswordResetTokens => throw new NotSupportedException();
-    public DbSet<ConfiguracaoSistema> ConfiguracoesSistema => throw new NotSupportedException();
 
     public Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
     {

@@ -6,9 +6,9 @@ namespace HemodinksAPI.Application.Features.Pacientes.Observacoes;
 
 public class MarkPacienteObservacoesAsReadCommandHandler : IRequestHandler<MarkPacienteObservacoesAsReadCommand, MarkPacienteObservacoesAsReadResult>
 {
-    private readonly IAppDbContext _context;
+    private readonly IPatientFeatureDbContext _context;
 
-    public MarkPacienteObservacoesAsReadCommandHandler(IAppDbContext context)
+    public MarkPacienteObservacoesAsReadCommandHandler(IPatientFeatureDbContext context)
     {
         _context = context;
     }

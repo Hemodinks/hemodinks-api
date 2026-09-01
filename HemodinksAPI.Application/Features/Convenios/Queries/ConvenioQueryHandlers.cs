@@ -6,9 +6,9 @@ namespace HemodinksAPI.Application.Features.Convenios.Queries;
 
 public class GetConveniosQueryHandler : IRequestHandler<GetConveniosQuery, List<ConvenioDto>>
 {
-    private readonly IAppDbContext _context;
+    private readonly ICatalogQueryDbContext _context;
 
-    public GetConveniosQueryHandler(IAppDbContext context)
+    public GetConveniosQueryHandler(ICatalogQueryDbContext context)
     {
         _context = context;
     }

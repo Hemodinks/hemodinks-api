@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Application.Features.Users.Queries;
+using HemodinksAPI.Application.Features.Sessions;
 using MediatR;
 
 namespace HemodinksAPI.Api;

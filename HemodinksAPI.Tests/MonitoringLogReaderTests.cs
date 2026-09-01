@@ -31,10 +31,11 @@ public sealed class MonitoringLogReaderTests
             Assert.Equal("Handle", error.Method);
             Assert.Equal(57, error.Line);
             Assert.Equal("SELECT", error.DatabaseOperation);
-            Assert.Equal("George", error.UserName);
-            Assert.Equal("george@example.com", error.UserEmail);
+            Assert.Empty(error.UserName);
+            Assert.Equal("g***@example.com", error.UserEmail);
+            Assert.Null(error.Query);
             Assert.Equal(2, error.ClassFlow.Count);
-            Assert.Equal("System.InvalidOperationException: Falha técnica", error.TechnicalDescription);
+            Assert.Equal("Falha ao consultar pacientes", error.TechnicalDescription);
 
             var clearedAt = await new MonitoringLogReader(directory).ClearAsync(1, CancellationToken.None);
             Assert.True(clearedAt <= DateTimeOffset.UtcNow);
@@ -42,7 +43,7 @@ public sealed class MonitoringLogReaderTests
 
             var globalResult = new MonitoringLogReader(directory).Read(1, 25, clinicId: null);
             Assert.Single(globalResult.Items);
-            Assert.Equal("System.Exception: Outra clínica", globalResult.Items[0].TechnicalDescription);
+            Assert.Equal("Falha ao consultar pacientes", globalResult.Items[0].TechnicalDescription);
 
             await new MonitoringLogReader(directory).ClearAsync(null, CancellationToken.None);
             Assert.Empty(new MonitoringLogReader(directory).Read(1, 25, clinicId: null).Items);

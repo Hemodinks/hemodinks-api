@@ -7,7 +7,7 @@ namespace HemodinksAPI.Application.Features.Pacientes.Queries;
 internal static class PacienteAccess
 {
     public static IQueryable<Paciente> ApplyScope(
-        IAppDbContext context,
+        IMedicalUserScopeDbContext context,
         IQueryable<Paciente> query,
         int perfilId,
         int userId,

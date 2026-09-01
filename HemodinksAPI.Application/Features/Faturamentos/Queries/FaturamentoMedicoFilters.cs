@@ -1,6 +1,6 @@
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Common;
-using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Features.Faturamentos.Queries;
 
@@ -40,8 +40,8 @@ internal static class FaturamentoMedicoFilters
             var condition = FullTextSearchTermBuilder.BuildPrefixCondition(normalizedMedico);
             query = supportsFullTextSearch && condition != null
                 ? query.Where(p =>
-                    (p.MedicoUser != null && EF.Functions.Contains(p.MedicoUser.Nome, condition))
-                    || (p.Medico != null && EF.Functions.Contains(p.Medico, condition)))
+                    (p.MedicoUser != null && FullTextSearch.Contains(p.MedicoUser.Nome, condition))
+                    || (p.Medico != null && FullTextSearch.Contains(p.Medico, condition)))
                 : query.Where(p =>
                     (p.MedicoUser != null && p.MedicoUser.Nome.Contains(normalizedMedico))
                     || (p.Medico != null && p.Medico.Contains(normalizedMedico)));
@@ -52,8 +52,8 @@ internal static class FaturamentoMedicoFilters
             var condition = FullTextSearchTermBuilder.BuildPrefixCondition(normalizedConvenio);
             query = supportsFullTextSearch && condition != null
                 ? query.Where(p =>
-                    (p.ConvenioReferencia != null && EF.Functions.Contains(p.ConvenioReferencia.DescricaoConvenio, condition))
-                    || (p.Convenio != null && EF.Functions.Contains(p.Convenio, condition)))
+                    (p.ConvenioReferencia != null && FullTextSearch.Contains(p.ConvenioReferencia.DescricaoConvenio, condition))
+                    || (p.Convenio != null && FullTextSearch.Contains(p.Convenio, condition)))
                 : query.Where(p =>
                     (p.ConvenioReferencia != null && p.ConvenioReferencia.DescricaoConvenio.Contains(normalizedConvenio))
                     || (p.Convenio != null && p.Convenio.Contains(normalizedConvenio)));
@@ -64,8 +64,8 @@ internal static class FaturamentoMedicoFilters
             var condition = FullTextSearchTermBuilder.BuildPrefixCondition(normalizedProcedimento);
             query = supportsFullTextSearch && condition != null
                 ? query.Where(p =>
-                    (p.Procedimento != null && EF.Functions.Contains(p.Procedimento, condition))
-                    || p.Procedimentos.Any(item => EF.Functions.Contains(item.Procedimento, condition)))
+                    (p.Procedimento != null && FullTextSearch.Contains(p.Procedimento, condition))
+                    || p.Procedimentos.Any(item => FullTextSearch.Contains(item.Procedimento, condition)))
                 : query.Where(p =>
                     (p.Procedimento != null && p.Procedimento.Contains(normalizedProcedimento))
                     || p.Procedimentos.Any(item => item.Procedimento.Contains(normalizedProcedimento)));
@@ -89,16 +89,16 @@ internal static class FaturamentoMedicoFilters
         string condition)
     {
         return query.Where(p =>
-            EF.Functions.Contains(p.NomePaciente, condition)
-            || (p.HospitalReferencia != null && EF.Functions.Contains(p.HospitalReferencia.Nome, condition))
-            || (p.Hospital != null && EF.Functions.Contains(p.Hospital, condition))
-            || (p.MedicoUser != null && EF.Functions.Contains(p.MedicoUser.Nome, condition))
-            || (p.Medico != null && EF.Functions.Contains(p.Medico, condition))
-            || (p.ConvenioReferencia != null && EF.Functions.Contains(p.ConvenioReferencia.DescricaoConvenio, condition))
-            || (p.Convenio != null && EF.Functions.Contains(p.Convenio, condition))
-            || (p.OpmeFornecedorReferencia != null && EF.Functions.Contains(p.OpmeFornecedorReferencia.Fornecedor, condition))
-            || (p.OpmeFornecedor != null && EF.Functions.Contains(p.OpmeFornecedor, condition))
-            || (p.Procedimento != null && EF.Functions.Contains(p.Procedimento, condition))
+            FullTextSearch.Contains(p.NomePaciente, condition)
+            || (p.HospitalReferencia != null && FullTextSearch.Contains(p.HospitalReferencia.Nome, condition))
+            || (p.Hospital != null && FullTextSearch.Contains(p.Hospital, condition))
+            || (p.MedicoUser != null && FullTextSearch.Contains(p.MedicoUser.Nome, condition))
+            || (p.Medico != null && FullTextSearch.Contains(p.Medico, condition))
+            || (p.ConvenioReferencia != null && FullTextSearch.Contains(p.ConvenioReferencia.DescricaoConvenio, condition))
+            || (p.Convenio != null && FullTextSearch.Contains(p.Convenio, condition))
+            || (p.OpmeFornecedorReferencia != null && FullTextSearch.Contains(p.OpmeFornecedorReferencia.Fornecedor, condition))
+            || (p.OpmeFornecedor != null && FullTextSearch.Contains(p.OpmeFornecedor, condition))
+            || (p.Procedimento != null && FullTextSearch.Contains(p.Procedimento, condition))
             || p.User.Email.Contains(search)
             || (p.CbhpmCodigo != null && p.CbhpmCodigo.Contains(search))
             || (p.Autorizacao != null && p.Autorizacao.Contains(search))
@@ -109,7 +109,7 @@ internal static class FaturamentoMedicoFilters
             || (!string.IsNullOrEmpty(digits) && p.CbhpmCodigo != null
                 && p.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
             || p.Procedimentos.Any(item =>
-                EF.Functions.Contains(item.Procedimento, condition)
+                FullTextSearch.Contains(item.Procedimento, condition)
                 || (item.CbhpmCodigo != null && item.CbhpmCodigo.Contains(search))
                 || (!string.IsNullOrEmpty(digits) && item.CbhpmCodigo != null
                     && item.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))

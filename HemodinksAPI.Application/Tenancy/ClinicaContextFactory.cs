@@ -10,4 +10,11 @@ public static class ClinicaContextFactory
         context.SetCurrent(Clinica.DefaultId, Clinica.DefaultSlug);
         return context;
     }
+
+    public static ClinicaContext CreatePlatform()
+    {
+        var context = new ClinicaContext();
+        context.SetPlatformScope();
+        return context;
+    }
 }

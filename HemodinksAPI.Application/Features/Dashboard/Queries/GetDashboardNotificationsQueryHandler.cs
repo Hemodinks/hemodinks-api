@@ -8,11 +8,11 @@ namespace HemodinksAPI.Application.Features.Dashboard.Queries;
 
 public class GetDashboardNotificationsQueryHandler : IRequestHandler<GetDashboardNotificationsQuery, IReadOnlyList<DashboardNotificationDto>>
 {
-    private readonly IAppDbContext _context;
+    private readonly IDashboardFeatureDbContext _context;
     private readonly ILogger<GetDashboardNotificationsQueryHandler> _logger;
 
     public GetDashboardNotificationsQueryHandler(
-        IAppDbContext context,
+        IDashboardFeatureDbContext context,
         ILogger<GetDashboardNotificationsQueryHandler> logger)
     {
         _context = context;

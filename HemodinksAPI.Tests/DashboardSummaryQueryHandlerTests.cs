@@ -1,6 +1,5 @@
 using HemodinksAPI.Application.Features.Dashboard.Queries;
 using HemodinksAPI.Domain.Models;
-using HemodinksAPI.Domain.Utils;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -57,7 +56,7 @@ public class DashboardSummaryQueryHandlerTests
             Nome = nome,
             Email = email,
             Telefone = "+5511999999999",
-            Senha = new PasswordHasher().HashPassword(DefaultUserPassword.Value),
+            Senha = new PasswordHasher().HashPassword(TestPasswords.Valid),
             DataCadastro = new DateTime(2026, 7, 1, 12, 0, 0, DateTimeKind.Utc),
             DataNascimento = new DateTime(1990, 1, 1),
             Ativo = ativo,

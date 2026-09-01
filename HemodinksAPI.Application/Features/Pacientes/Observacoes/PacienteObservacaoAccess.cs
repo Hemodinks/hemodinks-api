@@ -7,7 +7,7 @@ namespace HemodinksAPI.Application.Features.Pacientes.Observacoes;
 internal static class PacienteObservacaoAccess
 {
     public static async Task<PacienteObservacaoContext> GetPacienteContextAsync(
-        IAppDbContext context,
+        IPatientFeatureDbContext context,
         int pacienteId,
         int currentPerfilId,
         int currentUserId,

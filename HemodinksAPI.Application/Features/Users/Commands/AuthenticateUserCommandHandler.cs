@@ -15,15 +15,16 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 /// </summary>
 public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCommand, AuthenticateUserResponse>
 {
-    private readonly IAppDbContext _context;
+    private readonly IUserFeatureDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly ILicencaService _licencaService;
     private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<AuthenticateUserCommandHandler> _logger;
+    private readonly ILoginAccountProtection _loginProtection;
 
-    public AuthenticateUserCommandHandler(
-        IAppDbContext context,
+    internal AuthenticateUserCommandHandler(
+        IUserFeatureDbContext context,
         IPasswordHasher passwordHasher,
         IJwtTokenService jwtTokenService,
         ILicencaService licencaService,
@@ -34,16 +35,18 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
             jwtTokenService,
             licencaService,
             ClinicaContextFactory.CreateDefaultResolved(),
+            new NoOpLoginAccountProtection(),
             logger)
     {
     }
 
     public AuthenticateUserCommandHandler(
-        IAppDbContext context,
+        IUserFeatureDbContext context,
         IPasswordHasher passwordHasher,
         IJwtTokenService jwtTokenService,
         ILicencaService licencaService,
         IClinicaContext clinicaContext,
+        ILoginAccountProtection loginProtection,
         ILogger<AuthenticateUserCommandHandler> logger)
     {
         _context = context;
@@ -51,6 +54,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
         _jwtTokenService = jwtTokenService;
         _licencaService = licencaService;
         _clinicaContext = clinicaContext;
+        _loginProtection = loginProtection;
         _logger = logger;
     }
 
@@ -59,7 +63,8 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
         try
         {
             var currentClinicaId = _clinicaContext.GetRequiredClinicaId();
-            _logger.LogInformation("Autenticando usuario: {Email}", request.Email);
+            var maskedEmail = HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(request.Email);
+            _logger.LogInformation("Autenticando usuario: {MaskedEmail}", maskedEmail);
 
             var user = await _context.Users
                 .Include(u => u.Perfil)
@@ -69,9 +74,16 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 .ThenBy(u => u.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
-            var globalAuthentication = user == null
+            var membership = user == null
                 ? null
-                : await GlobalIdentityService.AuthenticateAsync(
+                : await GlobalIdentityService.EnsureForUserAsync(_context, user, cancellationToken);
+            if (membership != null && await _loginProtection.IsLockedAsync(membership.UsuarioGlobalId, cancellationToken))
+            {
+                _logger.LogWarning("Conta temporariamente bloqueada para: {MaskedEmail}", maskedEmail);
+                throw new UnauthorizedAccessException("Email ou senha invalidos");
+            }
+
+            var globalAuthentication = user == null ? null : await GlobalIdentityService.AuthenticateAsync(
                     _context,
                     _passwordHasher,
                     user,
@@ -80,9 +92,16 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
 
             if (user == null || globalAuthentication == null)
             {
-                _logger.LogWarning("Falha na autenticacao para: {Email}", request.Email);
+                if (membership != null)
+                {
+                    await _loginProtection.RegisterFailureAsync(membership.UsuarioGlobalId, cancellationToken);
+                }
+
+                _logger.LogWarning("Falha na autenticacao para: {MaskedEmail}", maskedEmail);
                 throw new UnauthorizedAccessException("Email ou senha invalidos");
             }
+
+            await _loginProtection.RegisterSuccessAsync(globalAuthentication.UsuarioGlobal.Id, cancellationToken);
 
             Equipe? equipe = null;
             EquipeLoginChallengeDto? equipeDesafio = null;
@@ -157,7 +176,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                     globalAuthentication.UsuarioClinica.Id),
                 cancellationToken);
 
-            _logger.LogInformation("Usuario autenticado com sucesso: {Email}", request.Email);
+            _logger.LogInformation("Usuario autenticado com sucesso: {MaskedEmail}", maskedEmail);
 
             return new AuthenticateUserResponse
             {
@@ -182,7 +201,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Erro ao autenticar usuario: {Email}", request.Email);
+            _logger.LogError(ex, "Erro ao autenticar usuario");
             throw;
         }
     }

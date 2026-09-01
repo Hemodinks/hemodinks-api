@@ -185,7 +185,7 @@ Permissoes minimas esperadas para a identidade:
 - Permissao de federated credential configurada no app registration para este repositorio/ambiente GitHub.
 
 Com `AZURE_CONTAINER_APPS_DEPLOY_ENABLED=true`, merge em `main` publica as imagens e atualiza as revisoes dos Container Apps usando tags `sha-<commit>`.
-O workflow tambem atualiza `Deployment__CommitSha` no Container App para forcar nova revisao; o valor aparece em `/healthz` para conferencia pos-deploy.
+O workflow tambem atualiza `Deployment__CommitSha` no Container App para forcar nova revisao; a conferência pós-deploy lê esse valor diretamente da revisão candidata pelo Azure CLI. O `/healthz` público retorna apenas o estado agregado.
 
 Se um Container App for movido para outro Resource Group, atualize `AZURE_RESOURCE_GROUP` ou defina o override especifico `AZURE_CONTAINER_APP_API_RESOURCE_GROUP` / `AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP`. O workflow tenta descobrir o Resource Group pelo nome do Container App quando o valor configurado nao encontra o recurso.
 
