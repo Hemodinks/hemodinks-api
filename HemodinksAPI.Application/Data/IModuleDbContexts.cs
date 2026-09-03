@@ -82,6 +82,11 @@ public interface ILegalAcceptanceDbContext : IUnitOfWork
     DbSet<UserLegalAcceptance> UserLegalAcceptances { get; }
 }
 
+public interface IPrivacyPreferenceDbContext : IUnitOfWork
+{
+    DbSet<UserPrivacyPreference> UserPrivacyPreferences { get; }
+}
+
 public interface IFinanceEndpointDbContext : IUnitOfWork, IAuditDbContext
 {
     DbSet<AtendimentoCirurgico> AtendimentosCirurgicos { get; }

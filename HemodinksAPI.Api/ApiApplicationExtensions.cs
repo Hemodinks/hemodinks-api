@@ -37,6 +37,7 @@ public static partial class ApiApplicationExtensions
         app.MapPublicClinicaEndpoints();
         app.MapSessionEndpoints();
         app.MapLegalAcceptanceEndpoints();
+        app.MapPrivacyPreferenceEndpoints();
         app.MapClinicaPlatformEndpoints();
         app.MapEquipeEndpoints();
         app.MapMonitoringEndpoints();

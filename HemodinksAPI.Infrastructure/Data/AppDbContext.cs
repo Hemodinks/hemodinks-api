@@ -27,7 +27,8 @@ public class AppDbContext : DbContext,
     IPlatformPasswordResetDbContext,
     IPlatformClinicDbContext,
     ISessionDbContext,
-    ILegalAcceptanceDbContext
+    ILegalAcceptanceDbContext,
+    IPrivacyPreferenceDbContext
 {
     private static readonly MethodInfo ApplyClinicaQueryFilterMethod = typeof(AppDbContext)
         .GetMethod(nameof(ApplyClinicaQueryFilter), BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -46,6 +47,8 @@ public class AppDbContext : DbContext,
     public DbSet<AuthenticationSession> AuthenticationSessions { get; set; } = null!;
 
     public DbSet<UserLegalAcceptance> UserLegalAcceptances { get; set; } = null!;
+
+    public DbSet<UserPrivacyPreference> UserPrivacyPreferences { get; set; } = null!;
 
     public DbSet<AuditoriaPlataforma> AuditoriasPlataforma { get; set; } = null!;
 
