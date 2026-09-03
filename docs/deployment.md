@@ -312,6 +312,10 @@ Variaveis que devem diferir da producao:
 | `AsyncQueues__PasswordResetEmailQueueName` | `password-reset-emails-confirmation` |
 | `AsyncQueues__FileExportQueueName` | `file-export-jobs-confirmation` |
 
+O banco de homologacao deve ser Azure SQL ou uma instancia SQL Server com Full-Text
+Search habilitado. Antes de aplicar migrations, valide que
+`SELECT FULLTEXTSERVICEPROPERTY('IsFullTextInstalled')` retorna `1`.
+
 Se `AsyncQueues__PasswordResetEnabled=true` ou `PasswordResetFunctions__BaseUrl` estiver configurado, o email de reset pode ser enviado pelo worker/Function em vez da API Render. Nesse caso, o worker tambem precisa estar no mesmo commit da API e usar:
 
 ```text
@@ -333,6 +337,7 @@ Checklist:
 1. Criar servidor SQL e banco.
 2. Liberar firewall para o host da API.
 3. Configurar `ConnectionStrings__DefaultConnection`.
+4. Confirmar que `SELECT FULLTEXTSERVICEPROPERTY('IsFullTextInstalled')` retorna `1`.
 4. Validar migrations antes do deploy:
 
 ```powershell

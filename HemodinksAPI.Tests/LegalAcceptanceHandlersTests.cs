@@ -116,6 +116,23 @@ public sealed class LegalAcceptanceHandlersTests
     }
 
     [Fact]
+    public async Task AcceptCurrent_RejectsDifferentResolvedClinic()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var user = await AddUserAsync(context, "tenant-divergente@example.com");
+        var mismatchedUser = CurrentUser(user) with { ClinicaId = 2, ClinicaSlug = "outra" };
+        var handler = new AcceptCurrentLegalDocumentsCommandHandler(
+            context,
+            ClinicaContextFactory.CreateDefaultResolved(),
+            new FixedTimeProvider(AcceptanceInstant));
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(
+            new AcceptCurrentLegalDocumentsCommand(mismatchedUser, "1.1", "1.1"),
+            CancellationToken.None));
+        Assert.Empty(context.UserLegalAcceptances);
+    }
+
+    [Fact]
     public async Task AcceptCurrent_RejectsStaleClientVersions()
     {
         await using var context = TestDbContextFactory.Create();

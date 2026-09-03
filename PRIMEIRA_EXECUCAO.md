@@ -10,7 +10,8 @@ Opcao Docker:
 Opcao local:
 
 - .NET 10 SDK
-- SQL Server local, SQL Server Express ou Azure SQL
+- SQL Server local/Express com Full-Text Search instalado, ou Azure SQL
+- SQL Server LocalDB nao e suportado porque as migrations criam indices Full-Text
 - EF Core CLI, se for usar comandos `dotnet ef`
 
 ## Subir com Docker
