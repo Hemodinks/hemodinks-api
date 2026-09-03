@@ -77,6 +77,11 @@ public interface IPlatformClinicDbContext : IPlatformTeamDbContext, IAuditDbCont
 
 public interface ISessionDbContext : IGlobalIdentityDbContext, IClinicDirectoryDbContext, IUserDbContext;
 
+public interface ILegalAcceptanceDbContext : IUnitOfWork
+{
+    DbSet<UserLegalAcceptance> UserLegalAcceptances { get; }
+}
+
 public interface IFinanceEndpointDbContext : IUnitOfWork, IAuditDbContext
 {
     DbSet<AtendimentoCirurgico> AtendimentosCirurgicos { get; }

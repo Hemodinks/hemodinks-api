@@ -47,6 +47,7 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<IPlatformTeamDbContext>(provider => provider.GetRequiredService<PlatformDbContext>());
         services.AddScoped<IPlatformClinicDbContext>(provider => provider.GetRequiredService<PlatformDbContext>());
         services.AddScoped<ISessionDbContext>(provider => provider.GetRequiredService<PlatformDbContext>());
+        services.AddScoped<ILegalAcceptanceDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IFinanceEndpointDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<EfDataExecution>();
         services.AddScoped<IDataExecutionStrategy>(provider => provider.GetRequiredService<EfDataExecution>());
