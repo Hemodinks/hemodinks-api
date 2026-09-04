@@ -1,6 +1,7 @@
 using System.Net.Mail;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Utils;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Features.Clinics.Platform;
@@ -13,6 +14,12 @@ public sealed partial class ClinicaPlatformRequestHandler
         PlatformRequestContext requestContext,
         CancellationToken cancellationToken)
         {
+        var validation = await updateValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+        throw new InvalidOperationException(validation.Errors[0].ErrorMessage);
+        }
+
         var administratorNewPassword = string.IsNullOrWhiteSpace(request.AdministradorNovaSenha)
         ? null
         : RequireText(request.AdministradorNovaSenha, "Nova senha do administrador invalida", 200);
@@ -45,6 +52,23 @@ public sealed partial class ClinicaPlatformRequestHandler
         {
         return PlatformUseCaseResult.NotFound();
         }
+
+        var updatesClinicRegistration = request.Cnpj is not null
+            || request.Nome is not null
+            || request.Slug is not null
+            || request.Ativa.HasValue
+            || request.Plano is not null
+            || request.ModulosLiberados is not null
+            || request.AssinaturaStatus is not null
+            || request.TrialAte.HasValue
+            || request.AssinaturaValidaAte.HasValue
+            || request.LimiteUsuarios.HasValue
+            || request.FotoClinica is not null;
+        var resultingCnpj = request.Cnpj ?? clinica.Cnpj;
+        if (updatesClinicRegistration && !CnpjUtils.IsValid(resultingCnpj))
+        {
+        throw new InvalidOperationException("Informe um CNPJ valido.");
+        }
         
         if (request.Nome != null)
         {
@@ -61,7 +85,12 @@ public sealed partial class ClinicaPlatformRequestHandler
         
         clinica.Slug = slug;
         }
-        
+
+        if (request.Cnpj != null)
+        {
+        clinica.Cnpj = CnpjUtils.Normalize(request.Cnpj);
+        }
+
         if (request.Ativa.HasValue) clinica.Ativa = request.Ativa.Value;
         var previousPlan = clinica.Plano;
         var nextPlan = request.Plano != null ? NormalizePlano(request.Plano) : previousPlan;

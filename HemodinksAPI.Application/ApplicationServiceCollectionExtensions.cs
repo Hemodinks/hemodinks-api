@@ -4,7 +4,9 @@ using HemodinksAPI.Application.Features.GruposMedicos.Commands;
 using HemodinksAPI.Application.Features.Pacientes.Commands;
 using HemodinksAPI.Application.Features.Pacientes.Observacoes;
 using HemodinksAPI.Application.Features.Users.Commands;
+using HemodinksAPI.Application.Features.Clinics.Platform;
 using HemodinksAPI.Application.Validation;
+using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Application;
@@ -30,6 +32,8 @@ public static class ApplicationServiceCollectionExtensions
         services.AddTransient<IRequestValidator<UpdateUserCommand>, UpdateUserCommandValidator>();
         services.AddTransient<IRequestValidator<ChangePasswordCommand>, ChangePasswordCommandValidator>();
         services.AddTransient<IRequestValidator<UpdateConfiguracaoSistemaCommand>, UpdateConfiguracaoSistemaCommandValidator>();
+        services.AddTransient<IValidator<CreateClinicaRequest>, CreateClinicaRequestValidator>();
+        services.AddTransient<IValidator<UpdateClinicaRequest>, UpdateClinicaRequestValidator>();
         services.AddScoped<PasswordResetTenantResolver>();
 
         return services;

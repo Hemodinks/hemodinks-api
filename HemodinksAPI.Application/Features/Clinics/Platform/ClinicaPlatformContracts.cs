@@ -21,6 +21,7 @@ public sealed record CreateClinicTeamUserRequest(string Nome, string? Telefone);
 public sealed record CreateClinicaRequest(
     string Nome,
     string Slug,
+    string Cnpj,
     string AdministradorNome,
     string AdministradorEmail,
     string AdministradorSenha,
@@ -44,6 +45,7 @@ public sealed record CreateEquipeInicialRequest(
 public sealed record UpdateClinicaRequest(
     string? Nome,
     string? Slug,
+    string? Cnpj,
     bool? Ativa,
     string? Plano,
     IReadOnlyList<string>? ModulosLiberados,
@@ -59,6 +61,7 @@ public sealed record ClinicaPlatformResponse(
     int Id,
     string Nome,
     string Slug,
+    string? Cnpj,
     string? FotoUrl,
     bool Ativa,
     string Plano,

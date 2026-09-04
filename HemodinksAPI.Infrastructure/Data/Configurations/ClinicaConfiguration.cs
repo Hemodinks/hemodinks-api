@@ -20,6 +20,10 @@ internal sealed class ClinicaConfiguration : IEntityTypeConfiguration<Clinica>
             .IsRequired()
             .HasMaxLength(120);
 
+        entity.Property(e => e.Cnpj)
+            .HasMaxLength(14)
+            .IsUnicode(false);
+
         entity.Property(e => e.FotoClinica)
             .HasColumnType("nvarchar(max)");
 

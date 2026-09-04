@@ -57,6 +57,7 @@ public sealed partial class ClinicaPlatformRequestHandler
         clinica.Id,
         clinica.Nome,
         clinica.Slug,
+        clinica.Cnpj,
         clinica.FotoClinica == null ? null : $"/api/public/clinicas/{clinica.Slug}/foto",
         clinica.Ativa,
         clinica.Plano,
