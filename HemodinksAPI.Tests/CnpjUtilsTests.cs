@@ -1,5 +1,7 @@
 using HemodinksAPI.Application.Features.Clinics.Platform;
+using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
+using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Tests;
 
@@ -44,5 +46,19 @@ public sealed class CnpjUtilsTests
 
         Assert.False(new CreateClinicaRequestValidator().Validate(createRequest).IsValid);
         Assert.False(new UpdateClinicaRequestValidator().Validate(updateRequest).IsValid);
+    }
+
+    [Fact]
+    public void ClinicModel_HasAUniqueFilteredIndexForCnpj()
+    {
+        using var context = TestDbContextFactory.Create();
+        var clinicType = context.Model.FindEntityType(typeof(Clinica));
+
+        var cnpjIndex = Assert.Single(
+            clinicType!.GetIndexes(),
+            index => index.Properties.Select(property => property.Name).SequenceEqual([nameof(Clinica.Cnpj)]));
+
+        Assert.True(cnpjIndex.IsUnique);
+        Assert.Equal("[Cnpj] IS NOT NULL", cnpjIndex.GetFilter());
     }
 }

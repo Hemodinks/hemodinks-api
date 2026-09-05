@@ -343,6 +343,21 @@ public partial class ApiEndpointIntegrationTests
         var clinicId = createJson.RootElement.GetProperty("id").GetInt32();
         Assert.Equal("11222333000181", createJson.RootElement.GetProperty("cnpj").GetString());
 
+        var duplicateCreateResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica com CNPJ repetido",
+            slug = $"clinica-cnpj-repetido-{Guid.NewGuid():N}",
+            cnpj = "11222333000181",
+            administradorNome = "Administradora Duplicada",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123"
+        });
+        Assert.Equal(HttpStatusCode.Conflict, duplicateCreateResponse.StatusCode);
+        using (var duplicateCreateJson = await ReadJsonAsync(duplicateCreateResponse))
+        {
+            Assert.Contains("CNPJ", duplicateCreateJson.RootElement.GetProperty("message").GetString());
+        }
+
         var invalidUpdateResponse = await client.PutAsJsonAsync($"/api/platform/clinicas/{clinicId}", new
         {
             cnpj = "12.345.678/0001-00"
@@ -356,6 +371,27 @@ public partial class ApiEndpointIntegrationTests
         updateResponse.EnsureSuccessStatusCode();
         using var updateJson = await ReadJsonAsync(updateResponse);
         Assert.Equal("04252011000110", updateJson.RootElement.GetProperty("cnpj").GetString());
+
+        var secondCreateResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Segunda clinica com CNPJ",
+            slug = $"segunda-clinica-cnpj-{Guid.NewGuid():N}",
+            cnpj = ValidCnpj,
+            administradorNome = "Segunda Administradora",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123"
+        });
+        Assert.Equal(HttpStatusCode.Created, secondCreateResponse.StatusCode);
+        using var secondCreateJson = await ReadJsonAsync(secondCreateResponse);
+        var secondClinicId = secondCreateJson.RootElement.GetProperty("id").GetInt32();
+
+        var duplicateUpdateResponse = await client.PutAsJsonAsync($"/api/platform/clinicas/{secondClinicId}", new
+        {
+            cnpj = "04.252.011/0001-10"
+        });
+        Assert.Equal(HttpStatusCode.Conflict, duplicateUpdateResponse.StatusCode);
+        using var duplicateUpdateJson = await ReadJsonAsync(duplicateUpdateResponse);
+        Assert.Contains("CNPJ", duplicateUpdateJson.RootElement.GetProperty("message").GetString());
     }
 
     [Fact]

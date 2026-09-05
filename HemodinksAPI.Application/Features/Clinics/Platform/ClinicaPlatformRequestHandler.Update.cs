@@ -69,6 +69,17 @@ public sealed partial class ClinicaPlatformRequestHandler
         {
         throw new InvalidOperationException("Informe um CNPJ valido.");
         }
+
+        var normalizedCnpj = updatesClinicRegistration
+        ? CnpjUtils.Normalize(resultingCnpj)
+        : null;
+        if (normalizedCnpj != null
+        && await context.Clinicas.AnyAsync(
+        item => item.Id != id && item.Cnpj == normalizedCnpj,
+        cancellationToken))
+        {
+        return PlatformUseCaseResult.Conflict(new { message = DuplicateCnpjMessage });
+        }
         
         if (request.Nome != null)
         {
@@ -88,7 +99,7 @@ public sealed partial class ClinicaPlatformRequestHandler
 
         if (request.Cnpj != null)
         {
-        clinica.Cnpj = CnpjUtils.Normalize(request.Cnpj);
+        clinica.Cnpj = normalizedCnpj;
         }
 
         if (request.Ativa.HasValue) clinica.Ativa = request.Ativa.Value;
@@ -207,7 +218,14 @@ public sealed partial class ClinicaPlatformRequestHandler
         context.Equipes.Add(novaEquipe);
         }
         
+        try
+        {
         await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateException exception) when (IsCnpjUniqueConstraintViolation(exception))
+        {
+        return PlatformUseCaseResult.Conflict(new { message = DuplicateCnpjMessage });
+        }
         if (clinicAdministrator != null)
         {
         await GlobalIdentityService.SynchronizePasswordAsync(

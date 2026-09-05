@@ -57,6 +57,10 @@ internal sealed class ClinicaConfiguration : IEntityTypeConfiguration<Clinica>
         entity.HasIndex(e => e.Slug)
             .IsUnique();
 
+        entity.HasIndex(e => e.Cnpj)
+            .IsUnique()
+            .HasFilter("[Cnpj] IS NOT NULL");
+
         entity.HasData(new Clinica
         {
             Id = Clinica.DefaultId,
