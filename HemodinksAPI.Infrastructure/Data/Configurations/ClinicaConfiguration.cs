@@ -20,6 +20,10 @@ internal sealed class ClinicaConfiguration : IEntityTypeConfiguration<Clinica>
             .IsRequired()
             .HasMaxLength(120);
 
+        entity.Property(e => e.Cnpj)
+            .HasMaxLength(14)
+            .IsUnicode(false);
+
         entity.Property(e => e.FotoClinica)
             .HasColumnType("nvarchar(max)");
 
@@ -52,6 +56,10 @@ internal sealed class ClinicaConfiguration : IEntityTypeConfiguration<Clinica>
 
         entity.HasIndex(e => e.Slug)
             .IsUnique();
+
+        entity.HasIndex(e => e.Cnpj)
+            .IsUnique()
+            .HasFilter("[Cnpj] IS NOT NULL");
 
         entity.HasData(new Clinica
         {

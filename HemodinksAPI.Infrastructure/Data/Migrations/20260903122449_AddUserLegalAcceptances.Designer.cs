@@ -4,6 +4,7 @@ using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -11,9 +12,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HemodinksAPI.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260903122449_AddUserLegalAcceptances")]
+    partial class AddUserLegalAcceptances
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -469,11 +472,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
-                    b.Property<string>("Cnpj")
-                        .HasMaxLength(14)
-                        .IsUnicode(false)
-                        .HasColumnType("varchar(14)");
-
                     b.Property<DateTime?>("DataAtualizacao")
                         .HasColumnType("datetime2");
 
@@ -513,10 +511,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("Cnpj")
-                        .IsUnique()
-                        .HasFilter("[Cnpj] IS NOT NULL");
 
                     b.HasIndex("Slug")
                         .IsUnique();
@@ -2566,47 +2560,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.ToTable("UserLegalAcceptances", (string)null);
                 });
 
-            modelBuilder.Entity("HemodinksAPI.Domain.Models.UserPrivacyPreference", b =>
-                {
-                    b.Property<long>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bigint");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
-
-                    b.Property<DateTime>("AcceptedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("AnalyticsEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<int>("ClinicaId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("DocumentVersion")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("nvarchar(20)");
-
-                    b.Property<bool>("PreferencesEnabled")
-                        .HasColumnType("bit");
-
-                    b.Property<DateTime>("UpdatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId");
-
-                    b.HasIndex("ClinicaId", "UserId")
-                        .IsUnique();
-
-                    b.ToTable("UserPrivacyPreferences", (string)null);
-                });
-
             modelBuilder.Entity("HemodinksAPI.Domain.Models.UsuarioClinica", b =>
                 {
                     b.Property<int>("Id")
@@ -3553,25 +3506,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.UserLegalAcceptance", b =>
-                {
-                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
-                        .WithMany()
-                        .HasForeignKey("ClinicaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("HemodinksAPI.Domain.Models.User", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Clinica");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("HemodinksAPI.Domain.Models.UserPrivacyPreference", b =>
                 {
                     b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
                         .WithMany()

@@ -1,6 +1,9 @@
 services:
   sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
+    build:
+      context: ..
+      dockerfile: sqlserver/Dockerfile.fts
+    image: hemodinks-sqlserver:2022-fts
     container_name: hemodinks-sqlserver-dev
     restart: "no"
     environment:

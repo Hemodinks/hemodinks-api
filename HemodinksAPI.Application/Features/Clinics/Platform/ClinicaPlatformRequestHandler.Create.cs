@@ -2,6 +2,7 @@ using System.Net.Mail;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Utils;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Features.Clinics.Platform;
@@ -13,8 +14,15 @@ public sealed partial class ClinicaPlatformRequestHandler
         PlatformRequestContext requestContext,
         CancellationToken cancellationToken)
         {
+        var validation = await createValidator.ValidateAsync(request, cancellationToken);
+        if (!validation.IsValid)
+        {
+        throw new InvalidOperationException(validation.Errors[0].ErrorMessage);
+        }
+
         var nome = RequireText(request.Nome, "Nome da clinica obrigatorio", 120);
         var slug = NormalizeSlug(request.Slug);
+        var cnpj = CnpjUtils.Normalize(request.Cnpj)!;
         var adminNome = RequireText(request.AdministradorNome, "Nome do administrador obrigatorio", 255);
         var adminEmail = RequireText(request.AdministradorEmail, "Email do administrador obrigatorio", 255).ToLowerInvariant();
         var adminCredential = RequireText(request.AdministradorSenha, "Senha do administrador obrigatoria", 200);
@@ -55,6 +63,11 @@ public sealed partial class ClinicaPlatformRequestHandler
         {
         return PlatformUseCaseResult.Conflict(new { message = "Slug da clinica ja cadastrado" });
         }
+
+        if (await context.Clinicas.AnyAsync(item => item.Cnpj == cnpj, operationCancellationToken))
+        {
+        return PlatformUseCaseResult.Conflict(new { message = DuplicateCnpjMessage });
+        }
         
         if (equipeEmail != null
         && await context.UsuariosGlobais.AnyAsync(item => item.Email == equipeEmail, operationCancellationToken))
@@ -69,6 +82,7 @@ public sealed partial class ClinicaPlatformRequestHandler
         {
         Nome = nome,
         Slug = slug,
+        Cnpj = cnpj,
         Ativa = true,
         Plano = plano,
         ModulosLiberados = NormalizeModulos(plano, request.ModulosLiberados),
@@ -80,7 +94,14 @@ public sealed partial class ClinicaPlatformRequestHandler
         };
         
         context.Clinicas.Add(clinica);
-        await context.SaveChangesAsync(cancellationToken);
+        try
+        {
+        await context.SaveChangesAsync(operationCancellationToken);
+        }
+        catch (DbUpdateException exception) when (IsCnpjUniqueConstraintViolation(exception))
+        {
+        return PlatformUseCaseResult.Conflict(new { message = DuplicateCnpjMessage });
+        }
         if (!string.IsNullOrWhiteSpace(request.FotoClinica))
         {
         clinica.FotoClinica = await photoStorage.SaveAsync(request.FotoClinica, null, cancellationToken);

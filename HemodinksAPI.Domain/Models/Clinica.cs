@@ -68,6 +68,8 @@ public class Clinica
 
     public string Slug { get; set; } = DefaultSlug;
 
+    public string? Cnpj { get; set; }
+
     public string? FotoClinica { get; set; }
 
     public bool Ativa { get; set; } = true;

@@ -17,6 +17,8 @@ namespace HemodinksAPI.Tests;
 
 public partial class ApiEndpointIntegrationTests
 {
+    private const string ValidCnpj = "11.222.333/0001-81";
+
     [Fact]
     public async Task PublicClinics_ReturnsActiveClinicsFromDatabase()
     {
@@ -292,6 +294,107 @@ public partial class ApiEndpointIntegrationTests
     }
 
     [Fact]
+    public async Task PlatformClinics_ValidatesNormalizesAndReturnsCnpjWithoutBreakingLegacyClinics()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client, Clinica.DefaultSlug, "gmarcone@gmail.com", TestPasswords.Valid);
+
+        var legacyResponse = await client.GetAsync($"/api/platform/clinicas/{Clinica.DefaultId}");
+        legacyResponse.EnsureSuccessStatusCode();
+        using (var legacyJson = await ReadJsonAsync(legacyResponse))
+        {
+            Assert.Equal(JsonValueKind.Null, legacyJson.RootElement.GetProperty("cnpj").ValueKind);
+        }
+
+        var missingResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica sem CNPJ",
+            slug = $"clinica-{Guid.NewGuid():N}",
+            administradorNome = "Administradora Local",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, missingResponse.StatusCode);
+
+        var invalidResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica com CNPJ invalido",
+            slug = $"clinica-{Guid.NewGuid():N}",
+            cnpj = "11.111.111/1111-11",
+            administradorNome = "Administradora Local",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidResponse.StatusCode);
+
+        var slug = $"clinica-cnpj-{Guid.NewGuid():N}";
+        var createResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica com CNPJ",
+            slug,
+            cnpj = ValidCnpj,
+            administradorNome = "Administradora Local",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123"
+        });
+        Assert.Equal(HttpStatusCode.Created, createResponse.StatusCode);
+        using var createJson = await ReadJsonAsync(createResponse);
+        var clinicId = createJson.RootElement.GetProperty("id").GetInt32();
+        Assert.Equal("11222333000181", createJson.RootElement.GetProperty("cnpj").GetString());
+
+        var duplicateCreateResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Clinica com CNPJ repetido",
+            slug = $"clinica-cnpj-repetido-{Guid.NewGuid():N}",
+            cnpj = "11222333000181",
+            administradorNome = "Administradora Duplicada",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123"
+        });
+        Assert.Equal(HttpStatusCode.Conflict, duplicateCreateResponse.StatusCode);
+        using (var duplicateCreateJson = await ReadJsonAsync(duplicateCreateResponse))
+        {
+            Assert.Contains("CNPJ", duplicateCreateJson.RootElement.GetProperty("message").GetString());
+        }
+
+        var invalidUpdateResponse = await client.PutAsJsonAsync($"/api/platform/clinicas/{clinicId}", new
+        {
+            cnpj = "12.345.678/0001-00"
+        });
+        Assert.Equal(HttpStatusCode.BadRequest, invalidUpdateResponse.StatusCode);
+
+        var updateResponse = await client.PutAsJsonAsync($"/api/platform/clinicas/{clinicId}", new
+        {
+            cnpj = "04.252.011/0001-10"
+        });
+        updateResponse.EnsureSuccessStatusCode();
+        using var updateJson = await ReadJsonAsync(updateResponse);
+        Assert.Equal("04252011000110", updateJson.RootElement.GetProperty("cnpj").GetString());
+
+        var secondCreateResponse = await client.PostAsJsonAsync("/api/platform/clinicas", new
+        {
+            nome = "Segunda clinica com CNPJ",
+            slug = $"segunda-clinica-cnpj-{Guid.NewGuid():N}",
+            cnpj = ValidCnpj,
+            administradorNome = "Segunda Administradora",
+            administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
+            administradorSenha = "AdminLocal@123"
+        });
+        Assert.Equal(HttpStatusCode.Created, secondCreateResponse.StatusCode);
+        using var secondCreateJson = await ReadJsonAsync(secondCreateResponse);
+        var secondClinicId = secondCreateJson.RootElement.GetProperty("id").GetInt32();
+
+        var duplicateUpdateResponse = await client.PutAsJsonAsync($"/api/platform/clinicas/{secondClinicId}", new
+        {
+            cnpj = "04.252.011/0001-10"
+        });
+        Assert.Equal(HttpStatusCode.Conflict, duplicateUpdateResponse.StatusCode);
+        using var duplicateUpdateJson = await ReadJsonAsync(duplicateUpdateResponse);
+        Assert.Contains("CNPJ", duplicateUpdateJson.RootElement.GetProperty("message").GetString());
+    }
+
+    [Fact]
     public async Task SuperAdministrador_CanProvisionListAndNavigateNewClinic()
     {
         using var factory = new HemodinksApiFactory();
@@ -303,6 +406,7 @@ public partial class ApiEndpointIntegrationTests
         {
             nome = "Clinica Provisionada",
             slug,
+            cnpj = ValidCnpj,
             administradorNome = "Administradora Local",
             administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
             administradorSenha = "AdminLocal@123",
@@ -489,6 +593,7 @@ public partial class ApiEndpointIntegrationTests
         {
             nome = "Clinica Senha Segura",
             slug,
+            cnpj = ValidCnpj,
             administradorNome = "Administradora Principal",
             administradorEmail = email,
             administradorSenha = initialPassword,
@@ -539,6 +644,7 @@ public partial class ApiEndpointIntegrationTests
         {
             nome = "Clinica Plano Invalido",
             slug = $"clinica-{Guid.NewGuid():N}",
+            cnpj = ValidCnpj,
             administradorNome = "Administradora Local",
             administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
             administradorSenha = "AdminLocal@123",
@@ -550,7 +656,8 @@ public partial class ApiEndpointIntegrationTests
 
         var updateResponse = await client.PutAsJsonAsync($"/api/platform/clinicas/{Clinica.DefaultId}", new
         {
-            plano = "Profissional"
+            plano = "Profissional",
+            cnpj = ValidCnpj
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, updateResponse.StatusCode);
@@ -560,6 +667,7 @@ public partial class ApiEndpointIntegrationTests
         {
             nome = "Clinica Parcial Sem Modulos",
             slug = $"clinica-{Guid.NewGuid():N}",
+            cnpj = ValidCnpj,
             administradorNome = "Administradora Local",
             administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
             administradorSenha = "AdminLocal@123",
@@ -747,6 +855,7 @@ public partial class ApiEndpointIntegrationTests
         {
             nome = "Clinica com Limite",
             slug,
+            cnpj = ValidCnpj,
             administradorNome = "Administradora Limite",
             administradorEmail = $"admin-{Guid.NewGuid():N}@example.com",
             administradorSenha = "AdminLimite@123",
@@ -923,6 +1032,7 @@ public partial class ApiEndpointIntegrationTests
         {
             nome = "Clinica Parcial",
             slug,
+            cnpj = ValidCnpj,
             administradorNome = "Administradora Parcial",
             administradorEmail = adminEmail,
             administradorSenha = adminPassword,
@@ -988,9 +1098,12 @@ public partial class ApiEndpointIntegrationTests
         Assert.Equal(beta.Id, clinic.GetProperty("id").GetInt32());
 
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/platform/clinicas/{beta.Id}")).StatusCode);
-        Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync(
+        Assert.Equal(HttpStatusCode.BadRequest, (await client.PutAsJsonAsync(
             $"/api/platform/clinicas/{beta.Id}",
             new { nome = "Clinica Beta Administrada" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.PutAsJsonAsync(
+            $"/api/platform/clinicas/{beta.Id}",
+            new { nome = "Clinica Beta Administrada", cnpj = ValidCnpj })).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync(
             "/api/platform/clinicas",
             new { })).StatusCode);
