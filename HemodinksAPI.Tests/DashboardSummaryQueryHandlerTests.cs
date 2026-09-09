@@ -17,12 +17,13 @@ public class DashboardSummaryQueryHandlerTests
         var patientUser = CreateUser("Paciente Hemodinks", "paciente@hemodinks.com", Perfil.PacientesId, true);
 
         context.Users.AddRange(admin, doctor, controller);
-        context.Pacientes.Add(new Paciente
+        var paciente = new Paciente
         {
             User = patientUser,
             NomePaciente = patientUser.Nome,
             StatusPago = false,
-        });
+        };
+        context.Pacientes.Add(paciente);
         context.ContasReceber.AddRange(
             CreateAccount("ABERTO", ContaReceberStatus.Aberto),
             CreateAccount("PARCIAL", ContaReceberStatus.ParcialmenteRecebido),
@@ -30,6 +31,10 @@ public class DashboardSummaryQueryHandlerTests
             CreateAccount("RECEBIDO", ContaReceberStatus.Recebido),
             CreateAccount("CANCELADO", ContaReceberStatus.Cancelado),
             CreateAccount("PREVISTO", ContaReceberStatus.Previsto));
+        foreach (var account in context.ContasReceber.Local)
+        {
+            account.Paciente = paciente;
+        }
         await context.SaveChangesAsync();
 
         var handler = new GetDashboardSummaryQueryHandler(

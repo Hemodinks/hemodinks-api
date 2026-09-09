@@ -97,6 +97,7 @@ public partial class PacienteCommandHandlerTests
         {
             Id = paciente.Id,
             NomePaciente = "Paciente Atualizado",
+            DataAtendimento = new DateTime(2030, 12, 1),
             Diagnostico = "Diagnostico atualizado",
             TratamentoMedico = "Tratamento atualizado",
             Email = user.Email,
@@ -119,6 +120,9 @@ public partial class PacienteCommandHandlerTests
         }, CancellationToken.None);
 
         Assert.Equal("Paciente Atualizado", response.NomePaciente);
+        Assert.Equal(new DateTime(2030, 12, 1), response.DataAtendimento);
+        context.ChangeTracker.Clear();
+        Assert.Equal(new DateTime(2030, 12, 1), (await context.Pacientes.SingleAsync()).DataAtendimento);
         Assert.Equal("Diagnostico atualizado", response.Diagnostico);
         Assert.Equal("Tratamento atualizado", response.TratamentoMedico);
         Assert.Equal(2, response.HospitalId);

@@ -124,6 +124,7 @@ public sealed class ClinicaResolutionMiddleware
                 && item.Ativo
                 && item.UsuarioGlobal.Ativo
                 && item.User.Ativo
+                && item.User.ClinicaId == clinica.Id
                 && item.Clinica.Ativa,
                 cancellationToken);
 
