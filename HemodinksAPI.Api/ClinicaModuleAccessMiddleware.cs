@@ -20,6 +20,8 @@ public sealed class ClinicaModuleAccessMiddleware
         IClinicDirectoryDbContext dbContext)
     {
         var requiredModule = ResolveRequiredModule(context.Request.Path);
+        var endpointName = context.GetEndpoint()?.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName;
+        if (endpointName is "ChangeTemporaryPassword" or "ChangePassword") requiredModule = null;
         if (requiredModule == null
             || context.User.Identity?.IsAuthenticated != true
             || IsAdministrator(context.User))

@@ -55,7 +55,8 @@ public sealed class AuthenticationSessionService
         int clinicaId,
         string? ipAddress,
         string? userAgent,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? expectedSecurityVersion = null)
     {
         var membership = await _store.FindActiveMembershipAsync(
             usuarioGlobalId,
@@ -63,7 +64,7 @@ public sealed class AuthenticationSessionService
             clinicaId,
             cancellationToken);
 
-        if (membership == null)
+        if (membership == null || (expectedSecurityVersion.HasValue && membership.UsuarioGlobal.SecurityVersion != expectedSecurityVersion))
         {
             return null;
         }
@@ -73,6 +74,7 @@ public sealed class AuthenticationSessionService
         var session = new AuthenticationSession
         {
             Id = Guid.NewGuid(),
+            SecurityVersion = membership.UsuarioGlobal.SecurityVersion,
             UsuarioGlobalId = membership.UsuarioGlobalId,
             UsuarioClinicaId = membership.Id,
             RefreshTokenHash = HashRefreshToken(refreshToken),
@@ -232,7 +234,8 @@ public sealed class AuthenticationSessionService
 
     private bool IsActive(AuthenticationSession session, DateTime now)
     {
-        return session.RevokedAt == null
+        return session.SecurityVersion == session.UsuarioClinica.UsuarioGlobal.SecurityVersion
+            && session.RevokedAt == null
             && session.LastActivityAt > now.AddMinutes(-_options.IdleTimeoutMinutes);
     }
 

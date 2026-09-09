@@ -120,8 +120,8 @@ if (app.Environment.IsProduction())
 }
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();
 app.Use(async (context, next) =>
 {
     context.Response.OnStarting(() =>
@@ -144,6 +144,7 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseMiddleware<AuthenticationSessionMiddleware>();
+app.UseMiddleware<PasswordRecoveryMiddleware>();
 app.UseMiddleware<ClinicaResolutionMiddleware>();
 app.Use(async (context, next) =>
 {

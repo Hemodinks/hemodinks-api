@@ -67,7 +67,8 @@ public sealed class ClinicaResolutionMiddleware
 
         if (httpContext.User.Identity?.IsAuthenticated == true
             && string.Equals(httpContext.User.FindFirstValue("precisaTrocarPin"), "true", StringComparison.OrdinalIgnoreCase)
-            && !httpContext.Request.Path.StartsWithSegments("/api/equipe-auth/pin", StringComparison.OrdinalIgnoreCase))
+            && !httpContext.Request.Path.StartsWithSegments("/api/equipe-auth/pin", StringComparison.OrdinalIgnoreCase)
+            && httpContext.GetEndpoint()?.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName != "ChangeTemporaryPassword")
         {
             httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
             await httpContext.Response.WriteAsJsonAsync(new

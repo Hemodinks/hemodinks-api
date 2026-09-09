@@ -31,6 +31,7 @@ public static class ApplicationServiceCollectionExtensions
         services.AddTransient<IRequestValidator<CreateUserCommand>, CreateUserCommandValidator>();
         services.AddTransient<IRequestValidator<UpdateUserCommand>, UpdateUserCommandValidator>();
         services.AddTransient<IRequestValidator<ChangePasswordCommand>, ChangePasswordCommandValidator>();
+        services.AddTransient<IRequestValidator<ChangeTemporaryPasswordCommand>, ChangeTemporaryPasswordCommandValidator>();
         services.AddTransient<IRequestValidator<UpdateConfiguracaoSistemaCommand>, UpdateConfiguracaoSistemaCommandValidator>();
         services.AddTransient<IValidator<CreateClinicaRequest>, CreateClinicaRequestValidator>();
         services.AddTransient<IValidator<UpdateClinicaRequest>, UpdateClinicaRequestValidator>();

@@ -35,13 +35,14 @@ public static partial class UserEndpointExtensions
         return EndpointExecution.RunAsync(async () =>
         {
             var result = await mediator.Send(command, cancellationToken);
+            if (result.EquipeDesafio != null) return Results.Ok(result);
             var session = await sessionService.StartAsync(
                 result.UsuarioGlobalId,
                 result.Id,
                 result.ClinicaId,
                 httpContext.Connection.RemoteIpAddress?.ToString(),
                 httpContext.Request.Headers.UserAgent.ToString(),
-                cancellationToken);
+                cancellationToken, result.SecurityVersion);
             if (session == null)
             {
                 return Results.Unauthorized();

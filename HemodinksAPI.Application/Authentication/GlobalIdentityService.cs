@@ -27,7 +27,7 @@ public static class GlobalIdentityService
             membership = await EnsureForUserAsync(context, user, cancellationToken);
         }
 
-        if (!membership.Ativo || !membership.UsuarioGlobal.Ativo)
+        if (!membership.Ativo || !membership.UsuarioGlobal.Ativo || membership.UsuarioGlobal.TemporaryPasswordRecovery)
         {
             return null;
         }
