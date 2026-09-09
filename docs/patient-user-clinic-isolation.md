@@ -18,6 +18,16 @@ A inconsistência de estado encontrada no frontend é compatível com exibição
 
 ## Validação
 
+### Falha no publish-container com erro SQL 547
+
+O conflito em `FK_AtendimentosCirurgicos_Pacientes_ClinicaId_PacienteId` indica que um atendimento existente não encontra o paciente referenciado na mesma clínica. Repetir o bundle não resolve essa inconsistência. A mensagem de aquisição de lock não é a causa desse erro.
+
+Executar `scripts/diagnose-patient-clinic-migration.sql` no banco de destino para conferir o histórico da migração e identificar os atendimentos incompatíveis. A consulta é somente leitura e também detecta referências a pacientes inexistentes. Executar a auditoria completa mencionada acima para verificar os demais relacionamentos antes de tentar novamente.
+
+Confirmar a clínica e o paciente corretos com o responsável pelos dados antes de elaborar uma correção. Alterar `ClinicaId` em massa pode transferir informações entre clínicas e deixar dependências financeiras inconsistentes. Não remover a chave estrangeira nem usar `NOCHECK` para liberar a publicação. Após corrigir os vínculos confirmados e obter uma auditoria sem inconsistências, executar novamente o fluxo de publicação. A análise do log não aplica nenhuma alteração no banco de produção.
+
+### Testes da implementação
+
 Resultado local: 262 testes do frontend aprovados, build e auditoria de arquitetura aprovados; 349 testes da API aprovados com `Category!=SqlServer` e `HEMODINKS_TEST_LOCALDB=1`, incluindo o novo teste relacional. O modelo EF corresponde à migração gerada, sem alterações pendentes.
 
 - Testes do frontend cobrem o envio de `01/12/2030`, edição, ano bissexto, datas inválidas e a troca de clínica enquanto a nova lista de pacientes/usuários está pendente.

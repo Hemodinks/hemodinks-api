@@ -1,6 +1,7 @@
 -- Auditoria somente leitura antes da migracao de isolamento de pacientes e usuarios.
 -- Nenhum resultado: nao foram encontrados vinculos entre clinicas distintas.
 -- Resultados mostram apenas identificadores; nao alteram nem transferem registros.
+-- Em GrupoMedicoUsuarios, RegistroId = GrupoMedicoId; junto de ReferenciaId (UserId), identifica o vinculo.
 SELECT 'AgendaNotifications' AS Tabela, 'RecipientUserId' AS Coluna,
        origem.Id AS RegistroId, origem.ClinicaId AS ClinicaOrigem,
        destino.Id AS ReferenciaId, destino.ClinicaId AS ClinicaReferencia
@@ -100,7 +101,7 @@ JOIN [Pacientes] AS destino ON destino.Id = origem.[PacienteId]
 WHERE origem.ClinicaId <> destino.ClinicaId
 UNION ALL
 SELECT 'GrupoMedicoUsuarios' AS Tabela, 'UserId' AS Coluna,
-       origem.Id AS RegistroId, origem.ClinicaId AS ClinicaOrigem,
+       origem.GrupoMedicoId AS RegistroId, origem.ClinicaId AS ClinicaOrigem,
        destino.Id AS ReferenciaId, destino.ClinicaId AS ClinicaReferencia
 FROM [GrupoMedicoUsuarios] AS origem
 JOIN [Users] AS destino ON destino.Id = origem.[UserId]
@@ -217,4 +218,3 @@ SELECT 'UserPrivacyPreferences' AS Tabela, 'UserId' AS Coluna,
 FROM [UserPrivacyPreferences] AS origem
 JOIN [Users] AS destino ON destino.Id = origem.[UserId]
 WHERE origem.ClinicaId <> destino.ClinicaId;
-
