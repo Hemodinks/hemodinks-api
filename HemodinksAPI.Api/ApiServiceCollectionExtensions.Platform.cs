@@ -161,6 +161,18 @@ public static partial class ApiServiceCollectionExtensions
                         AutoReplenishment = true
                     });
             });
+            options.AddPolicy("TemporaryAccess", context =>
+            {
+                var actor = context.User.FindFirst(HemodinksAPI.Application.Authentication.GlobalIdentityClaimTypes.UsuarioGlobalId)?.Value;
+                var partitionKey = actor != null ? $"user:{actor}" : $"ip:{context.Connection.RemoteIpAddress}";
+                return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = 5,
+                    Window = TimeSpan.FromMinutes(5),
+                    QueueLimit = 0,
+                    AutoReplenishment = true
+                });
+            });
             options.AddPolicy("PublicClinics", context =>
             {
                 var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";

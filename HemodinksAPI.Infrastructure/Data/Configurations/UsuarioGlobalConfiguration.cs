@@ -10,6 +10,7 @@ internal sealed class UsuarioGlobalConfiguration : IEntityTypeConfiguration<Usua
     {
         entity.ToTable("UsuariosGlobais");
         entity.HasKey(item => item.Id);
+        entity.Property(item => item.SecurityVersion).IsConcurrencyToken();
         entity.Property(item => item.Nome).IsRequired().HasMaxLength(255);
         entity.Property(item => item.Email).IsRequired().HasMaxLength(255);
         entity.Property(item => item.Senha).IsRequired().HasMaxLength(500);

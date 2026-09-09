@@ -9,6 +9,7 @@ namespace HemodinksAPI.Infrastructure.Data;
 /// Contexto de banco de dados da aplicação
 /// </summary>
 public class AppDbContext : DbContext,
+    ITemporaryAccessDbContext,
     IUserFeatureDbContext,
     IPatientFeatureDbContext,
     ICbhpmFeatureDbContext,
@@ -41,6 +42,7 @@ public class AppDbContext : DbContext,
     public DbSet<Clinica> Clinicas { get; set; } = null!;
 
     public DbSet<UsuarioGlobal> UsuariosGlobais { get; set; } = null!;
+    public DbSet<TemporaryAccessCredential> TemporaryAccessCredentials { get; set; } = null!;
 
     public DbSet<UsuarioClinica> UsuariosClinicas { get; set; } = null!;
 
