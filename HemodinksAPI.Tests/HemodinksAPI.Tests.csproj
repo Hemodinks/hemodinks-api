@@ -22,6 +22,7 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <None Include="..\scripts\audit-patient-user-clinic-relationships.sql" Link="scripts\audit-patient-user-clinic-relationships.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>
