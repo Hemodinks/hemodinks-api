@@ -59,6 +59,7 @@ public sealed class PatientUserTenantSqlServerTests
             await ExecuteOperations(context, migration.DownOperations);
             await context.Database.ExecuteSqlInterpolatedAsync(
                 $"UPDATE Pacientes SET MedicoUserId = {second.UserId} WHERE Id = {first.Id}");
+            await AssertAuditFindsInvalidPatient(context, first.Id, second.UserId);
             await using (var transaction = await context.Database.BeginTransactionAsync())
             {
                 var error = await Assert.ThrowsAsync<SqlException>(() => ExecuteOperations(context, migration.UpOperations));
@@ -98,6 +99,34 @@ public sealed class PatientUserTenantSqlServerTests
     {
         var error = await Assert.ThrowsAsync<SqlException>(operation);
         Assert.Equal(547, error.Number);
+    }
+
+    private static async Task AssertAuditFindsInvalidPatient(AppDbContext context, int patientId, int doctorId)
+    {
+        // Execute the actual operational script against the schema preceding the migration.
+        // This also compiles every UNION branch, including tables with composite primary keys.
+        var sql = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory,
+            "scripts", "audit-patient-user-clinic-relationships.sql"));
+        await context.Database.OpenConnectionAsync();
+        try
+        {
+            await using var command = context.Database.GetDbConnection().CreateCommand();
+            command.CommandText = sql;
+            await using var reader = await command.ExecuteReaderAsync();
+            var found = false;
+            while (await reader.ReadAsync())
+            {
+                if (reader.GetString(0) == "Pacientes" && reader.GetString(1) == "MedicoUserId"
+                    && Convert.ToInt64(reader.GetValue(2)) == patientId
+                    && Convert.ToInt64(reader.GetValue(4)) == doctorId)
+                    found = true;
+            }
+            Assert.True(found, "The audit must report the cross-clinic patient/doctor relationship.");
+        }
+        finally
+        {
+            await context.Database.CloseConnectionAsync();
+        }
     }
 
     private static async Task ExecuteOperations(AppDbContext context, IReadOnlyList<MigrationOperation> operations)
