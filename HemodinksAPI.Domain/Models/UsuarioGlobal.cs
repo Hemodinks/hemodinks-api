@@ -4,6 +4,10 @@ public class UsuarioGlobal
 {
     public int Id { get; set; }
 
+    public Guid SecurityVersion { get; set; }
+
+    public bool TemporaryPasswordRecovery { get; set; }
+
     public string Nome { get; set; } = null!;
 
     public string Email { get; set; } = null!;

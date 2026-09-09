@@ -91,7 +91,9 @@ public class JwtTokenService : IJwtTokenService
                 new Claim("perfilNome", user.Perfil?.Nome ?? string.Empty),
                 new Claim(ClinicaClaimTypes.ClinicaId, usuarioClinica.ClinicaId.ToString()),
                 new Claim(ClinicaClaimTypes.ClinicaSlug, user.Clinica?.Slug ?? Clinica.DefaultSlug),
-                new Claim("precisaTrocarSenha", user.PrecisaTrocarSenha.ToString().ToLowerInvariant()),
+                new Claim("precisaTrocarSenha", (user.PrecisaTrocarSenha || usuarioGlobal.TemporaryPasswordRecovery).ToString().ToLowerInvariant()),
+                new Claim("temporary_password", usuarioGlobal.TemporaryPasswordRecovery.ToString().ToLowerInvariant()),
+                new Claim("security_version", usuarioGlobal.SecurityVersion.ToString("D")),
             };
 
             if (sessionId.HasValue)
@@ -150,7 +152,9 @@ public class JwtTokenService : IJwtTokenService
                 new Claim("perfilNome", user.Perfil?.Nome ?? string.Empty),
                 new Claim(ClinicaClaimTypes.ClinicaId, usuarioClinica.ClinicaId.ToString()),
                 new Claim(ClinicaClaimTypes.ClinicaSlug, user.Clinica?.Slug ?? Clinica.DefaultSlug),
-                new Claim("precisaTrocarSenha", user.PrecisaTrocarSenha.ToString().ToLowerInvariant()),
+                new Claim("precisaTrocarSenha", (user.PrecisaTrocarSenha || usuarioGlobal.TemporaryPasswordRecovery).ToString().ToLowerInvariant()),
+                new Claim("temporary_password", usuarioGlobal.TemporaryPasswordRecovery.ToString().ToLowerInvariant()),
+                new Claim("security_version", usuarioGlobal.SecurityVersion.ToString("D")),
             };
 
             if (equipe != null)

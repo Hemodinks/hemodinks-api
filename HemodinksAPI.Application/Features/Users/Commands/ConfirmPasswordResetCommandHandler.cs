@@ -43,6 +43,10 @@ public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswor
             throw new InvalidOperationException("Token de reset invalido ou expirado");
         }
 
+        var membership = await GlobalIdentityService.EnsureForUserAsync(_context, resetToken.User, cancellationToken);
+        if (membership.UsuarioGlobal.TemporaryPasswordRecovery)
+            throw new InvalidOperationException("Token de reset invalido ou expirado");
+
         PasswordCommandMutations.ApplyNewPassword(resetToken.User, _passwordHasher, request.NovaSenha, requirePasswordChange: false, now);
         await GlobalIdentityService.SynchronizePasswordAsync(_context, resetToken.UserId, resetToken.User.Senha, cancellationToken);
         resetToken.UsedAt = now;

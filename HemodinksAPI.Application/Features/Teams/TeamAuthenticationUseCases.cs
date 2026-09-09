@@ -48,6 +48,8 @@ public sealed partial class TeamUseCases
         challenge.UtilizadoEm = DateTime.UtcNow;
         var membership = await context.UsuariosClinicas.Include(item => item.UsuarioGlobal)
             .FirstAsync(item => item.UserId == challenge.Equipe.UsuarioLoginId && item.Ativo, cancellationToken);
+        if (membership.UsuarioGlobal.SecurityVersion != challenge.SecurityVersion)
+            return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
         await context.SaveChangesAsync(cancellationToken);
         var loginUser = challenge.Equipe.UsuarioLogin;
         var jwt = jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, loginUser, challenge.Equipe, op, requiresPin);
@@ -63,7 +65,7 @@ public sealed partial class TeamUseCases
             Nome = op.User.Nome,
             Email = membership.UsuarioGlobal.Email,
             Token = jwt,
-            PrecisaTrocarSenha = loginUser.PrecisaTrocarSenha,
+            PrecisaTrocarSenha = loginUser.PrecisaTrocarSenha || membership.UsuarioGlobal.TemporaryPasswordRecovery,
             PrecisaTrocarPin = requiresPin && op.PrecisaTrocarPin,
             PerfilId = Perfil.EquipeId,
             PerfilNome = "Equipe",

@@ -22,6 +22,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
     private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<AuthenticateUserCommandHandler> _logger;
     private readonly ILoginAccountProtection _loginProtection;
+    private readonly TemporaryAccessService? _temporaryAccess;
 
     internal AuthenticateUserCommandHandler(
         IUserFeatureDbContext context,
@@ -47,8 +48,10 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
         ILicencaService licencaService,
         IClinicaContext clinicaContext,
         ILoginAccountProtection loginProtection,
-        ILogger<AuthenticateUserCommandHandler> logger)
+        ILogger<AuthenticateUserCommandHandler> logger,
+        TemporaryAccessService? temporaryAccess = null)
     {
+        _temporaryAccess = temporaryAccess;
         _context = context;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
@@ -83,12 +86,17 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 throw new UnauthorizedAccessException("Email ou senha invalidos");
             }
 
-            var globalAuthentication = user == null ? null : await GlobalIdentityService.AuthenticateAsync(
+            var globalAuthentication = user == null || membership!.UsuarioGlobal.TemporaryPasswordRecovery ? null : await GlobalIdentityService.AuthenticateAsync(
                     _context,
                     _passwordHasher,
                     user,
                     request.Senha,
                     cancellationToken);
+
+            if (user != null && membership != null && globalAuthentication == null && _temporaryAccess != null)
+            {
+                globalAuthentication = await _temporaryAccess.AuthenticateAsync(user, membership, request.Senha, cancellationToken);
+            }
 
             if (user == null || globalAuthentication == null)
             {
@@ -122,6 +130,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                         ClinicaId = user.ClinicaId,
                         EquipeId = equipe.Id,
                         TokenHash = EquipeAuthenticationRules.HashChallengeToken(challengeToken),
+                        SecurityVersion = globalAuthentication.UsuarioGlobal.SecurityVersion,
                         ExpiraEm = expiresAt
                     });
                     await _context.SaveChangesAsync(cancellationToken);
@@ -181,6 +190,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
             return new AuthenticateUserResponse
             {
                 Id = user.Id,
+                SecurityVersion = globalAuthentication.UsuarioGlobal.SecurityVersion,
                 UsuarioGlobalId = globalAuthentication.UsuarioGlobal.Id,
                 ClinicaId = currentClinicaId,
                 ClinicaSlug = user.Clinica.Slug,
@@ -191,13 +201,18 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 Crm = user.Crm,
                 CrmUf = user.CrmUf,
                 FotoPerfil = user.FotoPerfil,
-                PrecisaTrocarSenha = user.PrecisaTrocarSenha,
+                PrecisaTrocarSenha = user.PrecisaTrocarSenha || globalAuthentication.UsuarioGlobal.TemporaryPasswordRecovery,
                 PerfilId = user.PerfilId,
                 PerfilNome = UserProfileRules.GetPerfilNome(user),
                 ModulosLiberados = ClinicaModulos.GetEffective(user.Clinica.Plano, user.Clinica.ModulosLiberados),
                 Licenca = licenca,
                 EquipeDesafio = equipeDesafio
             };
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _logger.LogWarning("Autenticacao recusada devido a alteracao concorrente de credenciais");
+            throw new UnauthorizedAccessException("Email ou senha invalidos");
         }
         catch (Exception ex)
         {

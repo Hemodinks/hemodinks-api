@@ -2,6 +2,7 @@ namespace HemodinksAPI.Domain.Models;
 
 public class AuthenticationSession
 {
+    public Guid SecurityVersion { get; set; }
     public Guid Id { get; set; }
 
     public int UsuarioGlobalId { get; set; }

@@ -145,24 +145,25 @@ public partial class UserCommandHandlerTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
+        user.PerfilId = HemodinksAPI.Domain.Models.Perfil.AdministradorId;
+        await context.SaveChangesAsync();
         var handler = new ResetUserPasswordCommandHandler(
-            context,
-            hasher,
-            NullLogger<ResetUserPasswordCommandHandler>.Instance);
+            new TemporaryAccessService(context, hasher, TimeProvider.System));
 
         var response = await handler.Handle(new ResetUserPasswordCommand
         {
-            UserId = user.Id
+            UserId = user.Id,
+            CurrentUser = new HemodinksAPI.Application.Authorization.CurrentUserContext(user.Id, HemodinksAPI.Domain.Models.Perfil.AdministradorId, user.Nome)
         }, CancellationToken.None);
 
         var storedUser = await context.Users.SingleAsync();
         Assert.Equal(user.Id, response.Id);
         Assert.True(response.PrecisaTrocarSenha);
-        Assert.True(storedUser.PrecisaTrocarSenha);
+        Assert.False(storedUser.PrecisaTrocarSenha);
         Assert.NotNull(response.SenhaTemporaria);
-        Assert.True(hasher.VerifyPassword(response.SenhaTemporaria, storedUser.Senha));
+        Assert.True(hasher.VerifyPassword(response.SenhaTemporaria, (await context.TemporaryAccessCredentials.SingleAsync()).PasswordHash));
         Assert.False(hasher.VerifyPassword(TestPasswords.RetiredSharedCredential, storedUser.Senha));
-        Assert.False(hasher.VerifyPassword("SenhaAntiga@123", storedUser.Senha));
+        Assert.True(hasher.VerifyPassword("SenhaAntiga@123", storedUser.Senha));
     }
 
     [Fact]
@@ -170,11 +171,9 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var handler = new ResetUserPasswordCommandHandler(
-            context,
-            new PasswordHasher(),
-            NullLogger<ResetUserPasswordCommandHandler>.Instance);
+            new TemporaryAccessService(context, new PasswordHasher(), TimeProvider.System));
 
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => handler.Handle(new ResetUserPasswordCommand
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new ResetUserPasswordCommand
         {
             UserId = 999
         }, CancellationToken.None));

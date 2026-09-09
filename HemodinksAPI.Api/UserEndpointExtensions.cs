@@ -72,7 +72,11 @@ public static partial class UserEndpointExtensions
             .WithName("ChangePassword")
             .WithSummary("Alterar senha")
             .WithDescription("Altera a senha do usuario autenticado")
-            .RequireAuthorization();
+            .RequireAuthorization().RequireRateLimiting("PasswordReset");
+
+        group.MapPost("/password/temporary/complete", ChangeTemporaryPassword)
+            .WithName("ChangeTemporaryPassword")
+            .RequireAuthorization().RequireRateLimiting("TemporaryAccess");
 
         group.MapPost("/password/reset", ResetPasswordByEmail)
             .WithName("ResetPasswordByEmail")
@@ -92,7 +96,7 @@ public static partial class UserEndpointExtensions
             .WithName("ResetPassword")
             .WithSummary("Resetar senha")
             .WithDescription("Gera uma senha temporaria unica e obriga a troca no proximo login")
-            .RequireAuthorization("Administrador");
+            .RequireAuthorization("Administrador").RequireRateLimiting("TemporaryAccess");
 
         group.MapPost("/{id}/arquivos", UploadArquivo)
             .LimitPatientFileUpload()

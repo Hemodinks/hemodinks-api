@@ -43,6 +43,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
             }
 
             var membership = await GlobalIdentityService.EnsureForUserAsync(_context, user, cancellationToken);
+            if (membership.UsuarioGlobal.TemporaryPasswordRecovery) throw new UnauthorizedAccessException("Use a tela de definição da nova senha.");
             var globalCredential = membership.Ativo && membership.UsuarioGlobal.Ativo
                 ? membership.UsuarioGlobal.Senha
                 : null;

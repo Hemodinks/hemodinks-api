@@ -62,6 +62,8 @@ public partial class AuthenticateUserCommand : IRequest<AuthenticateUserResponse
 public class AuthenticateUserResponse
 {
     public int Id { get; set; }
+    [System.Text.Json.Serialization.JsonIgnore]
+    public Guid SecurityVersion { get; set; }
     public int UsuarioGlobalId { get; set; }
     public int ClinicaId { get; set; }
     public string ClinicaSlug { get; set; } = null!;
@@ -159,6 +161,8 @@ public class ChangePasswordResponse
 /// </summary>
 public partial class ResetUserPasswordCommand : IRequest<ResetUserPasswordResponse>
 {
+    [System.Text.Json.Serialization.JsonIgnore]
+    public CurrentUserContext? CurrentUser { get; set; }
     public int UserId { get; set; }
 }
 
@@ -193,4 +197,5 @@ public class ResetUserPasswordResponse
     public bool PrecisaTrocarSenha { get; set; }
     public string Message { get; set; } = null!;
     public string? SenhaTemporaria { get; set; }
+    public DateTime? ExpiresAtUtc { get; set; }
 }

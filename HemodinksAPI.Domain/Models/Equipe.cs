@@ -67,6 +67,7 @@ public sealed class EquipeOperador : IClinicaOwnedEntity
 
 public sealed class EquipeLoginDesafio : IClinicaOwnedEntity
 {
+    public Guid SecurityVersion { get; set; }
     public int Id { get; set; }
     public int ClinicaId { get; set; }
     public Clinica Clinica { get; set; } = null!;
