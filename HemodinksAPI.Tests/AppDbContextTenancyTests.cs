@@ -110,6 +110,67 @@ public class AppDbContextTenancyTests
         Assert.Contains("Relacionamento entre clinicas diferentes", exception.Message);
     }
 
+    [Fact]
+    public async Task PatientAndUserQueries_AreIsolatedAcrossClinicContexts()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        await using (var seed = new PlatformDbContext(options))
+        {
+            seed.Database.EnsureCreated();
+            seed.Clinicas.Add(new Clinica { Id = 2, Nome = "Outra", Slug = "outra" });
+            foreach (var clinicId in new[] { 1, 2 })
+            {
+                seed.Pacientes.Add(new Paciente
+                {
+                    ClinicaId = clinicId,
+                    NomePaciente = $"Paciente {clinicId}",
+                    User = CreateUser(clinicId, $"patient{clinicId}@example.com")
+                });
+            }
+            await seed.SaveChangesAsync();
+        }
+
+        foreach (var clinicId in new[] { 1, 2, 1 })
+        {
+            var tenant = new ClinicaContext();
+            tenant.SetCurrent(clinicId, $"clinic-{clinicId}");
+            await using var context = new AppDbContext(options, tenant);
+            var patient = Assert.Single(await context.Pacientes.Include(item => item.User).ToListAsync());
+            Assert.Equal(clinicId, patient.ClinicaId);
+            Assert.Equal(clinicId, patient.User.ClinicaId);
+            Assert.Equal(clinicId, Assert.Single(await context.Users.ToListAsync()).ClinicaId);
+            var otherPatientId = await context.Pacientes.IgnoreQueryFilters()
+                .Where(item => item.ClinicaId != clinicId).Select(item => item.Id).SingleAsync();
+            Assert.Null(await context.Pacientes.SingleOrDefaultAsync(item => item.Id == otherPatientId));
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SaveChangesAsyncBooleanOverload_RejectsCrossClinicUpdatesAndDeletes(bool delete)
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
+        int userId;
+        await using (var seed = new PlatformDbContext(options))
+        {
+            var user = CreateUser(2, "other@example.com");
+            seed.Users.Add(user);
+            await seed.SaveChangesAsync();
+            userId = user.Id;
+        }
+
+        await using var context = new AppDbContext(options, ClinicaContextFactory.CreateDefaultResolved());
+        var otherUser = await context.Users.IgnoreQueryFilters().SingleAsync(item => item.Id == userId);
+        if (delete) context.Users.Remove(otherUser);
+        else otherUser.Nome = "Changed";
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => context.SaveChangesAsync(false));
+        Assert.Contains("ClinicaId divergente", error.Message);
+    }
+
     private static User CreateUser(int clinicaId, string email)
     {
         return new User

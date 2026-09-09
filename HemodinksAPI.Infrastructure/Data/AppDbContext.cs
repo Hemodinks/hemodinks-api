@@ -140,6 +140,7 @@ public class AppDbContext : DbContext,
             .HasName("CONTAINS")
             .IsBuiltIn();
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+        Configurations.PatientUserTenantKeys.Apply(modelBuilder);
         ApplyClinicaQueryFilters(modelBuilder);
     }
 
@@ -150,15 +151,18 @@ public class AppDbContext : DbContext,
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+        => SaveChangesAsync(true, cancellationToken);
+
+    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         ValidateTenantChanges();
-        return base.SaveChangesAsync(cancellationToken);
+        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 
     private void ValidateTenantChanges()
     {
         var entries = ChangeTracker.Entries<IClinicaOwnedEntity>()
-            .Where(entry => entry.State is EntityState.Added or EntityState.Modified)
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
             .ToList();
 
         if (entries.Count == 0)
@@ -185,14 +189,17 @@ public class AppDbContext : DbContext,
                     $"ClinicaId divergente em {entry.Metadata.ClrType.Name}. Esperado {CurrentClinicaId}, recebido {entry.Entity.ClinicaId}.");
             }
 
-            if (entry.State == EntityState.Modified
+            if (entry.State is EntityState.Modified or EntityState.Deleted
                 && entry.Property(nameof(IClinicaOwnedEntity.ClinicaId)).OriginalValue is int originalClinicaId
                 && originalClinicaId != entry.Entity.ClinicaId)
             {
                 throw new InvalidOperationException("Nao e permitido transferir registros entre clinicas.");
             }
 
-            ValidateTenantForeignKeys(entry);
+            if (entry.State != EntityState.Deleted)
+            {
+                ValidateTenantForeignKeys(entry);
+            }
         }
     }
 
@@ -225,14 +232,17 @@ public class AppDbContext : DbContext,
                 continue;
             }
 
-            if (values.Length != 1 || values[0] is not int principalId)
+            var idKeyIndex = Enumerable.Range(0, principalKey.Count)
+                .Where(index => principalKey[index].Name != nameof(IClinicaOwnedEntity.ClinicaId))
+                .ToArray();
+            if (idKeyIndex.Length != 1 || values[idKeyIndex[0]] is not int principalId)
             {
                 throw new InvalidOperationException("Relacionamento tenant-scoped com chave nao suportada.");
             }
 
             var existsInSameClinica = (bool)PrincipalExistsInClinicaMethod
                 .MakeGenericMethod(foreignKey.PrincipalEntityType.ClrType)
-                .Invoke(this, [principalKey[0].Name, principalId, entry.Entity.ClinicaId])!;
+                .Invoke(this, [principalKey[idKeyIndex[0]].Name, principalId, entry.Entity.ClinicaId])!;
 
             if (!existsInSameClinica)
             {

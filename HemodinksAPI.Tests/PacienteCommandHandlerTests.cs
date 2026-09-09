@@ -8,8 +8,10 @@ namespace HemodinksAPI.Tests;
 
 public partial class PacienteCommandHandlerTests
 {
-    [Fact]
-    public async Task CreatePaciente_CreatesLinkedUserWithPacienteProfile()
+    [Theory]
+    [InlineData(2026, 6, 5)]
+    [InlineData(2030, 12, 1)]
+    public async Task CreatePaciente_CreatesLinkedUserWithPacienteProfile(int year, int month, int day)
     {
         await using var context = TestDbContextFactory.Create();
         var doctor = new User
@@ -79,7 +81,7 @@ public partial class PacienteCommandHandlerTests
             Cpf = "52998224725",
             DataNascimento = new DateTime(1990, 1, 1),
             Data = new DateTime(2026, 6, 1),
-            DataAtendimento = new DateTime(2026, 6, 5),
+            DataAtendimento = new DateTime(year, month, day),
             HospitalId = 1,
             MedicoUserId = doctor.Id,
             Medico = doctor.Nome,
@@ -112,7 +114,7 @@ public partial class PacienteCommandHandlerTests
         Assert.Equal("Paciente Novo", storedUser.Nome);
         Assert.Equal("Diagnostico clinico de teste", storedPaciente.Diagnostico);
         Assert.Equal("Tratamento clinico de teste", storedPaciente.TratamentoMedico);
-        Assert.Equal(new DateTime(2026, 6, 5), storedPaciente.DataAtendimento);
+        Assert.Equal(new DateTime(year, month, day), storedPaciente.DataAtendimento);
         Assert.Equal("52998224725", storedUser.Cpf);
         Assert.True(response.ConvitePrimeiroAcessoEnviado);
         Assert.Single(invitationSender.Notifications);
@@ -141,7 +143,7 @@ public partial class PacienteCommandHandlerTests
         Assert.Equal(storedPaciente.Id, response.Id);
         Assert.Equal("Diagnostico clinico de teste", response.Diagnostico);
         Assert.Equal("Tratamento clinico de teste", response.TratamentoMedico);
-        Assert.Equal(new DateTime(2026, 6, 5), response.DataAtendimento);
+        Assert.Equal(new DateTime(year, month, day), response.DataAtendimento);
         Assert.Equal(storedUser.Id, response.UserId);
         Assert.Equal(7, response.ConvenioId);
         Assert.Equal("Particular", response.Convenio);
