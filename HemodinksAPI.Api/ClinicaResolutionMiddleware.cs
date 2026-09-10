@@ -85,7 +85,8 @@ public sealed class ClinicaResolutionMiddleware
     private static bool ShouldResolveClinica(PathString path)
     {
         return path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase)
-            && !path.StartsWithSegments("/api/public/clinicas", StringComparison.OrdinalIgnoreCase);
+            && !path.StartsWithSegments("/api/public/clinicas", StringComparison.OrdinalIgnoreCase)
+            && !path.Equals("/api/users/login-context", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsPasswordResetConfirmation(HttpRequest request)
