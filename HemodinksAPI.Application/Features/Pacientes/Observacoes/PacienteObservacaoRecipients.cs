@@ -72,7 +72,9 @@ internal static class PacienteObservacaoRecipients
                 .AsNoTracking()
                 .Where(user =>
                     user.Ativo
-                    && (Perfil.IsAdministradorOuSuper(user.PerfilId) || user.PerfilId == Perfil.ControllerId))
+                    && (user.PerfilId == Perfil.AdministradorId
+                        || user.PerfilId == Perfil.SuperAdministradorId
+                        || user.PerfilId == Perfil.ControllerId))
                 .Select(user => user.Id)
                 .ToListAsync(cancellationToken);
         }
