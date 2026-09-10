@@ -165,6 +165,7 @@ app.Use(async (context, next) =>
 app.UseMiddleware<ClinicaModuleAccessMiddleware>();
 app.UseAuthorization();
 app.UseMiddleware<EquipeMutationAuditMiddleware>();
+app.UseMiddleware<AnonymousTeamReadOnlyMiddleware>();
 
 app.MapDefaultEndpoints();
 app.MapApiEndpoints();

@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="13641b86-813e-4c76-a281-9c516badb384" name="George Marcone@NOTEBOOK-GEO25 2026-09-10 19:09:16" runUser="NOTEBOOK-GEO25\George Marcone" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-09-10T19:09:16.1417432-03:00" queuing="2026-09-10T19:09:16.1417438-03:00" start="2026-09-10T19:08:58.3280771-03:00" finish="2026-09-10T19:09:16.1571648-03:00" />
+  <TestSettings name="default" id="853a974e-52b3-4844-ac1e-5c0e288c97e1">
+    <Deployment runDeploymentRoot="George_Marcone_NOTEBOOK-GEO25_2026-09-10_19_09_16" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="14c3c067-111b-4a10-8d06-07124084e2b8" testId="59e52477-9be5-0d7f-e411-d75fa286b197" testName="HemodinksAPI.Tests.LegacyFinancialBackfillMigrationTests.Migration_backfills_valid_legacy_values_and_audits_invalid_originals" computerName="NOTEBOOK-GEO25" duration="00:00:15.4576413" startTime="2026-09-10T19:09:00.4805175-03:00" endTime="2026-09-10T19:09:15.9473734-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="14c3c067-111b-4a10-8d06-07124084e2b8" />
+    <UnitTestResult executionId="bfea5c75-4f55-41ed-8680-e2f8af8e8aba" testId="2ca4f9ad-cc86-ce83-70fc-91a960abd175" testName="HemodinksAPI.Tests.EventReminderProcessorConcurrencyTests.ProcessDueReminders_ClaimsEventBeforeSendingAcrossReplicas" computerName="NOTEBOOK-GEO25" duration="00:00:15.3874102" startTime="2026-09-10T19:09:00.4805231-03:00" endTime="2026-09-10T19:09:15.8808885-03:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="bfea5c75-4f55-41ed-8680-e2f8af8e8aba" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="HemodinksAPI.Tests.EventReminderProcessorConcurrencyTests.ProcessDueReminders_ClaimsEventBeforeSendingAcrossReplicas" storage="c:\george marcone\github\personal\hemodinks\hemodinks-api\hemodinksapi.tests\bin\debug\net10.0\hemodinksapi.tests.dll" id="2ca4f9ad-cc86-ce83-70fc-91a960abd175">
+      <Execution id="bfea5c75-4f55-41ed-8680-e2f8af8e8aba" />
+      <TestMethod codeBase="C:\George Marcone\GitHub\personal\HEMODINKS\hemodinks-api\HemodinksAPI.Tests\bin\Debug\net10.0\HemodinksAPI.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="HemodinksAPI.Tests.EventReminderProcessorConcurrencyTests" name="ProcessDueReminders_ClaimsEventBeforeSendingAcrossReplicas" />
+    </UnitTest>
+    <UnitTest name="HemodinksAPI.Tests.LegacyFinancialBackfillMigrationTests.Migration_backfills_valid_legacy_values_and_audits_invalid_originals" storage="c:\george marcone\github\personal\hemodinks\hemodinks-api\hemodinksapi.tests\bin\debug\net10.0\hemodinksapi.tests.dll" id="59e52477-9be5-0d7f-e411-d75fa286b197">
+      <Execution id="14c3c067-111b-4a10-8d06-07124084e2b8" />
+      <TestMethod codeBase="C:\George Marcone\GitHub\personal\HEMODINKS\hemodinks-api\HemodinksAPI.Tests\bin\Debug\net10.0\HemodinksAPI.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="HemodinksAPI.Tests.LegacyFinancialBackfillMigrationTests" name="Migration_backfills_valid_legacy_values_and_audits_invalid_originals" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="59e52477-9be5-0d7f-e411-d75fa286b197" executionId="14c3c067-111b-4a10-8d06-07124084e2b8" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="2ca4f9ad-cc86-ce83-70fc-91a960abd175" executionId="bfea5c75-4f55-41ed-8680-e2f8af8e8aba" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Resultados que não estão em uma lista" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="Todos os resultados carregados" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Completed">
+    <Counters total="2" executed="2" passed="2" failed="0" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.12)&#xD;
+[xUnit.net 00:00:00.45]   Discovering: HemodinksAPI.Tests&#xD;
+[xUnit.net 00:00:01.10]   Discovered:  HemodinksAPI.Tests&#xD;
+[xUnit.net 00:00:01.49]   Starting:    HemodinksAPI.Tests&#xD;
+[xUnit.net 00:00:17.05]   Finished:    HemodinksAPI.Tests (ID = '62b0f49cee91ca5672ab8000bfd22417df13d4c8d956e64afc07302a98c706c0')&#xD;
+</StdOut>
+    </Output>
+  </ResultSummary>
+</TestRun>

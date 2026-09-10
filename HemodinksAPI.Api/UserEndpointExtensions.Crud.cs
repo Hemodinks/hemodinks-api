@@ -35,7 +35,12 @@ public static partial class UserEndpointExtensions
         return EndpointExecution.RunAsync(async () =>
         {
             var result = await mediator.Send(command, cancellationToken);
-            if (result.EquipeDesafio != null) return Results.Ok(result);
+            // Team tokens carry the team/operator versions; the individual session issuer does not.
+            if (result.EquipeDesafio != null || result.PerfilId == HemodinksAPI.Domain.Models.Perfil.EquipeId)
+            {
+                if (result.EquipeDesafio == null) sessionCookie.Delete(httpContext);
+                return Results.Ok(result);
+            }
             var session = await sessionService.StartAsync(
                 result.UsuarioGlobalId,
                 result.Id,

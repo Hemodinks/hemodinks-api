@@ -21,16 +21,27 @@ public sealed partial class TeamUseCases
             .Include(item => item.Equipe).ThenInclude(item => item.UsuarioLogin).ThenInclude(item => item.Perfil)
             .Include(item => item.Equipe).ThenInclude(item => item.UsuarioLogin).ThenInclude(item => item.Clinica)
             .FirstOrDefaultAsync(item => item.TokenHash == tokenHash && item.UtilizadoEm == null && item.ExpiraEm > DateTime.UtcNow, cancellationToken);
-        if (challenge == null || !challenge.Equipe.Ativa) return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
+        if (challenge == null || !challenge.Equipe.Ativa
+            || challenge.Equipe.DataAtualizacao > challenge.DataCadastro
+            || challenge.Equipe.ClinicaId != challenge.ClinicaId
+            || !challenge.Equipe.UsuarioLogin.Ativo
+            || challenge.Equipe.UsuarioLogin.ClinicaId != challenge.ClinicaId
+            || !challenge.Equipe.UsuarioLogin.Clinica.Ativa
+            || challenge.Equipe.UsuarioLogin.PerfilId != Perfil.EquipeId
+            || challenge.Equipe.ModoIdentificacao == EquipeModosIdentificacao.Nenhuma)
+            return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
 
         var op = await context.EquipeOperadores.Include(item => item.User)
             .FirstOrDefaultAsync(item => item.Id == operatorId && item.EquipeId == challenge.EquipeId && item.Ativo, cancellationToken);
-        if (op == null || op.BloqueadoAte > DateTime.UtcNow
-            || !await context.EquipeMembros.AnyAsync(item => item.EquipeId == challenge.EquipeId && item.UserId == op.UserId && item.Ativo, cancellationToken))
+        if (op == null || !op.User.Ativo || op.ClinicaId != challenge.ClinicaId
+            || op.User.ClinicaId != challenge.ClinicaId || op.BloqueadoAte > DateTime.UtcNow
+            || !await context.EquipeMembros.AnyAsync(item => item.EquipeId == challenge.EquipeId
+                && item.ClinicaId == challenge.ClinicaId && item.UserId == op.UserId && item.Ativo, cancellationToken))
             return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
 
-        var requiresPin = challenge.Equipe.ModoIdentificacao.Equals(EquipeModosIdentificacao.Pin, StringComparison.OrdinalIgnoreCase) && op.PinHash != null;
-        if (requiresPin && (op.PinHash == null || !passwordHasher.VerifyPassword(pin ?? string.Empty, op.PinHash)))
+        var requiresPin = challenge.Equipe.ModoIdentificacao.Equals(EquipeModosIdentificacao.Pin, StringComparison.OrdinalIgnoreCase);
+        if (requiresPin && (op.PinHash == null || !EquipeAuthenticationRules.IsValidPinFormat(pin)
+            || !passwordHasher.VerifyPassword(pin!, op.PinHash)))
         {
             op.TentativasFalhas++;
             if (op.TentativasFalhas >= 5)
@@ -43,14 +54,22 @@ public sealed partial class TeamUseCases
             return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
         }
 
+        var membership = await context.UsuariosClinicas.Include(item => item.UsuarioGlobal)
+            .FirstOrDefaultAsync(item => item.UserId == challenge.Equipe.UsuarioLoginId
+                && item.ClinicaId == challenge.ClinicaId && item.Ativo && item.UsuarioGlobal.Ativo, cancellationToken);
+        if (membership == null || membership.UsuarioGlobal.SecurityVersion != challenge.SecurityVersion)
+            return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
         op.TentativasFalhas = 0;
         op.BloqueadoAte = null;
         challenge.UtilizadoEm = DateTime.UtcNow;
-        var membership = await context.UsuariosClinicas.Include(item => item.UsuarioGlobal)
-            .FirstAsync(item => item.UserId == challenge.Equipe.UsuarioLoginId && item.Ativo, cancellationToken);
-        if (membership.UsuarioGlobal.SecurityVersion != challenge.SecurityVersion)
+        try
+        {
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
             return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
-        await context.SaveChangesAsync(cancellationToken);
+        }
         var loginUser = challenge.Equipe.UsuarioLogin;
         var jwt = jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, loginUser, challenge.Equipe, op, requiresPin);
         var license = await licencaService.GetCurrentAsync(new CurrentUserContext(loginUser.Id, loginUser.PerfilId,

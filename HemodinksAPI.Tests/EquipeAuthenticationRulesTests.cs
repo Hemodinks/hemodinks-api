@@ -20,6 +20,7 @@ public sealed class EquipeAuthenticationRulesTests
     [InlineData("12345", false)]
     [InlineData("1234567", false)]
     [InlineData("12a456", false)]
+    [InlineData("１２３４５６", false)]
     [InlineData(null, false)]
     public void IsValidPinFormat_RequiresExactlySixDigits(string? pin, bool expected)
     {

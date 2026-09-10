@@ -167,8 +167,10 @@ public sealed class ClinicaResolutionMiddleware
                     && item.ClinicaId == clinica.Id
                     && item.Ativo
                     && item.User.Ativo
+                    && item.User.ClinicaId == clinica.Id
                     && item.VersaoSessao == operadorVersao
                     && context.EquipeMembros.Any(membro => membro.EquipeId == equipe.Id
+                        && membro.ClinicaId == clinica.Id
                         && membro.UserId == item.UserId
                         && membro.Ativo),
                     cancellationToken);

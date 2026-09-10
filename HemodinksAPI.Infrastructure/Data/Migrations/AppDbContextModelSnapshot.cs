@@ -908,6 +908,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("nvarchar(64)");
 
                     b.Property<DateTime?>("UtilizadoEm")
+                        .IsConcurrencyToken()
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
