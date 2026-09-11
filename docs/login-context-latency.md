@@ -27,6 +27,23 @@ https://learn.microsoft.com/en-us/azure/container-apps/cold-start
 
 ## Alterações
 
+- Ao abrir a página de login, o frontend prepara o acesso consultando
+  `GET /api/public/clinicas` antes de montar os campos de e-mail/senha. O loading
+  explica a operação e, após 12 segundos, a espera prolongada.
+- A consulta pública admite até cinco tentativas sequenciais de 60 segundos,
+  com intervalos de 5/10/10/10 segundos (até aproximadamente 5min35s de espera
+  ativa). Depois oferece nova tentativa manual. Falhas definitivas, como 403,
+  encerram a preparação sem repetição automática. Navegar para fora cancela a chamada.
+- O diretório público fica no cache de memória por até cinco minutos; ele contém
+  apenas metadados públicos e pode ser limitado a 50 clínicas pela API. Não é uma
+  lista de vínculos do usuário. A autenticação continua resolvendo suas clínicas
+  na API, sem cruzar e-mails/senhas no navegador. A preparação antecipa o acesso
+  ao serviço/banco, mas não comprova cold start nem garante que um endpoint de
+  autenticação com um problema próprio responderá rapidamente.
+- O formulário só é liberado com resposta válida e ao menos uma clínica. Não há
+  persistência desse diretório em localStorage/sessionStorage nem coleta de senha
+  durante a preparação. Sessões já autenticadas não passam por essa tela.
+
 - Projeção apenas dos campos necessários de usuário/clínica.
 - Verificação de cada hash e consulta de bloqueio da mesma conta uma vez por
   requisição, mesmo quando há múltiplas clínicas. Nenhum resultado de autenticação
@@ -47,8 +64,17 @@ API: testes `LoginContextEndpointTests` e `LoginContextWorkTests`. O segundo
 confere uma verificação de hash para três clínicas, nova checagem de bloqueio na
 requisição seguinte e isolamento/validade das credenciais temporárias.
 
-Frontend: `useLoginFlow.test.ts`, `LoginLoadingOverlay.test.tsx`, `api.test.ts`,
-build e auditoria de arquitetura. Playwright: filtro `login wait:` em
+Frontend: `useLoginPreparation.test.tsx`, `useLoginFlow.test.ts`,
+`LoginLoadingOverlay.test.tsx`, `api.test.ts`, build e auditoria de arquitetura.
+Playwright: filtros `login preparation:` e `login wait:` em
 `e2e/hemodinks.spec.ts` usa respostas simuladas para validar demora, cancelamento,
 indisponibilidade e nova tentativa manual no navegador. Esses testes não medem
 o tempo real de resposta na Azure.
+
+Validação adicional da preparação: os 11 cenários de `LoginBrowserTests`
+passaram com navegador e API local real, usando banco isolado por cenário.
+Cobrem Individual, Equipe sem identificação/Seleção/PIN, PIN inválido,
+restrições de escrita sem operador, isolamento entre clínicas, troca de operador,
+reutilização de desafio, cancelamento e layout/acessibilidade. Executar com
+`HEMODINKS_E2E_FRONT_PATH` apontando para o checkout do frontend e filtro
+`FullyQualifiedName~LoginBrowserTests` no `dotnet test`.
