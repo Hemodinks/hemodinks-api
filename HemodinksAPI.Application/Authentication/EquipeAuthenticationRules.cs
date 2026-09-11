@@ -30,6 +30,6 @@ public static class EquipeAuthenticationRules
 
     public static bool IsValidPinFormat(string? pin)
     {
-        return pin is { Length: 6 } && pin.All(char.IsDigit);
+        return pin is { Length: 6 } && pin.All(character => character is >= '0' and <= '9');
     }
 }

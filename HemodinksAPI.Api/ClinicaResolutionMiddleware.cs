@@ -85,7 +85,8 @@ public sealed class ClinicaResolutionMiddleware
     private static bool ShouldResolveClinica(PathString path)
     {
         return path.StartsWithSegments("/api", StringComparison.OrdinalIgnoreCase)
-            && !path.StartsWithSegments("/api/public/clinicas", StringComparison.OrdinalIgnoreCase);
+            && !path.StartsWithSegments("/api/public/clinicas", StringComparison.OrdinalIgnoreCase)
+            && !path.Equals("/api/users/login-context", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsPasswordResetConfirmation(HttpRequest request)
@@ -167,8 +168,10 @@ public sealed class ClinicaResolutionMiddleware
                     && item.ClinicaId == clinica.Id
                     && item.Ativo
                     && item.User.Ativo
+                    && item.User.ClinicaId == clinica.Id
                     && item.VersaoSessao == operadorVersao
                     && context.EquipeMembros.Any(membro => membro.EquipeId == equipe.Id
+                        && membro.ClinicaId == clinica.Id
                         && membro.UserId == item.UserId
                         && membro.Ativo),
                     cancellationToken);

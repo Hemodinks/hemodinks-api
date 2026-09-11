@@ -65,6 +65,7 @@ internal sealed class EquipeLoginDesafioConfiguration : IEntityTypeConfiguration
         entity.ToTable("EquipeLoginDesafios");
         entity.HasKey(item => item.Id);
         entity.Property(item => item.TokenHash).IsRequired().HasMaxLength(64);
+        entity.Property(item => item.UtilizadoEm).IsConcurrencyToken();
         entity.Property(item => item.RequestIp).HasMaxLength(45);
         entity.Property(item => item.DataCadastro).IsRequired().HasDefaultValueSql("GETUTCDATE()");
         entity.HasIndex(item => new { item.ClinicaId, item.TokenHash }).IsUnique();

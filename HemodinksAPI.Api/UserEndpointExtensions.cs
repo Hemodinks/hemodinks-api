@@ -19,6 +19,13 @@ public static partial class UserEndpointExtensions
             .WithDescription("Cria um novo usuario e envia instrucoes seguras para o primeiro acesso")
             .RequireAuthorization("Administrador");
 
+        group.MapPost("/login-context", ResolveLoginClinics)
+            .WithName("ResolveLoginClinics")
+            .WithSummary("Resolver contextos autorizados para login")
+            .WithDescription("Valida a credencial e retorna somente as clinicas em que ela pode ser autenticada, sem criar sessao")
+            .AllowAnonymous()
+            .RequireRateLimiting("Login");
+
         group.MapPost("/authenticate", AuthenticateUser)
             .WithName("AuthenticateUser")
             .WithSummary("Autenticar usuario")

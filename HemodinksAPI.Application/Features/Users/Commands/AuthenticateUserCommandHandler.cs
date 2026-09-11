@@ -119,7 +119,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 equipe = await _context.Equipes
                     .AsNoTracking()
                     .FirstOrDefaultAsync(item => item.UsuarioLoginId == user.Id && item.Ativa, cancellationToken)
-                    ?? throw new UnauthorizedAccessException("Equipe inativa ou nao configurada");
+                    ?? throw new UnauthorizedAccessException("Email ou senha invalidos");
 
                 if (!equipe.ModoIdentificacao.Equals(EquipeModosIdentificacao.Nenhuma, StringComparison.OrdinalIgnoreCase))
                 {
@@ -138,9 +138,14 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                     var operadores = await _context.EquipeOperadores
                         .AsNoTracking()
                         .Where(item => item.EquipeId == equipe.Id
+                            && item.ClinicaId == user.ClinicaId
                             && item.Ativo
                             && item.User.Ativo
+                            && item.User.ClinicaId == user.ClinicaId
+                            && (equipe.ModoIdentificacao != EquipeModosIdentificacao.Pin || item.PinHash != null)
+                            && (item.BloqueadoAte == null || item.BloqueadoAte <= DateTime.UtcNow)
                             && _context.EquipeMembros.Any(membro => membro.EquipeId == equipe.Id
+                                && membro.ClinicaId == user.ClinicaId
                                 && membro.UserId == item.UserId
                                 && membro.Ativo))
                         .OrderBy(item => item.User.Nome)

@@ -14,6 +14,7 @@ public sealed class SessionUseCases(
         CurrentUserContext currentUser,
         CancellationToken cancellationToken)
     {
+        if (currentUser.IsEquipe) return [];
         await EnsureSuperAdministratorMembershipsAsync(currentUser, null, cancellationToken);
 
         var memberships = await context.UsuariosClinicas
@@ -49,6 +50,7 @@ public sealed class SessionUseCases(
         Guid? sessionId,
         CancellationToken cancellationToken)
     {
+        if (currentUser.IsEquipe) return null;
         await EnsureSuperAdministratorMembershipsAsync(currentUser, clinicId, cancellationToken);
 
         var membership = await context.UsuariosClinicas
@@ -59,7 +61,8 @@ public sealed class SessionUseCases(
             .Include(item => item.User).ThenInclude(item => item.Clinica)
             .FirstOrDefaultAsync(item => item.UsuarioGlobalId == currentUser.UsuarioGlobalId
                 && item.ClinicaId == clinicId && item.Ativo && item.UsuarioGlobal.Ativo
-                && item.User.Ativo && item.Clinica.Ativa, cancellationToken);
+                && item.User.Ativo && item.User.ClinicaId == item.ClinicaId
+                && item.PerfilId != Perfil.EquipeId && item.Clinica.Ativa, cancellationToken);
 
         if (membership == null) return null;
 

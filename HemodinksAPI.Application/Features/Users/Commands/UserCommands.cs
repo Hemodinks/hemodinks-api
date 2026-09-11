@@ -57,6 +57,20 @@ public partial class AuthenticateUserCommand : IRequest<AuthenticateUserResponse
 }
 
 /// <summary>
+/// Valida a credencial sem criar uma sessão e retorna somente as clínicas
+/// em que ela pode ser autenticada.
+/// </summary>
+public partial class ResolveLoginClinicsCommand : IRequest<ResolveLoginClinicsResponse>
+{
+    public string Email { get; set; } = null!;
+    public string Senha { get; set; } = null!;
+}
+
+public sealed record LoginClinicOptionDto(int ClinicaId, string Nome, string Slug);
+
+public sealed record ResolveLoginClinicsResponse(IReadOnlyList<LoginClinicOptionDto> Clinicas);
+
+/// <summary>
 /// DTO para resposta de autenticação
 /// </summary>
 public class AuthenticateUserResponse
