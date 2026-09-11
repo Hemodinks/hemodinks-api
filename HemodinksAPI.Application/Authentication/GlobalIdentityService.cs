@@ -27,7 +27,7 @@ public static class GlobalIdentityService
             membership = await EnsureForUserAsync(context, user, cancellationToken);
         }
 
-        if (!membership.Ativo || !membership.UsuarioGlobal.Ativo || membership.UsuarioGlobal.TemporaryPasswordRecovery)
+        if (membership.ClinicaId != user.ClinicaId || !membership.Ativo || !membership.UsuarioGlobal.Ativo || membership.UsuarioGlobal.TemporaryPasswordRecovery)
         {
             return null;
         }
@@ -66,6 +66,8 @@ public static class GlobalIdentityService
             .FirstOrDefaultAsync(item => item.UserId == user.Id, cancellationToken);
         if (existingMembership != null)
         {
+            if (existingMembership.ClinicaId != user.ClinicaId)
+                throw new UnauthorizedAccessException("Email ou senha invalidos");
             SynchronizeMembership(existingMembership, user);
             await context.SaveChangesAsync(cancellationToken);
             return existingMembership;
