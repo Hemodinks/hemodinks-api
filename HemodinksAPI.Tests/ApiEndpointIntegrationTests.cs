@@ -10,6 +10,25 @@ namespace HemodinksAPI.Tests;
 public partial class ApiEndpointIntegrationTests
 {
     [Fact]
+    public async Task Readiness_failure_does_not_disclose_database_details()
+    {
+        using var factory = new HemodinksApiFactory(services =>
+            services.AddScoped<HemodinksAPI.Application.Data.IDatabaseReadinessProbe, FailingDatabaseProbe>());
+        using var client = factory.CreateClient();
+        var response = await client.GetAsync("/readyz");
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
+        using var json = await ReadJsonAsync(response);
+        Assert.Single(json.RootElement.EnumerateObject());
+        Assert.Equal("Unhealthy", json.RootElement.GetProperty("status").GetString());
+    }
+
+    private sealed class FailingDatabaseProbe : HemodinksAPI.Application.Data.IDatabaseReadinessProbe
+    {
+        public Task<HemodinksAPI.Application.Data.DatabaseReadinessResult> CheckAsync(bool validateSchema, CancellationToken cancellationToken) =>
+            throw new InvalidOperationException("Server=private-host;Password=must-not-leak");
+    }
+
+    [Fact]
     public async Task Healthz_ReturnsOk()
     {
         using var factory = new HemodinksApiFactory();

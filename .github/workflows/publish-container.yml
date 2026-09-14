@@ -393,6 +393,7 @@ jobs:
                       .name != "Deployment__CommitSha"
                       and .name != "Database__RunMigrationsOnStartup"
                       and .name != "Database__RunMaintenanceOnStartup"
+                      and .name != "Database__SchemaManagedByDeployment"
                       and .name != "EventReminders__RunHostedProcessor"
                       and .name != "ForwardedHeaders__Enabled"
                       and .name != "ForwardedHeaders__ForwardLimit"
@@ -408,6 +409,7 @@ jobs:
                       {name: "Deployment__CommitSha", value: $commit},
                       {name: "Database__RunMigrationsOnStartup", value: "false"},
                       {name: "Database__RunMaintenanceOnStartup", value: "false"},
+                      {name: "Database__SchemaManagedByDeployment", value: "true"},
                       {name: "EventReminders__RunHostedProcessor", value: "false"},
                       {name: "ForwardedHeaders__Enabled", value: "true"},
                       {name: "ForwardedHeaders__ForwardLimit", value: "1"},

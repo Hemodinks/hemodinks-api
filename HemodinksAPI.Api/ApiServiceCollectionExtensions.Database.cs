@@ -23,6 +23,10 @@ public static partial class ApiServiceCollectionExtensions
                 sqlOptions.EnableRetryOnFailure();
             }));
         services.AddScoped<PlatformDbContext>();
+        services.AddSingleton<ISqlConnectionFactory>(new SqlConnectionFactory(defaultConnection));
+        services.AddScoped<HemodinksAPI.Application.Features.Clinics.IPublicClinicDirectory, SqlPublicClinicDirectory>();
+        services.AddScoped<IDatabaseReadinessProbe, SqlDatabaseReadinessProbe>();
+        services.AddScoped<Func<AppDbContext>>(provider => () => provider.GetRequiredService<AppDbContext>());
 
         services.AddScoped<IUserFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IUserDbContext>(provider => provider.GetRequiredService<AppDbContext>());

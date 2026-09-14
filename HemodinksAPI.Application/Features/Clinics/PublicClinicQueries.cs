@@ -1,40 +1,28 @@
-using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Storage;
-using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Features.Clinics;
 
 public sealed class PublicClinicQueries(
-    IClinicDirectoryDbContext context,
+    IPublicClinicDirectory directory,
     IProfilePhotoStorage storage)
 {
-    public Task<List<PublicClinicResponse>> ListActiveAsync(string? search, CancellationToken cancellationToken)
+    public async Task<List<PublicClinicResponse>> ListActiveAsync(string? search, CancellationToken cancellationToken)
     {
         var normalizedSearch = search?.Trim();
-        var query = context.Clinicas.AsNoTracking().Where(item => item.Ativa);
-
-        if (!string.IsNullOrWhiteSpace(normalizedSearch))
-        {
-            query = query.Where(item => item.Nome.Contains(normalizedSearch) || item.Slug.Contains(normalizedSearch));
-        }
-
-        return query.OrderBy(item => item.Nome).Take(50)
+        var clinics = await directory.ListActiveAsync(normalizedSearch, cancellationToken);
+        return clinics
             .Select(item => new PublicClinicResponse(item.Id, item.Nome, item.Slug,
-                item.FotoClinica != null && item.FotoClinica != string.Empty
+                item.HasPhoto
                     ? $"/api/public/clinicas/{item.Slug}/foto"
                     : null))
-            .ToListAsync(cancellationToken);
+            .ToList();
     }
 
     public async Task<ProfilePhotoFile?> GetPhotoAsync(string slug, CancellationToken cancellationToken)
     {
         var normalizedSlug = slug.Trim().ToLowerInvariant();
-        var photo = await context.Clinicas.AsNoTracking()
-            .Where(item => item.Ativa && item.Slug == normalizedSlug)
-            .Select(item => item.FotoClinica)
-            .FirstOrDefaultAsync(cancellationToken);
-
-        return await storage.GetAsync(photo, cancellationToken);
+        var photo = await directory.FindActivePhotoReferenceAsync(normalizedSlug, cancellationToken);
+        return string.IsNullOrEmpty(photo) ? null : await storage.GetAsync(photo, cancellationToken);
     }
 }
 

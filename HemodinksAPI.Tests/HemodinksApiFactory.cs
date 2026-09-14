@@ -91,6 +91,8 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
 
             services.AddDbContext<AppDbContext>(options =>
                 options.UseInMemoryDatabase(databaseName));
+            services.AddScoped<HemodinksAPI.Application.Features.Clinics.IPublicClinicDirectory, TestingPublicClinicDirectory>();
+            services.AddScoped<HemodinksAPI.Application.Data.IDatabaseReadinessProbe, TestingDatabaseReadinessProbe>();
             services.AddScoped<IPasswordResetNotificationSender, TestingPasswordResetNotificationSender>();
 
             _configureServices?.Invoke(services);

@@ -14,11 +14,14 @@ RUN dotnet restore "HemodinksAPI.Api/HemodinksAPI.Api.csproj"
 
 COPY . .
 WORKDIR "/src/HemodinksAPI.Api"
-RUN dotnet build "HemodinksAPI.Api.csproj" -c Release -o /app/build
 
 # Stage 2: Publish
 FROM build AS publish
-RUN dotnet publish "HemodinksAPI.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+ARG TARGETARCH
+ARG PUBLISH_READY_TO_RUN=true
+RUN case "${TARGETARCH:-amd64}" in amd64) RID=linux-x64 ;; arm64) RID=linux-arm64 ;; *) exit 1 ;; esac \
+    && dotnet publish "HemodinksAPI.Api.csproj" -c Release -r "$RID" --self-contained false \
+       -o /app/publish /p:UseAppHost=false /p:PublishReadyToRun=$PUBLISH_READY_TO_RUN
 
 # Stage 3: Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final

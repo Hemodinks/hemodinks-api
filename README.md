@@ -344,6 +344,56 @@ Em desenvolvimento, migrations podem rodar no startup com `Database__RunMigratio
 Em produção, mantenha essa opção desabilitada e use o workflow manual `Apply Production Migrations`
 antes de publicar a imagem que depende do novo schema.
 
+### Tempo de inicializacao
+
+O workflow `Publish Containers` executa `migrate-production` antes de `deploy-api`.
+Somente nesse deploy, `Database__SchemaManagedByDeployment=true` dispensa a consulta
+de migrations no startup e nos health checks. O padrao e `false`: Render e execucoes
+fora desse fluxo continuam validando o schema. Nao habilite essa opcao em um deploy
+que nao garanta a aplicacao do bundle da mesma imagem antes de liberar trafego.
+Seeds, manutencao e migrations explicitamente habilitados continuam sendo executados.
+`/healthz` e `/readyz` continuam retornando 503 se o banco estiver indisponivel;
+`/livez` verifica apenas se o processo esta vivo.
+
+A imagem da API usa ReadyToRun, mantendo o runtime compartilhado. Para comparar com
+a compilacao anterior, construa a mesma revisao com
+`docker build --build-arg PUBLISH_READY_TO_RUN=false -t hemodinks-api:baseline .`.
+O padrao e `PUBLISH_READY_TO_RUN=true`; a imagem pode ficar maior, por isso compare
+tambem o tempo de download e o tamanho final antes de concluir que houve ganho.
+
+Os logs `Startup stage` registram duracoes em milissegundos de
+`configuration_and_services`, `host_build`, `database_initialization`, `http_started`,
+das primeiras tentativas `database_probe_connected`/`database_probe_failed` e
+`first_database_ready`. `StartupElapsedMs` conta desde a entrada no programa;
+`http_started` mede o intervalo apos a inicializacao do banco ate o servidor iniciar.
+A primeira prontidao inclui o intervalo ate a plataforma chamar o health check.
+Esses tempos nao incluem provisionamento do container, download da imagem ou o
+carregamento do runtime antes da entrada no programa.
+
+Para medir o cold start real, compare a mesma configuracao de recursos e banco,
+com replicas inicialmente em zero, antes e depois do deploy. Registre o tempo total
+da primeira chamada e correlacione seu horario com os eventos do Container Apps e
+os logs acima. Repita algumas retomadas: uma unica amostra nao separa variacao da
+plataforma de ganho da aplicacao. Nenhuma alteracao de replicas minimas ou keep-alive
+e necessaria para estas otimizacoes.
+
+O diretorio publico usa `IPublicClinicDirectory` na Application e
+`SqlPublicClinicDirectory` na Infrastructure. O leitor SQL nao inicializa o modelo
+completo do EF: consulta apenas clinicas ativas, limita a lista a 50 e retorna
+Id, Nome, Slug e um indicador de foto. Referencias internas de storage nao entram
+na listagem publica; a foto so e buscada apos encontrar a clinica ativa pelo slug.
+Busca e slug sao parametros SQL, e os filtros nao dependem de headers de tenant.
+Esse diretorio e global e publico por definicao; nao deve ser reutilizado para
+dados de usuarios, pacientes, equipes ou faturamento. Esses fluxos mantem seus
+contextos, filtros de tenant e autorizacoes existentes.
+
+O health check depende de `IDatabaseReadinessProbe`; a implementacao SQL abre uma
+conexao e executa `SELECT 1`. Quando o schema e gerenciado pelo deploy, esse probe
+nao resolve o contexto EF. Fora desse fluxo, continua verificando migrations.
+As respostas publicas de health continuam contendo somente o status, sem detalhes
+de conexao ou excecoes. Cancelamento e descarte das conexoes sao propagados pelo
+leitor e pelo probe. Autenticacao, rate limiting e instrumentacao permanecem ativos.
+
 ## Documentacao interativa
 
 Swagger e Scalar ficam ativos automaticamente em `Development` e `Testing`. Em ambiente publicado, habilite `ApiDocumentation__Enabled=true` para expor:

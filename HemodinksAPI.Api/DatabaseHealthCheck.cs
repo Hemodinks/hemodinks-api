@@ -1,5 +1,5 @@
-using HemodinksAPI.Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
+using HemodinksAPI.Application.Data;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace HemodinksAPI.Api;
@@ -20,31 +20,45 @@ public sealed class DatabaseHealthCheck : IHealthCheck
         try
         {
             await using var scope = _scopeFactory.CreateAsyncScope();
-            var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-            var canConnect = await dbContext.Database.CanConnectAsync(cancellationToken);
-
-            if (!canConnect)
+            var diagnostics = scope.ServiceProvider.GetService<StartupDiagnostics>();
+            var logger = scope.ServiceProvider.GetRequiredService<ILogger<DatabaseHealthCheck>>();
+            var probeTimer = Stopwatch.StartNew();
+            var canConnect = false;
+            var ready = false;
+            try
             {
-                return HealthCheckResult.Unhealthy("Banco indisponivel");
-            }
+                var configuration = scope.ServiceProvider.GetRequiredService<IConfiguration>();
+                var probe = scope.ServiceProvider.GetRequiredService<IDatabaseReadinessProbe>();
+                var result = await probe.CheckAsync(
+                    !configuration.GetValue<bool>("Database:SchemaManagedByDeployment"), cancellationToken);
+                canConnect = result.Connected;
 
-            if (dbContext.Database.IsRelational())
-            {
-                var pendingMigrations = await dbContext.Database.GetPendingMigrationsAsync(cancellationToken);
-                var pendingMigrationsList = pendingMigrations.ToList();
+                if (!canConnect)
+                {
+                    return HealthCheckResult.Unhealthy("Banco indisponivel");
+                }
 
-                if (pendingMigrationsList.Count > 0)
+                if (result.PendingMigrations.Count > 0)
                 {
                     return HealthCheckResult.Unhealthy(
                         "Banco com migrations pendentes",
                         data: new Dictionary<string, object>
                         {
-                            ["pendingMigrations"] = pendingMigrationsList
+                            ["pendingMigrations"] = result.PendingMigrations
                         });
                 }
-            }
 
-            return HealthCheckResult.Healthy("Banco conectado e atualizado");
+                ready = true;
+                return HealthCheckResult.Healthy("Banco conectado");
+            }
+            finally
+            {
+                diagnostics?.RecordDatabaseProbe(logger, probeTimer.Elapsed.TotalMilliseconds, canConnect);
+                if (ready)
+                {
+                    diagnostics?.RecordFirstReady(logger);
+                }
+            }
         }
         catch (Exception ex)
         {
