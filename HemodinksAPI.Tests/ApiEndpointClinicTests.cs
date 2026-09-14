@@ -54,6 +54,11 @@ public partial class ApiEndpointIntegrationTests
         Assert.DoesNotContain(
             json.RootElement.EnumerateArray(),
             item => item.GetProperty("nome").GetString() == "Clinica Inativa do Banco");
+        foreach (var clinic in json.RootElement.EnumerateArray())
+        {
+            Assert.Equal(new[] { "fotoUrl", "id", "nome", "slug" },
+                clinic.EnumerateObject().Select(p => p.Name).OrderBy(name => name).ToArray());
+        }
     }
 
     [Fact]

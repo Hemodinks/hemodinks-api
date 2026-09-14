@@ -11,7 +11,10 @@ using Serilog.Context;
 using Serilog.Events;
 using Serilog.Formatting.Json;
 
+var startupDiagnostics = new StartupDiagnostics();
+var startupStage = Stopwatch.StartNew();
 var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddSingleton(startupDiagnostics);
 builder.Services.ConfigureHttpJsonOptions(options => options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Configuration.AddNonProductionUserSecretsFallback(builder.Environment);
 builder.AddServiceDefaults();
@@ -33,7 +36,14 @@ builder.Services
     .AddApplicationServices(builder.Configuration, builder.Environment)
     .AddApiDocumentation();
 
+var servicesDurationMs = startupStage.Elapsed.TotalMilliseconds;
+startupStage.Restart();
 var app = builder.Build();
+var hostBuildDurationMs = startupStage.Elapsed.TotalMilliseconds;
+startupDiagnostics.Record(app.Logger, "configuration_and_services", servicesDurationMs);
+startupDiagnostics.Record(app.Logger, "host_build", hostBuildDurationMs);
+app.Lifetime.ApplicationStarted.Register(() =>
+    startupDiagnostics.Record(app.Logger, "http_started", startupStage.Elapsed.TotalMilliseconds));
 app.UseForwardedHeaders();
 app.UseMiddleware<ApiExceptionHandlingMiddleware>();
 app.UseStatusCodePages(async statusCodeContext =>
@@ -54,7 +64,16 @@ app.Logger.LogInformation(
     newRelicProfilingEnabled,
     newRelicAppNameConfigured);
 
-await app.InitializeDatabaseAsync();
+startupStage.Restart();
+try
+{
+    await app.InitializeDatabaseAsync();
+}
+finally
+{
+    startupDiagnostics.Record(app.Logger, "database_initialization", startupStage.Elapsed.TotalMilliseconds);
+}
+startupStage.Restart();
 
 if (!app.Environment.IsProduction() && string.IsNullOrWhiteSpace(app.Configuration["AzureStorage:ConnectionString"]))
 {

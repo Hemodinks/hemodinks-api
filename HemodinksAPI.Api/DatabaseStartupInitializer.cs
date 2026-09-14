@@ -10,6 +10,17 @@ internal static class DatabaseStartupInitializer
 {
     public static async Task InitializeAsync(WebApplication app)
     {
+        var runMigrations = ShouldRunMigrations(app.Environment, app.Configuration);
+        var validateSchema = runMigrations || !app.Configuration.GetValue<bool>("Database:SchemaManagedByDeployment");
+        var runMaintenance = ShouldRunMaintenance(app.Environment, app.Configuration);
+        var seedCbhpm = app.Configuration.GetValue<bool?>("Seed:CbhpmOnStartup") ?? app.Environment.IsDevelopment();
+        var seedUsers = app.Configuration.GetValue<bool?>("Seed:UsersOnStartup") ?? app.Environment.IsDevelopment();
+        if (!validateSchema && !runMaintenance && !seedCbhpm && !seedUsers)
+        {
+            app.Logger.LogInformation("Inicializacao do banco dispensada: schema gerenciado pelo deploy; seeds e manutencao desabilitados");
+            return;
+        }
+
         using var scope = app.Services.CreateScope();
         var migrationDbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var platformDbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
@@ -19,20 +30,22 @@ internal static class DatabaseStartupInitializer
         {
             logger.LogInformation("Iniciando migracao do banco de dados");
 
-            var runMigrations = ShouldRunMigrations(app.Environment, app.Configuration);
-            var isRelational = migrationDbContext.Database.IsRelational();
-            var pendingMigrations = isRelational
-                ? (await migrationDbContext.Database.GetPendingMigrationsAsync()).ToList()
-                : [];
+            if (validateSchema)
+            {
+                var isRelational = migrationDbContext.Database.IsRelational();
+                var pendingMigrations = isRelational
+                    ? (await migrationDbContext.Database.GetPendingMigrationsAsync()).ToList()
+                    : [];
 
-            LogPendingMigrations(logger, isRelational, pendingMigrations);
+                LogPendingMigrations(logger, isRelational, pendingMigrations);
 
-            await ApplyDatabaseSchemaAsync(
-                migrationDbContext,
-                logger,
-                runMigrations,
-                isRelational,
-                pendingMigrations);
+                await ApplyDatabaseSchemaAsync(
+                    migrationDbContext,
+                    logger,
+                    runMigrations,
+                    isRelational,
+                    pendingMigrations);
+            }
 
             await SeedReferenceDataAsync(app, scope.ServiceProvider, platformDbContext, logger);
 
