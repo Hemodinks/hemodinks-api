@@ -177,6 +177,7 @@ public sealed class SessionRenewalEndpointTests
         public void Add(HemodinksAPI.Domain.Models.AuthenticationSession session) => inner.Add(session);
         public Task SaveChangesAsync(CancellationToken ct) => inner.SaveChangesAsync(ct);
         public Task<bool> TrySaveChangesAsync(CancellationToken ct) => conflict() ? Task.FromResult(false) : inner.TrySaveChangesAsync(ct);
+        public Task<bool> RevokeByIdAsync(Guid id, DateTime at, CancellationToken ct) => inner.RevokeByIdAsync(id, at, ct);
     }
 
     [Fact]

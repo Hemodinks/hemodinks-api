@@ -21,4 +21,5 @@ public interface IAuthenticationSessionStore
     Task SaveChangesAsync(CancellationToken cancellationToken);
 
     Task<bool> TrySaveChangesAsync(CancellationToken cancellationToken);
+    Task<bool> RevokeByIdAsync(Guid sessionId, DateTime revokedAt, CancellationToken cancellationToken);
 }

@@ -169,7 +169,9 @@ quando houve nova interacao ainda nao registrada. Timers e consultas automaticas
 na interface; apos o limite de inatividade, ela encerra a sessao. Abas da mesma sessao compartilham sinais de
 atividade via BroadcastChannel, quando disponivel. Rotacoes sao serializadas com Web Locks quando disponivel.
 
-`POST /api/session/sair` usa o mesmo corpo e header do refresh e revoga apenas a sessao correspondente ao cookie.
+`POST /api/session/sair` usa o mesmo corpo e header do refresh e revoga apenas a sessao correspondente ao cookie
+ou ao JWT ainda valido enviado no Authorization. A revogacao e atomica no banco para prevalecer sobre atividade
+ou rotacao concorrente; a identidade e o vinculo do token devem corresponder ao corpo da solicitacao.
 Equipes usam `/api/session/renovar-equipe` com o JWT ainda valido: o servidor revalida clinica, vinculo,
 versoes da equipe e operador, preservando identificacao nominal e exigencias de troca de senha/PIN.
 Tokens de equipe ja expirados exigem nova identificacao; tokens individuais podem ser recuperados pelo
