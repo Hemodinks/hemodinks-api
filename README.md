@@ -155,7 +155,29 @@ Authorization: Bearer <token>
 
 O login tambem grava um refresh token rotativo em cookie `HttpOnly`. A sessao expira depois de 30 minutos sem requisicoes autenticadas, mas permanece ativa durante o uso continuo. O refresh, isoladamente, nao conta como atividade e nao consegue manter uma sessao ociosa viva.
 
-Clientes web devem usar `credentials: "include"` no login, refresh e logout. Ao se aproximar do vencimento do JWT (ou ao receber `401`), devem enviar um corpo JSON vazio (`{}`) para `POST /api/session/renovar`, armazenar o novo JWT e repetir a requisicao original. Interacoes locais que nao chamam a API podem ser registradas, com debounce, em `POST /api/session/atividade`. O logout tambem recebe `{}`.
+Clientes web devem usar `credentials: "include"` no login, refresh e logout. Antes de vencer o JWT individual, enviam
+`{ "sessionId": "<claim sid>", "membershipId": <claim usuarioClinicaId>, "active": false }`
+para `POST /api/session/renovar`, com o header `X-Session-Refresh: 1`. O cookie HttpOnly e a credencial;
+os IDs apenas vinculam a renovacao a sessao e clinica esperadas, inclusive entre abas. Origens fora do CORS
+configurado sao recusadas. O novo JWT vem em `token`, junto com `idleTimeoutMinutes`; nunca se devolve
+o refresh token no JSON. Um conflito de gravacao retorna 409 e permite nova tentativa limitada, sem apagar cookies.
+Um token antigo ou uma sessao revogada nao pode remover o cookie de uma sessao atual.
+
+Interacoes locais que nao chamam a API sao registradas no maximo uma vez por minuto com um POST autenticado
+em `/api/session/atividade`. Isso atualiza a atividade sem trocar o JWT. `active: true` no refresh so e usado
+quando houve nova interacao ainda nao registrada. Timers e consultas automaticas nao contam como atividade
+na interface; apos o limite de inatividade, ela encerra a sessao. Abas da mesma sessao compartilham sinais de
+atividade via BroadcastChannel, quando disponivel. Rotacoes sao serializadas com Web Locks quando disponivel.
+
+`POST /api/session/sair` usa o mesmo corpo e header do refresh e revoga apenas a sessao correspondente ao cookie.
+Equipes usam `/api/session/renovar-equipe` com o JWT ainda valido: o servidor revalida clinica, vinculo,
+versoes da equipe e operador, preservando identificacao nominal e exigencias de troca de senha/PIN.
+Tokens de equipe ja expirados exigem nova identificacao; tokens individuais podem ser recuperados pelo
+cookie enquanto a sessao no servidor continuar ativa. JWTs antigos sem sessao/equipe continuam exigindo novo login.
+
+Publique a API antes do frontend atualizado. Nao ha migration nova. Usuarios que entraram pelo frontend antigo
+podem precisar autenticar uma vez para receber o cookie com credenciais habilitadas. Em navegadores que bloqueiam
+cookies entre sites, use uma origem de API no mesmo site do frontend ou um proxy; CORS sozinho nao remove esse bloqueio.
 
 Perfis seedados:
 

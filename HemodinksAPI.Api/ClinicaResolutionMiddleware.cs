@@ -31,6 +31,15 @@ public sealed class ClinicaResolutionMiddleware
             return;
         }
 
+        // The HttpOnly refresh credential selects the session and its current membership.
+        if (HttpMethods.IsPost(httpContext.Request.Method)
+            && (httpContext.Request.Path.Equals("/api/session/renovar", StringComparison.OrdinalIgnoreCase)
+                || httpContext.Request.Path.Equals("/api/session/sair", StringComparison.OrdinalIgnoreCase)))
+        {
+            await _next(httpContext);
+            return;
+        }
+
         if (!ShouldResolveClinica(httpContext.Request.Path))
         {
             await _next(httpContext);
@@ -68,6 +77,8 @@ public sealed class ClinicaResolutionMiddleware
         if (httpContext.User.Identity?.IsAuthenticated == true
             && string.Equals(httpContext.User.FindFirstValue("precisaTrocarPin"), "true", StringComparison.OrdinalIgnoreCase)
             && !httpContext.Request.Path.StartsWithSegments("/api/equipe-auth/pin", StringComparison.OrdinalIgnoreCase)
+            && !httpContext.Request.Path.Equals("/api/session/renovar-equipe", StringComparison.OrdinalIgnoreCase)
+            && !httpContext.Request.Path.Equals("/api/session/atividade", StringComparison.OrdinalIgnoreCase)
             && httpContext.GetEndpoint()?.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName != "ChangeTemporaryPassword")
         {
             httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;

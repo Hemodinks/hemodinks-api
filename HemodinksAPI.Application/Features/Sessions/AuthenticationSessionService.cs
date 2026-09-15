@@ -27,6 +27,8 @@ public sealed record AuthenticationSessionValidation(
     string? PerfilNome = null,
     int? UsuarioClinicaId = null);
 
+public sealed class SessionRefreshConflictException : Exception;
+
 public sealed class AuthenticationSessionService
 {
     private readonly IAuthenticationSessionStore _store;
@@ -92,7 +94,10 @@ public sealed class AuthenticationSessionService
 
     public async Task<IssuedAuthenticationSession?> RefreshAsync(
         string refreshToken,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Guid? expectedSessionId = null,
+        int? expectedMembershipId = null,
+        bool touchActivity = false)
     {
         if (string.IsNullOrWhiteSpace(refreshToken))
         {
@@ -103,6 +108,11 @@ public sealed class AuthenticationSessionService
         var session = await _store.FindByRefreshTokenHashAsync(tokenHash, cancellationToken);
 
         var now = UtcNow();
+        if (session != null && ((expectedSessionId.HasValue && session.Id != expectedSessionId)
+            || (expectedMembershipId.HasValue && session.UsuarioClinicaId != expectedMembershipId)))
+        {
+            return null;
+        }
         if (session == null)
         {
             _logger.LogWarning("Refresh token de sessao nao encontrado");
@@ -110,7 +120,8 @@ public sealed class AuthenticationSessionService
         }
 
         var sessionIsActive = IsActive(session, now);
-        var membershipIsActive = IsActive(session.UsuarioClinica);
+        var membershipIsActive = IsActive(session.UsuarioClinica)
+            && session.UsuarioClinica.User.PerfilId != Perfil.EquipeId;
         if (!sessionIsActive || !membershipIsActive)
         {
             _logger.LogInformation(
@@ -129,12 +140,15 @@ public sealed class AuthenticationSessionService
         }
 
         var newRefreshToken = GenerateRefreshToken();
+        // A refresh timer alone is not user activity. Only foreground interactions extend idle time.
+        if (touchActivity) session.LastActivityAt = now;
+        session.UsuarioClinica.PerfilId = session.UsuarioClinica.User.PerfilId;
         session.RefreshTokenHash = HashRefreshToken(newRefreshToken);
 
         if (!await _store.TrySaveChangesAsync(cancellationToken))
         {
             _logger.LogWarning("Tentativa concorrente de renovar a sessao {SessionId}", session.Id);
-            return null;
+            throw new SessionRefreshConflictException();
         }
 
         return Issue(session, session.UsuarioClinica, newRefreshToken);
@@ -224,17 +238,28 @@ public sealed class AuthenticationSessionService
         }
     }
 
+    public async Task<bool> RevokeMatchingAsync(string refreshToken, Guid sessionId, int membershipId,
+        CancellationToken cancellationToken)
+    {
+        var session = await _store.FindByRefreshTokenHashAsync(HashRefreshToken(refreshToken), cancellationToken);
+        if (session == null || session.Id != sessionId || session.UsuarioClinicaId != membershipId) return false;
+        session.RevokedAt = UtcNow();
+        return await _store.TrySaveChangesAsync(cancellationToken);
+    }
+
     private static bool IsActive(UsuarioClinica membership)
     {
         return membership.Ativo
             && membership.UsuarioGlobal.Ativo
             && membership.User.Ativo
+            && membership.User.ClinicaId == membership.ClinicaId
             && membership.Clinica.Ativa;
     }
 
     private bool IsActive(AuthenticationSession session, DateTime now)
     {
-        return session.SecurityVersion == session.UsuarioClinica.UsuarioGlobal.SecurityVersion
+        return session.UsuarioGlobalId == session.UsuarioClinica.UsuarioGlobalId
+            && session.SecurityVersion == session.UsuarioClinica.UsuarioGlobal.SecurityVersion
             && session.RevokedAt == null
             && session.LastActivityAt > now.AddMinutes(-_options.IdleTimeoutMinutes);
     }

@@ -32,7 +32,9 @@ public sealed class PasswordRecoveryMiddleware(RequestDelegate next)
         var allowed = endpointName == "ChangeTemporaryPassword"
             || (endpointName == "ChangePassword" && membership?.TemporaryPasswordRecovery != true)
             || context.Request.Path.Equals("/api/session/sair", StringComparison.OrdinalIgnoreCase)
-            || context.Request.Path.Equals("/api/session/renovar", StringComparison.OrdinalIgnoreCase);
+            || context.Request.Path.Equals("/api/session/renovar", StringComparison.OrdinalIgnoreCase)
+            || context.Request.Path.Equals("/api/session/renovar-equipe", StringComparison.OrdinalIgnoreCase)
+            || context.Request.Path.Equals("/api/session/atividade", StringComparison.OrdinalIgnoreCase);
         if (restricted && !allowed)
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;
