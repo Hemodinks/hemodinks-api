@@ -35,6 +35,18 @@ public sealed class EfAuthenticationSessionStore(PlatformDbContext context) : IA
 
     public void Add(AuthenticationSession session) => context.AuthenticationSessions.Add(session);
 
+    public async Task<bool> RevokeByIdAsync(Guid sessionId, DateTime revokedAt, CancellationToken cancellationToken)
+    {
+        var query = context.AuthenticationSessions.Where(s => s.Id == sessionId);
+        if (context.Database.IsRelational())
+            return await query.ExecuteUpdateAsync(setters => setters.SetProperty(s => s.RevokedAt, revokedAt), cancellationToken) > 0;
+        var session = await query.SingleOrDefaultAsync(cancellationToken);
+        if (session == null) return false;
+        session.RevokedAt = revokedAt;
+        await context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task SaveChangesAsync(CancellationToken cancellationToken)
     {
         await context.SaveChangesAsync(cancellationToken);

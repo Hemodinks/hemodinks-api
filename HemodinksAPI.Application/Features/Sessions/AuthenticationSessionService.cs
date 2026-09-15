@@ -239,12 +239,14 @@ public sealed class AuthenticationSessionService
     }
 
     public async Task<bool> RevokeMatchingAsync(string refreshToken, Guid sessionId, int membershipId,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, Guid? authenticatedSessionId = null, int? authenticatedMembershipId = null)
     {
-        var session = await _store.FindByRefreshTokenHashAsync(HashRefreshToken(refreshToken), cancellationToken);
+        var session = authenticatedSessionId == sessionId && authenticatedMembershipId == membershipId
+            ? await _store.FindByIdAsync(sessionId, cancellationToken)
+            : await _store.FindByRefreshTokenHashAsync(HashRefreshToken(refreshToken), cancellationToken);
         if (session == null || session.Id != sessionId || session.UsuarioClinicaId != membershipId) return false;
-        session.RevokedAt = UtcNow();
-        return await _store.TrySaveChangesAsync(cancellationToken);
+        // Atomic revocation must win over concurrent activity updates and refresh rotation.
+        return await _store.RevokeByIdAsync(sessionId, UtcNow(), cancellationToken);
     }
 
     private static bool IsActive(UsuarioClinica membership)

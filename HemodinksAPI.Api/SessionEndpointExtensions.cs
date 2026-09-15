@@ -39,7 +39,11 @@ public static class SessionEndpointExtensions
         if (!IsTrustedRefreshRequest(context, configuration)) return Results.StatusCode(403);
         context.Response.Headers.CacheControl = "no-store";
         var token = cookie.Read(context);
-        if (!string.IsNullOrEmpty(token) && await sessions.RevokeMatchingAsync(token, request.SessionId, request.MembershipId, cancellationToken))
+        Guid? authenticatedId = context.User.Identity?.IsAuthenticated == true
+            && Guid.TryParse(context.User.FindFirstValue(AuthenticationSessionClaimTypes.SessionId), out var sid) ? sid : null;
+        int? authenticatedMembership = int.TryParse(context.User.FindFirstValue(GlobalIdentityClaimTypes.UsuarioClinicaId), out var member) ? member : null;
+        if (await sessions.RevokeMatchingAsync(token ?? string.Empty, request.SessionId, request.MembershipId,
+            cancellationToken, authenticatedId, authenticatedMembership))
             cookie.Delete(context);
         return Results.NoContent();
     }
