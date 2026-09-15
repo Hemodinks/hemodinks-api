@@ -15,7 +15,79 @@ public static class SessionEndpointExtensions
 
         group.MapGet("/clinicas", ListClinicas);
         group.MapPost("/selecionar-clinica", SelectClinica);
+        group.MapPost("/renovar", RefreshSession).AllowAnonymous().RequireRateLimiting("SessionRefresh");
+        group.MapPost("/renovar-equipe", RefreshTeamSession).WithName("RefreshTeamSession").RequireRateLimiting("SessionRefresh");
+        group.MapPost("/sair", EndSession).AllowAnonymous().RequireRateLimiting("SessionRefresh");
+        group.MapPost("/atividade", (AuthenticationSessionOptions options) =>
+            Results.Ok(new { idleTimeoutMinutes = options.IdleTimeoutMinutes }))
+            .WithName("TouchSessionActivity").RequireRateLimiting("SessionRefresh");
     }
+
+    private static bool IsTrustedRefreshRequest(HttpContext context, IConfiguration configuration)
+    {
+        var origin = context.Request.Headers.Origin.ToString();
+        var origins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+        return context.Request.Headers["X-Session-Refresh"] == "1"
+            && (string.IsNullOrEmpty(origin) || origins.Any(item =>
+                string.Equals(item.Trim().TrimEnd('/'), origin, StringComparison.OrdinalIgnoreCase)));
+    }
+
+    private static async Task<IResult> EndSession(RefreshSessionRequest request, HttpContext context,
+        AuthenticationSessionService sessions, AuthenticationSessionCookie cookie,
+        IConfiguration configuration, CancellationToken cancellationToken)
+    {
+        if (!IsTrustedRefreshRequest(context, configuration)) return Results.StatusCode(403);
+        context.Response.Headers.CacheControl = "no-store";
+        var token = cookie.Read(context);
+        if (!string.IsNullOrEmpty(token) && await sessions.RevokeMatchingAsync(token, request.SessionId, request.MembershipId, cancellationToken))
+            cookie.Delete(context);
+        return Results.NoContent();
+    }
+
+    private static async Task<IResult> RefreshTeamSession(HttpContext context,
+        HemodinksAPI.Application.Features.Teams.TeamUseCases teams,
+        AuthenticationSessionOptions options, CancellationToken cancellationToken)
+    {
+        var user = context.User.ToCurrentUserContext();
+        if (user == null || !int.TryParse(context.User.FindFirstValue(GlobalIdentityClaimTypes.EquipeVersaoSessao), out var teamVersion)
+            || !Guid.TryParse(context.User.FindFirstValue("security_version"), out var securityVersion))
+            return Results.Unauthorized();
+        int? operatorVersion = int.TryParse(context.User.FindFirstValue(GlobalIdentityClaimTypes.OperadorVersaoSessao), out var version) ? version : null;
+        var token = await teams.RenewSessionAsync(user, teamVersion, operatorVersion, securityVersion, cancellationToken);
+        context.Response.Headers.CacheControl = "no-store";
+        return token == null ? Results.Unauthorized() : Results.Ok(new { token, idleTimeoutMinutes = options.IdleTimeoutMinutes });
+    }
+
+    private static async Task<IResult> RefreshSession(
+        RefreshSessionRequest request, HttpContext context,
+        AuthenticationSessionService sessions, AuthenticationSessionCookie cookie,
+        AuthenticationSessionOptions options, IConfiguration configuration,
+        CancellationToken cancellationToken)
+    {
+        // Custom header forces CORS preflight; also reject explicitly untrusted browser origins.
+        if (!IsTrustedRefreshRequest(context, configuration))
+            return Results.StatusCode(StatusCodes.Status403Forbidden);
+        context.Response.Headers.CacheControl = "no-store";
+        if (request.SessionId == Guid.Empty || request.MembershipId <= 0)
+            return Results.Unauthorized();
+        var token = cookie.Read(context);
+        if (string.IsNullOrEmpty(token)) return Results.Unauthorized();
+        try
+        {
+            var issued = await sessions.RefreshAsync(token, cancellationToken,
+                request.SessionId, request.MembershipId, request.Active);
+            // Never delete a cookie on a failed refresh: another tab may have rotated it.
+            if (issued == null) return Results.Unauthorized();
+            cookie.Write(context, issued);
+            return Results.Ok(new { token = issued.AccessToken, idleTimeoutMinutes = options.IdleTimeoutMinutes });
+        }
+        catch (SessionRefreshConflictException)
+        {
+            return Results.Conflict(new { code = "session_refresh_conflict" });
+        }
+    }
+
+    public sealed record RefreshSessionRequest(Guid SessionId, int MembershipId, bool Active);
 
     private static async Task<IResult> ListClinicas(
         ClaimsPrincipal principal,

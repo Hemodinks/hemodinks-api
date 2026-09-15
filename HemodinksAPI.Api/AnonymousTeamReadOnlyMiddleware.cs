@@ -16,7 +16,7 @@ public sealed class AnonymousTeamReadOnlyMiddleware(RequestDelegate next)
         var endpointName = context.GetEndpoint()?.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName;
         // Preserve existing consent/privacy and credential recovery flows. No business writes.
         var isAccountAction = endpointName is "AcceptCurrentLegalDocuments" or "UpdateCurrentPrivacyPreference"
-            or "ChangePassword" or "ChangeTemporaryPassword";
+            or "ChangePassword" or "ChangeTemporaryPassword" or "RefreshTeamSession" or "TouchSessionActivity";
         if (isAnonymousTeam && isMutation && !isAccountAction)
         {
             context.Response.StatusCode = StatusCodes.Status403Forbidden;

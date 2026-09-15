@@ -14,8 +14,7 @@ public sealed class AuthenticationSessionMiddleware
 
     public async Task InvokeAsync(
         HttpContext context,
-        AuthenticationSessionService sessionService,
-        AuthenticationSessionCookie sessionCookie)
+        AuthenticationSessionService sessionService)
     {
         if (context.Request.Path.StartsWithSegments("/api/session/renovar", StringComparison.OrdinalIgnoreCase)
             || context.Request.Path.StartsWithSegments("/api/session/sair", StringComparison.OrdinalIgnoreCase))
@@ -31,7 +30,7 @@ public sealed class AuthenticationSessionMiddleware
             var validation = await sessionService.ValidateAndTouchAsync(sessionId, context.RequestAborted);
             if (!validation.IsValid)
             {
-                await RejectSessionAsync(context, sessionCookie);
+                await RejectSessionAsync(context);
                 return;
             }
 
@@ -40,7 +39,7 @@ public sealed class AuthenticationSessionMiddleware
             if (!int.TryParse(membershipIdClaim, out var membershipId)
                 || validation.UsuarioClinicaId != membershipId)
             {
-                await RejectSessionAsync(context, sessionCookie);
+                await RejectSessionAsync(context);
                 return;
             }
 
@@ -50,11 +49,10 @@ public sealed class AuthenticationSessionMiddleware
         await _next(context);
     }
 
-    private static async Task RejectSessionAsync(
-        HttpContext context,
-        AuthenticationSessionCookie sessionCookie)
+    private static async Task RejectSessionAsync(HttpContext context)
     {
-        sessionCookie.Delete(context);
+        // A late request may carry an old token after a login or clinic switch.
+        // Only explicit, cookie-bound logout may remove the current refresh cookie.
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         await context.Response.WriteAsJsonAsync(new
         {
