@@ -22,8 +22,6 @@ internal static class DatabaseStartupInitializer
         }
 
         using var scope = app.Services.CreateScope();
-        var migrationDbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var platformDbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
         try
@@ -32,6 +30,7 @@ internal static class DatabaseStartupInitializer
 
             if (validateSchema)
             {
+                var migrationDbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                 var isRelational = migrationDbContext.Database.IsRelational();
                 var pendingMigrations = isRelational
                     ? (await migrationDbContext.Database.GetPendingMigrationsAsync()).ToList()
@@ -47,15 +46,20 @@ internal static class DatabaseStartupInitializer
                     pendingMigrations);
             }
 
-            await SeedReferenceDataAsync(app, scope.ServiceProvider, platformDbContext, logger);
-
-            if (ShouldRunMaintenance(app.Environment, app.Configuration))
+            // Do not construct the platform context when only schema validation is needed.
+            if (seedCbhpm || seedUsers || runMaintenance)
             {
-                await ProvisionSuperAdministratorsAsync(app.Configuration, platformDbContext, logger);
-                await SynchronizeGlobalIdentitiesAsync(platformDbContext, logger);
-                await SyncPatientRecordsAsync(platformDbContext, logger);
+                var platformDbContext = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+                await SeedReferenceDataAsync(app, scope.ServiceProvider, platformDbContext, logger);
+
+                if (runMaintenance)
+                {
+                    await ProvisionSuperAdministratorsAsync(app.Configuration, platformDbContext, logger);
+                    await SynchronizeGlobalIdentitiesAsync(platformDbContext, logger);
+                    await SyncPatientRecordsAsync(platformDbContext, logger);
+                }
             }
-            else
+            if (!runMaintenance)
             {
                 logger.LogInformation("Manutencao de dados no startup desabilitada");
             }
