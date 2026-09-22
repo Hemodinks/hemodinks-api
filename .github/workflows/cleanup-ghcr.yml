@@ -1,0 +1,76 @@
+name: GHCR Cleanup Dry Run
+
+on:
+  workflow_dispatch:
+    inputs:
+      execute_delete:
+        description: Reserved for a future version; true is rejected (dry run only)
+        type: boolean
+        required: false
+        default: false
+  schedule:
+    - cron: '23 6 * * 1'
+
+permissions:
+  contents: read
+  packages: read
+  id-token: write
+
+# A separate read-only lock avoids displacing pending production deployments.
+concurrency:
+  group: ghcr-cleanup-dry-run
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    name: Inspect Azure and report retention decisions
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: production
+    env:
+      EXECUTE_DELETE: ${{ inputs.execute_delete || false }}
+      WORKERS_APP_NAME: ${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME }}
+      WORKERS_RESOURCE_GROUP: ${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP || vars.AZURE_RESOURCE_GROUP }}
+      WORKERS_FUNCTION_APP: ${{ vars.AZURE_FUNCTION_APP_WORKERS_NAME }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Enforce dry-run-only guard
+        run: python scripts/ghcr_cleanup.py --check-mode
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install Container Apps extension
+        run: az extension add --name containerapp --upgrade
+
+      - name: Inspect packages and Azure revisions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python scripts/ghcr_cleanup.py --output artifacts/ghcr-cleanup-dry-run.json
+
+      - name: Report interrupted or failed audit
+        if: ${{ always() && job.status != 'success' }}
+        run: python scripts/ghcr_cleanup.py --failure-summary
+
+      - name: Upload complete dry-run report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-cleanup-dry-run-${{ github.run_id }}
+          path: artifacts/ghcr-cleanup-dry-run.json
+          if-no-files-found: ignore
+          retention-days: 30
