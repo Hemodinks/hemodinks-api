@@ -1,10 +1,10 @@
-name: GHCR Cleanup Dry Run
+name: GHCR Cleanup
 
 on:
   workflow_dispatch:
     inputs:
       execute_delete:
-        description: Reserved for a future version; true is rejected (dry run only)
+        description: Delete up to 20 eligible API SHA versions (workers and untagged never deleted)
         type: boolean
         required: false
         default: false
@@ -13,22 +13,24 @@ on:
 
 permissions:
   contents: read
-  packages: read
+  packages: write
   id-token: write
 
-# A separate read-only lock avoids displacing pending production deployments.
+# Real deletion shares the lock used by publish, rollback and operational tasks.
 concurrency:
-  group: ghcr-cleanup-dry-run
+  group: ${{ github.event_name == 'workflow_dispatch' && inputs.execute_delete && 'production-container-publish' || 'ghcr-cleanup-dry-run' }}
   cancel-in-progress: false
 
 jobs:
   audit:
-    name: Inspect Azure and report retention decisions
+    name: Inspect Azure and apply bounded GHCR retention
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
     env:
       EXECUTE_DELETE: ${{ inputs.execute_delete || false }}
+      CLEANUP_CONCURRENCY_GROUP: ${{ github.event_name == 'workflow_dispatch' && inputs.execute_delete && 'production-container-publish' || 'ghcr-cleanup-dry-run' }}
+      WORKFLOW_SHA: ${{ github.workflow_sha }}
       WORKERS_APP_NAME: ${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME }}
       WORKERS_RESOURCE_GROUP: ${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP || vars.AZURE_RESOURCE_GROUP }}
       WORKERS_FUNCTION_APP: ${{ vars.AZURE_FUNCTION_APP_WORKERS_NAME }}
@@ -44,7 +46,7 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Enforce dry-run-only guard
+      - name: Validate execution mode and production lock
         run: python scripts/ghcr_cleanup.py --check-mode
 
       - name: Log in to Azure
@@ -60,17 +62,17 @@ jobs:
       - name: Inspect packages and Azure revisions
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: python scripts/ghcr_cleanup.py --output artifacts/ghcr-cleanup-dry-run.json
+        run: python scripts/ghcr_cleanup.py --output artifacts/ghcr-cleanup-report.json
 
       - name: Report interrupted or failed audit
         if: ${{ always() && job.status != 'success' }}
         run: python scripts/ghcr_cleanup.py --failure-summary
 
-      - name: Upload complete dry-run report
+      - name: Upload complete cleanup report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ghcr-cleanup-dry-run-${{ github.run_id }}
-          path: artifacts/ghcr-cleanup-dry-run.json
+          name: ghcr-cleanup-${{ github.run_id }}
+          path: artifacts/ghcr-cleanup-report.json
           if-no-files-found: ignore
           retention-days: 30

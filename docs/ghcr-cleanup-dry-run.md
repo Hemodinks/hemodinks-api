@@ -1,188 +1,191 @@
-# Retenção GHCR: primeira versão somente em dry run
+# Retenção GHCR: dry run padrão e exclusão limitada da API
 
-## Escopo e análise do deploy existente
+## Escopo e execução
 
-O workflow `cleanup-ghcr.yml` consulta Azure e GHCR e publica propostas de
-retenção. **Não existe implementação de exclusão.** `execute_delete=true` falha
-antes do login Azure e das consultas. O token recebe `packages: read`, nunca
-`packages: write`; nenhum PAT é necessário.
+O workflow cleanup-ghcr.yml continua em **DRY RUN** por padrão e no agendamento
+semanal. Somente um dispatch manual com **execute_delete=true** permite DELETE,
+limitado ao package **hemodinks-api** e a **20 versões por execução**.
+Workers e untagged nunca são excluídos.
 
-A análise de `publish-container.yml`, `rollback-production.yml`,
-`Enforce-ProductionRevisionPolicy.sh` e do runbook Blue/Green identificou:
+Após publicar os arquivos, abrir **Actions → GHCR Cleanup → Run workflow** e
+escolher execute_delete=false (auditoria) ou true (exclusão). Seguir a aprovação
+existente do Environment production, quando exigida. Via CLI:
 
-- A API publica `ghcr.io/hemodinks/hemodinks-api:sha-<commit>`.
-- CURRENT é descoberto em `properties.configuration.ingress.traffic`: label
-  `blue` **ou** `green` com peso 100. PREVIOUS é a revisão distinta do outro
-  label, com peso 0. Ambas devem existir; somente CURRENT precisa estar ativa.
-  A imagem de PREVIOUS continua protegida mesmo com `active=false`. As cores alternam;
-  nomes, ordem e data de criação das revisões não definem seus papéis.
-- Todas as outras revisões ativas da API e a imagem do template do Container
-  App também são protegidas, inclusive candidatas ainda com zero tráfego.
-- Os workers publicam `hemodinks-api-workers`, mas podem ser implantados por
-  atualização direta de Container App ou por `Azure/functions-action`, que
-  recebe um pacote produzido por `dotnet publish`. Não há CURRENT/PREVIOUS
-  de workers no workflow existente.
+    gh workflow run cleanup-ghcr.yml --ref main -f execute_delete=false
+    gh workflow run cleanup-ghcr.yml --ref main -f execute_delete=true
 
-Nenhum workflow, script de deploy/rollback, migration ou teste da aplicação
-existente foi alterado.
+O agendamento continua às segundas, 06:23 UTC, sempre em DRY RUN na branch padrão.
+Pode aguardar as regras de aprovação de production. DELETE não é suportado como
+execução local avulsa fora do workflow.
 
-## Política
+Nenhum comportamento de publish, deploy, rollback, migrations, tráfego,
+ativação/desativação de revisões ou Function App foi alterado.
 
-| Situação | Decisão |
+## Proteção e retenção
+
+CURRENT/PREVIOUS são descobertos em properties.configuration.ingress.traffic de
+hemodinks-api-prod, no Resource Group rg-hemodinks-prod:
+
+- CURRENT: label blue **ou** green com peso 100, revisão existente e ativa.
+- PREVIOUS: revisão distinta, no outro label, peso 0 e existente. Pode estar
+  inativa; sua imagem continua PROTECTED, com aviso no Summary.
+- Também são protegidas outras revisões ativas da API, o template e dependências
+  OCI/BuildKit identificadas dessas imagens.
+
+Cor, nome, ordem ou data das revisões não definem os papéis. latest não é aceito
+como referência de produção. Ausência/ambiguidade, CURRENT inativa, tags de
+produção ausentes ou digest divergente bloqueiam o processo.
+
+| Situação na API | Classificação inicial |
 | --- | --- |
-| Imagem de CURRENT, PREVIOUS, outra revisão ativa da API ou template | `PROTECTED` |
-| Dependência OCI identificada de imagem protegida | `PROTECTED` |
-| Dez versões com `sha-*` mais recentes por `created_at` | `KEEP` |
-| Versão com qualquer tag fora de `sha-*`, mesmo com outra tag SHA | `KEEP` |
-| Dependência identificada de qualquer versão mantida | `KEEP` |
-| Versão somente com tags `sha-*`, fora das dez e sem proteção/dependência conhecida | `DELETE_CANDIDATE` |
-| Untagged com até 14 dias, inclusive | `KEEP` |
-| Untagged com mais de 14 dias sem prova de independência | `SKIPPED_UNSAFE_TO_DELETE` |
+| Imagem protegida pelo Azure ou sua dependência identificada | PROTECTED |
+| Dez versões SHA mais recentes por created_at | KEEP |
+| Qualquer tag fora de sha-*, mesmo junto com outra tag SHA | KEEP |
+| Dependência de versão mantida | KEEP |
+| Somente tags sha-*, fora das dez e sem proteção conhecida | DELETE_CANDIDATE |
+| Untagged de qualquer idade, sem proteção por dependência | SKIPPED_UNSAFE_TO_DELETE |
 
-São dez **versões**, não dez tags; IDs desempatarão datas iguais. Proteções Azure
-são adicionais às dez e nunca expiram por idade. Datas usam UTC. `latest` não é
-aceito como referência de produção.
+São dez versões, não dez tags; IDs desempatarão datas iguais. Proteção Azure
+nunca expira por idade. Untagged acima de 14 dias continuam identificadas
+separadamente, mas idade não autoriza sua remoção.
 
-Nos workers, quando nome e Resource Group do Container App estão configurados,
-preservam-se **todas as revisões existentes, inclusive inativas**, além do
-template. Essa escolha conservadora evita inventar um rollback inexistente.
-As demais versões seguem a mesma retenção. O recurso é consultado mesmo se
-`AZURE_CONTAINER_APPS_DEPLOY_ENABLED` estiver desligado: isso não prova que um
-deploy anterior deixou de executar. Sem nome/RG suficientes, todas as versões
-não protegidas dos workers recebem `SKIPPED_UNSAFE_TO_DELETE`. A presença de um
-Function App de código não prova que outros consumidores GHCR não existem.
+Workers usam atualização direta do Container App ou deploy de código por
+Azure/functions-action, sem CURRENT/PREVIOUS próprio. Quando configurado, todas
+as revisões existentes do Container App (inclusive inativas) e o template são
+consultados. Seus resultados são exclusivamente KEEP ou SKIPPED_UNSAFE_TO_DELETE;
+motivos de proteção Azure continuam no relatório. Sem inventário configurado,
+o pacote fica bloqueado. Seu endpoint nunca é aceito pela função de DELETE.
 
-## Manifests, provenance e untagged
+## Manifests e limite
 
-Buildx/build-push podem publicar índices OCI e manifests adicionais de
-attestation/provenance. A listagem REST de versões não expõe o grafo completo.
-O script consulta também a API de manifests do registry, com token de escopo
-`pull` derivado do `GITHUB_TOKEN`, e verifica o SHA-256 do conteúdo.
+A API REST lista versões; a API de manifests do registry fornece o grafo. O
+script usa token pull derivado do GITHUB_TOKEN, verifica SHA-256 e percorre
+índices OCI/Docker, manifests aninhados, subject e vnd.docker.reference.digest
+do BuildKit. Não remove blobs de layers/configs. Relações ou formatos
+desconhecidos bloqueiam a operação, nunca são presumidos seguros.
 
-Ele percorre índices OCI/Docker, manifests aninhados, `subject` e a referência
-`vnd.docker.reference.digest` do BuildKit. Os pontos de partida incluem imagens
-protegidas e **todas** as versões mantidas, inclusive untagged e tags fora de
-SHA. Dependências que também tenham uma tag SHA antiga deixam de ser candidatas.
-Layers/configs são blobs, não versões a excluir nesta política.
+Para DELETE, o grafo de **todas as versões da API** é validado antes da primeira
+mutação. Cada candidata é comparada à closure de todas as outras versões ainda
+armazenadas, inclusive candidatas adiadas pelo limite e versões puladas. Suas
+dependências não podem ser removidas.
 
-Não se afirma que isso prova a ausência de todo referrer, metadata ou formato
-de artifact possível. **Nenhuma untagged é candidata nesta versão**, mesmo
-depois de 14 dias. Formato desconhecido, manifest inacessível, digest divergente
-ou relação incompleta bloqueiam todas as candidatas daquele pacote com warning.
+O plano contém no máximo as **20 candidatas mais antigas**, por created_at
+ascendente (ID como desempate). Cada uma ainda precisa passar pelas verificações
+ao vivo. Versões puladas não são substituídas por candidatas mais recentes nesta
+execução; o total removido pode ser menor que 20. O excedente é registrado como
+deferred_by_limit e será reavaliado em outra execução.
 
-Referências: [attestations do Docker](https://docs.docker.com/build/metadata/attestations/),
-[índice OCI](https://github.com/opencontainers/image-spec/blob/main/image-index.md),
-[API de versões do GitHub Packages](https://docs.github.com/en/rest/packages/packages),
-[autenticação GHCR em Actions](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-in-a-github-actions-workflow).
+## Revalidação e fail-closed
 
-## Autenticação e execução
+1. Coletar snapshot inicial: Azure, ingress, revisões/imagens e inventários
+   paginados de ambos os packages. Classificar e resolver proteções.
+2. Reconsultar o snapshot inteiro ao concluir a auditoria e antes de iniciar
+   DELETE. Qualquer diferença aborta sem excluir imagens.
+3. Validar todos os manifests da API. Antes de cada versão, reconsultar o
+   snapshot, resolver novamente tags de produção, recalcular retenção e conferir
+   dependências. Somente manifests identificados por digest usam cache; tags
+   nunca reutilizam resolução anterior.
+4. Reconsultar novamente o snapshot após a análise do grafo e fazer GET da
+   versão por ID imediatamente antes do DELETE. No primeiro DELETE, o snapshot
+   precisa ser igual ao inicial. Tags, digest, ID e criação precisam concordar.
+5. Gravar checkpoint antes da requisição e após cada resultado. Revalidar os
+   inventários depois da operação, antes de prosseguir.
 
-O job usa `environment: production` e `azure/login@v2`, com os mesmos secrets
-OIDC `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` e `AZURE_SUBSCRIPTION_ID` do publish.
-`id-token: write` permite esse login; `contents: read` permite checkout.
-O script executa somente consultas Azure. A identidade existente precisa ler
-os Container Apps e suas revisões; ela pode já ter privilégios maiores por
-ser compartilhada com o deploy.
+Após iniciar as requisições de DELETE, o snapshot esperado só desconta IDs com
+remoção confirmada ou ausência 404 confirmada no inventário. Nenhuma outra
+mudança é aceita. Metadata alterada recebe SKIP e aborta o restante da execução.
+Uma ausência por GET antes da primeira requisição impede iniciar DELETE com
+snapshot divergente.
 
-Variáveis de workers reutilizadas:
+Não há transação distribuída entre Azure e GHCR: falhas depois de exclusões
+confirmadas interrompem o restante, mas não desfazem exclusões anteriores.
+O relatório preserva esses resultados, sem substituí-los por Deleted: 0.
 
-- `AZURE_CONTAINER_APP_FUNCTIONS_NAME`;
-- `AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP`, com fallback para `AZURE_RESOURCE_GROUP`;
-- `AZURE_FUNCTION_APP_WORKERS_NAME`, apenas para contextualizar o relatório.
+| Resposta do DELETE por ID | Tratamento |
+| --- | --- |
+| 204 | Exclusão confirmada |
+| 404 | Registrar ausência/SKIP; continuar somente com inventários legíveis e consistentes |
+| 401/403 | Falhar imediatamente; nunca ignorar autorização |
+| 409, 429 e demais códigos inesperados | Falhar e interromper novos DELETEs |
+| Erro de rede/timeout sem resposta | Resultado desconhecido; interromper sem retry automático |
 
-O repositório precisa de acesso de leitura a ambos os packages via GitHub
-Actions. Se houver erro 403/404, revisar o vínculo/permissões dos packages;
-não substituir por PAT nem interpretar erro como inventário vazio.
+Endpoint exclusivo:
 
-Após disponibilizar os arquivos na branch padrão:
+    DELETE /orgs/hemodinks/packages/container/hemodinks-api/versions/{version_id}
 
-1. Abrir **Actions → GHCR Cleanup Dry Run → Run workflow**.
-2. Manter `execute_delete` desmarcado (`false`).
-3. Aprovar o Environment `production` caso as regras existentes exijam.
-4. Consultar Summary, logs e o artifact `ghcr-cleanup-dry-run-<run_id>`.
+Não há operação para excluir o package inteiro nem exclusão por tag.
 
-Também há agendamento às segundas-feiras, **06:23 UTC / 03:23 America/Sao_Paulo**.
-O agendamento executa a branch padrão e pode aguardar a aprovação do Environment;
-este trabalho não altera essas regras. Via CLI:
+## Concorrência e autenticação
 
-```bash
-gh workflow run cleanup-ghcr.yml --ref main -f execute_delete=false
-```
+Com execute_delete=true, o workflow usa production-container-publish e
+cancel-in-progress=false, como publish/deploy, rollback, migrations e tarefas
+operacionais. Essas execuções não se sobrepõem. O script exige dispatch manual,
+o repositório correto e o marcador desse grupo. Esses marcadores verificam o
+contexto; quem fornece o lock é o GitHub Actions.
 
-## Relatório e falhas
+DRY RUN usa ghcr-cleanup-dry-run. Os demais workflows não foram alterados.
+O modelo existente permite uma execução ativa e uma pendente; novas solicitações
+podem substituir uma execução pendente. Evite enfileirar vários deploys/cleanups.
 
-Cada versão registra status, ID, digest, tags, `created_at` e motivo. O Summary
-limita a exibição a 100 linhas por categoria/pacote para evitar o limite de
-tamanho; **logs e artifact JSON contêm todas as versões**. A paginação REST usa
-100 versões por página e continua até a última página, sem limitar o inventário
-a 100. IDs/digests/tags duplicados ou metadata incompleta invalidam a leitura.
+O job usa production, azure/login@v2 e os secrets OIDC existentes AZURE_CLIENT_ID,
+AZURE_TENANT_ID e AZURE_SUBSCRIPTION_ID. Faz somente leituras no Azure.
+Permissões GitHub: contents: read, packages: write, id-token: write. O token do
+job recebe packages: write nos dois modos, mas o padrão não executa DELETE.
 
-Exemplo ilustrativo, sem consulta real à produção:
+Não há PAT. O GITHUB_TOKEN precisa ler ambos os packages; para DELETE, o
+repositório precisa de acesso administrativo ao package da API. O workflow não
+concede esse acesso: erros de autorização bloqueiam a execução.
 
-```text
-GHCR Cleanup Dry Run
-Package: hemodinks-api
-PROTECTED                 id=501 digest=sha256:… tags=[sha-…] reason=CURRENT (green, 100%)
-PROTECTED                 id=487 digest=sha256:… tags=[sha-…] reason=PREVIOUS (blue, 0%)
-KEEP                      id=520 digest=sha256:… tags=[sha-…] reason=10 newest SHA versions
-DELETE_CANDIDATE          id=430 digest=sha256:… tags=[sha-…] reason=outside newest 10
-SKIPPED_UNSAFE_TO_DELETE   id=390 digest=sha256:… tags=[]      reason=old untagged, unproven relationships
-Deleted: 0
-```
+Variáveis de workers: AZURE_CONTAINER_APP_FUNCTIONS_NAME,
+AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP (fallback AZURE_RESOURCE_GROUP) e
+AZURE_FUNCTION_APP_WORKERS_NAME. Desligar seu deploy não prova que um recurso
+anterior deixou de consumir imagens; quando configurado, ele é consultado.
 
-Falha de autenticação, consulta Azure/GHCR, CURRENT/PREVIOUS ausente/ambíguo, CURRENT inativa,
-tag de produção ausente ou digest divergente: job termina com erro, sem publicar
-candidatas parciais, e o Summary registra o bloqueio com `Deleted: 0`. Uma etapa
-final `always()` também relata falhas anteriores ao script, como login Azure.
-Indisponibilidade de relações de manifests resulta em warning e descarte das
-propostas daquele pacote. Workers sem inventário configurado também geram warning.
-PREVIOUS existente mas inativa não bloqueia a auditoria: sua imagem permanece
-`PROTECTED`, e o Summary registra `PREVIOUS revision exists but is inactive;
-GHCR image remains protected.` Nenhuma revisão é ativada e nenhum tráfego é alterado.
+## Summary e artifact
 
-O inventário Azure e as versões GHCR são relidos antes de publicar o relatório.
-Mudanças durante a auditoria invalidam as propostas e pedem nova execução. Um
-lock próprio evita sobrepor auditorias sem deslocar deploys pendentes no grupo
-de concorrência da produção. Isso **não é um lock de exclusão real** nem uma
-transação entre Azure e GHCR. O relatório é uma observação, não autorização
-duradoura para executar suas candidatas.
+O Summary exibe modo, contagens das classificações iniciais, limite, exclusões
+confirmadas, candidatas remanescentes, adiadas pelo limite e versões puladas.
+Removidas/puladas incluem ID, tags, digest, criação e motivo. REMAINING
+DELETE_CANDIDATE conta propostas iniciais ainda não confirmadas como removidas
+ou ausentes; elas precisam de nova auditoria para outra execução.
 
-## Validação local
+O artifact ghcr-cleanup-<run_id> contém ghcr-cleanup-report.json, incluindo:
 
-Sem rede, secrets, Azure ou alterações na suíte .NET:
+- snapshot inicial, revalidado e imediatamente pré-delete;
+- snapshot divergente, se houver, e hashes/timestamps de cada revalidação;
+- todas as versões, decisões, candidatas, removidas e puladas;
+- tentativas com HTTP status e resultado DELETED, ALREADY_ABSENT, FAILED ou
+  PENDING_OR_UNKNOWN;
+- timestamps, run_id e SHA do commit do workflow.
 
-```bash
-python -B -m unittest discover -s scripts/tests -p test_ghcr_cleanup.py -v
-```
+Snapshots contêm metadata usada pela retenção, nunca tokens, env vars ou secrets
+dos containers. O Summary exibe até 100 linhas por classificação/pacote; logs e
+artifact preservam o inventário completo. A paginação não limita o total a 100.
+O checkpoint é escrito atomicamente antes de cada DELETE. Em interrupções, o
+fallback do Summary conserva sucessos confirmados e sinaliza resultados
+desconhecidos, que exigem conferência no GHCR.
 
-Os testes cobrem alternância blue/green, revisões extras, PREVIOUS ativa ou inativa
-com ambas as imagens protegidas, CURRENT inativa, ausência/ambiguidade dos papéis,
-múltiplas revisões com peso 100, indisponibilidade Azure, retenção, versões com múltiplas tags,
-limiar de 14 dias, 101/200/205 versões, metadata inválida, tags divergentes,
-manifests aninhados/attestations/subjects, concorrência, relatórios de falha e
-bloqueio de `execute_delete=true` antes de qualquer consulta. Com os mesmos
-inventários e instante de referência, as decisões são determinísticas;
-reexecuções não alteram nenhum recurso remoto.
+## Validação e riscos remanescentes
 
-## Antes de uma futura implementação de exclusão real
+Testes sem rede/credenciais, com todas as exclusões simuladas:
 
-Alterar apenas o input **não habilita exclusão**. Uma nova implementação deverá:
+    python -B -m unittest discover -s scripts/tests -p 'test_ghcr_cleanup*.py' -v
 
-1. Confirmar os consumidores reais de ambos os packages, inclusive ambientes
-   fora da produção e revisões antigas usadas em recuperação manual.
-2. Definir a retenção de rollback dos workers e provar a independência de
-   manifests/referrers antes de considerar excluir untagged; manter os casos
-   desconhecidos bloqueados.
-3. Coordenar exclusões com publish/deploy/rollback e operações manuais; reler
-   Azure, tags, digests e dependências imediatamente antes de cada operação.
-4. Implementar e testar explicitamente exclusão por version ID, limites,
-   confirmações, falhas parciais e auditoria; nunca executar um relatório antigo.
-5. Só então revisar `packages: write` e o acesso administrativo do repositório
-   aos packages, preservando `GITHUB_TOKEN` e uma identidade Azure de leitura.
+Cobrem modos, bloqueios por status/package/tags, CURRENT/PREVIOUS, PREVIOUS
+inativa, alternância das cores, paginação acima de 100, dependências, limite e
+ordem, snapshots alterados, reexecuções, 403/404, falhas parciais e interrupções.
 
-Riscos ainda presentes: tags `sha-*` podem ser republicadas por reruns (o workflow
-não impõe imutabilidade no registry); dois snapshots não detectam toda alteração
-transitória; consumidores externos não são descobertos; metadados OCI podem
-exigir retenção adicional; inventários grandes podem exceder timeout/rate limit.
-Esses casos não causam exclusão nesta versão e devem ser resolvidos antes de
-qualquer modo destrutivo.
+O lock não cobre alterações manuais nem workflows externos sem o mesmo grupo.
+Existe uma janela entre a última leitura e a requisição HTTP: não há DELETE
+condicional atômico entre Azure e GHCR. Tags SHA podem ser republicadas;
+consumidores externos/homologação não são inventariados; revisões inativas da
+API fora de PREVIOUS não têm retenção garantida. Inventários grandes podem
+atingir timeout/rate limit. Consistência eventual após DELETE pode interromper
+a execução conservadoramente; sucessos confirmados permanecem no artifact.
+Cancelamentos podem impedir o upload final, embora o checkpoint local e logs
+já produzidos sejam preservados no runner.
+
+Referências oficiais: [GitHub Packages API](https://docs.github.com/en/rest/packages/packages),
+[permissões GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-in-a-github-actions-workflow),
+[concorrência de Actions](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency),
+[attestations Docker](https://docs.docker.com/build/metadata/attestations/).
