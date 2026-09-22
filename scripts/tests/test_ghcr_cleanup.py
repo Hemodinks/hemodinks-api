@@ -110,16 +110,38 @@ class AzureTests(unittest.TestCase):
         self.assertTrue(any("CURRENT" in reason for reason in protected[digest(1)]))
         self.assertTrue(any("PREVIOUS" in reason for reason in protected[digest(1)]))
 
-    def test_missing_ambiguous_inactive_and_split_traffic_fail_closed(self):
+    def test_inactive_current_fails_closed(self):
+        state = snapshot()
+        state["revisions"][0]["active"] = False
+        with self.assertRaisesRegex(cleanup.UnsafeState, "CURRENT revision is inactive"):
+            cleanup.production_revisions(state)
+
+    def test_missing_previous_fails_closed(self):
+        state = snapshot()
+        state["revisions"].pop(1)
+        with self.assertRaisesRegex(cleanup.UnsafeState, "PREVIOUS revision is missing"):
+            cleanup.production_revisions(state)
+
+    def test_ambiguous_blue_green_labels_fail_closed(self):
+        state = snapshot()
+        state["app"]["traffic"].append(copy.deepcopy(state["app"]["traffic"][1]))
+        with self.assertRaisesRegex(cleanup.UnsafeState, "labels are missing or ambiguous"):
+            cleanup.production_revisions(state)
+
+    def test_multiple_revisions_with_full_traffic_fail_closed(self):
+        for labeled in (True, False):
+            state = snapshot()
+            if labeled:
+                state["app"]["traffic"][1]["weight"] = 100
+            else:
+                state["app"]["traffic"].append({"revisionName": "candidate-zero", "weight": 100})
+            with self.subTest(labeled=labeled), self.assertRaisesRegex(cleanup.UnsafeState, "unique 100/0"):
+                cleanup.production_revisions(state)
+
+    def test_missing_labels_split_traffic_and_unresolved_current_fail_closed(self):
         cases = []
         state = snapshot()
         state["app"]["traffic"].pop()
-        cases.append(state)
-        state = snapshot()
-        state["app"]["traffic"].append(copy.deepcopy(state["app"]["traffic"][1]))
-        cases.append(state)
-        state = snapshot()
-        state["revisions"][1]["active"] = False
         cases.append(state)
         state = snapshot()
         state["app"]["traffic"][0]["weight"] = 50
@@ -229,6 +251,41 @@ class ManifestTests(unittest.TestCase):
 
 
 class AuditTests(unittest.TestCase):
+    def test_current_and_previous_images_protected_even_when_previous_inactive(self):
+        versions = [version(i, i) for i in range(1, 15)]
+        for previous_active in (True, False):
+            for current_color in ("blue", "green"):
+                with self.subTest(previous_active=previous_active, current_color=current_color):
+                    state = snapshot()
+                    state["app"]["traffic"][0]["label"] = current_color
+                    state["app"]["traffic"][1]["label"] = "green" if current_color == "blue" else "blue"
+                    state["revisions"][1]["active"] = previous_active
+                    # Distinct images outside the newest ten expose lost retention roots.
+                    state["revisions"][0]["images"] = [f"ghcr.io/hemodinks/hemodinks-api@{digest(13)}"]
+                    state["revisions"][1]["images"] = [f"ghcr.io/hemodinks/hemodinks-api@{digest(14)}"]
+                    with tempfile.TemporaryDirectory() as directory:
+                        summary = Path(directory) / "summary.md"
+                        env = {"GITHUB_TOKEN": "fake", "GITHUB_ACTOR": "test", "EXECUTE_DELETE": "false",
+                               "GITHUB_STEP_SUMMARY": str(summary)}
+                        registry = registry_fixture({v["digest"]: manifest() for v in versions})
+                        with patch.dict(os.environ, env, clear=True), \
+                             patch.object(cleanup, "azure_snapshot", return_value=state), \
+                             patch.object(cleanup, "list_versions", return_value=versions), \
+                             patch.object(cleanup, "Registry", return_value=registry), \
+                             patch("builtins.print"):
+                            report = cleanup.audit(NOW)
+                            cleanup.write_summary(report)
+                        rows = {r["id"]: r for r in report["packages"][0]["versions"]}
+                        self.assertEqual("PROTECTED", rows[13]["status"])
+                        self.assertIn("CURRENT", rows[13]["reason"])
+                        self.assertEqual("PROTECTED", rows[14]["status"])
+                        self.assertIn("PREVIOUS", rows[14]["reason"])
+                        self.assertEqual("PROTECTED", rows[1]["status"])
+                        self.assertEqual(0, report["deleted"])
+                        self.assertEqual("DRY_RUN", report["mode"])
+                        warning = "PREVIOUS revision exists but is inactive; GHCR image remains protected."
+                        self.assertEqual(not previous_active, warning in summary.read_text(encoding="utf-8"))
+
     def test_success_and_concurrent_mutations(self):
         env = {"GITHUB_TOKEN": "fake", "GITHUB_ACTOR": "test", "EXECUTE_DELETE": "false"}
         versions = [version(i, i) for i in range(1, 13)]

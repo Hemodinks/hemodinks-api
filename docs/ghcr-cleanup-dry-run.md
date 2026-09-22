@@ -13,7 +13,8 @@ A análise de `publish-container.yml`, `rollback-production.yml`,
 - A API publica `ghcr.io/hemodinks/hemodinks-api:sha-<commit>`.
 - CURRENT é descoberto em `properties.configuration.ingress.traffic`: label
   `blue` **ou** `green` com peso 100. PREVIOUS é a revisão distinta do outro
-  label, com peso 0. Ambas devem existir e estar ativas. As cores alternam;
+  label, com peso 0. Ambas devem existir; somente CURRENT precisa estar ativa.
+  A imagem de PREVIOUS continua protegida mesmo com `active=false`. As cores alternam;
   nomes, ordem e data de criação das revisões não definem seus papéis.
 - Todas as outras revisões ativas da API e a imagem do template do Container
   App também são protegidas, inclusive candidatas ainda com zero tráfego.
@@ -129,12 +130,15 @@ SKIPPED_UNSAFE_TO_DELETE   id=390 digest=sha256:… tags=[]      reason=old unta
 Deleted: 0
 ```
 
-Falha de autenticação, consulta Azure/GHCR, CURRENT/PREVIOUS ausente/ambíguo,
+Falha de autenticação, consulta Azure/GHCR, CURRENT/PREVIOUS ausente/ambíguo, CURRENT inativa,
 tag de produção ausente ou digest divergente: job termina com erro, sem publicar
 candidatas parciais, e o Summary registra o bloqueio com `Deleted: 0`. Uma etapa
 final `always()` também relata falhas anteriores ao script, como login Azure.
 Indisponibilidade de relações de manifests resulta em warning e descarte das
 propostas daquele pacote. Workers sem inventário configurado também geram warning.
+PREVIOUS existente mas inativa não bloqueia a auditoria: sua imagem permanece
+`PROTECTED`, e o Summary registra `PREVIOUS revision exists but is inactive;
+GHCR image remains protected.` Nenhuma revisão é ativada e nenhum tráfego é alterado.
 
 O inventário Azure e as versões GHCR são relidos antes de publicar o relatório.
 Mudanças durante a auditoria invalidam as propostas e pedem nova execução. Um
@@ -151,8 +155,9 @@ Sem rede, secrets, Azure ou alterações na suíte .NET:
 python -B -m unittest discover -s scripts/tests -p test_ghcr_cleanup.py -v
 ```
 
-Os testes cobrem alternância blue/green, revisões extras, ausência/ambiguidade
-dos papéis, indisponibilidade Azure, retenção, versões com múltiplas tags,
+Os testes cobrem alternância blue/green, revisões extras, PREVIOUS ativa ou inativa
+com ambas as imagens protegidas, CURRENT inativa, ausência/ambiguidade dos papéis,
+múltiplas revisões com peso 100, indisponibilidade Azure, retenção, versões com múltiplas tags,
 limiar de 14 dias, 101/200/205 versões, metadata inválida, tags divergentes,
 manifests aninhados/attestations/subjects, concorrência, relatórios de falha e
 bloqueio de `execute_delete=true` antes de qualquer consulta. Com os mesmos

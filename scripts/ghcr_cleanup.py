@@ -209,11 +209,15 @@ def production_revisions(snapshot):
             "CURRENT/PREVIOUS must have unique 100/0 traffic.")
     roles = {current[0]["revisionName"]: "CURRENT", previous[0]["revisionName"]: "PREVIOUS"}
     require(len(roles) == 2, "CURRENT and PREVIOUS must differ.")
+    revision_names = {r["name"] for r in revisions}
     active = {r["name"] for r in revisions if r["active"]}
-    require(set(roles) <= active, "CURRENT or PREVIOUS is missing/inactive.")
-    require(all(t["revisionName"] in {r["name"] for r in revisions} for t in traffic),
+    require(current[0]["revisionName"] in revision_names, "CURRENT revision is missing from inventory.")
+    require(current[0]["revisionName"] in active, "CURRENT revision is inactive.")
+    require(previous[0]["revisionName"] in revision_names, "PREVIOUS revision is missing from inventory.")
+    require(all(t["revisionName"] in revision_names for t in traffic),
             "Traffic references an unknown revision.")
-    return {name: roles.get(name, "ACTIVE_BLUE_GREEN") for name in active}
+    # PREVIOUS remains a retention root even when its Azure revision is inactive.
+    return {name: roles.get(name, "ACTIVE_BLUE_GREEN") for name in sorted(active | set(roles))}
 
 
 def image_references(snapshot, roles, expected_package):
@@ -312,6 +316,10 @@ def audit(now):
     workers_name = os.environ.get("WORKERS_APP_NAME", "")
     workers_group = os.environ.get("WORKERS_RESOURCE_GROUP", "")
     warnings = []
+    for revision in api_state["revisions"]:
+        if roles.get(revision["name"]) == "PREVIOUS" and not revision["active"]:
+            warnings.append("PREVIOUS revision exists but is inactive; GHCR image remains protected. "
+                            f"Revision: {revision['name']}")
     workers_block = None
     if workers_name and workers_group:
         require((workers_name, workers_group) != (API_APP, API_GROUP), "Workers target equals API target.")
