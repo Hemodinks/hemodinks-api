@@ -1,7 +1,8 @@
-"""Read-only GHCR retention audit. There is deliberately no deletion implementation."""
+"""GHCR retention: dry run by default, bounded API-only deletion on explicit dispatch."""
 
 import argparse
 import base64
+import copy
 from datetime import datetime, timedelta, timezone
 import hashlib
 import html
@@ -22,6 +23,7 @@ WORKERS = "hemodinks-api-workers"
 PACKAGES = (API, WORKERS)
 API_APP = "hemodinks-api-prod"
 API_GROUP = "rg-hemodinks-prod"
+MAX_DELETE_PER_RUN = 20
 DIGEST = re.compile(r"sha256:[0-9a-f]{64}\Z")
 SHA_TAG = re.compile(r"sha-[A-Za-z0-9_.-]+\Z")
 INDEX_TYPES = {
@@ -39,14 +41,29 @@ class UnsafeState(RuntimeError):
     pass
 
 
+class DeleteFailure(UnsafeState):
+    def __init__(self, message, status=None):
+        super().__init__(message)
+        self.status = status
+
+
 def require(condition, message):
     if not condition:
         raise UnsafeState(message)
 
 
 def check_mode():
-    require(os.environ.get("EXECUTE_DELETE", "false").lower() == "false",
-            "execute_delete is disabled in this version. Run again with false. Deleted: 0.")
+    value = os.environ.get("EXECUTE_DELETE", "false").lower()
+    require(value in ("false", "true"), "EXECUTE_DELETE must be false or true.")
+    return value == "true"
+
+
+def validate_delete_context():
+    require(check_mode(), "Deletion requires execute_delete=true.")
+    require(os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+            and os.environ.get("CLEANUP_CONCURRENCY_GROUP") == "production-container-publish"
+            and os.environ.get("GITHUB_REPOSITORY", "").lower() == "hemodinks/hemodinks-api",
+            "Deletion requires a manual HemoDinks workflow holding the production concurrency group.")
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -54,14 +71,16 @@ class NoRedirect(HTTPRedirectHandler):
         raise UnsafeState("Unexpected HTTP redirect; refusing to forward credentials.")
 
 
-def get(url, headers):
-    # Only GET exists in the transport; no caller can supply another HTTP method.
+def get(url, headers, allow_missing=False):
     try:
         with build_opener(NoRedirect()).open(
             Request(url, headers=headers, method="GET"), timeout=45
         ) as response:
             return response.read()
     except HTTPError as exc:
+        exc.close()
+        if allow_missing and exc.code == 404:
+            return None
         raise UnsafeState(f"Read failed: HTTP {exc.code} at {url.split('?')[0]}") from None
     except (URLError, TimeoutError) as exc:
         raise UnsafeState(f"Read unavailable at {url.split('?')[0]} ({type(exc).__name__})") from None
@@ -74,9 +93,25 @@ def timestamp(value):
     return result
 
 
+def github_headers(token):
+    return {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2022-11-28"}
+
+
+def normalize_version(raw):
+    version_id, digest = raw["id"], raw["name"]
+    tags = raw["metadata"]["container"]["tags"]
+    require(type(version_id) is int and version_id > 0, "Invalid version ID.")
+    require(isinstance(digest, str) and DIGEST.fullmatch(digest), "Invalid digest.")
+    require(isinstance(tags, list) and all(
+        isinstance(tag, str) and re.fullmatch(r"[\w][\w.-]{0,127}", tag, re.ASCII)
+        for tag in tags) and len(set(tags)) == len(tags), "Missing or invalid tags.")
+    timestamp(raw["created_at"])
+    return {"id": version_id, "digest": digest, "tags": sorted(tags), "created_at": raw["created_at"]}
+
+
 def list_versions(package, token):
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json",
-               "X-GitHub-Api-Version": "2022-11-28"}
+    headers = github_headers(token)
     versions, ids, digests, tags = [], set(), set(), set()
     page = 1
     while True:
@@ -85,21 +120,11 @@ def list_versions(package, token):
         batch = json.loads(get(url, headers))
         require(isinstance(batch, list), f"Invalid package inventory: {package}.")
         for raw in batch:
-            version_id = raw["id"]
-            digest = raw["name"]
-            version_tags = raw["metadata"]["container"]["tags"]
-            require(type(version_id) is int and version_id > 0 and version_id not in ids,
-                    "Invalid/duplicate version ID; pagination may have changed.")
-            require(isinstance(digest, str) and DIGEST.fullmatch(digest) and digest not in digests,
-                    "Invalid/duplicate digest.")
-            require(isinstance(version_tags, list) and all(
-                isinstance(tag, str) and re.fullmatch(r"[\w][\w.-]{0,127}", tag, re.ASCII)
-                for tag in version_tags), "Missing or invalid tags; cannot infer untagged status.")
-            require(len(set(version_tags)) == len(version_tags) and not tags.intersection(version_tags),
-                    "Duplicate tags; inventory may have changed during pagination.")
-            timestamp(raw["created_at"])
-            versions.append({"id": version_id, "digest": digest, "tags": sorted(version_tags),
-                             "created_at": raw["created_at"]})
+            version = normalize_version(raw)
+            version_id, digest, version_tags = version["id"], version["digest"], version["tags"]
+            require(version_id not in ids and digest not in digests and not tags.intersection(version_tags),
+                    "Duplicate version/digest/tags; inventory may have changed during pagination.")
+            versions.append(version)
             ids.add(version_id)
             digests.add(digest)
             tags.update(version_tags)
@@ -278,11 +303,11 @@ def classify(versions, protected, now, blocked_reason=None):
         elif any(not SHA_TAG.fullmatch(tag) for tag in version["tags"]):
             status, reason = "KEEP", "Has a tag outside sha-*; deleting a version removes all its tags"
         elif not version["tags"]:
-            status = "SKIPPED_UNSAFE_TO_DELETE" if old_untagged else "KEEP"
+            status = "SKIPPED_UNSAFE_TO_DELETE"
             reason = ("Untagged >14 days; absence of OCI/BuildKit/provenance/referrer dependencies is unproven"
-                      if old_untagged else "Untagged <=14 days")
+                      if old_untagged else "Untagged <=14 days; untagged deletion disabled")
         else:
-            status, reason = "DELETE_CANDIDATE", "sha-* version outside the 10 newest; dry-run proposal only"
+            status, reason = "DELETE_CANDIDATE", "sha-* version outside the 10 newest; requires live revalidation"
         rows.append({**version, "status": status, "reason": reason, "old_untagged": old_untagged})
     return rows
 
@@ -305,8 +330,27 @@ def protect_dependencies(rows, protected, registry):
     return []
 
 
-def audit(now):
-    check_mode()
+def new_report(now):
+    return {"mode": "DELETE" if os.environ.get("EXECUTE_DELETE", "false").lower() == "true" else "DRY_RUN",
+            "observed_at": now.isoformat(), "run_id": os.environ.get("GITHUB_RUN_ID"),
+            "workflow_sha": os.environ.get("WORKFLOW_SHA", os.environ.get("GITHUB_SHA")),
+            "delete_limit": MAX_DELETE_PER_RUN, "deleted": 0, "deleted_versions": [],
+            "skipped_versions": [], "delete_attempts": [], "candidates": [], "packages": [],
+            "warnings": [], "snapshot_initial": None, "snapshot_pre_delete": None,
+            "revalidations": [], "audit_complete": False}
+
+
+def capture_snapshot(baseline, token):
+    return {"azure": [{"name": item["name"], "group": item["group"],
+                       "state": azure_snapshot(item["name"], item["group"])} for item in baseline["azure"]],
+            "inventories": {package: list_versions(package, token) for package in baseline["inventories"]}}
+
+
+def audit(now, report=None):
+    if check_mode():
+        validate_delete_context()
+    if report is None:
+        report = new_report(now)
     token, actor = os.environ.get("GITHUB_TOKEN"), os.environ.get("GITHUB_ACTOR")
     require(token and actor, "GITHUB_TOKEN and GITHUB_ACTOR are required.")
     snapshots = {(API_APP, API_GROUP): azure_snapshot(API_APP, API_GROUP)}
@@ -315,7 +359,7 @@ def audit(now):
     references = image_references(api_state, roles, API)
     workers_name = os.environ.get("WORKERS_APP_NAME", "")
     workers_group = os.environ.get("WORKERS_RESOURCE_GROUP", "")
-    warnings = []
+    warnings = report["warnings"]
     for revision in api_state["revisions"]:
         if roles.get(revision["name"]) == "PREVIOUS" and not revision["active"]:
             warnings.append("PREVIOUS revision exists but is inactive; GHCR image remains protected. "
@@ -336,7 +380,10 @@ def audit(now):
         warnings.append(workers_block)
     if os.environ.get("WORKERS_FUNCTION_APP"):
         warnings.append("Function App workflow deploys a code package, not a GHCR image; no Blue/Green policy inferred.")
-    inventories, reports = {}, []
+    inventories, reports = {}, report["packages"]
+    report["snapshot_initial"] = {
+        "azure": [{"name": name, "group": group, "state": state} for (name, group), state in snapshots.items()],
+        "inventories": inventories}
     for package in PACKAGES:
         versions = list_versions(package, token)
         inventories[package] = versions
@@ -346,14 +393,165 @@ def audit(now):
         rows = classify(versions, protected, now, blocked)
         if registry:
             warnings.extend(f"{package}: {w}" for w in protect_dependencies(rows, protected, registry))
+        if package == WORKERS:
+            for row in rows:
+                if row["status"] == "PROTECTED":
+                    row.update(status="KEEP", reason="Workers deletion disabled; protected: " + row["reason"])
+                elif row["status"] == "DELETE_CANDIDATE":
+                    row.update(status="SKIPPED_UNSAFE_TO_DELETE", reason="Workers deletion disabled")
         reports.append({"package": package, "azure_images": references[package], "versions": rows})
     # Concurrent deploys/pushes invalidate this report; do not issue stale proposals.
-    for target, snapshot in snapshots.items():
-        require(azure_snapshot(*target) == snapshot, "Azure changed during audit; retry after deployment.")
-    for package, versions in inventories.items():
-        require(list_versions(package, token) == versions, "GHCR inventory changed during audit; retry after publishing.")
-    return {"mode": "DRY_RUN", "deleted": 0, "observed_at": now.isoformat(),
-            "production_revisions": roles, "warnings": warnings, "packages": reports}
+    report["snapshot_revalidated"] = capture_snapshot(report["snapshot_initial"], token)
+    require(report["snapshot_revalidated"] == report["snapshot_initial"],
+            "Azure or GHCR changed during audit; retry after deployment/publishing.")
+    report["production_revisions"] = roles
+    report["candidates"] = sorted(
+        [row for package in reports if package["package"] == API for row in package["versions"]
+         if row["status"] == "DELETE_CANDIDATE"], key=lambda row: (timestamp(row["created_at"]), row["id"]))
+    report["audit_complete"] = True
+    return report
+
+
+def version_identity(row):
+    return {key: row[key] for key in ("id", "digest", "tags", "created_at")}
+
+
+def deletion_allowed(package, row):
+    return (package == API and row["status"] == "DELETE_CANDIDATE" and bool(row["tags"])
+            and all(SHA_TAG.fullmatch(tag) for tag in row["tags"]))
+
+
+def version_url(package, version_id):
+    require(package == API and type(version_id) is int and version_id > 0,
+            "Version endpoint restricted to hemodinks-api and a positive version ID.")
+    return f"https://api.github.com/orgs/{OWNER}/packages/container/{API}/versions/{version_id}"
+
+
+def get_version(row, token):
+    raw = get(version_url(API, row["id"]), github_headers(token), allow_missing=True)
+    return normalize_version(json.loads(raw)) if raw is not None else None
+
+
+def delete_version(package, row, token):
+    validate_delete_context()
+    require(deletion_allowed(package, row), "Version is not an API-only tagged SHA deletion candidate.")
+    request = Request(version_url(package, row["id"]), headers=github_headers(token), method="DELETE")
+    try:
+        with build_opener(NoRedirect()).open(request, timeout=45) as response:
+            status = response.status
+    except HTTPError as exc:
+        status = exc.code
+        exc.close()
+    except (URLError, TimeoutError):
+        raise DeleteFailure("DELETE response unavailable; outcome unknown. Stop and inspect the version before retrying.") from None
+    if status not in (204, 404):
+        raise DeleteFailure(f"DELETE failed with HTTP {status}; no further deletions allowed.", status)
+    return status
+
+
+def checkpoint(report, output):
+    report["updated_at"] = datetime.now(timezone.utc).isoformat()
+    report["remaining_delete_candidate"] = len(report["candidates"]) - report["deleted"] - sum(
+        row.get("absent", False) for row in report["skipped_versions"])
+    output = Path(output)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = output.with_suffix(".tmp")
+    temporary.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    temporary.replace(output)
+
+
+def record_skip(report, row, reason, absent=False):
+    report["skipped_versions"].append({**version_identity(row), "reason": reason, "absent": absent,
+                                       "timestamp": datetime.now(timezone.utc).isoformat()})
+
+
+def revalidate_for_delete(report, expected, token, row=None, pre_delete=False):
+    actual = capture_snapshot(expected, token)
+    before_first_request = pre_delete and not report["delete_attempts"]
+    if before_first_request:
+        report["snapshot_pre_delete"] = actual
+    report["revalidations"].append({"version_id": row["id"] if row else None,
+                                    "timestamp": datetime.now(timezone.utc).isoformat(),
+                                    "snapshot_sha256": hashlib.sha256(json.dumps(actual, sort_keys=True).encode()).hexdigest(),
+                                    "matches_expected": actual == expected})
+    if actual != expected or (before_first_request and actual != report["snapshot_initial"]):
+        report["snapshot_changed"] = actual
+        if row:
+            fresh = next((v for v in actual["inventories"][API] if v["id"] == row["id"]), None)
+            if fresh != version_identity(row):
+                record_skip(report, row, "Version changed/disappeared during inventory revalidation")
+        raise UnsafeState("Azure or GHCR inventory changed before DELETE; execution aborted.")
+    api_state = next(item["state"] for item in actual["azure"]
+                     if (item["name"], item["group"]) == (API_APP, API_GROUP))
+    require(production_revisions(api_state) == report["production_revisions"],
+            "CURRENT/PREVIOUS protection changed before DELETE.")
+
+
+def execute_deletions(report, output):
+    if not check_mode():
+        return
+    validate_delete_context()
+    require(report["audit_complete"] and report["mode"] == "DELETE", "Complete live audit required before DELETE.")
+    token, actor = os.environ["GITHUB_TOKEN"], os.environ["GITHUB_ACTOR"]
+    expected = copy.deepcopy(report["snapshot_initial"])
+    package = next(item for item in report["packages"] if item["package"] == API)
+    candidates = sorted(report["candidates"], key=lambda row: (timestamp(row["created_at"]), row["id"]))
+    require(all(deletion_allowed(API, row) for row in candidates), "Invalid candidate plan.")
+    report["deferred_by_limit"] = max(0, len(candidates) - MAX_DELETE_PER_RUN)
+    plan = candidates[:MAX_DELETE_PER_RUN]
+    revalidate_for_delete(report, expected, token, pre_delete=True)
+    if not plan:
+        report["snapshot_pre_delete"] = copy.deepcopy(expected)
+        checkpoint(report, output)
+        return
+    registry = Registry(API, token, actor)
+    # Deferred candidates also remain stored. Validate their dependency graphs before any mutation.
+    registry.closure(v["digest"] for v in expected["inventories"][API])
+    for row in plan:
+        require(report["deleted"] < MAX_DELETE_PER_RUN, "Per-run deletion limit reached.")
+        revalidate_for_delete(report, expected, token, row)
+        versions = expected["inventories"][API]
+        # Digests are content-addressed; tags must be resolved afresh on every iteration.
+        registry.cache = {key: value for key, value in registry.cache.items() if DIGEST.fullmatch(key)}
+        protected = resolve_protected(API, versions, package["azure_images"], registry)
+        fresh_rows = classify(versions, protected, timestamp(report["observed_at"]))
+        fresh = next((v for v in fresh_rows if v["id"] == row["id"]), None)
+        others = registry.closure(v["digest"] for v in versions if v["id"] != row["id"])
+        if not fresh or not deletion_allowed(API, fresh) or row["digest"] in others:
+            record_skip(report, row, "No longer eligible or referenced by a version retained in this run")
+            checkpoint(report, output)
+            continue
+        # All inventories must still match, including changes caused by our confirmed prior operations.
+        revalidate_for_delete(report, expected, token, row, pre_delete=True)
+        current = get_version(row, token)
+        if current is None:
+            record_skip(report, row, "GET returned 404; version already absent", absent=True)
+        elif current != version_identity(row):
+            record_skip(report, row, "Version metadata/tags changed immediately before DELETE")
+            raise UnsafeState("Version changed before DELETE; skipped and remaining execution aborted.")
+        else:
+            attempt = {**version_identity(row), "outcome": "PENDING_OR_UNKNOWN",
+                       "timestamp": datetime.now(timezone.utc).isoformat()}
+            report["delete_attempts"].append(attempt)
+            checkpoint(report, output)
+            try:
+                status = delete_version(API, fresh, token)
+            except DeleteFailure as exc:
+                if exc.status is not None:
+                    attempt.update(http_status=exc.status, outcome="FAILED")
+                raise
+            attempt.update(http_status=status, outcome="DELETED" if status == 204 else "ALREADY_ABSENT")
+            if status == 204:
+                report["deleted_versions"].append({**version_identity(row), "reason": row["reason"],
+                                                    "timestamp": datetime.now(timezone.utc).isoformat()})
+                report["deleted"] += 1
+            else:
+                record_skip(report, row, "DELETE returned 404; version already absent", absent=True)
+        expected["inventories"][API] = [v for v in versions if v["id"] != row["id"]]
+        checkpoint(report, output)
+        # A 404 is not an authorization bypass: verify readable, consistent inventories before continuing.
+        revalidate_for_delete(report, expected, token)
+    report["execution_complete"] = True
 
 
 def cell(value):
@@ -361,9 +559,18 @@ def cell(value):
 
 
 def write_summary(report):
-    lines = ["## GHCR Cleanup Dry Run", "", "Deleted: **0**", "", "Deletion is not implemented.", ""]
+    remaining = len(report.get("candidates", [])) - report.get("deleted", 0) - sum(
+        row.get("absent", False) for row in report.get("skipped_versions", []))
+    lines = ["## GHCR Cleanup", "", f"Mode: **{report.get('mode', 'DRY_RUN')}**", "",
+             f"Deleted: **{report.get('deleted', 0)}**", f"DELETE LIMIT: **{MAX_DELETE_PER_RUN}**",
+             f"REMAINING DELETE_CANDIDATE: **{remaining}**",
+             f"Deferred by limit: **{report.get('deferred_by_limit', 0)}**", "",
+             "Workers: **deletion disabled**", "Untagged: **deletion disabled**", ""]
     if "error" in report:
-        lines += ["**BLOCKED — incomplete audit; no deletion candidates approved.**", cell(report["error"]), ""]
+        lines += ["**STOPPED — no further deletions. Counts reflect confirmed results only.**", cell(report["error"]), ""]
+    unknown = [item for item in report.get("delete_attempts", []) if item["outcome"] == "PENDING_OR_UNKNOWN"]
+    if unknown:
+        lines += [f"**{len(unknown)} DELETE request(s) have an unknown outcome; inspect the artifact and GHCR.**", ""]
     for warning in report.get("warnings", []):
         lines += [f"- Warning: {cell(warning)}"]
         print("::warning::" + warning)
@@ -385,6 +592,13 @@ def write_summary(report):
                 lines += ["", "First 100 shown; every version is included in the JSON artifact and logs."]
         for row in package["versions"]:
             print(json.dumps({"package": package["package"], **row}, sort_keys=True))
+    for key, title in (("deleted_versions", "DELETED"), ("skipped_versions", "SKIPPED during deletion")):
+        lines += ["", f"### {title}", "", "| Version ID | Digest | Tags | Created at | Reason |",
+                  "| --- | --- | --- | --- | --- |"]
+        for row in report.get(key, []):
+            lines.append("| " + " | ".join(cell(row[k]) for k in
+                         ("id", "digest", "tags", "created_at", "reason")) + " |")
+            print(json.dumps({"action": title, **row}, sort_keys=True))
     summary = "\n".join(lines) + "\n"
     if os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(os.environ["GITHUB_STEP_SUMMARY"], "a", encoding="utf-8") as stream:
@@ -397,27 +611,38 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check-mode", action="store_true")
     parser.add_argument("--failure-summary", action="store_true")
-    parser.add_argument("--output", default="artifacts/ghcr-cleanup-dry-run.json")
+    parser.add_argument("--output", default="artifacts/ghcr-cleanup-report.json")
     args = parser.parse_args()
+    report = new_report(datetime.now(timezone.utc))
     if args.failure_summary:
-        write_summary({"error": "A workflow step failed or was interrupted (including Azure login). Deleted: 0."})
+        if Path(args.output).exists():
+            report = json.loads(Path(args.output).read_text(encoding="utf-8"))
+        if not report.get("summary_written"):
+            report.setdefault("error", "A workflow step failed or was interrupted; inspect confirmed and unknown outcomes.")
+            write_summary(report)
+            checkpoint(report, args.output)
         return 0
     try:
-        check_mode()
+        execute_delete = check_mode()
+        if execute_delete:
+            validate_delete_context()
         if args.check_mode:
-            print("DRY RUN enforced. No deletion code exists. Deleted: 0.")
+            print(f"Mode: {report['mode']}. API only; limit {MAX_DELETE_PER_RUN}. Workers/untagged deletion disabled.")
             return 0
-        report = audit(datetime.now(timezone.utc))
+        checkpoint(report, args.output)
+        audit(timestamp(report["observed_at"]), report)
+        checkpoint(report, args.output)
+        execute_deletions(report, args.output)
         result = 0
     except (UnsafeState, KeyError, TypeError, ValueError, OSError, subprocess.SubprocessError) as exc:
         message = str(exc) if isinstance(exc, UnsafeState) else f"Incomplete audit ({type(exc).__name__})"
-        report = {"mode": "DRY_RUN", "deleted": 0, "error": message, "packages": []}
+        report["error"] = message
         print("::error::" + message)
         result = 1
-    output = Path(args.output)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    checkpoint(report, args.output)
     write_summary(report)
+    report["summary_written"] = True
+    checkpoint(report, args.output)
     return result
 
 

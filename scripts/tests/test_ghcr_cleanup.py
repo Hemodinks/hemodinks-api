@@ -16,6 +16,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / "ghcr_cleanup.py"
 spec = importlib.util.spec_from_file_location("ghcr_cleanup", SCRIPT)
 cleanup = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(cleanup)
+REGISTRY_CLASS = cleanup.Registry
 NOW = datetime(2026, 9, 22, tzinfo=timezone.utc)
 
 
@@ -45,7 +46,8 @@ def snapshot():
 
 
 def registry_fixture(manifests):
-    registry = object.__new__(cleanup.Registry)
+    registry = object.__new__(REGISTRY_CLASS)
+    registry.cache = {}
     registry.manifest = Mock(side_effect=lambda ref: (ref, manifests[ref]))
     return registry
 
@@ -68,8 +70,8 @@ class RetentionTests(unittest.TestCase):
                                  version(3, 2, []), version(4, 40, ["sha-abc", "v1.0.0"])], {}, NOW)
         states = {r["id"]: r["status"] for r in rows}
         self.assertEqual("SKIPPED_UNSAFE_TO_DELETE", states[1])
-        self.assertEqual("KEEP", states[2])
-        self.assertEqual("KEEP", states[3])
+        self.assertEqual("SKIPPED_UNSAFE_TO_DELETE", states[2])
+        self.assertEqual("SKIPPED_UNSAFE_TO_DELETE", states[3])
         self.assertEqual("KEEP", states[4])
 
     def test_mixed_tags_outside_ten_are_kept(self):
@@ -309,7 +311,7 @@ class AuditTests(unittest.TestCase):
                     self.assertTrue(any(r["status"] == "DELETE_CANDIDATE" for r in report["packages"][0]["versions"]))
                     self.assertTrue(all(r["status"] == "SKIPPED_UNSAFE_TO_DELETE" for r in report["packages"][1]["versions"]))
 
-    def test_true_and_invalid_delete_inputs_fail_before_network_or_azure(self):
+    def test_invalid_delete_inputs_and_true_without_production_context_fail_before_network(self):
         for value in ("true", "1", "yes", ""):
             with patch.dict(os.environ, {"EXECUTE_DELETE": value}), \
                  patch.object(cleanup, "get") as get, patch.object(cleanup, "az_json") as az:
