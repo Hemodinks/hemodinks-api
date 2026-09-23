@@ -4,8 +4,10 @@
 
 O workflow cleanup-ghcr.yml continua em **DRY RUN** por padrão e no agendamento
 semanal. Somente um dispatch manual com **execute_delete=true** permite DELETE,
-limitado ao package **hemodinks-api** e a **20 versões por execução**.
-Workers e untagged nunca são excluídos.
+na branch **refs/heads/main**, limitado ao package **hemodinks-api**:
+até **20 tagged sha-*** antigas + **50 untagged órfãs** com mais de 14 dias,
+total máximo teórico de **70 versões por execução**. Workers nunca são excluídos.
+DELETE em developer ou qualquer outra branch é bloqueado antes da auditoria.
 
 Após publicar os arquivos, abrir **Actions → GHCR Cleanup → Run workflow** e
 escolher execute_delete=false (auditoria) ou true (exclusão). Seguir a aprovação
@@ -42,12 +44,13 @@ produção ausentes ou digest divergente bloqueiam o processo.
 | Dez versões SHA mais recentes por created_at | KEEP |
 | Qualquer tag fora de sha-*, mesmo junto com outra tag SHA | KEEP |
 | Dependência de versão mantida | KEEP |
-| Somente tags sha-*, fora das dez e sem proteção conhecida | DELETE_CANDIDATE |
-| Untagged de qualquer idade, sem proteção por dependência | SKIPPED_UNSAFE_TO_DELETE |
+| Somente tags sha-*, fora das dez e sem proteção conhecida | DELETE_CANDIDATE, candidate_type=tagged |
+| Untagged >14 dias, órfã comprovada e fora do grafo retido | DELETE_CANDIDATE, candidate_type=untagged |
+| Untagged <=14 dias, artifact ou relacionamento não comprovado | SKIPPED_UNSAFE_TO_DELETE |
 
 São dez versões, não dez tags; IDs desempatarão datas iguais. Proteção Azure
-nunca expira por idade. Untagged acima de 14 dias continuam identificadas
-separadamente, mas idade não autoriza sua remoção.
+nunca expira por idade. Idade e ausência de tags, isoladamente, não autorizam
+remoção. DRY RUN mostra candidatas das duas categorias sem executar DELETE.
 
 Workers usam atualização direta do Container App ou deploy de código por
 Azure/functions-action, sem CURRENT/PREVIOUS próprio. Quando configurado, todas
@@ -61,19 +64,38 @@ o pacote fica bloqueado. Seu endpoint nunca é aceito pela função de DELETE.
 A API REST lista versões; a API de manifests do registry fornece o grafo. O
 script usa token pull derivado do GITHUB_TOKEN, verifica SHA-256 e percorre
 índices OCI/Docker, manifests aninhados, subject e vnd.docker.reference.digest
-do BuildKit. Não remove blobs de layers/configs. Relações ou formatos
-desconhecidos bloqueiam a operação, nunca são presumidos seguros.
+do BuildKit, nas annotations de manifests e descriptors. Relações subject e
+BuildKit são associadas nos dois sentidos para preservar os artifacts da imagem.
+Não remove blobs de layers/configs. Formatos desconhecidos ou falhas na leitura
+de manifests bloqueiam todas as candidatas.
+
+Também consulta `/v2/hemodinks/hemodinks-api/referrers/{digest}`, sem filtro de
+artifactType, segue paginação Link restrita ao mesmo endpoint e percorre os
+manifests descobertos, mesmo fora do inventário REST. Uma resposta 404, falha,
+paginação ambígua ou resposta incompleta **não significa lista vazia**: todas as
+untagged ficam inelegíveis enquanto não for possível comprovar o grafo completo.
+O script não usa ausência de uma tag de fallback como prova de orfandade.
+A política tagged continua sujeita às proteções conhecidas e à revalidação.
+
+O grafo começa em todas as versões. Suas raízes retidas incluem PROTECTED, KEEP
+e todas as versões não elegíveis. Uma untagged só recebe candidate_type=untagged
+quando tem mais de 14 dias, não é artifact/attestation/provenance/SBOM, não possui
+nenhuma referência de entrada conhecida (inclusive de outra candidata) e está
+fora da closure retida. Isso preserva manifests filhos, plataformas e relações
+subject/referrer. Uma dependência de candidata tagged removida nesta execução
+só poderá ser reavaliada como órfã numa próxima execução.
 
 Para DELETE, o grafo de **todas as versões da API** é validado antes da primeira
 mutação. Cada candidata é comparada à closure de todas as outras versões ainda
 armazenadas, inclusive candidatas adiadas pelo limite e versões puladas. Suas
 dependências não podem ser removidas.
 
-O plano contém no máximo as **20 candidatas mais antigas**, por created_at
-ascendente (ID como desempate). Cada uma ainda precisa passar pelas verificações
-ao vivo. Versões puladas não são substituídas por candidatas mais recentes nesta
-execução; o total removido pode ser menor que 20. O excedente é registrado como
-deferred_by_limit e será reavaliado em outra execução.
+O plano seleciona primeiro as **20 tagged mais antigas** e depois as
+**50 untagged seguras mais antigas**, por created_at ascendente e ID como
+desempate. São limites independentes, não um limite indiscriminado de 70.
+Cada versão ainda passa pelas verificações ao vivo. Versões puladas não são
+substituídas nesta execução. Excedentes aparecem em deferred_tagged_by_limit,
+deferred_untagged_by_limit e deferred_by_limit e exigem nova auditoria.
 
 ## Revalidação e fail-closed
 
@@ -84,7 +106,10 @@ deferred_by_limit e será reavaliado em outra execução.
 3. Validar todos os manifests da API. Antes de cada versão, reconsultar o
    snapshot, resolver novamente tags de produção, recalcular retenção e conferir
    dependências. Somente manifests identificados por digest usam cache; tags
-   nunca reutilizam resolução anterior.
+   nunca reutilizam resolução anterior. Referrers são consultados novamente em
+   cada iteração. Mudança no grafo aborta mesmo sem mudança nos metadados REST.
+   Para untagged, confirmar tags vazias e ausência na closure de todas as outras
+   versões ainda presentes, incluindo candidatas adiadas e versões puladas.
 4. Reconsultar novamente o snapshot após a análise do grafo e fazer GET da
    versão por ID imediatamente antes do DELETE. No primeiro DELETE, o snapshot
    precisa ser igual ao inicial. Tags, digest, ID e criação precisam concordar.
@@ -143,8 +168,9 @@ anterior deixou de consumir imagens; quando configurado, ele é consultado.
 
 ## Summary e artifact
 
-O Summary exibe modo, contagens das classificações iniciais, limite, exclusões
-confirmadas, candidatas remanescentes, adiadas pelo limite e versões puladas.
+O Summary separa TAGGED e UNTAGGED: limites 20/50, candidatas, exclusões
+confirmadas e remanescentes. Exibe também SKIPPED_UNSAFE_UNTAGGED, total untagged,
+untagged preservadas, TOTAL DELETED, PROTECTED, KEEP e workers deletion disabled.
 Removidas/puladas incluem ID, tags, digest, criação e motivo. REMAINING
 DELETE_CANDIDATE conta propostas iniciais ainda não confirmadas como removidas
 ou ausentes; elas precisam de nova auditoria para outra execução.
@@ -154,6 +180,12 @@ O artifact ghcr-cleanup-<run_id> contém ghcr-cleanup-report.json, incluindo:
 - snapshot inicial, revalidado e imediatamente pré-delete;
 - snapshot divergente, se houver, e hashes/timestamps de cada revalidação;
 - todas as versões, decisões, candidatas, removidas e puladas;
+- tagged_candidates, untagged_candidates, deleted_tagged_versions,
+  deleted_untagged_versions e skipped_untagged_versions;
+- grafo inicial de digests; cada untagged removida inclui version_id, digest,
+  created_at, reason, timestamp da exclusão e evidence: ausência na closure retida,
+  hash/tamanho dessa closure, hash do grafo inspecionado, referrers completos,
+  ausência de referências de entrada e horário da verificação;
 - tentativas com HTTP status e resultado DELETED, ALREADY_ABSENT, FAILED ou
   PENDING_OR_UNKNOWN;
 - timestamps, run_id e SHA do commit do workflow.
@@ -174,13 +206,17 @@ Testes sem rede/credenciais, com todas as exclusões simuladas:
 Cobrem modos, bloqueios por status/package/tags, CURRENT/PREVIOUS, PREVIOUS
 inativa, alternância das cores, paginação acima de 100, dependências, limite e
 ordem, snapshots alterados, reexecuções, 403/404, falhas parciais e interrupções.
+Incluem orfandade >14 dias, limite exato de idade, closure de KEEP/CURRENT/PREVIOUS,
+subject reverso, BuildKit, provenance/SBOM, referrers paginados ou indisponíveis,
+mudanças de relacionamentos entre DELETEs e execução de 20 tagged + 50 untagged.
 
 O lock não cobre alterações manuais nem workflows externos sem o mesmo grupo.
 Existe uma janela entre a última leitura e a requisição HTTP: não há DELETE
 condicional atômico entre Azure e GHCR. Tags SHA podem ser republicadas;
 consumidores externos/homologação não são inventariados; revisões inativas da
 API fora de PREVIOUS não têm retenção garantida. Inventários grandes podem
-atingir timeout/rate limit. Consistência eventual após DELETE pode interromper
+atingir timeout/rate limit, sobretudo com referrers reconsultados antes de cada
+DELETE. Nesses casos a execução para sem relaxar a verificação. Consistência eventual após DELETE pode interromper
 a execução conservadoramente; sucessos confirmados permanecem no artifact.
 Cancelamentos podem impedir o upload final, embora o checkpoint local e logs
 já produzidos sejam preservados no runner.
@@ -188,4 +224,5 @@ já produzidos sejam preservados no runner.
 Referências oficiais: [GitHub Packages API](https://docs.github.com/en/rest/packages/packages),
 [permissões GHCR](https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#authenticating-in-a-github-actions-workflow),
 [concorrência de Actions](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency),
-[attestations Docker](https://docs.docker.com/build/metadata/attestations/).
+[attestations Docker](https://docs.docker.com/build/metadata/attestations/),
+[OCI Distribution: referrers](https://github.com/opencontainers/distribution-spec/blob/main/spec.md#listing-referrers).

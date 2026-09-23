@@ -48,13 +48,15 @@ def snapshot():
 def registry_fixture(manifests):
     registry = object.__new__(REGISTRY_CLASS)
     registry.cache = {}
+    registry.reset_graph()
+    registry.referrers = Mock(return_value=set())
     registry.manifest = Mock(side_effect=lambda ref: (ref, manifests[ref]))
     return registry
 
 
 def manifest(**extra):
     return {"schemaVersion": 2, "mediaType": "application/vnd.oci.image.manifest.v1+json",
-            "config": {}, "layers": [], **extra}
+            "config": {"mediaType": "application/vnd.oci.image.config.v1+json"}, "layers": [], **extra}
 
 
 class RetentionTests(unittest.TestCase):

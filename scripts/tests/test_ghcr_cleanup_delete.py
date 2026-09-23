@@ -143,9 +143,10 @@ class ExecutionTests(unittest.TestCase):
         self.delete.assert_not_called()
         self.assertEqual(0, report["deleted"])
 
-    def test_protected_keep_skipped_untagged_and_non_sha_never_enter_plan(self):
+    def test_protected_keep_young_untagged_and_non_sha_never_enter_plan(self):
         for version_id, tags in ((35, []), (34, ["sha-x", "release"]), (33, ["latest"])):
             next(v for v in self.live.inventories[cleanup.API] if v["id"] == version_id)["tags"] = tags
+        next(v for v in self.live.inventories[cleanup.API] if v["id"] == 35)["created_at"] = version(35, 14)["created_at"]
         self.live.state["revisions"][1]["images"] = [f"ghcr.io/hemodinks/hemodinks-api@{digest(32)}"]
         report = self.audit()
         self.execute(report)
@@ -253,7 +254,8 @@ class ExecutionTests(unittest.TestCase):
 
     def test_dependency_of_deferred_candidate_is_not_deleted(self):
         # Version 11 is outside the limit and depends on the oldest candidate 35.
-        self.live.manifests[digest(11)] = manifest(subject={"digest": digest(35)})
+        self.live.manifests[digest(11)] = {"schemaVersion": 2, "mediaType": "application/vnd.oci.image.index.v1+json",
+                                          "manifests": [{"digest": digest(35)}]}
         report = self.audit()
         self.assertIn(35, [row["id"] for row in report["candidates"]])
         self.execute(report)
@@ -264,8 +266,8 @@ class ExecutionTests(unittest.TestCase):
     def test_unknown_candidate_manifest_blocks_all_deletions(self):
         self.live.manifests[digest(35)] = {"schemaVersion": 2, "mediaType": "unknown"}
         report = self.audit()
-        with self.assertRaisesRegex(cleanup.UnsafeState, "Unknown manifest"):
-            self.execute(report)
+        self.assertFalse(report["candidates"])
+        self.execute(report)
         self.delete.assert_not_called()
 
     def test_partial_failure_preserves_confirmed_count_and_summary(self):
@@ -338,7 +340,7 @@ class ExecutionTests(unittest.TestCase):
 
 class TransportTests(unittest.TestCase):
     def row(self, **changes):
-        return {**version(99), "status": "DELETE_CANDIDATE", **changes}
+        return {**version(99), "status": "DELETE_CANDIDATE", "candidate_type": "tagged", **changes}
 
     def test_invalid_or_missing_ref_never_issues_http_request(self):
         for ref in INVALID_DELETE_REFS:
