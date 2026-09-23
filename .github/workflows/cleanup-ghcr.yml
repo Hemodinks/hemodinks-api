@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       execute_delete:
-        description: Delete up to 20 eligible API SHA versions (workers and untagged never deleted)
+        description: Delete up to 20 old API SHA versions + 50 proven orphan untagged versions (>14 days); workers never deleted
         type: boolean
         required: false
         default: false
