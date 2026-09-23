@@ -60,10 +60,20 @@ def check_mode():
 
 def validate_delete_context():
     require(check_mode(), "Deletion requires execute_delete=true.")
-    require(os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
-            and os.environ.get("CLEANUP_CONCURRENCY_GROUP") == "production-container-publish"
-            and os.environ.get("GITHUB_REPOSITORY", "").lower() == "hemodinks/hemodinks-api",
-            "Deletion requires a manual HemoDinks workflow holding the production concurrency group.")
+
+    # GHCR is shared: dispatching developer does not select a separate package.
+    # Restrict real deletion to main for every caller.
+    require(
+        os.environ.get("GITHUB_REF") == "refs/heads/main",
+        "DELETE is allowed only from refs/heads/main."
+    )
+
+    require(
+        os.environ.get("GITHUB_EVENT_NAME") == "workflow_dispatch"
+        and os.environ.get("CLEANUP_CONCURRENCY_GROUP") == "production-container-publish"
+        and os.environ.get("GITHUB_REPOSITORY", "").lower() == "hemodinks/hemodinks-api",
+        "Deletion requires a manual HemoDinks workflow holding the production concurrency group."
+    )
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -638,6 +648,7 @@ def main():
         message = str(exc) if isinstance(exc, UnsafeState) else f"Incomplete audit ({type(exc).__name__})"
         report["error"] = message
         print("::error::" + message)
+        print(f"Deleted: {report['deleted']}")
         result = 1
     checkpoint(report, args.output)
     write_summary(report)
