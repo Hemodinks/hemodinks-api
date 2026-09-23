@@ -16,7 +16,11 @@ from test_ghcr_cleanup import cleanup, digest, manifest, NOW, registry_fixture, 
 DELETE_ENV = {"EXECUTE_DELETE": "true", "GITHUB_TOKEN": "fake", "GITHUB_ACTOR": "test",
               "GITHUB_EVENT_NAME": "workflow_dispatch", "GITHUB_REPOSITORY": "Hemodinks/hemodinks-api",
               "CLEANUP_CONCURRENCY_GROUP": "production-container-publish", "GITHUB_RUN_ID": "123",
-              "WORKFLOW_SHA": "a" * 40}
+              "WORKFLOW_SHA": "a" * 40, "GITHUB_REF": "refs/heads/main"}
+
+INVALID_DELETE_REFS = (None, "", "main", "refs/tags/main", "refs/pull/1/merge",
+                       "refs/heads/Main", "refs/heads/main/", "refs/heads/developer",
+                       "refs/heads/feature/test")
 
 
 class LiveFixture:
@@ -95,6 +99,49 @@ class ExecutionTests(unittest.TestCase):
         self.assertTrue(all(item["outcome"] == "DELETED" for item in stored["delete_attempts"]))
         self.assertTrue(all(row["status"] in ("KEEP", "SKIPPED_UNSAFE_TO_DELETE")
                             for row in report["packages"][1]["versions"]))
+
+    def test_dry_run_allowed_on_every_branch(self):
+        for ref in ("refs/heads/main", "refs/heads/developer", "refs/heads/feature/test"):
+            with self.subTest(ref=ref), patch.dict(os.environ, {"EXECUTE_DELETE": "false", "GITHUB_REF": ref}), \
+                 patch.object(cleanup.sys, "argv", ["ghcr_cleanup.py", "--output", str(self.output)]), \
+                 patch("builtins.print"):
+                self.assertEqual(0, cleanup.main())
+                report = json.loads(self.output.read_text())
+                self.assertTrue(report["audit_complete"])
+                self.assertEqual("DRY_RUN", report["mode"])
+                self.assertEqual(0, report["deleted"])
+                self.assertTrue(report["candidates"])
+                self.delete.assert_not_called()
+                self.get_version.assert_not_called()
+
+    def test_invalid_ref_aborts_cli_before_audit_and_reports_zero(self):
+        for ref in INVALID_DELETE_REFS:
+            for flags in ([], ["--check-mode"]):
+                with self.subTest(ref=ref, flags=flags), patch.dict(os.environ), \
+                     patch.object(cleanup.sys, "argv", ["ghcr_cleanup.py", *flags, "--output", str(self.output)]), \
+                     patch("builtins.print") as output:
+                    os.environ.pop("GITHUB_REF", None)
+                    if ref is not None:
+                        os.environ["GITHUB_REF"] = ref
+                    self.assertEqual(1, cleanup.main())
+                    output.assert_any_call("::error::DELETE is allowed only from refs/heads/main.")
+                    output.assert_any_call("Deleted: 0")
+                    report = json.loads(self.output.read_text())
+                    self.assertEqual(0, report["deleted"])
+                    self.assertEqual([], report["delete_attempts"])
+                    self.assertFalse(report["audit_complete"])
+                    self.assertIn("Deleted: **0**", self.summary.read_text(encoding="utf-8"))
+                    self.azure.assert_not_called()
+                    self.versions.assert_not_called()
+                    self.delete.assert_not_called()
+
+    def test_branch_change_after_audit_blocks_execution(self):
+        report = self.audit()
+        with patch.dict(os.environ, {"GITHUB_REF": "refs/heads/developer"}):
+            with self.assertRaisesRegex(cleanup.UnsafeState, "DELETE is allowed only from refs/heads/main"):
+                self.execute(report)
+        self.delete.assert_not_called()
+        self.assertEqual(0, report["deleted"])
 
     def test_protected_keep_skipped_untagged_and_non_sha_never_enter_plan(self):
         for version_id, tags in ((35, []), (34, ["sha-x", "release"]), (33, ["latest"])):
@@ -292,6 +339,17 @@ class ExecutionTests(unittest.TestCase):
 class TransportTests(unittest.TestCase):
     def row(self, **changes):
         return {**version(99), "status": "DELETE_CANDIDATE", **changes}
+
+    def test_invalid_or_missing_ref_never_issues_http_request(self):
+        for ref in INVALID_DELETE_REFS:
+            env = {key: value for key, value in DELETE_ENV.items() if key != "GITHUB_REF"}
+            if ref is not None:
+                env["GITHUB_REF"] = ref
+            with self.subTest(ref=ref), patch.dict(os.environ, env, clear=True), \
+                 patch.object(cleanup, "build_opener") as opener:
+                with self.assertRaisesRegex(cleanup.UnsafeState, "DELETE is allowed only from refs/heads/main"):
+                    cleanup.delete_version(cleanup.API, self.row(), "fake")
+                opener.assert_not_called()
 
     def test_package_status_and_tag_guards_before_http(self):
         rows = [self.row(status=status) for status in ("PROTECTED", "KEEP", "SKIPPED_UNSAFE_TO_DELETE")]

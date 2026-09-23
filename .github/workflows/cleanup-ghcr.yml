@@ -46,6 +46,13 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Block DELETE outside main
+        if: ${{ inputs.execute_delete && github.ref != 'refs/heads/main' }}
+        run: |
+          echo "::error::DELETE is allowed only from refs/heads/main."
+          echo "Deleted: 0"
+          exit 1
+
       - name: Validate execution mode and production lock
         run: python scripts/ghcr_cleanup.py --check-mode
 
