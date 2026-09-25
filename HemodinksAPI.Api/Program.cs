@@ -139,6 +139,7 @@ if (app.Environment.IsProduction())
 }
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
+app.UseInfrastructureWarmup();
 app.UseAuthentication();
 app.UseRateLimiter();
 app.Use(async (context, next) =>
