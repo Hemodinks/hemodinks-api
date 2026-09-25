@@ -1,4 +1,8 @@
-# Inicialização sem aquecimento automático
+# Inicialização e warm-up de infraestrutura
+
+Atualização: o frontend agora dispara somente `/api/warmup`, em paralelo à
+renderização, uma vez por sessão da aba. Ver [warm-up de infraestrutura](infrastructure-warmup.md).
+As medições abaixo são históricas, anteriores a essa alteração.
 
 O login do frontend deve renderizar seus campos sem consultar o diretório de
 clínicas, `/healthz`, `/readyz` ou `/livez`. A descoberta dos vínculos continua no
@@ -27,7 +31,7 @@ pausa do banco ou quantidade de réplicas é alterada.
   e executar os testes `LoginBrowserTests`. Cada cenário cria sua API e banco de
   teste; não usar endpoints ou credenciais de produção.
 - Frontend: executar auditoria de arquitetura, Vitest, build, orçamento de bundle
-  e Playwright. Os cenários de login verificam ausência de aquecimento, espera,
+  e Playwright. Os cenários de login verificam warm-up isolado e não bloqueante, espera,
   cancelamento, timeout e recuperação manual, além dos fluxos de autenticação.
 
 ## Medição
@@ -56,6 +60,6 @@ nenhuma chamada à API ou health check foi emitida. O módulo da interface
 autenticada não foi baixado nessas navegações. Esses números verificam o caminho
 local; não são uma comparação antes/depois nem uma previsão para Azure/Render.
 
-Não adicionar pings periódicos nem aquecimento ao abrir o login. A suspensão da
+Não adicionar pings periódicos. O warm-up dedicado é best effort; a suspensão da
 hospedagem ou do banco ainda pode afetar a primeira tentativa solicitada pelo
 usuário.
