@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Features.Events;
 using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
@@ -118,23 +119,30 @@ public class EventReminderProcessor : IEventReminderProcessor
         var message = BuildReminderMessage(ev, now);
         var sentAny = false;
 
-        if (ev.NotifyUser)
-        {
-            await _notificationService.SendNotificationToUserAsync(ev.UserId, title, message);
-            sentAny = true;
-        }
-
+        // Platform workers have no tenant query filter: constrain every recipient to the event clinic.
+        var eligibleUsers = EventRecipientScope.ActiveUsers(_context, ev.ClinicaId);
+        if (!await eligibleUsers.AnyAsync(user => user.Id == ev.UserId, cancellationToken))
+            return false;
+        var recipientIds = new HashSet<int>();
+        if (ev.NotifyUser) recipientIds.Add(ev.UserId);
         if (ev.NotifyMedicalProfile)
         {
+            var doctors = eligibleUsers.Where(user => user.PerfilId == Perfil.MedicosId);
             if (ev.MedicalUserId.HasValue)
-            {
-                await _notificationService.SendNotificationToUserAsync(ev.MedicalUserId.Value, title, message);
-            }
-            else
-            {
-                await _notificationService.SendNotificationToMedicalProfileAsync(Perfil.MedicosId, title, message);
-            }
+                doctors = doctors.Where(user => user.Id == ev.MedicalUserId.Value);
 
+            var team = await _context.Equipes.AsNoTracking()
+                .Where(item => item.ClinicaId == ev.ClinicaId && item.UsuarioLoginId == ev.UserId)
+                .Select(item => new { item.Id, item.Ativa }).FirstOrDefaultAsync(cancellationToken);
+            if (team != null)
+                doctors = doctors.Where(user => team.Ativa && _context.EquipeMembros.Any(member =>
+                    member.ClinicaId == ev.ClinicaId && member.EquipeId == team.Id
+                    && member.Ativo && member.UserId == user.Id));
+            recipientIds.UnionWith(await doctors.Select(user => user.Id).ToListAsync(cancellationToken));
+        }
+        foreach (var recipientId in recipientIds)
+        {
+            await _notificationService.SendNotificationToUserAsync(recipientId, title, message);
             sentAny = true;
         }
 

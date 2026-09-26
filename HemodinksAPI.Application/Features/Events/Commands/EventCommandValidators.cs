@@ -1,3 +1,4 @@
+using FluentValidation;
 using HemodinksAPI.Application.Validation;
 
 namespace HemodinksAPI.Application.Features.Events.Commands;
@@ -32,33 +33,22 @@ internal static class EventRequestValidator
             throw new InvalidOperationException("Informe os dados do evento.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.Title))
-        {
-            throw new InvalidOperationException("Informe o titulo do evento.");
-        }
+        var result = new EventPayloadValidator().Validate(request);
+        if (!result.IsValid) throw new InvalidOperationException(result.Errors[0].ErrorMessage);
+        EventFeatureRules.ValidateNotificationRequest(request);
+    }
+}
 
-        if (request.End <= request.Start)
-        {
-            throw new InvalidOperationException("A data final do evento deve ser maior que a data inicial.");
-        }
-
-        if (request.NotificationMessage is { Length: > 500 })
-        {
-            throw new InvalidOperationException("A mensagem da notificacao deve ter no maximo 500 caracteres.");
-        }
-
-        var hasRecipients = request.NotifyAllAllowedRecipients
-            || request.NotificationUserIds.Count > 0
-            || request.NotificationGroupIds.Count > 0;
-
-        if (hasRecipients && string.IsNullOrWhiteSpace(request.NotificationMessage))
-        {
-            throw new InvalidOperationException("Informe a mensagem da notificacao.");
-        }
-
-        if (!hasRecipients && !string.IsNullOrWhiteSpace(request.NotificationMessage))
-        {
-            throw new InvalidOperationException("Selecione ao menos um destinatario para enviar a notificacao.");
-        }
+internal sealed class EventPayloadValidator : AbstractValidator<EventRequest>
+{
+    public EventPayloadValidator()
+    {
+        RuleFor(request => request.Title).NotEmpty().WithMessage("Informe o titulo do evento.");
+        RuleFor(request => request.End).GreaterThan(request => request.Start)
+            .WithMessage("A data final do evento deve ser maior que a data inicial.");
+        RuleFor(request => request.NotificationUserIds)
+            .Must(ids => ids != null && ids.All(id => id > 0)).WithMessage("Informe destinatarios validos.");
+        RuleFor(request => request.NotificationGroupIds)
+            .Must(ids => ids != null && ids.All(id => id > 0)).WithMessage("Informe destinatarios validos.");
     }
 }

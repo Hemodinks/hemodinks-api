@@ -1,5 +1,4 @@
 using HemodinksAPI.Application.Data;
-using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Services;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -20,16 +19,9 @@ public sealed class GetEventMedicalUsersQueryHandler
         GetEventMedicalUsersQuery request,
         CancellationToken cancellationToken)
     {
-        var query = _context.Users
-            .AsNoTracking()
-            .Where(user => user.Ativo && user.PerfilId == Perfil.MedicosId);
-        if (request.CurrentUser.IsEquipe && request.CurrentUser.EquipeId.HasValue)
-        {
-            var memberUserIds = _context.EquipeMembros.AsNoTracking()
-                .Where(member => member.EquipeId == request.CurrentUser.EquipeId && member.Ativo)
-                .Select(member => member.UserId);
-            query = query.Where(user => memberUserIds.Contains(user.Id));
-        }
+        if (request.CurrentUser.IsPaciente || (request.CurrentUser.IsEquipe && !request.CurrentUser.EquipeId.HasValue))
+            throw new UnauthorizedAccessException();
+        var query = EventRecipientScope.MedicalUsers(_context, request.CurrentUser);
 
         return await query
             .OrderBy(user => user.Nome)

@@ -192,6 +192,7 @@ public interface IMedicalGroupFeatureDbContext :
 
 public interface IEventFeatureDbContext :
     IUnitOfWork,
+    IGlobalIdentityDbContext,
     IMedicalUserScopeDbContext,
     IEventDataDbContext;
 

@@ -38,6 +38,8 @@ public sealed class EventReminderProcessorConcurrencyTests
             };
             firstDb.Users.Add(user);
             await firstDb.SaveChangesAsync();
+            await HemodinksAPI.Application.Authentication.GlobalIdentityService.EnsureForUserAsync(
+                firstDb, user, CancellationToken.None);
             firstDb.Events.Add(new Event
             {
                 ClinicaId = Clinica.DefaultId,

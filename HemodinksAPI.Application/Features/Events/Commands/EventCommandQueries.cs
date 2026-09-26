@@ -1,6 +1,5 @@
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Data;
-using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Features.Events.Commands;
@@ -35,8 +34,7 @@ internal static class EventCommandQueries
             throw new UnauthorizedAccessException();
         }
 
-        var ownerExists = await context.Users
-            .AsNoTracking()
+        var ownerExists = await EventRecipientScope.ActiveUsers(context, currentUser.ClinicaId)
             .AnyAsync(user => user.Id == ownerUserId && user.Ativo, cancellationToken);
 
         if (!ownerExists)
@@ -53,6 +51,8 @@ internal static class EventCommandQueries
         CurrentUserContext currentUser,
         CancellationToken cancellationToken)
     {
+        if (currentUser.IsPaciente && (request.NotifyMedicalProfile || request.MedicalUserId.HasValue))
+            throw new UnauthorizedAccessException();
         var medicalUserId = request.MedicalUserId;
 
         if (request.NotifyMedicalProfile && !medicalUserId.HasValue && currentUser.IsMedico)
@@ -65,22 +65,8 @@ internal static class EventCommandQueries
             return null;
         }
 
-        var isValidMedicalUser = await context.Users
-            .AsNoTracking()
-            .AnyAsync(user => user.Id == medicalUserId.Value
-                && user.Ativo
-                && user.PerfilId == Perfil.MedicosId, cancellationToken);
-
-        if (isValidMedicalUser && currentUser.IsEquipe)
-        {
-            isValidMedicalUser = currentUser.EquipeId.HasValue
-                && await context.EquipeMembros
-                    .AsNoTracking()
-                    .AnyAsync(member => member.EquipeId == currentUser.EquipeId.Value
-                        && member.UserId == medicalUserId.Value
-                        && member.Ativo,
-                        cancellationToken);
-        }
+        var isValidMedicalUser = await EventRecipientScope.MedicalUsers(context, currentUser)
+            .AnyAsync(user => user.Id == medicalUserId.Value, cancellationToken);
 
         if (!isValidMedicalUser)
         {

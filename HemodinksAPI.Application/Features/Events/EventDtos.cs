@@ -1,5 +1,6 @@
 namespace HemodinksAPI.Application.Features.Events;
 
+[System.Text.Json.Serialization.JsonUnmappedMemberHandling(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
 public sealed class EventRequest
 {
     public int? UserId { get; set; }

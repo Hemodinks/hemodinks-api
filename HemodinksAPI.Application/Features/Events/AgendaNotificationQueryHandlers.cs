@@ -1,5 +1,4 @@
 using HemodinksAPI.Application.Data;
-using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -25,48 +24,8 @@ public sealed class GetAgendaNotificationRecipientOptionsQueryHandler
             throw new UnauthorizedAccessException();
         }
 
-        var isAdminOrController = currentUser.IsAdministrador || currentUser.IsController;
-
-        var usersQuery = _context.Users
-            .AsNoTracking()
-            .Where(user => user.Ativo && user.Id != currentUser.Id);
-
-        if (isAdminOrController)
-        {
-            usersQuery = usersQuery.Where(user => user.PerfilId != Perfil.PacientesId);
-        }
-        else if (currentUser.IsMedico)
-        {
-            usersQuery = usersQuery.Where(user =>
-                user.PerfilId == Perfil.AdministradorId
-                || user.PerfilId == Perfil.SuperAdministradorId
-                || user.PerfilId == Perfil.ControllerId);
-        }
-        else if (currentUser.IsEquipe && currentUser.EquipeId.HasValue)
-        {
-            var memberUserIds = _context.EquipeMembros
-                .AsNoTracking()
-                .Where(member => member.EquipeId == currentUser.EquipeId.Value && member.Ativo)
-                .Select(member => member.UserId);
-            usersQuery = usersQuery.Where(user => memberUserIds.Contains(user.Id));
-        }
-        else
-        {
-            throw new UnauthorizedAccessException();
-        }
-
-        var groupsQuery = _context.GruposMedicos
-            .AsNoTracking()
-            .Where(group => group.Ativo);
-
-        if (currentUser.IsMedico)
-        {
-            groupsQuery = groupsQuery.Where(group => group.Membros.Any(member => member.UserId == currentUser.Id));
-        }
-        else if (!isAdminOrController)
-        {
-            groupsQuery = groupsQuery.Where(_ => false);
-        }
+        var usersQuery = EventRecipientScope.AllowedUsers(_context, currentUser);
+        var groupsQuery = EventRecipientScope.AllowedGroups(_context, currentUser);
 
         var users = await usersQuery
             .OrderBy(user => user.Nome)
