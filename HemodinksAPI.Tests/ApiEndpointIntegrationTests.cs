@@ -228,7 +228,7 @@ public partial class ApiEndpointIntegrationTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
         using var json = await ReadJsonAsync(response);
-        Assert.Equal("Informe o titulo do evento.", json.RootElement.GetProperty("message").GetString());
+        Assert.Equal("Título é obrigatório.", json.RootElement.GetProperty("message").GetString());
     }
 
 }

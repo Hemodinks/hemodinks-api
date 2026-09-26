@@ -23,10 +23,12 @@ internal sealed class EventConfiguration : IEntityTypeConfiguration<Event>
             .HasMaxLength(2000);
 
         entity.Property(e => e.Start)
-            .IsRequired();
+            .IsRequired()
+            .HasConversion(value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
 
         entity.Property(e => e.End)
-            .IsRequired();
+            .IsRequired()
+            .HasConversion(value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
 
         entity.Property(e => e.NotifyMedicalProfile)
             .IsRequired()

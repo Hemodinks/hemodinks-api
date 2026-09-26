@@ -135,18 +135,10 @@ internal static class EventFeatureRules
 
     public static Event ApplyRequest(Event ev, EventRequest request, int userId, int? medicalUserId, bool isCreate)
     {
-        var title = request.Title?.Trim();
-        if (string.IsNullOrWhiteSpace(title))
-        {
-            throw new InvalidOperationException("Informe o titulo do evento.");
-        }
-
+        EventScheduleRules.Validate(request);
+        var title = request.Title!.Trim();
         var start = ToUtc(request.Start);
         var end = ToUtc(request.End);
-        if (end <= start)
-        {
-            throw new InvalidOperationException("A data final do evento deve ser maior que a data inicial.");
-        }
 
         var reminderPeriodMinutes = request.ReminderPeriodMinutes;
         if (request.NotifyUser || request.NotifyMedicalProfile)
@@ -185,15 +177,7 @@ internal static class EventFeatureRules
         return ev;
     }
 
-    public static DateTime ToUtc(DateTime value)
-    {
-        return value.Kind switch
-        {
-            DateTimeKind.Utc => value,
-            DateTimeKind.Local => value.ToUniversalTime(),
-            _ => DateTime.SpecifyKind(value, DateTimeKind.Local).ToUniversalTime()
-        };
-    }
+    public static DateTime ToUtc(DateTime value) => EventScheduleRules.ToUtc(value);
 
     public static EventDto ToDto(Event ev)
     {

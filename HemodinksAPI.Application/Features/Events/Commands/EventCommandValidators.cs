@@ -43,9 +43,7 @@ internal sealed class EventPayloadValidator : AbstractValidator<EventRequest>
 {
     public EventPayloadValidator()
     {
-        RuleFor(request => request.Title).NotEmpty().WithMessage("Informe o titulo do evento.");
-        RuleFor(request => request.End).GreaterThan(request => request.Start)
-            .WithMessage("A data final do evento deve ser maior que a data inicial.");
+        Include(new EventScheduleValidator());
         RuleFor(request => request.NotificationUserIds)
             .Must(ids => ids != null && ids.All(id => id > 0)).WithMessage("Informe destinatarios validos.");
         RuleFor(request => request.NotificationGroupIds)

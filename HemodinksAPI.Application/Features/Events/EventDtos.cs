@@ -11,8 +11,10 @@ public sealed class EventRequest
 
     public string? Description { get; set; }
 
+    [System.Text.Json.Serialization.JsonRequired]
     public DateTime Start { get; set; }
 
+    [System.Text.Json.Serialization.JsonRequired]
     public DateTime End { get; set; }
 
     public bool NotifyMedicalProfile { get; set; }
