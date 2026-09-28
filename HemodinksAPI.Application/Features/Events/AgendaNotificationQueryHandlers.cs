@@ -1,3 +1,4 @@
+using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Data;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,8 @@ public sealed class GetAgendaNotificationRecipientOptionsQueryHandler
         GetAgendaNotificationRecipientOptionsQuery request,
         CancellationToken cancellationToken)
     {
+        var validation = new AgendaRecipientQueryValidator().Validate(request);
+        if (!validation.IsValid) throw new InvalidOperationException(validation.Errors[0].ErrorMessage);
         var currentUser = request.CurrentUser;
         if (currentUser.IsPaciente)
         {
@@ -25,11 +28,21 @@ public sealed class GetAgendaNotificationRecipientOptionsQueryHandler
         }
 
         var usersQuery = EventRecipientScope.AllowedUsers(_context, currentUser);
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var term = request.Search.Trim().ToLower();
+            usersQuery = usersQuery.Where(user => user.Nome.ToLower().Contains(term));
+        }
+        if (request.Profile == "medical") usersQuery = usersQuery.Where(user => user.PerfilId == Perfil.MedicosId);
+        if (request.Profile == "administrative") usersQuery = usersQuery.Where(user =>
+            user.PerfilId == Perfil.AdministradorId || user.PerfilId == Perfil.SuperAdministradorId || user.PerfilId == Perfil.ControllerId);
+        var totalUsers = await usersQuery.CountAsync(cancellationToken);
         var groupsQuery = EventRecipientScope.AllowedGroups(_context, currentUser);
 
         var users = await usersQuery
             .OrderBy(user => user.Nome)
             .ThenBy(user => user.Id)
+            .Skip((request.Page - 1) * request.PageSize).Take(request.PageSize)
             .Select(user => new AgendaNotificationRecipientUserDto
             {
                 Id = user.Id,
@@ -53,12 +66,13 @@ public sealed class GetAgendaNotificationRecipientOptionsQueryHandler
 
         return new AgendaNotificationRecipientOptionsDto
         {
+            TotalUsers = totalUsers, Page = request.Page, PageSize = request.PageSize,
             CanNotifyAllAllowedRecipients = true,
             AllRecipientsLabel = currentUser.IsEquipe
                 ? "Todos os membros ativos desta equipe"
                 : currentUser.IsMedico
-                    ? "Todos os administradores, controllers e medicos dos meus grupos"
-                    : "Todos os usuarios ativos, exceto pacientes",
+                    ? "Administradores, superadministradores e controllers da clínica"
+                    : "Todos os usuários ativos da clínica, exceto pacientes e você",
             Users = users,
             Groups = groups
         };

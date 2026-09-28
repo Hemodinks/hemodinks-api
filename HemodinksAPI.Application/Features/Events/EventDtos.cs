@@ -104,6 +104,10 @@ public sealed class AgendaNotificationRecipientGroupDto
 
 public sealed class AgendaNotificationRecipientOptionsDto
 {
+    public int TotalUsers { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+
     public bool CanNotifyAllAllowedRecipients { get; set; }
 
     public string AllRecipientsLabel { get; set; } = string.Empty;
