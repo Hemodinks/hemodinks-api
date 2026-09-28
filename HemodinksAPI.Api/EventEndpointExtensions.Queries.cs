@@ -64,6 +64,9 @@ public static partial class EventEndpointExtensions
     private static Task<IResult> GetEvents(
         DateTime? from,
         DateTime? to,
+        string? search,
+        int? userId,
+        bool? isCompleted,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
@@ -76,6 +79,9 @@ public static partial class EventEndpointExtensions
             {
                 From = from,
                 To = to,
+                Search = search,
+                UserId = userId,
+                IsCompleted = isCompleted,
                 CurrentUser = currentUser
             }, cancellationToken));
         }, logger, "Erro ao buscar eventos da agenda", "Erro ao buscar eventos da agenda", new EndpointErrorOptions

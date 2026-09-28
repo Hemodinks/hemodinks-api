@@ -10,6 +10,12 @@ public sealed class GetEventMedicalUsersQuery : IRequest<IReadOnlyList<EventMedi
 
 public sealed class GetEventsQuery : IRequest<IReadOnlyList<EventDto>>
 {
+    public string? Search { get; set; }
+
+    public int? UserId { get; set; }
+
+    public bool? IsCompleted { get; set; }
+
     public DateTime? From { get; set; }
 
     public DateTime? To { get; set; }

@@ -49,6 +49,8 @@ public sealed class GetEventsQueryHandler
 
     public async Task<IReadOnlyList<EventDto>> Handle(GetEventsQuery request, CancellationToken cancellationToken)
     {
+        var validation = new EventQueryValidator().Validate(request);
+        if (!validation.IsValid) throw new InvalidOperationException(validation.Errors[0].ErrorMessage);
         await _reminderProcessor.ProcessDueRemindersAsync(cancellationToken);
 
         var query = EventFeatureRules.ApplyScope(_context, _context.Events.AsNoTracking(), request.CurrentUser);
@@ -65,11 +67,21 @@ public sealed class GetEventsQueryHandler
             query = query.Where(ev => ev.Start <= toUtc);
         }
 
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var term = request.Search.Trim().ToLower();
+            query = query.Where(ev => ev.Title.ToLower().Contains(term) ||
+                (ev.Description != null && ev.Description.ToLower().Contains(term)));
+        }
+        if (request.UserId.HasValue) query = query.Where(ev => ev.UserId == request.UserId.Value);
+        if (request.IsCompleted.HasValue) query = query.Where(ev => ev.IsCompleted == request.IsCompleted.Value);
+
         var events = await query
             .Include(ev => ev.User)
             .Include(ev => ev.MedicalUser)
             .OrderBy(ev => ev.Start)
             .ThenBy(ev => ev.Title)
+            .ThenBy(ev => ev.Id)
             .ToListAsync(cancellationToken);
 
         return events.Select(EventFeatureRules.ToDto).ToList();
