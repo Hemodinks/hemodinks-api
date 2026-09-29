@@ -1,5 +1,6 @@
 namespace HemodinksAPI.Application.Features.Events;
 
+[System.Text.Json.Serialization.JsonUnmappedMemberHandling(System.Text.Json.Serialization.JsonUnmappedMemberHandling.Disallow)]
 public sealed class EventRequest
 {
     public int? UserId { get; set; }
@@ -9,6 +10,15 @@ public sealed class EventRequest
     public string? Title { get; set; }
 
     public string? Description { get; set; }
+
+    public bool IsAllDay { get; set; }
+
+    public DateOnly? AllDayStartDate { get; set; }
+
+    // Inclusive civil date; End remains an exclusive UTC boundary for all-day events.
+    public DateOnly? AllDayEndDate { get; set; }
+
+    public string? TimeZoneId { get; set; }
 
     public DateTime Start { get; set; }
 
@@ -46,6 +56,15 @@ public sealed class EventDto
     public string Title { get; set; } = string.Empty;
 
     public string? Description { get; set; }
+
+    public bool IsAllDay { get; set; }
+
+    public DateOnly? AllDayStartDate { get; set; }
+
+    // Inclusive civil date; End remains an exclusive UTC boundary for all-day events.
+    public DateOnly? AllDayEndDate { get; set; }
+
+    public string? TimeZoneId { get; set; }
 
     public DateTime Start { get; set; }
 
@@ -101,6 +120,10 @@ public sealed class AgendaNotificationRecipientGroupDto
 
 public sealed class AgendaNotificationRecipientOptionsDto
 {
+    public int TotalUsers { get; set; }
+    public int Page { get; set; }
+    public int PageSize { get; set; }
+
     public bool CanNotifyAllAllowedRecipients { get; set; }
 
     public string AllRecipientsLabel { get; set; } = string.Empty;

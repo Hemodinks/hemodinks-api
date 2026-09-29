@@ -24,6 +24,11 @@ public sealed class MedicalRecipientQueryTests
         await context.Database.ExecuteSqlRawAsync("""
             CREATE TABLE Users (Id INTEGER PRIMARY KEY, ClinicaId INTEGER, PerfilId INTEGER,
                 Ativo INTEGER, Nome TEXT, Email TEXT);
+            CREATE TABLE Clinicas (Id INTEGER PRIMARY KEY, Ativa INTEGER);
+            INSERT INTO Clinicas VALUES (1, 1), (2, 1);
+            CREATE TABLE UsuariosGlobais (Id INTEGER PRIMARY KEY, Ativo INTEGER);
+            CREATE TABLE UsuariosClinicas (Id INTEGER PRIMARY KEY, UserId INTEGER, ClinicaId INTEGER,
+                UsuarioGlobalId INTEGER, Ativo INTEGER);
             CREATE TABLE Perfis (Id INTEGER PRIMARY KEY, Nome TEXT);
             CREATE TABLE GruposMedicos (Id INTEGER PRIMARY KEY, ClinicaId INTEGER, Ativo INTEGER, Nome TEXT);
             CREATE TABLE GrupoMedicoUsuarios (GrupoMedicoId INTEGER, UserId INTEGER, ClinicaId INTEGER);
@@ -40,6 +45,8 @@ public sealed class MedicalRecipientQueryTests
                 (8, 2, 1, 1, 'Outra clinica', 'other@example.com'),
                 (9, 1, 5, 0, 'Super inativo', 'inactive-super@example.com'),
                 (10, 1, 4, 0, 'Controller inativo', 'inactive-controller@example.com');
+            INSERT INTO UsuariosGlobais SELECT Id, 1 FROM Users;
+            INSERT INTO UsuariosClinicas SELECT Id, Id, ClinicaId, Id, 1 FROM Users;
             """);
 
         var doctor = new CurrentUserContext(4, Perfil.MedicosId, "Medico");

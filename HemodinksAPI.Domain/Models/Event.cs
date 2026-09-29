@@ -20,6 +20,15 @@ public class Event : IClinicaOwnedEntity
 
     public string? Description { get; set; }
 
+    public bool IsAllDay { get; set; }
+
+    public DateOnly? AllDayStartDate { get; set; }
+
+    // Inclusive civil date; End remains an exclusive UTC boundary for all-day events.
+    public DateOnly? AllDayEndDate { get; set; }
+
+    public string? TimeZoneId { get; set; }
+
     public DateTime Start { get; set; }
 
     public DateTime End { get; set; }

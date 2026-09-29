@@ -1,5 +1,5 @@
-using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Data;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 
@@ -19,58 +19,30 @@ public sealed class GetAgendaNotificationRecipientOptionsQueryHandler
         GetAgendaNotificationRecipientOptionsQuery request,
         CancellationToken cancellationToken)
     {
+        var validation = new AgendaRecipientQueryValidator().Validate(request);
+        if (!validation.IsValid) throw new InvalidOperationException(validation.Errors[0].ErrorMessage);
         var currentUser = request.CurrentUser;
         if (currentUser.IsPaciente)
         {
             throw new UnauthorizedAccessException();
         }
 
-        var isAdminOrController = currentUser.IsAdministrador || currentUser.IsController;
-
-        var usersQuery = _context.Users
-            .AsNoTracking()
-            .Where(user => user.Ativo && user.Id != currentUser.Id);
-
-        if (isAdminOrController)
+        var usersQuery = EventRecipientScope.AllowedUsers(_context, currentUser);
+        if (!string.IsNullOrWhiteSpace(request.Search))
         {
-            usersQuery = usersQuery.Where(user => user.PerfilId != Perfil.PacientesId);
+            var term = request.Search.Trim().ToLower();
+            usersQuery = usersQuery.Where(user => user.Nome.ToLower().Contains(term));
         }
-        else if (currentUser.IsMedico)
-        {
-            usersQuery = usersQuery.Where(user =>
-                user.PerfilId == Perfil.AdministradorId
-                || user.PerfilId == Perfil.SuperAdministradorId
-                || user.PerfilId == Perfil.ControllerId);
-        }
-        else if (currentUser.IsEquipe && currentUser.EquipeId.HasValue)
-        {
-            var memberUserIds = _context.EquipeMembros
-                .AsNoTracking()
-                .Where(member => member.EquipeId == currentUser.EquipeId.Value && member.Ativo)
-                .Select(member => member.UserId);
-            usersQuery = usersQuery.Where(user => memberUserIds.Contains(user.Id));
-        }
-        else
-        {
-            throw new UnauthorizedAccessException();
-        }
-
-        var groupsQuery = _context.GruposMedicos
-            .AsNoTracking()
-            .Where(group => group.Ativo);
-
-        if (currentUser.IsMedico)
-        {
-            groupsQuery = groupsQuery.Where(group => group.Membros.Any(member => member.UserId == currentUser.Id));
-        }
-        else if (!isAdminOrController)
-        {
-            groupsQuery = groupsQuery.Where(_ => false);
-        }
+        if (request.Profile == "medical") usersQuery = usersQuery.Where(user => user.PerfilId == Perfil.MedicosId);
+        if (request.Profile == "administrative") usersQuery = usersQuery.Where(user =>
+            user.PerfilId == Perfil.AdministradorId || user.PerfilId == Perfil.SuperAdministradorId || user.PerfilId == Perfil.ControllerId);
+        var totalUsers = await usersQuery.CountAsync(cancellationToken);
+        var groupsQuery = EventRecipientScope.AllowedGroups(_context, currentUser);
 
         var users = await usersQuery
             .OrderBy(user => user.Nome)
             .ThenBy(user => user.Id)
+            .Skip((request.Page - 1) * request.PageSize).Take(request.PageSize)
             .Select(user => new AgendaNotificationRecipientUserDto
             {
                 Id = user.Id,
@@ -94,12 +66,13 @@ public sealed class GetAgendaNotificationRecipientOptionsQueryHandler
 
         return new AgendaNotificationRecipientOptionsDto
         {
+            TotalUsers = totalUsers, Page = request.Page, PageSize = request.PageSize,
             CanNotifyAllAllowedRecipients = true,
             AllRecipientsLabel = currentUser.IsEquipe
                 ? "Todos os membros ativos desta equipe"
                 : currentUser.IsMedico
-                    ? "Todos os administradores, controllers e medicos dos meus grupos"
-                    : "Todos os usuarios ativos, exceto pacientes",
+                    ? "Administradores, superadministradores e controllers da clínica"
+                    : "Todos os usuários ativos da clínica, exceto pacientes e você",
             Users = users,
             Groups = groups
         };

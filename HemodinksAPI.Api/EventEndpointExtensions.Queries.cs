@@ -21,6 +21,7 @@ public static partial class EventEndpointExtensions
     }
 
     private static Task<IResult> GetNotificationRecipients(
+        string? search, string? profile, int? page, int? pageSize,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
@@ -31,7 +32,7 @@ public static partial class EventEndpointExtensions
             var currentUser = GetRequiredNonPatientCurrentUser(claimsPrincipal);
             return Results.Ok(await mediator.Send(new GetAgendaNotificationRecipientOptionsQuery
             {
-                CurrentUser = currentUser
+                CurrentUser = currentUser, Search = search, Profile = profile, Page = page ?? 1, PageSize = pageSize ?? 20
             }, cancellationToken));
         }, logger, "Erro ao buscar destinatarios de notificacoes da agenda", "Erro ao buscar destinatarios de notificacoes da agenda", new EndpointErrorOptions
         {
@@ -63,6 +64,11 @@ public static partial class EventEndpointExtensions
     private static Task<IResult> GetEvents(
         DateTime? from,
         DateTime? to,
+        DateOnly? fromDate,
+        DateOnly? toDate,
+        string? search,
+        int? userId,
+        bool? isCompleted,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
@@ -73,8 +79,13 @@ public static partial class EventEndpointExtensions
             var currentUser = GetRequiredCurrentUser(claimsPrincipal);
             return Results.Ok(await mediator.Send(new GetEventsQuery
             {
+                FromDate = fromDate,
+                ToDate = toDate,
                 From = from,
                 To = to,
+                Search = search,
+                UserId = userId,
+                IsCompleted = isCompleted,
                 CurrentUser = currentUser
             }, cancellationToken));
         }, logger, "Erro ao buscar eventos da agenda", "Erro ao buscar eventos da agenda", new EndpointErrorOptions

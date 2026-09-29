@@ -17,7 +17,8 @@ public sealed class MarkAgendaNotificationsAsReadCommandHandler : IRequestHandle
     {
         var unreadNotifications = await _context.AgendaNotifications
             .Where(notification =>
-                notification.RecipientUserId == request.CurrentUser.Id
+                notification.ClinicaId == request.CurrentUser.ClinicaId
+                && notification.RecipientUserId == request.CurrentUser.Id
                 && notification.ReadAt == null)
             .ToListAsync(cancellationToken);
 

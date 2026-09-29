@@ -20,7 +20,7 @@ internal static class DashboardEventScope
 
             return await ApplyEventScope(context, context.Events.AsNoTracking(), perfilId, userId, equipeId)
                 .CountAsync(ev => !ev.IsCompleted
-                    && ev.End >= now
+                    && (ev.IsAllDay ? ev.End > now : ev.End >= now)
                     && ev.Start <= now.AddDays(2), cancellationToken);
         }
         catch (Exception ex)
@@ -45,7 +45,7 @@ internal static class DashboardEventScope
 
             var upcomingEvents = await ApplyEventScope(context, context.Events.AsNoTracking(), perfilId, userId, equipeId)
                 .Where(ev => !ev.IsCompleted
-                    && ev.End >= now
+                    && (ev.IsAllDay ? ev.End > now : ev.End >= now)
                     && ev.Start <= now.AddDays(2))
                 .OrderBy(ev => ev.Start)
                 .ThenBy(ev => ev.Title)
@@ -56,6 +56,8 @@ internal static class DashboardEventScope
                     ev.Title,
                     ev.Description,
                     ev.Start,
+                    ev.AllDayStartDate,
+                    ev.AllDayEndDate,
                     MedicalUserName = ev.MedicalUser != null ? ev.MedicalUser.Nome : null
                 })
                 .ToListAsync(cancellationToken);
@@ -73,6 +75,8 @@ internal static class DashboardEventScope
                     PacienteId = 0,
                     NomePaciente = string.Empty,
                     Medico = ev.MedicalUserName,
+                    AllDayStartDate = ev.AllDayStartDate,
+                    AllDayEndDate = ev.AllDayEndDate,
                     Data = ev.Start
                 })
                 .ToList();

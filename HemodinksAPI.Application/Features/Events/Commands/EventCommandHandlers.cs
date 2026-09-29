@@ -23,7 +23,7 @@ public sealed class EventCommandHandler :
 
     public async Task<EventDto> Handle(CreateEventCommand request, CancellationToken cancellationToken)
     {
-        var clinicaId = _clinicaContext.GetRequiredClinicaId();
+        var clinicaId = RequireClinica(request.CurrentUser);
         EventFeatureRules.ValidateNotificationRequest(request.Request);
 
         var ownerUserId = await EventCommandQueries.ResolveOwnerUserIdAsync(
@@ -46,8 +46,8 @@ public sealed class EventCommandHandler :
             isCreate: true);
         ev.ClinicaId = clinicaId;
 
-        _context.Events.Add(ev);
         EventNotificationMutations.AddAgendaNotifications(_context, ev, request.CurrentUser, request.Request, clinicaId);
+        _context.Events.Add(ev);
         await _context.SaveChangesAsync(cancellationToken);
 
         return await EventCommandQueries.FindEventDtoAsync(_context, ev.Id, cancellationToken);
@@ -55,7 +55,8 @@ public sealed class EventCommandHandler :
 
     public async Task<EventDto> Handle(UpdateEventCommand request, CancellationToken cancellationToken)
     {
-        var ev = await _context.Events.FirstOrDefaultAsync(item => item.Id == request.Id, cancellationToken);
+        var clinicaId = RequireClinica(request.CurrentUser);
+        var ev = await _context.Events.FirstOrDefaultAsync(item => item.Id == request.Id && item.ClinicaId == clinicaId, cancellationToken);
         if (ev == null)
         {
             throw new KeyNotFoundException();
@@ -75,6 +76,8 @@ public sealed class EventCommandHandler :
             request.CurrentUser,
             cancellationToken);
 
+        EventFeatureRules.ResolveNotificationRecipientUserIds(_context, request.CurrentUser, request.Request);
+
         EventFeatureRules.ApplyRequest(
             ev,
             request.Request,
@@ -89,7 +92,8 @@ public sealed class EventCommandHandler :
 
     public async Task Handle(CompleteEventCommand request, CancellationToken cancellationToken)
     {
-        var ev = await _context.Events.FirstOrDefaultAsync(item => item.Id == request.Id, cancellationToken);
+        var clinicaId = RequireClinica(request.CurrentUser);
+        var ev = await _context.Events.FirstOrDefaultAsync(item => item.Id == request.Id && item.ClinicaId == clinicaId, cancellationToken);
         if (ev == null)
         {
             throw new KeyNotFoundException();
@@ -106,7 +110,8 @@ public sealed class EventCommandHandler :
 
     public async Task Handle(DeleteEventCommand request, CancellationToken cancellationToken)
     {
-        var ev = await _context.Events.FirstOrDefaultAsync(item => item.Id == request.Id, cancellationToken);
+        var clinicaId = RequireClinica(request.CurrentUser);
+        var ev = await _context.Events.FirstOrDefaultAsync(item => item.Id == request.Id && item.ClinicaId == clinicaId, cancellationToken);
         if (ev == null)
         {
             throw new KeyNotFoundException();
@@ -118,4 +123,10 @@ public sealed class EventCommandHandler :
         await _context.SaveChangesAsync(cancellationToken);
     }
 
+    private int RequireClinica(HemodinksAPI.Application.Authorization.CurrentUserContext actor)
+    {
+        var clinicaId = _clinicaContext.GetRequiredClinicaId();
+        if (actor.ClinicaId != clinicaId) throw new UnauthorizedAccessException();
+        return clinicaId;
+    }
 }

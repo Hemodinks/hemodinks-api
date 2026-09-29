@@ -1,5 +1,4 @@
 using HemodinksAPI.Application.Data;
-using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Services;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -20,16 +19,9 @@ public sealed class GetEventMedicalUsersQueryHandler
         GetEventMedicalUsersQuery request,
         CancellationToken cancellationToken)
     {
-        var query = _context.Users
-            .AsNoTracking()
-            .Where(user => user.Ativo && user.PerfilId == Perfil.MedicosId);
-        if (request.CurrentUser.IsEquipe && request.CurrentUser.EquipeId.HasValue)
-        {
-            var memberUserIds = _context.EquipeMembros.AsNoTracking()
-                .Where(member => member.EquipeId == request.CurrentUser.EquipeId && member.Ativo)
-                .Select(member => member.UserId);
-            query = query.Where(user => memberUserIds.Contains(user.Id));
-        }
+        if (request.CurrentUser.IsPaciente || (request.CurrentUser.IsEquipe && !request.CurrentUser.EquipeId.HasValue))
+            throw new UnauthorizedAccessException();
+        var query = EventRecipientScope.MedicalUsers(_context, request.CurrentUser);
 
         return await query
             .OrderBy(user => user.Nome)
@@ -57,6 +49,8 @@ public sealed class GetEventsQueryHandler
 
     public async Task<IReadOnlyList<EventDto>> Handle(GetEventsQuery request, CancellationToken cancellationToken)
     {
+        var validation = new EventQueryValidator().Validate(request);
+        if (!validation.IsValid) throw new InvalidOperationException(validation.Errors[0].ErrorMessage);
         await _reminderProcessor.ProcessDueRemindersAsync(cancellationToken);
 
         var query = EventFeatureRules.ApplyScope(_context, _context.Events.AsNoTracking(), request.CurrentUser);
@@ -64,20 +58,34 @@ public sealed class GetEventsQueryHandler
         if (request.From.HasValue)
         {
             var fromUtc = EventFeatureRules.ToUtc(request.From.Value);
-            query = query.Where(ev => ev.End >= fromUtc);
+            query = request.FromDate.HasValue
+                ? query.Where(ev => ev.IsAllDay ? ev.AllDayEndDate >= request.FromDate : ev.End >= fromUtc)
+                : query.Where(ev => ev.IsAllDay ? ev.End > fromUtc : ev.End >= fromUtc);
         }
 
         if (request.To.HasValue)
         {
             var toUtc = EventFeatureRules.ToUtc(request.To.Value);
-            query = query.Where(ev => ev.Start <= toUtc);
+            query = request.ToDate.HasValue
+                ? query.Where(ev => ev.IsAllDay ? ev.AllDayStartDate <= request.ToDate : ev.Start <= toUtc)
+                : query.Where(ev => ev.Start <= toUtc);
         }
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var term = request.Search.Trim().ToLower();
+            query = query.Where(ev => ev.Title.ToLower().Contains(term) ||
+                (ev.Description != null && ev.Description.ToLower().Contains(term)));
+        }
+        if (request.UserId.HasValue) query = query.Where(ev => ev.UserId == request.UserId.Value);
+        if (request.IsCompleted.HasValue) query = query.Where(ev => ev.IsCompleted == request.IsCompleted.Value);
 
         var events = await query
             .Include(ev => ev.User)
             .Include(ev => ev.MedicalUser)
             .OrderBy(ev => ev.Start)
             .ThenBy(ev => ev.Title)
+            .ThenBy(ev => ev.Id)
             .ToListAsync(cancellationToken);
 
         return events.Select(EventFeatureRules.ToDto).ToList();

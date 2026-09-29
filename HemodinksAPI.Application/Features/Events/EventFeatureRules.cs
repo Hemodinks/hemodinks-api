@@ -10,6 +10,7 @@ internal static class EventFeatureRules
 {
     public static IQueryable<Event> ApplyScope(IEventFeatureDbContext context, IQueryable<Event> query, CurrentUserContext currentUser)
     {
+        query = query.Where(ev => ev.ClinicaId == currentUser.ClinicaId);
         var teamLoginUserIds = context.Equipes.AsNoTracking()
             .Where(team => team.Ativa)
             .Select(team => team.UsuarioLoginId);
@@ -44,7 +45,7 @@ internal static class EventFeatureRules
 
     public static void EnsureCanManageEvent(Event ev, CurrentUserContext currentUser)
     {
-        if (!currentUser.IsAdministrador && ev.UserId != currentUser.Id)
+        if (ev.ClinicaId != currentUser.ClinicaId || (!currentUser.IsAdministrador && ev.UserId != currentUser.Id))
         {
             throw new UnauthorizedAccessException();
         }
@@ -55,6 +56,7 @@ internal static class EventFeatureRules
         CurrentUserContext currentUser,
         EventRequest request)
     {
+        ValidateNotificationRequest(request);
         var allowedRecipients = BuildAllowedNotificationRecipientUserIds(context, currentUser);
         var recipientIds = new HashSet<int>();
 
@@ -82,37 +84,7 @@ internal static class EventFeatureRules
 
     public static HashSet<int> BuildAllowedNotificationRecipientUserIds(IEventFeatureDbContext context, CurrentUserContext currentUser)
     {
-        if (currentUser.IsEquipe && currentUser.EquipeId.HasValue)
-        {
-            return context.EquipeMembros.AsNoTracking()
-                .Where(member => member.EquipeId == currentUser.EquipeId && member.Ativo && member.User.Ativo)
-                .Select(member => member.UserId)
-                .ToHashSet();
-        }
-
-        if (currentUser.IsAdministrador || currentUser.IsController)
-        {
-            return context.Users
-                .AsNoTracking()
-                .Where(user => user.Ativo && user.PerfilId != Perfil.PacientesId && user.Id != currentUser.Id)
-                .Select(user => user.Id)
-                .ToHashSet();
-        }
-
-        if (currentUser.IsMedico)
-        {
-            return context.Users
-                .AsNoTracking()
-                .Where(user => user.Ativo
-                    && user.Id != currentUser.Id
-                    && (user.PerfilId == Perfil.AdministradorId
-                        || user.PerfilId == Perfil.SuperAdministradorId
-                        || user.PerfilId == Perfil.ControllerId))
-                .Select(user => user.Id)
-                .ToHashSet();
-        }
-
-        return [];
+        return EventRecipientScope.AllowedUsers(context, currentUser).Select(user => user.Id).ToHashSet();
     }
 
     public static IReadOnlyList<int> BuildAllowedNotificationGroupMemberIds(
@@ -120,42 +92,26 @@ internal static class EventFeatureRules
         CurrentUserContext currentUser,
         IEnumerable<int> requestedGroupIds)
     {
-        var groupIds = requestedGroupIds.Distinct().Where(id => id > 0).ToList();
-        if (!groupIds.Any())
-        {
-            return [];
-        }
+        var groupIds = requestedGroupIds.Distinct().ToList();
+        if (groupIds.Count == 0) return [];
+        var allowedGroups = EventRecipientScope.AllowedGroups(context, currentUser)
+            .Where(group => groupIds.Contains(group.Id)).Select(group => group.Id).ToHashSet();
+        if (groupIds.Any(id => !allowedGroups.Contains(id)))
+            throw new UnauthorizedAccessException("Um ou mais grupos selecionados nao sao permitidos.");
 
-        if (currentUser.IsMedico)
-        {
-            var allowedGroupIds = context.GrupoMedicoUsuarios
-                .AsNoTracking()
-                .Where(member => member.UserId == currentUser.Id)
-                .Select(member => member.GrupoMedicoId)
-                .ToHashSet();
-
-            if (groupIds.Any(groupId => !allowedGroupIds.Contains(groupId)))
-            {
-                throw new UnauthorizedAccessException("Um ou mais grupos selecionados nao fazem parte do escopo do medico.");
-            }
-        }
-
-        if (!groupIds.Any())
-        {
-            return [];
-        }
-
-        return context.GrupoMedicoUsuarios
-            .AsNoTracking()
-            .Where(member => groupIds.Contains(member.GrupoMedicoId)
-                && member.User.Ativo
-                && member.User.PerfilId == Perfil.MedicosId)
-            .Select(member => member.UserId)
-            .ToList();
+        var activeDoctors = EventRecipientScope.ActiveUsers(context, currentUser.ClinicaId)
+            .Where(user => user.PerfilId == Perfil.MedicosId).Select(user => user.Id);
+        return context.GrupoMedicoUsuarios.AsNoTracking()
+            .Where(member => member.ClinicaId == currentUser.ClinicaId
+                && groupIds.Contains(member.GrupoMedicoId) && activeDoctors.Contains(member.UserId))
+            .Select(member => member.UserId).Distinct().ToList();
     }
 
     public static void ValidateNotificationRequest(EventRequest request)
     {
+        if (request.NotificationUserIds == null || request.NotificationGroupIds == null
+            || request.NotificationUserIds.Any(id => id <= 0) || request.NotificationGroupIds.Any(id => id <= 0))
+            throw new InvalidOperationException("Informe destinatarios validos.");
         var hasMessage = !string.IsNullOrWhiteSpace(request.NotificationMessage);
         var hasRecipients = request.NotifyAllAllowedRecipients
             || request.NotificationUserIds.Any()
@@ -179,18 +135,12 @@ internal static class EventFeatureRules
 
     public static Event ApplyRequest(Event ev, EventRequest request, int userId, int? medicalUserId, bool isCreate)
     {
-        var title = request.Title?.Trim();
-        if (string.IsNullOrWhiteSpace(title))
-        {
-            throw new InvalidOperationException("Informe o titulo do evento.");
-        }
-
-        var start = ToUtc(request.Start);
-        var end = ToUtc(request.End);
-        if (end <= start)
-        {
-            throw new InvalidOperationException("A data final do evento deve ser maior que a data inicial.");
-        }
+        EventScheduleRules.Validate(request);
+        var title = request.Title!.Trim();
+        DateTime start, end;
+        if (request.IsAllDay)
+            AllDayEventSchedule.TryResolve(request.AllDayStartDate, request.AllDayEndDate, request.TimeZoneId, out start, out end);
+        else { start = ToUtc(request.Start); end = ToUtc(request.End); }
 
         var reminderPeriodMinutes = request.ReminderPeriodMinutes;
         if (request.NotifyUser || request.NotifyMedicalProfile)
@@ -209,6 +159,10 @@ internal static class EventFeatureRules
         ev.MedicalUserId = medicalUserId;
         ev.Title = title;
         ev.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        ev.IsAllDay = request.IsAllDay;
+        ev.AllDayStartDate = request.IsAllDay ? request.AllDayStartDate : null;
+        ev.AllDayEndDate = request.IsAllDay ? request.AllDayEndDate : null;
+        ev.TimeZoneId = request.IsAllDay ? request.TimeZoneId : null;
         ev.Start = start;
         ev.End = end;
         ev.NotifyMedicalProfile = request.NotifyMedicalProfile;
@@ -229,15 +183,7 @@ internal static class EventFeatureRules
         return ev;
     }
 
-    public static DateTime ToUtc(DateTime value)
-    {
-        return value.Kind switch
-        {
-            DateTimeKind.Utc => value,
-            DateTimeKind.Local => value.ToUniversalTime(),
-            _ => DateTime.SpecifyKind(value, DateTimeKind.Local).ToUniversalTime()
-        };
-    }
+    public static DateTime ToUtc(DateTime value) => EventScheduleRules.ToUtc(value);
 
     public static EventDto ToDto(Event ev)
     {
@@ -250,6 +196,10 @@ internal static class EventFeatureRules
             MedicalUserName = ev.MedicalUser != null ? ev.MedicalUser.Nome : null,
             Title = ev.Title,
             Description = ev.Description,
+            IsAllDay = ev.IsAllDay,
+            AllDayStartDate = ev.AllDayStartDate,
+            AllDayEndDate = ev.AllDayEndDate,
+            TimeZoneId = ev.TimeZoneId,
             Start = ev.Start,
             End = ev.End,
             NotifyMedicalProfile = ev.NotifyMedicalProfile,
