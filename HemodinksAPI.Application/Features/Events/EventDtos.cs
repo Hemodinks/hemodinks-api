@@ -11,10 +11,17 @@ public sealed class EventRequest
 
     public string? Description { get; set; }
 
-    [System.Text.Json.Serialization.JsonRequired]
+    public bool IsAllDay { get; set; }
+
+    public DateOnly? AllDayStartDate { get; set; }
+
+    // Inclusive civil date; End remains an exclusive UTC boundary for all-day events.
+    public DateOnly? AllDayEndDate { get; set; }
+
+    public string? TimeZoneId { get; set; }
+
     public DateTime Start { get; set; }
 
-    [System.Text.Json.Serialization.JsonRequired]
     public DateTime End { get; set; }
 
     public bool NotifyMedicalProfile { get; set; }
@@ -49,6 +56,15 @@ public sealed class EventDto
     public string Title { get; set; } = string.Empty;
 
     public string? Description { get; set; }
+
+    public bool IsAllDay { get; set; }
+
+    public DateOnly? AllDayStartDate { get; set; }
+
+    // Inclusive civil date; End remains an exclusive UTC boundary for all-day events.
+    public DateOnly? AllDayEndDate { get; set; }
+
+    public string? TimeZoneId { get; set; }
 
     public DateTime Start { get; set; }
 

@@ -53,6 +53,10 @@ public class DashboardNotificationDto
 
     public DateTime? Data { get; set; }
 
+    public DateOnly? AllDayStartDate { get; set; }
+
+    public DateOnly? AllDayEndDate { get; set; }
+
     public DateTime? DataLeitura { get; set; }
 }
 

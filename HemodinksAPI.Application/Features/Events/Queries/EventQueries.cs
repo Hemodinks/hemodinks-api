@@ -16,6 +16,10 @@ public sealed class GetEventsQuery : IRequest<IReadOnlyList<EventDto>>
 
     public bool? IsCompleted { get; set; }
 
+    public DateOnly? FromDate { get; set; }
+
+    public DateOnly? ToDate { get; set; }
+
     public DateTime? From { get; set; }
 
     public DateTime? To { get; set; }

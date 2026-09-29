@@ -154,7 +154,10 @@ public class EventReminderProcessor : IEventReminderProcessor
         var eventStart = ev.Start.ToLocalTime().ToString("dd/MM/yyyy HH:mm");
         var responsible = ev.MedicalUser != null ? $" Medico: {ev.MedicalUser.Nome}." : string.Empty;
         var description = string.IsNullOrWhiteSpace(ev.Description) ? string.Empty : $" {ev.Description}";
-        var status = ev.Start <= now ? "Evento pendente de conclusao." : $"Evento em {eventStart}.";
+        var status = ev.IsAllDay && ev.AllDayStartDate.HasValue && ev.AllDayEndDate.HasValue
+            ? AllDayEventSchedule.Describe(ev.AllDayStartDate.Value, ev.AllDayEndDate.Value)
+                + (ev.Start <= now ? " Evento pendente de conclusao." : string.Empty)
+            : ev.Start <= now ? "Evento pendente de conclusao." : $"Evento em {eventStart}.";
 
         return $"{status}{responsible}{description}";
     }

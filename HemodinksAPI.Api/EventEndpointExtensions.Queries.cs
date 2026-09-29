@@ -64,6 +64,8 @@ public static partial class EventEndpointExtensions
     private static Task<IResult> GetEvents(
         DateTime? from,
         DateTime? to,
+        DateOnly? fromDate,
+        DateOnly? toDate,
         string? search,
         int? userId,
         bool? isCompleted,
@@ -77,6 +79,8 @@ public static partial class EventEndpointExtensions
             var currentUser = GetRequiredCurrentUser(claimsPrincipal);
             return Results.Ok(await mediator.Send(new GetEventsQuery
             {
+                FromDate = fromDate,
+                ToDate = toDate,
                 From = from,
                 To = to,
                 Search = search,

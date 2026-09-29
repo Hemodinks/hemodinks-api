@@ -137,8 +137,10 @@ internal static class EventFeatureRules
     {
         EventScheduleRules.Validate(request);
         var title = request.Title!.Trim();
-        var start = ToUtc(request.Start);
-        var end = ToUtc(request.End);
+        DateTime start, end;
+        if (request.IsAllDay)
+            AllDayEventSchedule.TryResolve(request.AllDayStartDate, request.AllDayEndDate, request.TimeZoneId, out start, out end);
+        else { start = ToUtc(request.Start); end = ToUtc(request.End); }
 
         var reminderPeriodMinutes = request.ReminderPeriodMinutes;
         if (request.NotifyUser || request.NotifyMedicalProfile)
@@ -157,6 +159,10 @@ internal static class EventFeatureRules
         ev.MedicalUserId = medicalUserId;
         ev.Title = title;
         ev.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
+        ev.IsAllDay = request.IsAllDay;
+        ev.AllDayStartDate = request.IsAllDay ? request.AllDayStartDate : null;
+        ev.AllDayEndDate = request.IsAllDay ? request.AllDayEndDate : null;
+        ev.TimeZoneId = request.IsAllDay ? request.TimeZoneId : null;
         ev.Start = start;
         ev.End = end;
         ev.NotifyMedicalProfile = request.NotifyMedicalProfile;
@@ -190,6 +196,10 @@ internal static class EventFeatureRules
             MedicalUserName = ev.MedicalUser != null ? ev.MedicalUser.Nome : null,
             Title = ev.Title,
             Description = ev.Description,
+            IsAllDay = ev.IsAllDay,
+            AllDayStartDate = ev.AllDayStartDate,
+            AllDayEndDate = ev.AllDayEndDate,
+            TimeZoneId = ev.TimeZoneId,
             Start = ev.Start,
             End = ev.End,
             NotifyMedicalProfile = ev.NotifyMedicalProfile,

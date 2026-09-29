@@ -6,6 +6,10 @@ internal sealed class EventQueryValidator : AbstractValidator<GetEventsQuery>
 {
     public EventQueryValidator()
     {
+        RuleFor(query => query.FromDate).Must((query, _) =>
+            (!query.FromDate.HasValue && !query.ToDate.HasValue) ||
+            (query.FromDate.HasValue && query.ToDate.HasValue && query.FromDate <= query.ToDate && query.From.HasValue && query.To.HasValue))
+            .WithMessage("Informe um intervalo de datas válido junto ao período da agenda.");
         RuleFor(query => query.Search).MaximumLength(200)
             .WithMessage("A busca deve ter no máximo 200 caracteres.");
         RuleFor(query => query.UserId).GreaterThan(0).When(query => query.UserId.HasValue)

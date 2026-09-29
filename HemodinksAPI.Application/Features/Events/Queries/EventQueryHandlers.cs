@@ -58,13 +58,17 @@ public sealed class GetEventsQueryHandler
         if (request.From.HasValue)
         {
             var fromUtc = EventFeatureRules.ToUtc(request.From.Value);
-            query = query.Where(ev => ev.End >= fromUtc);
+            query = request.FromDate.HasValue
+                ? query.Where(ev => ev.IsAllDay ? ev.AllDayEndDate >= request.FromDate : ev.End >= fromUtc)
+                : query.Where(ev => ev.IsAllDay ? ev.End > fromUtc : ev.End >= fromUtc);
         }
 
         if (request.To.HasValue)
         {
             var toUtc = EventFeatureRules.ToUtc(request.To.Value);
-            query = query.Where(ev => ev.Start <= toUtc);
+            query = request.ToDate.HasValue
+                ? query.Where(ev => ev.IsAllDay ? ev.AllDayStartDate <= request.ToDate : ev.Start <= toUtc)
+                : query.Where(ev => ev.Start <= toUtc);
         }
 
         if (!string.IsNullOrWhiteSpace(request.Search))

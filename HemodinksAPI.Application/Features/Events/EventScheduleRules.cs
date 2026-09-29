@@ -32,11 +32,20 @@ internal sealed class EventScheduleValidator : AbstractValidator<EventRequest>
     public EventScheduleValidator()
     {
         RuleFor(request => request.Title).NotEmpty().WithMessage(EventScheduleRules.TitleRequired);
-        RuleFor(request => request.Start).Must(EventScheduleRules.IsValid).WithMessage(EventScheduleRules.InvalidStart);
-        RuleFor(request => request.End).Must(EventScheduleRules.IsValid).WithMessage(EventScheduleRules.InvalidEnd);
-        RuleFor(request => request.End)
-            .Must((request, end) => EventScheduleRules.ToUtc(end) > EventScheduleRules.ToUtc(request.Start))
-            .When(request => EventScheduleRules.IsValid(request.Start) && EventScheduleRules.IsValid(request.End))
-            .WithMessage(EventScheduleRules.EndAfterStart);
+        When(request => request.IsAllDay, () =>
+        {
+            RuleFor(request => request.TimeZoneId).Must(AllDayEventSchedule.IsValidZone).WithMessage(AllDayEventSchedule.InvalidZone);
+            RuleFor(request => request.AllDayEndDate).Must((request, endDate) =>
+                AllDayEventSchedule.TryResolve(request.AllDayStartDate, request.AllDayEndDate, request.TimeZoneId, out _, out _))
+                .When(request => AllDayEventSchedule.IsValidZone(request.TimeZoneId)).WithMessage(AllDayEventSchedule.InvalidPeriod);
+        }).Otherwise(() =>
+        {
+            RuleFor(request => request.Start).Must(EventScheduleRules.IsValid).WithMessage(EventScheduleRules.InvalidStart);
+            RuleFor(request => request.End).Must(EventScheduleRules.IsValid).WithMessage(EventScheduleRules.InvalidEnd);
+            RuleFor(request => request.End)
+                .Must((request, end) => EventScheduleRules.ToUtc(end) > EventScheduleRules.ToUtc(request.Start))
+                .When(request => EventScheduleRules.IsValid(request.Start) && EventScheduleRules.IsValid(request.End))
+                .WithMessage(EventScheduleRules.EndAfterStart);
+        });
     }
 }
