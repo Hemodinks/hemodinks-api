@@ -1,11 +1,11 @@
 services:
   - type: web
-    name: hemodinks-api-confirmation
+    name: hemodinks-api-1
     runtime: docker
     plan: free
-    region: oregon
+    region: virginia
     branch: developer
-    autoDeployTrigger: checksPass
+    autoDeployTrigger: 'off'
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /healthz
@@ -14,6 +14,15 @@ services:
         value: Confirmation
       - key: ASPNETCORE_URLS
         value: http://0.0.0.0:10000
+      - key: Database__RunMigrationsOnStartup
+        value: "false"
+      - key: Database__RunMaintenanceOnStartup
+        value: "false"
+      - key: Seed__CbhpmOnStartup
+        value: "false"
+      - key: Seed__UsersOnStartup
+        value: "false"
+      # SchemaManagedByDeployment is set only by the successful migration job.
       - key: CORECLR_ENABLE_PROFILING
         value: "1"
       - key: ConnectionStrings__DefaultConnection

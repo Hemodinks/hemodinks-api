@@ -1,0 +1,170 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>HemodinksAPI.Application</name>
+    </assembly>
+    <members>
+        <member name="T:HemodinksAPI.Application.Authentication.IJwtTokenService">
+            <summary>
+            Servico para gerar tokens JWT.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Authentication.JwtSettings">
+            <summary>
+            Configurações de JWT
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Application.Authentication.JwtSettings.SecretKey">
+            <summary>
+            Chave secreta para assinar os tokens
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Application.Authentication.JwtSettings.Issuer">
+            <summary>
+            Emissor do token
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Application.Authentication.JwtSettings.Audience">
+            <summary>
+            Audiência do token
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Application.Authentication.JwtSettings.ExpirationMinutes">
+            <summary>
+            Tempo de expiração em minutos
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Data.FullTextSearch">
+            <summary>
+            Provider-neutral application boundary for full-text predicates.
+            The database provider maps this method to its native implementation.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Clinics.IPublicClinicDirectory">
+            <summary>Read-only access to the public directory, restricted to active clinics.</summary>
+        </member>
+        <member name="M:HemodinksAPI.Application.Features.Common.FullTextSearchTermBuilder.BuildPrefixCondition(System.String)">
+            <summary>
+            Converte texto livre em uma condicao CONTAINS segura de prefixos, por exemplo
+            <c>"cirurg*" AND "cardiac*"</c>. Grupos separados por virgula sao combinados
+            com OR. As demais pontuacoes e operadores sao tratados como separadores;
+            somente letras, digitos e marcas Unicode compoem os termos.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Common.IFullTextSearchCapability">
+            <summary>
+            Informa se o provider relacional ativo traduz as funcoes Full-Text do SQL Server.
+            Providers usados em testes, como SQLite e InMemory, devem retornar false.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.AuthenticateUserCommandHandler">
+            <summary>
+            Handler para autenticar usuario.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.ChangePasswordCommandHandler">
+            <summary>
+            Handler para trocar senha do usuario autenticado.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.CreateUserCommandHandler">
+            <summary>
+            Handler para criar novo usuario.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.DeleteUserCommandHandler">
+            <summary>
+            Handler para excluir usuario.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.PasswordResetTenantResolver">
+            <summary>
+            Resolve a clinica proprietaria de um reset antes da execucao idempotente.
+            O token e a credencial publica deste fluxo e nunca e exposto ao cliente em forma de hash.
+            </summary>
+        </member>
+        <member name="M:HemodinksAPI.Application.Features.Users.Commands.PasswordResetTenantResolver.#ctor(HemodinksAPI.Application.Data.IPlatformPasswordResetDbContext,HemodinksAPI.Application.Tenancy.ClinicaContext)">
+            <summary>
+            Resolve a clinica proprietaria de um reset antes da execucao idempotente.
+            O token e a credencial publica deste fluxo e nunca e exposto ao cliente em forma de hash.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.ResolveLoginClinicsCommandHandler">
+            <summary>
+            Resolve somente as clínicas nas quais a credencial informada é válida.
+            Esta etapa não cria sessão nem concede acesso a APIs de negócio.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.UpdateUserCommandHandler">
+            <summary>
+            Handler para atualizar usuario.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.CreateUserCommand">
+            <summary>
+            DTO para criação de usuário
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.CreateUserResponse">
+            <summary>
+            DTO para resposta de criação de usuário
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.AuthenticateUserCommand">
+            <summary>
+            DTO para autenticação de usuário
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.ResolveLoginClinicsCommand">
+            <summary>
+            Valida a credencial sem criar uma sessão e retorna somente as clínicas
+            em que ela pode ser autenticada.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.AuthenticateUserResponse">
+            <summary>
+            DTO para resposta de autenticação
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.UpdateUserCommand">
+            <summary>
+            DTO para atualização de usuário
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.DeleteUserCommand">
+            <summary>
+            DTO para exclusão de usuário
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.ChangePasswordCommand">
+            <summary>
+            DTO para troca de senha do usuário autenticado
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.ChangePasswordResponse">
+            <summary>
+            DTO para resposta de troca de senha
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.ResetUserPasswordCommand">
+            <summary>
+            DTO para reset de senha do usuario.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.ResetUserPasswordByEmailCommand">
+            <summary>
+            DTO para solicitar reset de senha pelo email do usuario.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Features.Users.Commands.ResetUserPasswordResponse">
+            <summary>
+            DTO para resposta de reset de senha.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Application.Utils.IPasswordHasher">
+            <summary>
+            Servico para hash e verificacao de senhas.
+            </summary>
+        </member>
+    </members>
+</doc>

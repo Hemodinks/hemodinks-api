@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>HemodinksAPI.Domain</name>
+    </assembly>
+    <members>
+        <member name="T:HemodinksAPI.Domain.Models.User">
+            <summary>
+            Modelo de usuário do sistema
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Domain.Models.User.Id">
+            <summary>
+            Identificador único do usuário
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Domain.Models.User.Nome">
+            <summary>
+            Nome completo do usuário
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Domain.Models.User.Telefone">
+            <summary>
+            Telefone do usuário com código de país
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Domain.Models.User.FotoPerfil">
+            <summary>
+            Foto de perfil do usuario em data URL.
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Domain.Models.User.Email">
+            <summary>
+            Email do usuário
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Domain.Models.User.Senha">
+            <summary>
+            Senha com hash do usuário
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Domain.Models.User.DataCadastro">
+            <summary>
+            Data de cadastro do usuário
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Domain.Models.User.DataNascimento">
+            <summary>
+            Data de nascimento do usuário
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Domain.Models.User.Ativo">
+            <summary>
+            Indica se o usuário está ativo
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Domain.Models.User.PrecisaTrocarSenha">
+            <summary>
+            Indica se o usuário precisa trocar a senha no próximo login
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Domain.Utils.TemporaryPasswordGenerator">
+            <summary>
+            Gera credenciais temporárias únicas para o primeiro acesso e resets administrativos.
+            </summary>
+        </member>
+    </members>
+</doc>

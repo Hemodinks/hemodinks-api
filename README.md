@@ -451,5 +451,6 @@ dotnet test HemodinksAPI.slnx --no-build
 ### Migrations de homologação
 
 O workflow manual `Publish Homologation` prepara artefatos sem acessar o banco por padrão.
-A opção de publicação aplica migrations antes de publicar o mesmo commit no Render.
+Escolha `deploy-no-schema-changes` para publicar somente com historico atualizado, ou
+`migrate-and-deploy` para aplicar migrations autorizadas antes de publicar.
 Consulte a [ativação e operação](docs/homologation-migrations.md) antes de sincronizar o blueprint.
