@@ -24,7 +24,7 @@ env:
 jobs:
   prepare:
     name: Prepare audited migration artifacts (no database access)
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/developer'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -37,7 +37,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
-          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&branch=main&event=push&status=success&per_page=100" \
+          gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs?head_sha=$GITHUB_SHA&branch=developer&event=push&status=success&per_page=100" \
             --jq '.workflow_runs | length > 0' | grep -qx true
       - name: Restore and build
         run: |
@@ -70,7 +70,7 @@ jobs:
 
   migrate-and-deploy:
     needs: prepare
-    if: inputs.publish
+    if: inputs.publish && github.ref == 'refs/heads/developer'
     environment: homologation
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -94,11 +94,14 @@ jobs:
             -H "Authorization: Bearer $RENDER_API_KEY" \
             "https://api.render.com/v1/services/$RENDER_SERVICE_ID" > service.json
           jq -e --arg url "https://$EXPECTED_RENDER_HOST" \
-            '.serviceDetails.url == $url and .branch == "main" and .autoDeploy == "no"' service.json > /dev/null
+            '.serviceDetails.url == $url and .branch == "developer" and .autoDeploy == "no"' service.json > /dev/null
           curl --fail --silent --show-error --max-time 30 \
             -H "Authorization: Bearer $RENDER_API_KEY" \
             "https://api.render.com/v1/services/$RENDER_SERVICE_ID/env-vars?limit=100" > env-vars.json
           jq -e 'any(.[]; .envVar.key == "Database__RunMigrationsOnStartup" and .envVar.value == "false")' env-vars.json > /dev/null
+          for key in Database__RunMaintenanceOnStartup Seed__CbhpmOnStartup Seed__UsersOnStartup; do
+            jq -e --arg key "$key" 'any(.[]; .envVar.key == $key and .envVar.value == "false")' env-vars.json > /dev/null
+          done
           jq -e 'any(.[]; .envVar.key == "ConnectionStrings__DefaultConnection" and .envVar.value == env.ConnectionStrings__DefaultConnection)' env-vars.json > /dev/null
       - name: Apply only homologation migrations
         env:
@@ -111,6 +114,13 @@ jobs:
           fi
           chmod +x artifacts/hemodinks-efbundle
           ./artifacts/hemodinks-efbundle
+      - name: Enable deployment-managed schema after successful migration
+        shell: bash
+        run: |
+          curl --fail --silent --show-error --max-time 30 --output /dev/null \
+            -X PUT -H "Authorization: Bearer $RENDER_API_KEY" -H 'Content-Type: application/json' \
+            --data '{"value":"true"}' \
+            "https://api.render.com/v1/services/$RENDER_SERVICE_ID/env-vars/Database__SchemaManagedByDeployment"
       - name: Deploy the migrated commit and wait for Render
         shell: bash
         run: |
