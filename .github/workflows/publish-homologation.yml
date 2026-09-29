@@ -9,6 +9,7 @@ on:
         required: true
         default: prepare
         options:
+          - diagnose
           - prepare
           - deploy-no-schema-changes
           - migrate-and-deploy
@@ -26,9 +27,23 @@ env:
   DOTNET_NOLOGO: true
 
 jobs:
+  diagnose:
+    if: inputs.mode == 'diagnose' && github.ref == 'refs/heads/developer'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: homologation
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check Render configuration without database access or deploy
+        env:
+          RENDER_API_KEY: ${{ secrets.HOMOLOGATION_RENDER_API_KEY }}
+          RENDER_SERVICE_ID: ${{ vars.HOMOLOGATION_RENDER_SERVICE_ID }}
+          EXPECTED_RENDER_HOST: hemodinks-api-1-90nb.onrender.com
+          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_CONNECTION_STRING }}
+        run: python scripts/check_homologation.py
   prepare:
     name: Prepare audited migration artifacts (no database access)
-    if: github.ref == 'refs/heads/developer'
+    if: github.ref == 'refs/heads/developer' && inputs.mode != 'diagnose'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -85,6 +100,7 @@ jobs:
       RENDER_SERVICE_ID: ${{ vars.HOMOLOGATION_RENDER_SERVICE_ID }}
       EXPECTED_RENDER_HOST: hemodinks-api-1-90nb.onrender.com
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
           name: homologation-migrations-${{ github.sha }}
@@ -94,21 +110,7 @@ jobs:
           ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_CONNECTION_STRING }}
         shell: bash
         run: |
-          test -n "$RENDER_API_KEY" && test -n "$RENDER_SERVICE_ID" && test -n "$ConnectionStrings__DefaultConnection"
-          trap 'rm -f env-vars.json' EXIT
-          curl --fail --silent --show-error --max-time 30 \
-            -H "Authorization: Bearer $RENDER_API_KEY" \
-            "https://api.render.com/v1/services/$RENDER_SERVICE_ID" > service.json
-          jq -e --arg url "https://$EXPECTED_RENDER_HOST" \
-            '.serviceDetails.url == $url and .branch == "developer" and .autoDeploy == "no"' service.json > /dev/null
-          curl --fail --silent --show-error --max-time 30 \
-            -H "Authorization: Bearer $RENDER_API_KEY" \
-            "https://api.render.com/v1/services/$RENDER_SERVICE_ID/env-vars?limit=100" > env-vars.json
-          jq -e 'any(.[]; .envVar.key == "Database__RunMigrationsOnStartup" and .envVar.value == "false")' env-vars.json > /dev/null
-          for key in Database__RunMaintenanceOnStartup Seed__CbhpmOnStartup Seed__UsersOnStartup; do
-            jq -e --arg key "$key" 'any(.[]; .envVar.key == $key and .envVar.value == "false")' env-vars.json > /dev/null
-          done
-          jq -e 'any(.[]; .envVar.key == "ConnectionStrings__DefaultConnection" and .envVar.value == env.ConnectionStrings__DefaultConnection)' env-vars.json > /dev/null
+          python scripts/check_homologation.py
       - name: Verify schema without applying changes
         if: inputs.mode == 'deploy-no-schema-changes'
         env:
