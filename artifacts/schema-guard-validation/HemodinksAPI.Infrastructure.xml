@@ -1,0 +1,832 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>HemodinksAPI.Infrastructure</name>
+    </assembly>
+    <members>
+        <member name="T:HemodinksAPI.Infrastructure.Authentication.JwtTokenService">
+            <summary>
+            Implementação do serviço JWT
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.AppDbContext">
+            <summary>
+            Contexto de banco de dados da aplicação
+            </summary>
+        </member>
+        <member name="P:HemodinksAPI.Infrastructure.Data.AppDbContext.Users">
+            <summary>
+            DbSet de usuários
+            </summary>
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.AppDbContext.OnModelCreating(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <summary>
+            Configuração do modelo de dados
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.InitialCreate">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.InitialCreate.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.InitialCreate.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.InitialCreate.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddUserPasswordChangeFlag">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserPasswordChangeFlag.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserPasswordChangeFlag.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserPasswordChangeFlag.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.ResetUsersToDefaultPassword">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.ResetUsersToDefaultPassword.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.ResetUsersToDefaultPassword.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.ResetUsersToDefaultPassword.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddUserProfiles">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserProfiles.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserProfiles.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserProfiles.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddUserProfilePhoto">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserProfilePhoto.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserProfilePhoto.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserProfilePhoto.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddPatientsAndCpf">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPatientsAndCpf.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPatientsAndCpf.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPatientsAndCpf.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.FixPatientFileUrls">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.FixPatientFileUrls.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.FixPatientFileUrls.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.FixPatientFileUrls.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddUserArquivos">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserArquivos.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserArquivos.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserArquivos.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddUserUpdateDate">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserUpdateDate.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserUpdateDate.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserUpdateDate.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddCbhpmGeral">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddCbhpmGeral.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddCbhpmGeral.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddCbhpmGeral.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteCbhpmSelection">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteCbhpmSelection.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteCbhpmSelection.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteCbhpmSelection.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddUserMedicalRegistration">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserMedicalRegistration.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserMedicalRegistration.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserMedicalRegistration.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddHospitais">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddHospitais.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddHospitais.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddHospitais.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteMedicoUser">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteMedicoUser.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteMedicoUser.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteMedicoUser.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddCbhpmValorReferencia">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddCbhpmValorReferencia.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddCbhpmValorReferencia.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddCbhpmValorReferencia.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.BackfillCbhpmValorReferencia">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.BackfillCbhpmValorReferencia.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.BackfillCbhpmValorReferencia.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteProcedimentos">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteProcedimentos.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteProcedimentos.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteProcedimentos.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddConvenios">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddConvenios.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddConvenios.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddConvenios.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddLicencas">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddLicencas.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddLicencas.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddLicencas.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddEvents">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddEvents.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddEvents.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddEvents.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddPasswordResetTokens">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPasswordResetTokens.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPasswordResetTokens.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPasswordResetTokens.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.RemoveCbhpmPaginaPdf">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.RemoveCbhpmPaginaPdf.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.RemoveCbhpmPaginaPdf.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.RemoveCbhpmPaginaPdf.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteMedicosAuxiliares">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteMedicosAuxiliares.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteMedicosAuxiliares.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteMedicosAuxiliares.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteDiagnostico">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteDiagnostico.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteDiagnostico.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteDiagnostico.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddOpmeFornecedores">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddOpmeFornecedores.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddOpmeFornecedores.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddOpmeFornecedores.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddControllerPerfil">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddControllerPerfil.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddControllerPerfil.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddControllerPerfil.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteTratamentoMedicoAndReduceDiagnostico">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteTratamentoMedicoAndReduceDiagnostico.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteTratamentoMedicoAndReduceDiagnostico.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteTratamentoMedicoAndReduceDiagnostico.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddGruposMedicos">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddGruposMedicos.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddGruposMedicos.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddGruposMedicos.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteObservacoes">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteObservacoes.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteObservacoes.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPacienteObservacoes.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddAgendaNotifications">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAgendaNotifications.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAgendaNotifications.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAgendaNotifications.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentosMedicos">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentosMedicos.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentosMedicos.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentosMedicos.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddConfiguracoesSistema">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddConfiguracoesSistema.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddConfiguracoesSistema.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddConfiguracoesSistema.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.MakeUserBirthDateOptional">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.MakeUserBirthDateOptional.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.MakeUserBirthDateOptional.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.MakeUserBirthDateOptional.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddIdempotencyRequests">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddIdempotencyRequests.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddIdempotencyRequests.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddIdempotencyRequests.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddConfiguracaoSistemaFotoEmpresa">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddConfiguracaoSistemaFotoEmpresa.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddConfiguracaoSistemaFotoEmpresa.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddConfiguracaoSistemaFotoEmpresa.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddClinicasAndClinicaIds">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddClinicasAndClinicaIds.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddClinicasAndClinicaIds.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddClinicasAndClinicaIds.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentoMedicoCompetencia">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentoMedicoCompetencia.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentoMedicoCompetencia.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentoMedicoCompetencia.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.OptimizeFaturamentoCompetenciaIndexes">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.OptimizeFaturamentoCompetenciaIndexes.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.OptimizeFaturamentoCompetenciaIndexes.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.OptimizeFaturamentoCompetenciaIndexes.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.NormalizeConvenioEncoding">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.NormalizeConvenioEncoding.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.NormalizeConvenioEncoding.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.NormalizeConvenioEncoding.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.HardenMultiClinicTenancyAndPlatformAdmin">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.HardenMultiClinicTenancyAndPlatformAdmin.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.HardenMultiClinicTenancyAndPlatformAdmin.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.HardenMultiClinicTenancyAndPlatformAdmin.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddGlobalIdentityClinicSessionAndPlatformAudit">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddGlobalIdentityClinicSessionAndPlatformAudit.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddGlobalIdentityClinicSessionAndPlatformAudit.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddGlobalIdentityClinicSessionAndPlatformAudit.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.MoveClinicBrandingToClinicCrud">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.MoveClinicBrandingToClinicCrud.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.MoveClinicBrandingToClinicCrud.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.MoveClinicBrandingToClinicCrud.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddPartialClinicPlanModules">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPartialClinicPlanModules.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPartialClinicPlanModules.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddPartialClinicPlanModules.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddNormalizedBillingAndReceivables">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddNormalizedBillingAndReceivables.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddNormalizedBillingAndReceivables.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddNormalizedBillingAndReceivables.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddLegacyPatientFinancialBackfillAudit">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddLegacyPatientFinancialBackfillAudit.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddLegacyPatientFinancialBackfillAudit.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddLegacyPatientFinancialBackfillAudit.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddOpmeFornecedorToAtendimento">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddOpmeFornecedorToAtendimento.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddOpmeFornecedorToAtendimento.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddOpmeFornecedorToAtendimento.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddAtendimentoGlosa">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAtendimentoGlosa.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAtendimentoGlosa.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAtendimentoGlosa.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.BackfillAtendimentoProcedimentoValoresCbhpm">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.BackfillAtendimentoProcedimentoValoresCbhpm.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.BackfillAtendimentoProcedimentoValoresCbhpm.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.BackfillAtendimentoProcedimentoValoresCbhpm.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.BackfillFaturamentosRascunhoValoresCbhpm">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.BackfillFaturamentosRascunhoValoresCbhpm.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.BackfillFaturamentosRascunhoValoresCbhpm.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.BackfillFaturamentosRascunhoValoresCbhpm.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddAtendimentoObservacaoArquivos">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAtendimentoObservacaoArquivos.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAtendimentoObservacaoArquivos.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAtendimentoObservacaoArquivos.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddAuthenticationSessions">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAuthenticationSessions.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAuthenticationSessions.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAuthenticationSessions.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddTeamsAndOperatorIdentification">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddTeamsAndOperatorIdentification.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddTeamsAndOperatorIdentification.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddTeamsAndOperatorIdentification.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AllowSharedTeamMemberEmails">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AllowSharedTeamMemberEmails.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AllowSharedTeamMemberEmails.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AllowSharedTeamMemberEmails.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddFullTextSearchIndexes">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddFullTextSearchIndexes.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddFullTextSearchIndexes.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddFullTextSearchIndexes.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentoMedicoDataPagamento">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentoMedicoDataPagamento.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentoMedicoDataPagamento.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentoMedicoDataPagamento.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.Schema_DisablePacienteFullTextStoplist">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_DisablePacienteFullTextStoplist.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_DisablePacienteFullTextStoplist.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_DisablePacienteFullTextStoplist.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentoHistoricoArquivos">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentoHistoricoArquivos.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentoHistoricoArquivos.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddFaturamentoHistoricoArquivos.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddLoginAccountProtection">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddLoginAccountProtection.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddLoginAccountProtection.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddLoginAccountProtection.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddUserLegalAcceptances">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserLegalAcceptances.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserLegalAcceptances.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserLegalAcceptances.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddUserPrivacyPreferences">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserPrivacyPreferences.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserPrivacyPreferences.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddUserPrivacyPreferences.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddClinicaCnpj">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddClinicaCnpj.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddClinicaCnpj.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddClinicaCnpj.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddUniqueClinicaCnpj">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddUniqueClinicaCnpj.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddUniqueClinicaCnpj.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_AddUniqueClinicaCnpj.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddTemporaryAccessCredentials">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddTemporaryAccessCredentials.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddTemporaryAccessCredentials.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddTemporaryAccessCredentials.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.Schema_EnforcePatientUserClinicRelationships">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_EnforcePatientUserClinicRelationships.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_EnforcePatientUserClinicRelationships.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.Schema_EnforcePatientUserClinicRelationships.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.Migrations.AddAllDayEvents">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAllDayEvents.Up(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAllDayEvents.Down(Microsoft.EntityFrameworkCore.Migrations.MigrationBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.Migrations.AddAllDayEvents.BuildTargetModel(Microsoft.EntityFrameworkCore.ModelBuilder)">
+            <inheritdoc />
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.PlatformDbContext">
+            <summary>
+            Contexto isolado para operacoes explicitamente globais. Ele nao compartilha
+            o estado tenant mutavel do contexto usado pela requisicao.
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Data.SqlPublicClinicDirectory">
+            <summary>Public directory only. Never use this reader for tenant-owned data.</summary>
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Data.SqlPublicClinicDirectory.#ctor(HemodinksAPI.Infrastructure.Data.ISqlConnectionFactory)">
+            <summary>Public directory only. Never use this reader for tenant-owned data.</summary>
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Utils.PasswordHasher">
+            <summary>
+            Implementação do hash de senha usando PBKDF2
+            </summary>
+        </member>
+        <member name="T:HemodinksAPI.Infrastructure.Seeders.UserSeeder">
+            <summary>
+            Seeder para popular dados iniciais de usuários
+            </summary>
+        </member>
+        <member name="M:HemodinksAPI.Infrastructure.Seeders.UserSeeder.GenerateUsers">
+            <summary>
+            Popula o banco com 50 usuários
+            </summary>
+        </member>
+    </members>
+</doc>

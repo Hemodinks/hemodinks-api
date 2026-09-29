@@ -1,37 +1,49 @@
-# Migrations e deploy da homologacao Render
+# Deploy da homologacao
 
-## Estado confirmado em 29/09/2026
+## Escolha do modo em Publish Homologation
 
-Servico real: hemodinks-api-1, ID srv-d8hmtje47okc738ldllg, branch developer, regiao Virginia, plano Free, ambiente ASP.NET Confirmation.
+| Modo | Quando usar | Banco | Publica API? |
+| --- | --- | --- | --- |
+| prepare (padrao) | Revisar SQL e pacote | Nao acessa | Nao |
+| deploy-no-schema-changes | Correcoes durante congelamento do banco | Apenas consulta historico de migrations | Sim, se historico corresponder ao commit |
+| migrate-and-deploy | Mudanca de schema autorizada | Aplica todas as migrations pendentes | Sim, apos sucesso |
 
-Nesta tarefa foram configuradas remotamente Database__RunMigrationsOnStartup=false e Database__RunMaintenanceOnStartup=false. O Render iniciou o deploy dep-dau2h40u01pc73b0koqg. Os logs confirmaram migracao automatica desabilitada e schema atualizado. Nenhuma migration foi executada por esta tarefa. Producao nao foi alterada.
+O antigo booleano publish foi substituido por mode. Integracoes que usam workflow_dispatch devem enviar mode. O padrao continua sendo apenas preparar.
 
-O workflow corrigido esta local, sem commit/push nesta tarefa. O environment GitHub homologation foi criado, restrito a developer, com HOMOLOGATION_RENDER_SERVICE_ID configurado. Os dois secrets ainda precisam ser cadastrados. O auto-deploy remoto continua ativo e precisa ser desligado antes da ativacao do fluxo completo.
+## Passo a passo
 
-## Fluxo seguro
+1. Enviar codigo para developer e aguardar CI aprovado para o commit.
+2. Actions > Publish Homologation > Run workflow > branch developer.
+3. Escolher prepare para revisao; durante congelamento, usar deploy-no-schema-changes para publicar. Usar migrate-and-deploy somente quando alteracoes de schema forem autorizadas e backup estiver disponivel.
+4. Aguardar sucesso e verificar login e funcionalidades na homologacao. Nao usar deploy direto no Render para contornar verificacoes.
 
-Publish Homologation e manual e aceita somente refs/heads/developer. Exige CI de push aprovado para o SHA exato. Com publish=false (padrao), gera bundle Linux e SQL idempotente sem acessar banco.
+## Garantias e limites
 
-Com publish=true, valida destino Render, branch developer, auto-deploy desligado, migrations/manutencao/seeds desabilitados e connection string igual a do servico. Aplica todas as migrations pendentes. Somente apos sucesso define Database__SchemaManagedByDeployment=true e publica o mesmo SHA. Esta flag reutiliza a otimizacao existente de producao: dispensa consulta de migrations no startup/readiness, preservando o probe de disponibilidade SQL. Nao habilitar manualmente enquanto deploys puderem contornar o bundle.
+O fluxo valida URL do servico, branch developer, Auto-Deploy desligado, migrations/manutencao/seeds desabilitados e correspondencia exata da connection string do secret com a configurada no Render. Nunca imprime essas credenciais.
 
-Falha de migration impede deploy. Falha posterior de deploy nao reverte schema. Usar migrations compativeis com a versao anterior e backup disponivel. Nao selecionar publish=true durante o congelamento de alteracoes no banco.
+A ferramenta Hemodinks.SchemaGuard usa os metadados EF Core do proprio commit e GetAppliedMigrationsAsync, sem iniciar a API. Nao cria banco/tabelas, nao chama Migrate, EnsureCreated ou SaveChanges. Falha de conexao, historico vazio, migrations pendentes, desconhecidas ou divergentes bloqueiam deploy. O historico deve corresponder integralmente: isso tambem bloqueia rollback para codigo com menos migrations.
 
-## Ativacao pendente
+Esta verificacao compara historico EF; nao detecta alteracoes manuais de colunas fora das migrations. Nao certifica compatibilidade de dados ou de SQL escrito manualmente. Deploy sem alterar schema nao impede escritas normais da aplicacao apos publicacao.
 
-1. Criar environment GitHub homologation restrito a developer, com protecoes adequadas.
-2. Cadastrar secrets HOMOLOGATION_RENDER_API_KEY e HOMOLOGATION_SQL_CONNECTION_STRING e variavel HOMOLOGATION_RENDER_SERVICE_ID=srv-d8hmtje47okc738ldllg. Nunca reutilizar credenciais de producao. O runner precisa alcancar o banco.
-3. Desligar Auto-Deploy no servico Render. Nao sincronizar o blueprint sobre outro servico. render.confirmation.yaml corresponde a homologacao; editar o arquivo nao sincroniza automaticamente o painel.
-4. Verificar seeds desabilitados no painel. Integrar o workflow corrigido e executar primeiro com publish=false apos CI verde.
-5. Apos fim do congelamento de banco, revisar SQL e executar publish=true para o commit revisado. Nao fazer deploy direto de uma versao dependente de schema novo.
+Apos verificacao bem-sucedida OU aplicacao bem-sucedida do bundle, o workflow define Database__SchemaManagedByDeployment=true e publica o SHA verificado. Isso reutiliza a otimizacao de producao para dispensar consulta de migrations no startup/readiness; o probe de disponibilidade SQL permanece. Render Free ainda pode sofrer cold start.
 
-## PR para main
+Falha no gate impede alteracao de configuracao e deploy. Falha posterior de deploy nao reverte migrations ja aplicadas no modo migrate-and-deploy. Concurrency serializa execucoes deste workflow; evitar operacoes manuais concorrentes.
 
-Abrir ou mesclar PR para main nao dispara este workflow: nao ha trigger push/pull_request, e os dois jobs sao restritos a developer. Os workflows de producao nao foram alterados e continuam seguindo seus gatilhos existentes, incluindo publicacao por push em main. O render.yaml legado nao foi modificado nesta correcao.
+## Configuracao
 
-## Diagnostico e verificacao
+Environment GitHub homologation restrito a developer:
+- Secret HOMOLOGATION_RENDER_API_KEY.
+- Secret HOMOLOGATION_SQL_CONNECTION_STRING.
+- Variavel HOMOLOGATION_RENDER_SERVICE_ID=srv-d8hmtje47okc738ldllg.
 
-Na inicializacao das 20:58 UTC, HTTP ficou disponivel apos 142,9 s, dos quais 86,9 s na etapa SQL/EF, mesmo sem migrations pendentes. O timeout de login e 120 s. Apos desligar migracao automatica, a etapa SQL levou 34,3 s; uma amostra nao isola efeitos de cache, retomada do banco e recursos do container. A consulta de schema ainda ocorre ate ativar o fluxo gerenciado. Render Free pode continuar tendo cold start.
+Servico: hemodinks-api-1, https://hemodinks-api-1-90nb.onrender.com, developer, Virginia, ASP.NET Confirmation. Auto-Deploy precisa permanecer Off. Seeds e manutencao permanecem desabilitados. Os secrets foram cadastrados e a preparacao anterior concluiu na execucao 36633800221; esse resultado nao valida os novos modos deste incremento.
 
-Validacao local: 8 testes DatabaseStartupPolicyTests aprovados, YAML parseado, Actionlint e git diff --check sem erros. Nao foi executado o workflow remoto de migrations.
+## Producao e PR para main
 
-Referencias: https://render.com/docs/deploys e https://api-docs.render.com/reference/update-env-var
+Somente workflow_dispatch e permitido, e os dois jobs sao restritos a refs/heads/developer. Um PR/merge para main nao dispara homologacao. Os workflows e configuracoes de producao nao foram alterados; seus gatilhos atuais continuam valendo.
+
+## Validacao
+
+Testes locais cobrem historico igual, ordenacao, migrations pendentes, banco adiantado, historico divergente/vazio, ausencia da tabela de historico sem criacao de tabelas e falha de conexao. Nenhum banco remoto foi acessado ou alterado nesta implementacao.
+
+Resultados deste incremento: 17 testes passaram (9 do verificador e 8 de startup); CLI sem connection string retorna codigo 2; Actionlint/YAML e verificacao de whitespace aprovados. Novos modos ainda nao executados no GitHub nem em bancos remotos.
