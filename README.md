@@ -447,3 +447,9 @@ dotnet test HemodinksAPI.slnx --no-build
 - [Troubleshooting](./TROUBLESHOOTING.md)
 - [Exemplos HTTP](./API.http)
 - [Documentacao tecnica PDF](./docs/Hemodinks-Documentacao-Tecnica.pdf)
+
+### Migrations de homologação
+
+O workflow manual `Publish Homologation` prepara artefatos sem acessar o banco por padrão.
+A opção de publicação aplica migrations antes de publicar o mesmo commit no Render.
+Consulte a [ativação e operação](docs/homologation-migrations.md) antes de sincronizar o blueprint.
