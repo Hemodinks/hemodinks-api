@@ -33,7 +33,7 @@ jobs:
     timeout-minutes: 5
     environment: homologation
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Check Render configuration without database access or deploy
         env:
           RENDER_API_KEY: ${{ secrets.HOMOLOGATION_RENDER_API_KEY }}
@@ -47,8 +47,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: 10.0.x
       - name: Verify successful CI for this exact commit
@@ -83,7 +83,7 @@ jobs:
             --output ./artifacts/homologation-migrations.sql
       - name: Package read-only schema verifier
         run: dotnet publish ./tools/Hemodinks.SchemaGuard/Hemodinks.SchemaGuard.csproj --configuration Release --runtime linux-x64 --self-contained true --output ./artifacts/schema-guard
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7.0.1
         with:
           name: homologation-migrations-${{ github.sha }}
           path: artifacts/
@@ -100,8 +100,8 @@ jobs:
       RENDER_SERVICE_ID: ${{ vars.HOMOLOGATION_RENDER_SERVICE_ID }}
       EXPECTED_RENDER_HOST: hemodinks-api-1-90nb.onrender.com
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/download-artifact@v8.0.1
         with:
           name: homologation-migrations-${{ github.sha }}
           path: artifacts
