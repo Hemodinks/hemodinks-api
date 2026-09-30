@@ -11,10 +11,12 @@ public static class SchemaHistoryGuard
         return expectedIds.Length > 0 && expectedIds.SequenceEqual(appliedIds, StringComparer.Ordinal);
     }
 
-    public static async Task<bool> CheckAsync(DbContext context, CancellationToken cancellationToken)
+    public static async Task<bool> CheckAsync(DbContext context, CancellationToken cancellationToken, Action<string>? onStage = null)
     {
         // Read migration metadata only. Never create, migrate or seed a database.
+        onStage?.Invoke("OpeningSqlConnection");
         await context.Database.OpenConnectionAsync(cancellationToken);
+        onStage?.Invoke("ReadingMigrationHistory");
         var expected = context.Database.GetMigrations();
         var applied = await context.Database.GetAppliedMigrationsAsync(cancellationToken);
         return Matches(expected, applied);

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
@@ -15,13 +16,19 @@ internal static class SchemaGuardProgram
             return 2;
         }
 
+        var elapsed = Stopwatch.StartNew();
+        var stage = "Configuration";
         try
         {
             using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
             var options = new DbContextOptionsBuilder<AppDbContext>()
                 .UseSqlServer(connectionString, sql => sql.CommandTimeout(30)).Options;
             await using var context = new AppDbContext(options, new ClinicaContext());
-            if (!await SchemaHistoryGuard.CheckAsync(context, timeout.Token))
+            if (!await SchemaHistoryGuard.CheckAsync(context, timeout.Token, next =>
+            {
+                stage = next;
+                Console.WriteLine($"Schema check stage={stage} elapsedMs={elapsed.ElapsedMilliseconds}");
+            }))
             {
                 Console.Error.WriteLine("Deploy blocked: database migration history differs from this commit (pending, unknown or missing migrations). No changes were applied. Review the SQL; use migrate-and-deploy only when schema changes are authorized.");
                 return 3;
@@ -29,10 +36,10 @@ internal static class SchemaGuardProgram
             Console.WriteLine("Database migration history matches this commit. No database changes were applied.");
             return 0;
         }
-        catch (Exception)
+        catch (Exception error)
         {
             // Do not expose connection strings, SQL details or server names in CI logs.
-            Console.Error.WriteLine("Deploy blocked: unable to verify database history. Check connectivity and permissions. No changes were applied.");
+            Console.Error.WriteLine($"Deploy blocked: stage={stage} elapsedMs={elapsed.ElapsedMilliseconds} {SqlFailureDiagnostic.Describe(error)}. No changes were applied.");
             return 2;
         }
     }
