@@ -24,7 +24,7 @@ services:
         value: "false"
       # SchemaManagedByDeployment is set only by the successful migration job.
       - key: CORECLR_ENABLE_PROFILING
-        value: "1"
+        value: "0"
       - key: ConnectionStrings__DefaultConnection
         sync: false
       - key: JwtSettings__SecretKey
