@@ -20,15 +20,21 @@ internal static class SchemaGuardProgram
         var stage = "Configuration";
         try
         {
-            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(2));
+            using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(4));
             var options = new DbContextOptionsBuilder<AppDbContext>()
                 .UseSqlServer(connectionString, sql => sql.CommandTimeout(30)).Options;
-            await using var context = new AppDbContext(options, new ClinicaContext());
-            if (!await SchemaHistoryGuard.CheckAsync(context, timeout.Token, next =>
+            var matches = await SqlReadRetry.ExecuteAsync(async cancellationToken =>
             {
-                stage = next;
-                Console.WriteLine($"Schema check stage={stage} elapsedMs={elapsed.ElapsedMilliseconds}");
-            }))
+                // Each attempt owns a fresh context/connection. This operation only reads metadata.
+                await using var context = new AppDbContext(options, new ClinicaContext());
+                return await SchemaHistoryGuard.CheckAsync(context, cancellationToken, next =>
+                {
+                    stage = next;
+                    Console.WriteLine($"Schema check stage={stage} elapsedMs={elapsed.ElapsedMilliseconds}");
+                });
+            }, timeout.Token, (attempt, error) =>
+                Console.WriteLine($"Schema check retryAfterAttempt={attempt} stage={stage} elapsedMs={elapsed.ElapsedMilliseconds} {SqlFailureDiagnostic.Describe(error)}"));
+            if (!matches)
             {
                 Console.Error.WriteLine("Deploy blocked: database migration history differs from this commit (pending, unknown or missing migrations). No changes were applied. Review the SQL; use migrate-and-deploy only when schema changes are authorized.");
                 return 3;

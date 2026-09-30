@@ -15,3 +15,11 @@ Validacao: 41 testes direcionados aprovados, build e auditoria arquitetural apro
 Mudancas frontend ainda precisam ser publicadas para aparecer no dominio real. Nenhum ping permanente ou recurso pago foi criado.
 
 Regressao do fluxo existente: os 6 E2E de login/warmup passaram na execucao sequencial (2,3 min). A execucao inicial paralela sofreu indisponibilidade do servidor de testes; nenhum seletor ou expectativa existente foi relaxado. Total: 8 E2E aprovados nas execucoes finais.
+
+## Timeout SQL no Publish Homologation
+
+Na execucao 36780286457, os artefatos foram preparados com sucesso e o deploy foi bloqueado em OpeningSqlConnection apos 30,8 s (SqlTimeout, -2). Essa conexao parte do runner GitHub, nao da API Render. O log nao determina se o banco estava retomando, sobrecarregado ou inacessivel pela rede.
+
+O verificador read-only agora realiza ate 3 tentativas, com 10 s entre falhas transitorias e prazo total de 4 minutos. Cada tentativa utiliza novo DbContext; timeout de comando permanece 30 s. Nao ha repeticao de migrations nem de deploy. Divergencia de historico, credenciais invalidas, firewall explicito e permissoes continuam bloqueando sem retry. Se as tentativas se esgotarem, o processo continua retornando erro e nao publica.
+
+Publicar o codigo na developer, aguardar CI e iniciar uma NOVA execucao do Publish Homologation em deploy-no-schema-changes. Re-run da execucao antiga usa o commit antigo. Se o SQL continuar inacessivel, investigar disponibilidade e acesso de rede do banco; nao trocar para migrate-and-deploy para contornar timeout.
