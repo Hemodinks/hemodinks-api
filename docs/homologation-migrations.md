@@ -47,3 +47,9 @@ Somente workflow_dispatch e permitido, e os dois jobs sao restritos a refs/heads
 Testes locais cobrem historico igual, ordenacao, migrations pendentes, banco adiantado, historico divergente/vazio, ausencia da tabela de historico sem criacao de tabelas e falha de conexao. Nenhum banco remoto foi acessado ou alterado nesta implementacao.
 
 Resultados deste incremento: 17 testes passaram (9 do verificador e 8 de startup); CLI sem connection string retorna codigo 2; Actionlint/YAML e verificacao de whitespace aprovados. Novos modos ainda nao executados no GitHub nem em bancos remotos.
+
+## Diagnostico SQL somente de leitura
+
+Usar mode=diagnose-sql na branch developer. Valida o destino Render e os secrets, compila o verificador sem credenciais e consulta conexao/historico. Nao aplica migrations, nao muda variaveis Render e nao faz deploy. Mode=diagnose continua validando somente a configuracao Render.
+
+Os logs mostram etapa (OpeningSqlConnection ou ReadingMigrationHistory), duracao, categoria e numero/state/severity SQL. Nunca imprimem exception.Message, stack trace, servidor, usuario ou connection string. SqlTimeout nao prova firewall ou banco pausado: exige correlacao com a infraestrutura. DatabaseUnavailable tambem nao prova auto-pause. Nao ha retry automatico nem aumento dos timeouts neste incremento.

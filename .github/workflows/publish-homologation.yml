@@ -10,6 +10,7 @@ on:
         default: prepare
         options:
           - diagnose
+          - diagnose-sql
           - prepare
           - deploy-no-schema-changes
           - migrate-and-deploy
@@ -28,9 +29,9 @@ env:
 
 jobs:
   diagnose:
-    if: inputs.mode == 'diagnose' && github.ref == 'refs/heads/developer'
+    if: (inputs.mode == 'diagnose' || inputs.mode == 'diagnose-sql') && github.ref == 'refs/heads/developer'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 15
     environment: homologation
     steps:
       - uses: actions/checkout@v7.0.1
@@ -41,9 +42,21 @@ jobs:
           EXPECTED_RENDER_HOST: hemodinks-api-1-90nb.onrender.com
           ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_CONNECTION_STRING }}
         run: python scripts/check_homologation.py
+      - uses: actions/setup-dotnet@v6.0.0
+        if: inputs.mode == 'diagnose-sql'
+        with:
+          dotnet-version: 10.0.x
+      - name: Build read-only verifier without secrets
+        if: inputs.mode == 'diagnose-sql'
+        run: dotnet build tools/Hemodinks.SchemaGuard/Hemodinks.SchemaGuard.csproj --configuration Release --verbosity quiet
+      - name: Diagnose SQL connection and history without deploying
+        if: inputs.mode == 'diagnose-sql'
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_CONNECTION_STRING }}
+        run: dotnet tools/Hemodinks.SchemaGuard/bin/Release/net10.0/Hemodinks.SchemaGuard.dll
   prepare:
     name: Prepare audited migration artifacts (no database access)
-    if: github.ref == 'refs/heads/developer' && inputs.mode != 'diagnose'
+    if: github.ref == 'refs/heads/developer' && inputs.mode != 'diagnose' && inputs.mode != 'diagnose-sql'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
