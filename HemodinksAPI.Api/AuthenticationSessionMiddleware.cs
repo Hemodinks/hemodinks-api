@@ -14,9 +14,11 @@ public sealed class AuthenticationSessionMiddleware
 
     public async Task InvokeAsync(
         HttpContext context,
-        AuthenticationSessionService sessionService)
+        AuthenticationSessionService sessionService,
+        SessionLifetimePolicy lifetime)
     {
-        if (context.Request.Path.StartsWithSegments("/api/session/renovar", StringComparison.OrdinalIgnoreCase)
+        if (context.GetEndpoint()?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() != null
+            || context.Request.Path.StartsWithSegments("/api/session/renovar", StringComparison.OrdinalIgnoreCase)
             || context.Request.Path.StartsWithSegments("/api/session/sair", StringComparison.OrdinalIgnoreCase))
         {
             await _next(context);
@@ -30,7 +32,7 @@ public sealed class AuthenticationSessionMiddleware
             var validation = await sessionService.ValidateAndTouchAsync(sessionId, context.RequestAborted);
             if (!validation.IsValid)
             {
-                await RejectSessionAsync(context);
+                await RejectSessionAsync(context, validation.FailureCode);
                 return;
             }
 
@@ -44,19 +46,36 @@ public sealed class AuthenticationSessionMiddleware
             }
 
             SynchronizeProfileClaims(context.User, validation);
+            if (validation.AuthenticatedAt.HasValue && context.User.Identity is System.Security.Claims.ClaimsIdentity identity)
+                ReplaceClaim(identity, AuthenticationSessionClaimTypes.AuthenticatedAt,
+                    new DateTimeOffset(DateTime.SpecifyKind(validation.AuthenticatedAt.Value, DateTimeKind.Utc))
+                        .ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        else if (context.User.Identity?.IsAuthenticated == true)
+        {
+            var startedAt = SessionLifetimePolicy.ParseAuthenticationTime(
+                context.User.FindFirst(AuthenticationSessionClaimTypes.AuthenticatedAt)?.Value);
+            var failure = sessionIdClaim != null ? SessionLifetimePolicy.ReauthenticationRequired : lifetime.Failure(startedAt);
+            if (failure != null)
+            {
+                await RejectSessionAsync(context, failure);
+                return;
+            }
         }
 
         await _next(context);
     }
 
-    private static async Task RejectSessionAsync(HttpContext context)
+    private static async Task RejectSessionAsync(HttpContext context, string? code = null)
     {
         // A late request may carry an old token after a login or clinic switch.
         // Only explicit, cookie-bound logout may remove the current refresh cookie.
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         await context.Response.WriteAsJsonAsync(new
         {
-            message = "Sessao expirada ou usuario inativo. Autentique-se novamente."
+            code,
+            message = code == SessionLifetimePolicy.AbsoluteExpired ? SessionLifetimePolicy.AbsoluteExpiredMessage
+                : "Sessao expirada ou usuario inativo. Autentique-se novamente."
         }, context.RequestAborted);
     }
 

@@ -9,6 +9,7 @@ public sealed class AuthenticationSessionOptions
     public const string SectionName = "AuthenticationSession";
 
     public int IdleTimeoutMinutes { get; set; } = 30;
+    public int AbsoluteLifetimeHours { get; set; } = 12;
 
     public string RefreshCookieName { get; set; } = "hemodinks_refresh";
 
@@ -25,7 +26,9 @@ public sealed record AuthenticationSessionValidation(
     bool IsValid,
     int? PerfilId = null,
     string? PerfilNome = null,
-    int? UsuarioClinicaId = null);
+    int? UsuarioClinicaId = null,
+    string? FailureCode = null,
+    DateTime? AuthenticatedAt = null);
 
 public sealed class SessionRefreshConflictException : Exception;
 
@@ -35,6 +38,7 @@ public sealed class AuthenticationSessionService
     private readonly IJwtTokenService _jwtTokenService;
     private readonly AuthenticationSessionOptions _options;
     private readonly TimeProvider _timeProvider;
+    private readonly SessionLifetimePolicy _lifetime;
     private readonly ILogger<AuthenticationSessionService> _logger;
 
     public AuthenticationSessionService(
@@ -48,6 +52,7 @@ public sealed class AuthenticationSessionService
         _jwtTokenService = jwtTokenService;
         _options = options;
         _timeProvider = timeProvider;
+        _lifetime = new SessionLifetimePolicy(options, timeProvider);
         _logger = logger;
     }
 
@@ -119,7 +124,8 @@ public sealed class AuthenticationSessionService
             return null;
         }
 
-        var sessionIsActive = IsActive(session, now);
+        var lifetimeFailure = _lifetime.Failure(session.CreatedAt, session.LastActivityAt);
+        var sessionIsActive = IsActive(session);
         var membershipIsActive = IsActive(session.UsuarioClinica)
             && session.UsuarioClinica.User.PerfilId != Perfil.EquipeId;
         if (!sessionIsActive || !membershipIsActive)
@@ -136,6 +142,7 @@ public sealed class AuthenticationSessionService
                 await SaveRevocationAsync(cancellationToken);
             }
 
+            if (lifetimeFailure == SessionLifetimePolicy.AbsoluteExpired) throw new SessionAbsoluteExpiredException();
             return null;
         }
 
@@ -147,10 +154,20 @@ public sealed class AuthenticationSessionService
 
         if (!await _store.TrySaveChangesAsync(cancellationToken))
         {
+            if (_lifetime.Failure(session.CreatedAt) == SessionLifetimePolicy.AbsoluteExpired)
+            {
+                await _store.RevokeByIdAsync(session.Id, UtcNow(), cancellationToken);
+                throw new SessionAbsoluteExpiredException();
+            }
             _logger.LogWarning("Tentativa concorrente de renovar a sessao {SessionId}", session.Id);
             throw new SessionRefreshConflictException();
         }
 
+        if (_lifetime.Failure(session.CreatedAt) == SessionLifetimePolicy.AbsoluteExpired)
+        {
+            await _store.RevokeByIdAsync(session.Id, UtcNow(), cancellationToken);
+            throw new SessionAbsoluteExpiredException();
+        }
         return Issue(session, session.UsuarioClinica, newRefreshToken);
     }
 
@@ -161,7 +178,7 @@ public sealed class AuthenticationSessionService
         var session = await _store.FindByIdAsync(sessionId, cancellationToken);
         var now = UtcNow();
 
-        if (session == null || !IsActive(session, now) || !IsActive(session.UsuarioClinica))
+        if (session == null || !IsActive(session) || !IsActive(session.UsuarioClinica))
         {
             if (session is { RevokedAt: null })
             {
@@ -169,7 +186,8 @@ public sealed class AuthenticationSessionService
                 await SaveRevocationAsync(cancellationToken);
             }
 
-            return new AuthenticationSessionValidation(false);
+            return new AuthenticationSessionValidation(false, FailureCode: session == null ? null
+                : _lifetime.Failure(session.CreatedAt, session.LastActivityAt));
         }
 
         // O cadastro local e a fonte canonica do perfil. Uma promocao ou remocao de
@@ -185,15 +203,23 @@ public sealed class AuthenticationSessionService
         session.LastActivityAt = now;
         if (!await _store.TrySaveChangesAsync(cancellationToken))
         {
-            // Outra requisicao da mesma sessao atualizou a atividade primeiro.
-            _logger.LogDebug("Atividade concorrente na sessao {SessionId}", sessionId);
+            // Reload after a conflict: the competing operation may be revocation, not activity.
+            session = await _store.FindByIdAsync(sessionId, cancellationToken);
+            if (session == null || !IsActive(session) || !IsActive(session.UsuarioClinica))
+                return new AuthenticationSessionValidation(false, FailureCode: session == null ? null
+                    : _lifetime.Failure(session.CreatedAt, session.LastActivityAt));
         }
+
+        var failure = _lifetime.Failure(session.CreatedAt, session.LastActivityAt);
+        if (failure != null) return new AuthenticationSessionValidation(false, FailureCode: failure);
+        currentProfileId = session.UsuarioClinica.User.PerfilId;
 
         return new AuthenticationSessionValidation(
             true,
             currentProfileId,
             session.UsuarioClinica.User.Perfil.Nome,
-            session.UsuarioClinicaId);
+            session.UsuarioClinicaId,
+            AuthenticatedAt: session.CreatedAt);
     }
 
     public async Task<bool> ChangeMembershipAsync(
@@ -202,19 +228,18 @@ public sealed class AuthenticationSessionService
         CancellationToken cancellationToken)
     {
         var session = await _store.FindByIdAsync(sessionId, cancellationToken);
-        if (session?.RevokedAt != null)
-        {
-            session = null;
-        }
-        if (session == null)
+        if (session == null || !IsActive(session) || !IsActive(session.UsuarioClinica))
         {
             return false;
         }
 
+        // A context transition can only select another active membership of this identity.
+        var membership = await _store.FindMembershipAsync(session.UsuarioGlobalId, usuarioClinicaId, cancellationToken);
+        if (membership == null) return false;
         session.UsuarioClinicaId = usuarioClinicaId;
         session.LastActivityAt = UtcNow();
-        await _store.SaveChangesAsync(cancellationToken);
-        return true;
+        return await _store.TrySaveChangesAsync(cancellationToken)
+            && _lifetime.Failure(session.CreatedAt) == null;
     }
 
     public async Task RevokeAsync(string? refreshToken, Guid? sessionId, CancellationToken cancellationToken)
@@ -241,12 +266,15 @@ public sealed class AuthenticationSessionService
     public async Task<bool> RevokeMatchingAsync(string refreshToken, Guid sessionId, int membershipId,
         CancellationToken cancellationToken, Guid? authenticatedSessionId = null, int? authenticatedMembershipId = null)
     {
-        var session = authenticatedSessionId == sessionId && authenticatedMembershipId == membershipId
-            ? await _store.FindByIdAsync(sessionId, cancellationToken)
-            : await _store.FindByRefreshTokenHashAsync(HashRefreshToken(refreshToken), cancellationToken);
-        if (session == null || session.Id != sessionId || session.UsuarioClinicaId != membershipId) return false;
-        // Atomic revocation must win over concurrent activity updates and refresh rotation.
-        return await _store.RevokeByIdAsync(sessionId, UtcNow(), cancellationToken);
+        var cookieSession = await _store.FindByRefreshTokenHashAsync(HashRefreshToken(refreshToken), cancellationToken);
+        var cookieMatches = cookieSession?.Id == sessionId && cookieSession.UsuarioClinicaId == membershipId;
+        if (cookieMatches)
+            return await _store.RevokeByIdAsync(sessionId, UtcNow(), cancellationToken);
+        if (authenticatedSessionId == sessionId && authenticatedMembershipId == membershipId)
+            await _store.RevokeByIdAsync(sessionId, UtcNow(), cancellationToken);
+        // An old bearer may revoke its own session, but must never delete a different
+        // session's cookie (or an unrecognized cookie rotated by another request).
+        return false;
     }
 
     private static bool IsActive(UsuarioClinica membership)
@@ -258,12 +286,12 @@ public sealed class AuthenticationSessionService
             && membership.Clinica.Ativa;
     }
 
-    private bool IsActive(AuthenticationSession session, DateTime now)
+    private bool IsActive(AuthenticationSession session)
     {
         return session.UsuarioGlobalId == session.UsuarioClinica.UsuarioGlobalId
             && session.SecurityVersion == session.UsuarioClinica.UsuarioGlobal.SecurityVersion
             && session.RevokedAt == null
-            && session.LastActivityAt > now.AddMinutes(-_options.IdleTimeoutMinutes);
+            && _lifetime.Failure(session.CreatedAt, session.LastActivityAt) == null;
     }
 
     private IssuedAuthenticationSession Issue(
@@ -276,10 +304,10 @@ public sealed class AuthenticationSessionService
                 membership.UsuarioGlobal,
                 membership,
                 membership.User,
-                session.Id),
+                session.Id, session.CreatedAt),
             refreshToken,
             session.LastActivityAt.AddMinutes(_options.IdleTimeoutMinutes),
-            UtcNow().AddDays(_options.RefreshCookieLifetimeDays));
+            _lifetime.CookieExpiresAt(session.CreatedAt));
     }
 
     private async Task SaveRevocationAsync(CancellationToken cancellationToken)

@@ -89,6 +89,11 @@ public static class SessionEndpointExtensions
         {
             return Results.Conflict(new { code = "session_refresh_conflict" });
         }
+        catch (SessionAbsoluteExpiredException)
+        {
+            return Results.Json(new { code = SessionLifetimePolicy.AbsoluteExpired,
+                message = SessionLifetimePolicy.AbsoluteExpiredMessage }, statusCode: StatusCodes.Status401Unauthorized);
+        }
     }
 
     public sealed record RefreshSessionRequest(Guid SessionId, int MembershipId, bool Active);

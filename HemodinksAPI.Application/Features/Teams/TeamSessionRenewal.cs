@@ -9,6 +9,7 @@ public sealed partial class TeamUseCases
     public async Task<string?> RenewSessionAsync(CurrentUserContext user, int teamVersion,
         int? operatorVersion, Guid securityVersion, CancellationToken cancellationToken)
     {
+        if (lifetime.Failure(user.AuthenticatedAt) != null) return null;
         if (!user.IsEquipe || !user.EquipeId.HasValue) return null;
         var membership = await context.UsuariosClinicas.Include(x => x.UsuarioGlobal)
             .Include(x => x.User).ThenInclude(x => x.Perfil)
@@ -37,6 +38,6 @@ public sealed partial class TeamUseCases
         else if (!team.ModoIdentificacao.Equals(EquipeModosIdentificacao.Nenhuma, StringComparison.OrdinalIgnoreCase))
             return null;
         return jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, membership.User,
-            team, op, user.IdentificacaoConfiavel);
+            team, op, user.IdentificacaoConfiavel, user.AuthenticatedAt);
     }
 }

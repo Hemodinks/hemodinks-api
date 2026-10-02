@@ -26,20 +26,10 @@ public static partial class ApiServiceCollectionExtensions
             .GetSection(AuthenticationSessionOptions.SectionName)
             .Get<AuthenticationSessionOptions>()
             ?? new AuthenticationSessionOptions();
-        if (sessionOptions.IdleTimeoutMinutes <= 0)
-        {
-            throw new InvalidOperationException("AuthenticationSession:IdleTimeoutMinutes must be greater than zero.");
-        }
-        if (string.IsNullOrWhiteSpace(sessionOptions.RefreshCookieName))
-        {
-            throw new InvalidOperationException("AuthenticationSession:RefreshCookieName must be configured.");
-        }
-        if (sessionOptions.RefreshCookieLifetimeDays <= 0)
-        {
-            throw new InvalidOperationException("AuthenticationSession:RefreshCookieLifetimeDays must be greater than zero.");
-        }
+        SessionLifetimePolicy.ValidateOptions(sessionOptions);
 
         services.AddSingleton(sessionOptions);
+        services.AddSingleton<SessionLifetimePolicy>();
         services.AddScoped<AuthenticationSessionService>();
         services.AddSingleton<AuthenticationSessionCookie>();
 

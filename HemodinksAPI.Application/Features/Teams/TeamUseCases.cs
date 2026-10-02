@@ -14,7 +14,9 @@ public sealed partial class TeamUseCases(
     IPasswordHasher passwordHasher,
     IPinHasher pinHasher,
     IJwtTokenService jwtTokenService,
-    ILicencaService licencaService)
+    ILicencaService licencaService,
+    HemodinksAPI.Application.Features.Sessions.SessionLifetimePolicy lifetime,
+    TimeProvider timeProvider)
 {
     public Task<List<TeamResponse>> ListAsync(CancellationToken cancellationToken) =>
         context.Equipes.AsNoTracking().OrderBy(item => item.Nome)

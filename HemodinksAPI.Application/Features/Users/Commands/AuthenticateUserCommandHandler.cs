@@ -23,6 +23,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
     private readonly ILogger<AuthenticateUserCommandHandler> _logger;
     private readonly ILoginAccountProtection _loginProtection;
     private readonly TemporaryAccessService? _temporaryAccess;
+    private readonly TimeProvider _timeProvider;
 
     internal AuthenticateUserCommandHandler(
         IUserFeatureDbContext context,
@@ -49,9 +50,11 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
         IClinicaContext clinicaContext,
         ILoginAccountProtection loginProtection,
         ILogger<AuthenticateUserCommandHandler> logger,
-        TemporaryAccessService? temporaryAccess = null)
+        TemporaryAccessService? temporaryAccess = null,
+        TimeProvider? timeProvider = null)
     {
         _temporaryAccess = temporaryAccess;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _context = context;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
@@ -141,13 +144,15 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 if (!equipe.ModoIdentificacao.Equals(EquipeModosIdentificacao.Nenhuma, StringComparison.OrdinalIgnoreCase))
                 {
                     var challengeToken = EquipeAuthenticationRules.GenerateChallengeToken();
-                    var expiresAt = DateTime.UtcNow.AddMinutes(5);
+                    var authenticatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+                    var expiresAt = authenticatedAt.AddMinutes(5);
                     _context.EquipeLoginDesafios.Add(new EquipeLoginDesafio
                     {
                         ClinicaId = user.ClinicaId,
                         EquipeId = equipe.Id,
                         TokenHash = EquipeAuthenticationRules.HashChallengeToken(challengeToken),
                         SecurityVersion = globalAuthentication.UsuarioGlobal.SecurityVersion,
+                        DataCadastro = authenticatedAt,
                         ExpiraEm = expiresAt
                     });
                     await _context.SaveChangesAsync(cancellationToken);

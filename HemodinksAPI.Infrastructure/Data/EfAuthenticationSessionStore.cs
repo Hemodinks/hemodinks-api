@@ -6,6 +6,8 @@ namespace HemodinksAPI.Infrastructure.Data;
 
 public sealed class EfAuthenticationSessionStore(PlatformDbContext context) : IAuthenticationSessionStore
 {
+    public Task<UsuarioClinica?> FindMembershipAsync(int globalId, int membershipId, CancellationToken cancellationToken) =>
+        ActiveMemberships().FirstOrDefaultAsync(m => m.Id == membershipId && m.UsuarioGlobalId == globalId, cancellationToken);
     public Task<UsuarioClinica?> FindActiveMembershipAsync(
         int usuarioGlobalId,
         int userId,
@@ -61,6 +63,8 @@ public sealed class EfAuthenticationSessionStore(PlatformDbContext context) : IA
         }
         catch (DbUpdateConcurrencyException)
         {
+            // Remove pending stale writes and ensure a later lookup reads committed security state.
+            context.ChangeTracker.Clear();
             return false;
         }
     }

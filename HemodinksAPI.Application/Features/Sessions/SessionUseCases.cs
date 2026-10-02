@@ -70,7 +70,7 @@ public sealed class SessionUseCases(
             membership.UsuarioGlobal,
             membership,
             membership.User,
-            sessionId);
+            sessionId, currentUser.AuthenticatedAt);
         return new SelectClinicResponse(token, membership.UsuarioGlobalId, new SessionClinicResponse(
             membership.ClinicaId, membership.Clinica.Nome, membership.Clinica.Slug,
             membership.UserId, membership.PerfilId, membership.Perfil.Nome,

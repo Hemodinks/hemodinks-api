@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public sealed class SessionRenewalEndpointTests
+public sealed partial class SessionRenewalEndpointTests
 {
     private sealed class Clock : TimeProvider
     {
@@ -171,6 +171,7 @@ public sealed class SessionRenewalEndpointTests
     private sealed class ConflictStore(HemodinksAPI.Application.Features.Sessions.IAuthenticationSessionStore inner,
         Func<bool> conflict) : HemodinksAPI.Application.Features.Sessions.IAuthenticationSessionStore
     {
+        public Task<HemodinksAPI.Domain.Models.UsuarioClinica?> FindMembershipAsync(int globalId, int membershipId, CancellationToken ct) => inner.FindMembershipAsync(globalId, membershipId, ct);
         public Task<HemodinksAPI.Domain.Models.UsuarioClinica?> FindActiveMembershipAsync(int globalId, int userId, int clinicId, CancellationToken ct) => inner.FindActiveMembershipAsync(globalId, userId, clinicId, ct);
         public Task<HemodinksAPI.Domain.Models.AuthenticationSession?> FindByRefreshTokenHashAsync(string hash, CancellationToken ct) => inner.FindByRefreshTokenHashAsync(hash, ct);
         public Task<HemodinksAPI.Domain.Models.AuthenticationSession?> FindByIdAsync(Guid id, CancellationToken ct) => inner.FindByIdAsync(id, ct);

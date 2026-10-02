@@ -14,11 +14,13 @@ public class JwtTokenService : IJwtTokenService
 {
     private readonly JwtSettings _jwtSettings;
     private readonly ILogger<JwtTokenService> _logger;
+    private readonly TimeProvider _timeProvider;
 
-    public JwtTokenService(JwtSettings jwtSettings, ILogger<JwtTokenService> logger)
+    public JwtTokenService(JwtSettings jwtSettings, ILogger<JwtTokenService> logger, TimeProvider? timeProvider = null)
     {
         _jwtSettings = jwtSettings;
         _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public string GenerateToken(User user)
@@ -71,7 +73,7 @@ public class JwtTokenService : IJwtTokenService
         UsuarioGlobal usuarioGlobal,
         UsuarioClinica usuarioClinica,
         User user,
-        Guid? sessionId)
+        Guid? sessionId, DateTime? authenticatedAt = null)
     {
         try
         {
@@ -80,6 +82,7 @@ public class JwtTokenService : IJwtTokenService
 
             var claims = new List<Claim>
             {
+                AuthenticationTimeClaim(authenticatedAt),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, usuarioGlobal.Email),
@@ -104,7 +107,7 @@ public class JwtTokenService : IJwtTokenService
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationMinutes),
+                Expires = _timeProvider.GetUtcNow().UtcDateTime.AddMinutes(_jwtSettings.ExpirationMinutes),
                 Issuer = _jwtSettings.Issuer,
                 Audience = _jwtSettings.Audience,
                 SigningCredentials = new SigningCredentials(
@@ -132,7 +135,7 @@ public class JwtTokenService : IJwtTokenService
         User user,
         Equipe? equipe = null,
         EquipeOperador? operador = null,
-        bool identificacaoConfiavel = false)
+        bool identificacaoConfiavel = false, DateTime? authenticatedAt = null)
     {
         try
         {
@@ -141,6 +144,7 @@ public class JwtTokenService : IJwtTokenService
 
             var claims = new List<Claim>
             {
+                AuthenticationTimeClaim(authenticatedAt),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, usuarioGlobal.Email),
@@ -178,7 +182,7 @@ public class JwtTokenService : IJwtTokenService
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
-                Expires = DateTime.UtcNow.AddMinutes(_jwtSettings.ExpirationMinutes),
+                Expires = _timeProvider.GetUtcNow().UtcDateTime.AddMinutes(_jwtSettings.ExpirationMinutes),
                 Issuer = _jwtSettings.Issuer,
                 Audience = _jwtSettings.Audience,
                 SigningCredentials = new SigningCredentials(
@@ -199,4 +203,9 @@ public class JwtTokenService : IJwtTokenService
             throw;
         }
     }
+    private Claim AuthenticationTimeClaim(DateTime? authenticatedAt) => new(
+        AuthenticationSessionClaimTypes.AuthenticatedAt,
+        new DateTimeOffset(DateTime.SpecifyKind(authenticatedAt ?? _timeProvider.GetUtcNow().UtcDateTime, DateTimeKind.Utc))
+            .ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture),
+        ClaimValueTypes.Integer64);
 }

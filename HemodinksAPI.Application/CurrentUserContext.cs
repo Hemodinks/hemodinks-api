@@ -14,6 +14,7 @@ public sealed record CurrentUserContext(
     int? EquipeOperadorId = null,
     bool IdentificacaoConfiavel = false)
 {
+    public DateTime? AuthenticatedAt { get; init; }
     public bool IsAdministrador => Perfil.IsAdministradorOuSuper(PerfilId);
 
     public bool IsSuperAdministrador => PerfilId == Perfil.SuperAdministradorId;

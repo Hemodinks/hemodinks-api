@@ -4,6 +4,7 @@ namespace HemodinksAPI.Application.Features.Sessions;
 
 public interface IAuthenticationSessionStore
 {
+    Task<UsuarioClinica?> FindMembershipAsync(int globalId, int membershipId, CancellationToken cancellationToken);
     Task<UsuarioClinica?> FindActiveMembershipAsync(
         int usuarioGlobalId,
         int userId,

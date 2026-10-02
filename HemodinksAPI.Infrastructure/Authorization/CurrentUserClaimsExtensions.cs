@@ -46,6 +46,10 @@ public static class CurrentUserClaimsExtensions
             usuarioClinicaId,
             equipeId,
             equipeOperadorId,
-            identificacaoConfiavel);
+            identificacaoConfiavel)
+        {
+            AuthenticatedAt = HemodinksAPI.Application.Features.Sessions.SessionLifetimePolicy.ParseAuthenticationTime(
+                claimsPrincipal.FindFirst(AuthenticationSessionClaimTypes.AuthenticatedAt)?.Value)
+        };
     }
 }
