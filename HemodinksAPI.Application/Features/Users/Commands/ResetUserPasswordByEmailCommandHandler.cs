@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Services;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -62,9 +63,21 @@ public class ResetUserPasswordByEmailCommandHandler : IRequestHandler<ResetUserP
         var token = PasswordResetRules.GenerateToken();
         var tokenEntity = PasswordCommandMutations.CreatePasswordResetToken(user.ClinicaId, user.Id, token, requestIp, now);
 
-        await PasswordCommandMutations.InvalidateActiveTokensAsync(_context, user.Id, now, cancellationToken);
+        var invalidatedTokens = await PasswordCommandMutations.InvalidateActiveTokensAsync(_context, user.Id, now, cancellationToken);
         _context.PasswordResetTokens.Add(tokenEntity);
-        await _context.SaveChangesAsync(cancellationToken);
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // A competing recovery already consumed a token. Keep account existence private,
+            // and discard this operation's staged changes before any later idempotency save.
+            _context.PasswordResetTokens.Remove(tokenEntity);
+            foreach (var invalidatedToken in invalidatedTokens)
+                await _context.PasswordResetTokens.Attach(invalidatedToken).ReloadAsync(cancellationToken);
+            return response;
+        }
 
         _logger.LogInformation("Token de reset de senha criado para usuario {UserId}", user.Id);
 

@@ -3,9 +3,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Data;
 
-public interface ITemporaryAccessDbContext : IPasswordCredentialDbContext, IPasswordResetDbContext
+public interface ITemporaryAccessDbContext : IPasswordCredentialDbContext, ICredentialRevocationDbContext
 {
     DbSet<TemporaryAccessCredential> TemporaryAccessCredentials { get; }
-    DbSet<AuthenticationSession> AuthenticationSessions { get; }
     DbSet<AuditoriaPlataforma> AuditoriasPlataforma { get; }
 }

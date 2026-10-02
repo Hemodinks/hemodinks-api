@@ -166,7 +166,12 @@ public interface IPasswordResetOperationsDbContext :
     IPasswordCredentialDbContext,
     IPasswordResetDbContext;
 
-public interface IPlatformPasswordResetDbContext : IPasswordResetOperationsDbContext;
+public interface ICredentialRevocationDbContext : IGlobalIdentityDbContext, IPasswordResetDbContext
+{
+    DbSet<AuthenticationSession> AuthenticationSessions { get; }
+}
+
+public interface IPlatformPasswordResetDbContext : IPasswordResetOperationsDbContext, ICredentialRevocationDbContext;
 
 public interface IUserFeatureDbContext :
     IUnitOfWork,

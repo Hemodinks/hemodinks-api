@@ -2187,6 +2187,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("nvarchar(128)");
 
                     b.Property<DateTime?>("UsedAt")
+                        .IsConcurrencyToken()
                         .HasColumnType("datetime2");
 
                     b.Property<int>("UserId")
