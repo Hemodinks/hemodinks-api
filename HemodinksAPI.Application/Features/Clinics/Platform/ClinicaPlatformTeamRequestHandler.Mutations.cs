@@ -78,7 +78,7 @@ public sealed partial class ClinicaPlatformTeamRequestHandler
         .FirstOrDefaultAsync(item => item.Id == operatorId && item.EquipeId == teamId && item.ClinicaId == id && item.Ativo, cancellationToken);
         if (op == null) return PlatformUseCaseResult.NotFound();
         var pin = EquipeAuthenticationRules.GeneratePin();
-        op.PinHash = passwordHasher.HashPassword(pin);
+        op.PinHash = pinHasher.HashPin(pin);
         op.PrecisaTrocarPin = true;
         op.TentativasFalhas = 0;
         op.BloqueadoAte = null;

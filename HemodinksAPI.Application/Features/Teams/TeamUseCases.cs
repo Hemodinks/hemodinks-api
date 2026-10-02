@@ -12,6 +12,7 @@ namespace HemodinksAPI.Application.Features.Teams;
 public sealed partial class TeamUseCases(
     ITeamDbContext context,
     IPasswordHasher passwordHasher,
+    IPinHasher pinHasher,
     IJwtTokenService jwtTokenService,
     ILicencaService licencaService)
 {

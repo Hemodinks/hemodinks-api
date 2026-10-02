@@ -1,5 +1,6 @@
 using HemodinksAPI.Infrastructure.Utils;
 using System.Security.Cryptography;
+using HemodinksAPI.Application.Utils;
 
 namespace HemodinksAPI.Tests;
 
@@ -7,12 +8,67 @@ public class PasswordHasherTests
 {
     private readonly PasswordHasher _hasher = new();
 
+    [Theory]
+    [InlineData(10_000, PasswordVerificationResult.SuccessRehashNeeded)]
+    [InlineData(210_000, PasswordVerificationResult.SuccessRehashNeeded)]
+    [InlineData(600_000, PasswordVerificationResult.Success)]
+    [InlineData(800_000, PasswordVerificationResult.Success)]
+    public void Verification_ReportsUpgradeOnlyForValidWeakCredentials(int iterations, PasswordVerificationResult expected)
+    {
+        var hash = PasswordHashTestData.Create(TestPasswords.Valid, iterations);
+        Assert.Equal(expected, _hasher.VerifyPasswordWithRehash(TestPasswords.Valid, hash));
+        Assert.Equal(PasswordVerificationResult.Failed, _hasher.VerifyPasswordWithRehash("wrong", hash));
+    }
+
+    public static TheoryData<string?> MalformedHashes => new()
+    {
+        "", new string('A', 129),
+        "PBKDF2-SHA512$600000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "PBKDF2-SHA256$2147483647$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "PBKDF2-SHA256$2000001$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "PBKDF2-SHA256$9999$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "PBKDF2-SHA256$-600000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "PBKDF2-SHA256$+600000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "PBKDF2-SHA256$ 600000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "PBKDF2-SHA256$600000$$",
+        "PBKDF2-SHA256$600000$AAAAAAAAAAAAAAAAAAAAAA==$",
+        "PBKDF2-SHA256$600000$AAAAAAAAAAAAAAAAAAAAAA==$AAAA",
+        "PBKDF2-SHA256$600000$AAAAAAAAAAAAAAAAAAAAAAA=$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "PBKDF2-SHA256$600000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "PBKDF2-SHA256$600000$!!!!!!!!!!!!!!!!!!!!!!!!$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        "PBKDF2-SHA256$600000$AAAAAAAAAAAAAAAAAAAAAA==$AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=$extra"
+    };
+
+    [Theory]
+    [MemberData(nameof(MalformedHashes))]
+    public void Verification_RejectsMalformedInputBeforeDerivation(string? hash) =>
+        Assert.Equal(PasswordVerificationResult.Failed, _hasher.VerifyPasswordWithRehash(TestPasswords.Valid, hash!));
+
+    [Fact]
+    public void Verification_RejectsNullInput()
+    {
+        Assert.Equal(PasswordVerificationResult.Failed, _hasher.VerifyPasswordWithRehash(TestPasswords.Valid, null!));
+        Assert.Equal(PasswordVerificationResult.Failed, _hasher.VerifyPasswordWithRehash(null!, "invalid"));
+    }
+
+    [Fact]
+    public void PinPolicy_RemainsAtExistingCostWithoutMigration()
+    {
+        var pins = new PinHasher();
+        var hash = pins.HashPin("123456");
+        Assert.StartsWith("PBKDF2-SHA256$210000$", hash);
+        Assert.True(pins.VerifyPin("123456", hash));
+        Assert.False(pins.VerifyPin("654321", hash));
+        Assert.True(pins.VerifyPin("123456", PasswordHashTestData.Create("123456", 10_000)));
+    }
+
     [Fact]
     public void HashPassword_WhenPasswordIsValid_ReturnsVerifiableHash()
     {
         var hash = _hasher.HashPassword("TestPassword@123");
 
         Assert.StartsWith("PBKDF2-SHA256$", hash);
+        Assert.Equal("600000", hash.Split('$')[1]);
         Assert.True(_hasher.VerifyPassword("TestPassword@123", hash));
     }
 

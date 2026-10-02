@@ -46,7 +46,7 @@ public sealed partial class TeamUseCases
         if (generatePin)
         {
             temporaryPin = EquipeAuthenticationRules.GeneratePin();
-            op.PinHash = passwordHasher.HashPassword(temporaryPin);
+            op.PinHash = pinHasher.HashPin(temporaryPin);
             op.PrecisaTrocarPin = true;
             op.DataUltimaTroca = DateTime.UtcNow;
         }
@@ -93,7 +93,7 @@ public sealed partial class TeamUseCases
         var op = await context.EquipeOperadores.FirstOrDefaultAsync(item => item.Id == operatorId && item.EquipeId == teamId && item.Ativo, cancellationToken);
         if (op == null) return TeamUseCaseResult<string>.NotFound();
         var pin = EquipeAuthenticationRules.GeneratePin();
-        op.PinHash = passwordHasher.HashPassword(pin);
+        op.PinHash = pinHasher.HashPin(pin);
         op.PrecisaTrocarPin = true;
         op.TentativasFalhas = 0;
         op.BloqueadoAte = null;

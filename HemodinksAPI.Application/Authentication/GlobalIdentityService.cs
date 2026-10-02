@@ -7,7 +7,8 @@ namespace HemodinksAPI.Application.Authentication;
 
 public sealed record GlobalAuthenticationContext(
     UsuarioGlobal UsuarioGlobal,
-    UsuarioClinica UsuarioClinica);
+    UsuarioClinica UsuarioClinica,
+    bool NeedsPasswordRehash = false);
 
 public static class GlobalIdentityService
 {
@@ -32,27 +33,34 @@ public static class GlobalIdentityService
             return null;
         }
 
-        if (!passwordHasher.VerifyPassword(password, membership.UsuarioGlobal.Senha))
+        var verification = passwordHasher.VerifyPasswordWithRehash(password, membership.UsuarioGlobal.Senha);
+        if (verification == PasswordVerificationResult.Failed)
         {
             // Um unico fallback e permitido apenas para identidades migradas que ainda nao
             // tiveram sua credencial global confirmada. Depois disso a senha global e canonica.
-            if (membership.UsuarioGlobal.DataAtualizacao.HasValue
-                || !passwordHasher.VerifyPassword(password, user.Senha))
+            if (membership.UsuarioGlobal.DataAtualizacao.HasValue)
             {
                 return null;
             }
+
+            verification = passwordHasher.VerifyPasswordWithRehash(password, user.Senha);
+            if (verification == PasswordVerificationResult.Failed) return null;
 
             // Compatibilidade de transicao: a credencial local validada passa a ser a global.
             membership.UsuarioGlobal.Senha = user.Senha;
             membership.UsuarioGlobal.DataAtualizacao = DateTime.UtcNow;
         }
 
+        // A successful authentication confirms the canonical credential and closes the
+        // one-time legacy fallback, even when the canonical hash already meets policy.
+        membership.UsuarioGlobal.DataAtualizacao ??= DateTime.UtcNow;
         membership.PerfilId = user.PerfilId;
         membership.Ativo = user.Ativo;
         membership.DataAtualizacao = DateTime.UtcNow;
         await context.SaveChangesAsync(cancellationToken);
 
-        return new GlobalAuthenticationContext(membership.UsuarioGlobal, membership);
+        return new GlobalAuthenticationContext(membership.UsuarioGlobal, membership,
+            verification == PasswordVerificationResult.SuccessRehashNeeded);
     }
 
     public static async Task<UsuarioClinica> EnsureForUserAsync(

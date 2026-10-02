@@ -43,6 +43,7 @@ public static partial class ApiServiceCollectionExtensions
             .ValidateOnStart();
         services.AddScoped<ILoginAccountProtection, EfLoginAccountProtection>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
+        services.AddScoped<IPinHasher, PinHasher>();
         services.AddScoped<HemodinksAPI.Application.Features.Users.Commands.TemporaryAccessService>();
         services.AddScoped<IConfiguracaoSistemaRepository, ConfiguracaoSistemaRepository>();
         services.AddScoped<IUserPatientSyncService, UserPatientSyncService>();

@@ -41,7 +41,7 @@ public sealed partial class TeamUseCases
 
         var requiresPin = challenge.Equipe.ModoIdentificacao.Equals(EquipeModosIdentificacao.Pin, StringComparison.OrdinalIgnoreCase);
         if (requiresPin && (op.PinHash == null || !EquipeAuthenticationRules.IsValidPinFormat(pin)
-            || !passwordHasher.VerifyPassword(pin!, op.PinHash)))
+            || !pinHasher.VerifyPin(pin!, op.PinHash)))
         {
             op.TentativasFalhas++;
             if (op.TentativasFalhas >= 5)
@@ -109,10 +109,10 @@ public sealed partial class TeamUseCases
         var op = await context.EquipeOperadores.Include(item => item.User)
             .FirstOrDefaultAsync(item => item.Id == currentUser.EquipeOperadorId.Value
                 && item.EquipeId == currentUser.EquipeId.Value && item.Ativo, cancellationToken);
-        if (team == null || op?.PinHash == null || !passwordHasher.VerifyPassword(currentPin, op.PinHash))
+        if (team == null || op?.PinHash == null || !pinHasher.VerifyPin(currentPin, op.PinHash))
             return TeamUseCaseResult<ChangeTeamPinResponse>.Unauthorized();
 
-        op.PinHash = passwordHasher.HashPassword(newPin);
+        op.PinHash = pinHasher.HashPin(newPin);
         op.PrecisaTrocarPin = false;
         op.TentativasFalhas = 0;
         op.BloqueadoAte = null;
