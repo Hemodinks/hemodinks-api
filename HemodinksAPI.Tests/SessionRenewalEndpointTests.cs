@@ -147,7 +147,7 @@ public sealed partial class SessionRenewalEndpointTests
             (await db.Equipes.SingleAsync(t => t.UsuarioLogin.Email == email)).VersaoSessao++;
             await db.SaveChangesAsync();
         }
-        Assert.Equal(HttpStatusCode.Forbidden, (await client.PostAsJsonAsync("/api/session/renovar-equipe", new { })).StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/session/renovar-equipe", new { })).StatusCode);
     }
 
     private sealed record Renewed(string Token, int IdleTimeoutMinutes);
@@ -175,6 +175,7 @@ public sealed partial class SessionRenewalEndpointTests
         public Task<HemodinksAPI.Domain.Models.UsuarioClinica?> FindActiveMembershipAsync(int globalId, int userId, int clinicId, CancellationToken ct) => inner.FindActiveMembershipAsync(globalId, userId, clinicId, ct);
         public Task<HemodinksAPI.Domain.Models.AuthenticationSession?> FindByRefreshTokenHashAsync(string hash, CancellationToken ct) => inner.FindByRefreshTokenHashAsync(hash, ct);
         public Task<HemodinksAPI.Domain.Models.AuthenticationSession?> FindByIdAsync(Guid id, CancellationToken ct) => inner.FindByIdAsync(id, ct);
+        public Task<HemodinksAPI.Application.Features.Sessions.SessionTeamBinding?> FindTeamBindingAsync(HemodinksAPI.Domain.Models.AuthenticationSession session, DateTime now, CancellationToken ct) => inner.FindTeamBindingAsync(session, now, ct);
         public void Add(HemodinksAPI.Domain.Models.AuthenticationSession session) => inner.Add(session);
         public Task SaveChangesAsync(CancellationToken ct) => inner.SaveChangesAsync(ct);
         public Task<bool> TrySaveChangesAsync(CancellationToken ct) => conflict() ? Task.FromResult(false) : inner.TrySaveChangesAsync(ct);

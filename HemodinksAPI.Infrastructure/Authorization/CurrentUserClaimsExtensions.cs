@@ -48,6 +48,7 @@ public static class CurrentUserClaimsExtensions
             equipeOperadorId,
             identificacaoConfiavel)
         {
+            SessionId = Guid.TryParse(claimsPrincipal.FindFirst(AuthenticationSessionClaimTypes.SessionId)?.Value, out var sid) ? sid : null,
             AuthenticatedAt = HemodinksAPI.Application.Features.Sessions.SessionLifetimePolicy.ParseAuthenticationTime(
                 claimsPrincipal.FindFirst(AuthenticationSessionClaimTypes.AuthenticatedAt)?.Value)
         };

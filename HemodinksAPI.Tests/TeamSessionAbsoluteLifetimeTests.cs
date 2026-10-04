@@ -6,6 +6,8 @@ using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Teams;
 using HemodinksAPI.Application.Features.Users.Commands;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Infrastructure.Data;
 
 namespace HemodinksAPI.Tests;
 
@@ -36,7 +38,7 @@ public sealed class TeamSessionAbsoluteLifetimeTests
             clock.Now = clock.Now.AddMinutes(2);
             var identification = await TeamLoginSecurityTests.IdentifyAsync(client, login.EquipeDesafio!.Token,
                 team.OperatorId, mode == "Pin" ? TeamLoginFixture.PinValue : null);
-            identification.EnsureSuccessStatusCode();
+            Assert.True(identification.IsSuccessStatusCode, await identification.Content.ReadAsStringAsync());
             login = (await identification.Content.ReadFromJsonAsync<AuthenticateUserResponse>())!;
         }
         Assert.Equal(started, AuthenticationTime(login.Token!));
@@ -50,6 +52,14 @@ public sealed class TeamSessionAbsoluteLifetimeTests
             client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", changed.Token);
         }
         clock.Now = DateTimeOffset.FromUnixTimeSeconds(long.Parse(started)).AddHours(12).AddTicks(-1);
+        // Persistent team sessions now enforce idle time too; simulate continuous activity.
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            var sid = Guid.Parse(new JwtSecurityTokenHandler().ReadJwtToken(login.Token).Claims.Single(c => c.Type == "sid").Value);
+            (await db.AuthenticationSessions.SingleAsync(s => s.Id == sid)).LastActivityAt = clock.Now.UtcDateTime;
+            await db.SaveChangesAsync();
+        }
         var renewed = await client.PostAsJsonAsync("/api/session/renovar-equipe", new { });
         renewed.EnsureSuccessStatusCode();
         var token = (await renewed.Content.ReadFromJsonAsync<Renewed>())!.Token;

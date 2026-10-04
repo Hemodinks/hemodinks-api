@@ -42,7 +42,7 @@ public sealed class AuthenticationSessionCookie
         {
             HttpOnly = true,
             Secure = secure,
-            SameSite = secure ? SameSiteMode.None : SameSiteMode.Lax,
+            SameSite = secure ? Enum.Parse<SameSiteMode>(_options.RefreshCookieSameSite) : SameSiteMode.Lax,
             Path = "/api/session",
             IsEssential = true,
             Expires = expiresAt.HasValue ? new DateTimeOffset(expiresAt.Value, TimeSpan.Zero) : null

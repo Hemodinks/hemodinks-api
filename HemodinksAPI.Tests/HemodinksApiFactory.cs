@@ -46,6 +46,7 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
                 ["JwtSettings:ExpirationMinutes"] = "30",
                 ["Cors:AllowedOrigins:0"] = "https://hemodinks.gestao-saude.tec.br",
                 ["Cors:AllowedOrigins:1"] = "https://hemodinks-homologacao.gestao-saude.tec.br",
+                ["Cors:AllowedOrigins:2"] = "http://127.0.0.1:5184",
                 ["ApiDocumentation:Enabled"] = "true",
                 ["Database:RunMigrationsOnStartup"] = "true",
                 ["Database:RunMaintenanceOnStartup"] = "true",

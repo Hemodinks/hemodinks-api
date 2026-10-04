@@ -39,6 +39,8 @@ public sealed class SessionLifetimePolicy(AuthenticationSessionOptions options, 
 
     public static void ValidateOptions(AuthenticationSessionOptions options)
     {
+        if (options.RefreshCookieSameSite is not ("Lax" or "Strict" or "None"))
+            throw new InvalidOperationException("AuthenticationSession:RefreshCookieSameSite must be Lax, Strict or None.");
         if (string.IsNullOrWhiteSpace(options.RefreshCookieName))
             throw new InvalidOperationException("AuthenticationSession:RefreshCookieName must be configured.");
         if (options.AbsoluteLifetimeHours is < 1 or > 8760)

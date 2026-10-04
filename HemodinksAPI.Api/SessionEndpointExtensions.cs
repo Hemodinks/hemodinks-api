@@ -5,7 +5,7 @@ using HemodinksAPI.Application.Tenancy;
 
 namespace HemodinksAPI.Api;
 
-public static class SessionEndpointExtensions
+public static partial class SessionEndpointExtensions
 {
     public static void MapSessionEndpoints(this WebApplication app)
     {
@@ -13,11 +13,12 @@ public static class SessionEndpointExtensions
             .WithTags("Sessao")
             .RequireAuthorization();
 
+        group.MapPost("/restaurar", RestoreSession).WithName("RestoreSession").AllowAnonymous().RequireRateLimiting("SessionRefresh");
         group.MapGet("/clinicas", ListClinicas);
         group.MapPost("/selecionar-clinica", SelectClinica);
-        group.MapPost("/renovar", RefreshSession).AllowAnonymous().RequireRateLimiting("SessionRefresh");
+        group.MapPost("/renovar", RefreshSession).WithName("RefreshSession").AllowAnonymous().RequireRateLimiting("SessionRefresh");
         group.MapPost("/renovar-equipe", RefreshTeamSession).WithName("RefreshTeamSession").RequireRateLimiting("SessionRefresh");
-        group.MapPost("/sair", EndSession).AllowAnonymous().RequireRateLimiting("SessionRefresh");
+        group.MapPost("/sair", EndSession).WithName("EndSession").AllowAnonymous().RequireRateLimiting("SessionRefresh");
         group.MapPost("/atividade", (AuthenticationSessionOptions options) =>
             Results.Ok(new { idleTimeoutMinutes = options.IdleTimeoutMinutes }))
             .WithName("TouchSessionActivity").RequireRateLimiting("SessionRefresh");
@@ -25,11 +26,7 @@ public static class SessionEndpointExtensions
 
     private static bool IsTrustedRefreshRequest(HttpContext context, IConfiguration configuration)
     {
-        var origin = context.Request.Headers.Origin.ToString();
-        var origins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
-        return context.Request.Headers["X-Session-Refresh"] == "1"
-            && (string.IsNullOrEmpty(origin) || origins.Any(item =>
-                string.Equals(item.Trim().TrimEnd('/'), origin, StringComparison.OrdinalIgnoreCase)));
+        return SessionRequestSecurity.IsTrusted(context, configuration);
     }
 
     private static async Task<IResult> EndSession(RefreshSessionRequest request, HttpContext context,

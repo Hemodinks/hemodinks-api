@@ -126,7 +126,7 @@ public sealed partial class TeamUseCases
         await context.SaveChangesAsync(cancellationToken);
         var membership = await context.UsuariosClinicas.Include(item => item.UsuarioGlobal)
             .FirstAsync(item => item.UserId == team.UsuarioLoginId && item.Ativo, cancellationToken);
-        var jwt = jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, team.UsuarioLogin, team, op, true, currentUser.AuthenticatedAt);
+        var jwt = jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, team.UsuarioLogin, team, op, true, currentUser.AuthenticatedAt, currentUser.SessionId);
         return TeamUseCaseResult<ChangeTeamPinResponse>.Success(new ChangeTeamPinResponse(jwt, false),
             TeamAudit.Create("team.operator.pin.change", "team-operator", op.Id, op.ClinicaId,
                 new Dictionary<string, object?> { ["equipeId"] = team.Id, ["operadorId"] = op.Id }));

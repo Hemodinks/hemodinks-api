@@ -135,7 +135,7 @@ public class JwtTokenService : IJwtTokenService
         User user,
         Equipe? equipe = null,
         EquipeOperador? operador = null,
-        bool identificacaoConfiavel = false, DateTime? authenticatedAt = null)
+        bool identificacaoConfiavel = false, DateTime? authenticatedAt = null, Guid? teamSessionId = null)
     {
         try
         {
@@ -161,6 +161,8 @@ public class JwtTokenService : IJwtTokenService
                 new Claim("security_version", usuarioGlobal.SecurityVersion.ToString("D")),
             };
 
+            if (teamSessionId.HasValue)
+                claims.Add(new Claim(AuthenticationSessionClaimTypes.SessionId, teamSessionId.Value.ToString("D")));
             if (equipe != null)
             {
                 claims.Add(new Claim(GlobalIdentityClaimTypes.EquipeId, equipe.Id.ToString()));

@@ -34,6 +34,7 @@ public sealed class ClinicaResolutionMiddleware
         // The HttpOnly refresh credential selects the session and its current membership.
         if (HttpMethods.IsPost(httpContext.Request.Method)
             && (httpContext.Request.Path.Equals("/api/session/renovar", StringComparison.OrdinalIgnoreCase)
+                || httpContext.Request.Path.Equals("/api/session/restaurar", StringComparison.OrdinalIgnoreCase)
                 || httpContext.Request.Path.Equals("/api/session/sair", StringComparison.OrdinalIgnoreCase)))
         {
             await _next(httpContext);

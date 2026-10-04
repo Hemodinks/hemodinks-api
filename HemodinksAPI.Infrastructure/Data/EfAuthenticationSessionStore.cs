@@ -35,6 +35,29 @@ public sealed class EfAuthenticationSessionStore(PlatformDbContext context) : IA
             .FirstOrDefaultAsync(item => item.Id == sessionId, cancellationToken);
     }
 
+    public async Task<SessionTeamBinding?> FindTeamBindingAsync(AuthenticationSession session, DateTime now, CancellationToken ct)
+    {
+        var membership = session.UsuarioClinica;
+        var team = await context.Equipes.FirstOrDefaultAsync(t => t.Id == session.EquipeId
+            && t.ClinicaId == membership.ClinicaId && t.UsuarioLoginId == membership.UserId
+            && t.Ativa && t.VersaoSessao == session.EquipeVersaoSessao, ct);
+        if (team == null || membership.User.PerfilId != Perfil.EquipeId) return null;
+        EquipeOperador? op = null;
+        if (session.EquipeOperadorId.HasValue)
+        {
+            op = await context.EquipeOperadores.Include(o => o.User).FirstOrDefaultAsync(o => o.Id == session.EquipeOperadorId
+                && o.EquipeId == team.Id && o.ClinicaId == membership.ClinicaId && o.Ativo && o.User.Ativo
+                && o.User.ClinicaId == membership.ClinicaId && o.VersaoSessao == session.OperadorVersaoSessao
+                && (o.BloqueadoAte == null || o.BloqueadoAte <= now)
+                && context.EquipeMembros.Any(m => m.EquipeId == team.Id && m.ClinicaId == membership.ClinicaId
+                    && m.UserId == o.UserId && m.Ativo), ct);
+            if (op == null) return null;
+        }
+        else if (team.ModoIdentificacao != EquipeModosIdentificacao.Nenhuma) return null;
+        if (session.IdentificacaoConfiavel && (op == null || team.ModoIdentificacao != EquipeModosIdentificacao.Pin)) return null;
+        return new SessionTeamBinding(team, op);
+    }
+
     public void Add(AuthenticationSession session) => context.AuthenticationSessions.Add(session);
 
     public async Task<bool> RevokeByIdAsync(Guid sessionId, DateTime revokedAt, CancellationToken cancellationToken)

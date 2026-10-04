@@ -38,6 +38,6 @@ public sealed partial class TeamUseCases
         else if (!team.ModoIdentificacao.Equals(EquipeModosIdentificacao.Nenhuma, StringComparison.OrdinalIgnoreCase))
             return null;
         return jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, membership.User,
-            team, op, user.IdentificacaoConfiavel, user.AuthenticatedAt);
+            team, op, user.IdentificacaoConfiavel, user.AuthenticatedAt, user.SessionId);
     }
 }

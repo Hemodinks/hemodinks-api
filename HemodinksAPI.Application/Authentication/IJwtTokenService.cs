@@ -23,5 +23,5 @@ public interface IJwtTokenService
         User user,
         Equipe? equipe = null,
         EquipeOperador? operador = null,
-        bool identificacaoConfiavel = false, DateTime? authenticatedAt = null);
+        bool identificacaoConfiavel = false, DateTime? authenticatedAt = null, Guid? teamSessionId = null);
 }

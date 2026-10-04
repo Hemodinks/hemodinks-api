@@ -17,6 +17,7 @@ public interface IAuthenticationSessionStore
 
     Task<AuthenticationSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken);
 
+    Task<SessionTeamBinding?> FindTeamBindingAsync(AuthenticationSession session, DateTime now, CancellationToken cancellationToken);
     void Add(AuthenticationSession session);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);
