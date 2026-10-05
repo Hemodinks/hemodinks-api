@@ -1,5 +1,4 @@
 using HemodinksAPI.Api;
-using HemodinksAPI.Application.Features.Sessions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.FileProviders;

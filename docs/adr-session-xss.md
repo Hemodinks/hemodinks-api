@@ -2,6 +2,8 @@
 
 Decisão registrada antes da implementação em 02/10/2026.
 
+Implementação, configuração e validação: [proteção das sessões](session-xss-security.md).
+
 | Alternativa | Avaliação |
 | --- | --- |
 | A — access token em memória + refresh HttpOnly | Escolhida. Remove a cópia persistente exposta a scripts, mantém transporte Bearer explícito e reutiliza sessões, rotação, autorização e clientes existentes. Exige bootstrap pelo cookie e persistência do contexto de equipes para restaurar sem JWT no storage. |
