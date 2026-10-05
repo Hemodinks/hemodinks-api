@@ -31,7 +31,9 @@ internal static class SchemaGuardProgram
             var options = new DbContextOptionsBuilder<AppDbContext>()
                 .UseSqlServer(connectionString, sql => sql.CommandTimeout(30)).Options;
 
-            var state = await SqlReadRetry.ExecuteAsync(async cancellationToken =>
+            var state = SchemaState.InconsistentHistory;
+
+            await SqlReadRetry.ExecuteAsync(async cancellationToken =>
             {
                 // Each attempt owns a fresh context/connection. This operation only reads migration metadata.
                 await using var context = new AppDbContext(options, new ClinicaContext());
@@ -51,20 +53,24 @@ internal static class SchemaGuardProgram
                 // out-of-order migrations and keeps the deployment fail-closed.
                 if (appliedMigrations.Length > knownMigrations.Length)
                 {
-                    return SchemaState.InconsistentHistory;
+                    state = SchemaState.InconsistentHistory;
+                    return true;
                 }
 
                 for (var index = 0; index < appliedMigrations.Length; index++)
                 {
                     if (!string.Equals(appliedMigrations[index], knownMigrations[index], StringComparison.Ordinal))
                     {
-                        return SchemaState.InconsistentHistory;
+                        state = SchemaState.InconsistentHistory;
+                        return true;
                     }
                 }
 
-                return appliedMigrations.Length == knownMigrations.Length
+                state = appliedMigrations.Length == knownMigrations.Length
                     ? SchemaState.Matches
                     : SchemaState.PendingKnownMigrations;
+
+                return true;
             }, timeout.Token, (attempt, error) =>
                 Console.WriteLine($"Schema check retryAfterAttempt={attempt} stage={stage} elapsedMs={elapsed.ElapsedMilliseconds} {SqlFailureDiagnostic.Describe(error)}"));
 
