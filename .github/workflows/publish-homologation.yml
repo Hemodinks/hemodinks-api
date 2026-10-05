@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       mode:
-        description: Preparar, publicar sem alterar schema, ou aplicar migrations e publicar
+        description: Diagnosticar, preparar artefatos ou publicar com seleção automática de schema
         type: choice
         required: true
         default: prepare
@@ -12,8 +12,7 @@ on:
           - diagnose
           - diagnose-sql
           - prepare
-          - deploy-no-schema-changes
-          - migrate-and-deploy
+          - publish
 
 permissions:
   contents: read
@@ -104,7 +103,7 @@ jobs:
 
   deploy:
     needs: prepare
-    if: (inputs.mode == 'deploy-no-schema-changes' || inputs.mode == 'migrate-and-deploy') && github.ref == 'refs/heads/developer'
+    if: inputs.mode == 'publish' && github.ref == 'refs/heads/developer'
     environment: homologation
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -124,16 +123,42 @@ jobs:
         shell: bash
         run: |
           python scripts/check_homologation.py
-      - name: Verify schema without applying changes
-        if: inputs.mode == 'deploy-no-schema-changes'
+      - name: Select deployment mode from schema state
+        id: schema_mode
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_CONNECTION_STRING }}
         shell: bash
         run: |
           chmod +x artifacts/schema-guard/Hemodinks.SchemaGuard
+          set +e
           ./artifacts/schema-guard/Hemodinks.SchemaGuard
-      - name: Apply only homologation migrations
-        if: inputs.mode == 'migrate-and-deploy'
+          schema_status=$?
+          set -e
+
+          case "$schema_status" in
+            0)
+              echo "mode=deploy-only" >> "$GITHUB_OUTPUT"
+              echo "Schema already matches this commit; deployment will not modify the database." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            10)
+              echo "mode=migrate-and-deploy" >> "$GITHUB_OUTPUT"
+              echo "Only known pending migrations were detected; homologation migrations will be applied automatically before deployment." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            2)
+              echo "::error::Schema inspection could not be completed safely. Deployment blocked."
+              exit 2
+              ;;
+            3)
+              echo "::error::Migration history is inconsistent with this commit (unknown, missing, or out-of-order migration). Deployment blocked."
+              exit 3
+              ;;
+            *)
+              echo "::error::Schema guard returned unexpected exit code $schema_status. Deployment blocked."
+              exit "$schema_status"
+              ;;
+          esac
+      - name: Apply only known pending homologation migrations
+        if: steps.schema_mode.outputs.mode == 'migrate-and-deploy'
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_CONNECTION_STRING }}
         shell: bash
@@ -144,6 +169,13 @@ jobs:
           fi
           chmod +x artifacts/hemodinks-efbundle
           ./artifacts/hemodinks-efbundle
+      - name: Verify schema after automatic migration
+        if: steps.schema_mode.outputs.mode == 'migrate-and-deploy'
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_CONNECTION_STRING }}
+        shell: bash
+        run: |
+          ./artifacts/schema-guard/Hemodinks.SchemaGuard
       - name: Enable deployment-managed schema after verification or migration
         shell: bash
         run: |
