@@ -9,11 +9,21 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Logging;
 
 namespace HemodinksAPI.Tests;
 
 public sealed class SessionActivitySqlServerTests
 {
+    private sealed class CaptureLogger : ILogger<AuthenticationSessionMiddleware>
+    {
+        public readonly List<string> Messages = [];
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+        public bool IsEnabled(LogLevel level) => true;
+        public void Log<TState>(LogLevel level, EventId id, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter) => Messages.Add(formatter(state, exception));
+    }
+
     private sealed class Clock : TimeProvider
     {
         public DateTimeOffset Now = DateTimeOffset.UtcNow;
@@ -23,6 +33,7 @@ public sealed class SessionActivitySqlServerTests
     private sealed class Interleave(Func<Task> action, bool repeat = false) : SaveChangesInterceptor
     {
         private int called;
+        public int Calls => called;
         public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData data,
             InterceptionResult<int> result, CancellationToken ct = default)
         {
@@ -112,19 +123,39 @@ public sealed class SessionActivitySqlServerTests
             var reached = false;
             var http = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(new[] {
                 new Claim("sid", id.ToString()), new Claim("usuarioClinicaId", member.Id.ToString()) }, "test")) };
+            http.TraceIdentifier = "session-race-request";
             http.Response.Body = new MemoryStream();
-            var middleware = new AuthenticationSessionMiddleware(_ => { reached = true; return Task.CompletedTask; });
+            var logger = new CaptureLogger();
+            var middleware = new AuthenticationSessionMiddleware(_ => { reached = true; return Task.CompletedTask; }, logger);
             Task Invoke() => middleware.InvokeAsync(http, Service(contested), new SessionLifetimePolicy(settings, clock));
             if (scenario == "save-failure") await Assert.ThrowsAsync<InvalidOperationException>(Invoke);
             else await Invoke();
             Assert.Equal(scenario is "newer-touch" or "refresh", reached);
+            if (scenario is "repeated-touch" or "membership" or "revocation")
+            {
+                http.Response.Body.Position = 0;
+                using var failure = await System.Text.Json.JsonDocument.ParseAsync(http.Response.Body);
+                Assert.Equal(http.TraceIdentifier, failure.RootElement.GetProperty("requestId").GetString());
+                var code = failure.RootElement.GetProperty("code").GetString();
+                Assert.Equal(scenario == "repeated-touch" ? "session_validation_busy"
+                    : scenario == "membership" ? "session_context_mismatch" : "session_invalid", code);
+                var log = Assert.Single(logger.Messages);
+                Assert.Contains(code!, log);
+                Assert.Contains(http.TraceIdentifier, log);
+                Assert.DoesNotContain(id.ToString(), log);
+                Assert.DoesNotContain(issued.RefreshToken, log);
+                Assert.DoesNotContain(issued.AccessToken, log);
+                Assert.False(http.Response.Headers.ContainsKey("Set-Cookie"));
+                if (scenario != "repeated-touch") Assert.Equal(StatusCodes.Status401Unauthorized, http.Response.StatusCode);
+            }
             if (scenario == "repeated-touch")
             {
+                Assert.Equal(3, interceptor.Calls);
                 Assert.Equal(StatusCodes.Status503ServiceUnavailable, http.Response.StatusCode);
                 Assert.Equal("1", http.Response.Headers.RetryAfter.ToString());
                 Assert.Equal("no-store", http.Response.Headers.CacheControl.ToString());
                 http.Response.Body.Position = 0;
-                var body = await System.Text.Json.JsonDocument.ParseAsync(http.Response.Body);
+                using var body = await System.Text.Json.JsonDocument.ParseAsync(http.Response.Body);
                 Assert.Equal("session_validation_busy", body.RootElement.GetProperty("code").GetString());
                 Assert.False(http.Response.Headers.ContainsKey("Set-Cookie"));
                 // Once contention stops, the same session can authorize a new request.

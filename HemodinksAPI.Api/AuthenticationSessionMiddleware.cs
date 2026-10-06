@@ -6,10 +6,12 @@ namespace HemodinksAPI.Api;
 public sealed class AuthenticationSessionMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<AuthenticationSessionMiddleware> _logger;
 
-    public AuthenticationSessionMiddleware(RequestDelegate next)
+    public AuthenticationSessionMiddleware(RequestDelegate next, ILogger<AuthenticationSessionMiddleware>? logger = null)
     {
         _next = next;
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<AuthenticationSessionMiddleware>.Instance;
     }
 
     public async Task InvokeAsync(
@@ -34,12 +36,14 @@ public sealed class AuthenticationSessionMiddleware
             {
                 if (validation.FailureCode == AuthenticationSessionValidation.TemporarilyUnavailable)
                 {
+                    LogFailure(context, validation.FailureCode, StatusCodes.Status503ServiceUnavailable);
                     context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
                     context.Response.Headers.CacheControl = "no-store";
                     context.Response.Headers.RetryAfter = "1";
                     await context.Response.WriteAsJsonAsync(new
                     {
                         code = validation.FailureCode,
+                        requestId = context.TraceIdentifier,
                         message = "Nao foi possivel validar a sessao agora. Tente novamente."
                     }, context.RequestAborted);
                     return;
@@ -53,7 +57,7 @@ public sealed class AuthenticationSessionMiddleware
             if (!int.TryParse(membershipIdClaim, out var membershipId)
                 || validation.UsuarioClinicaId != membershipId)
             {
-                await RejectSessionAsync(context);
+                await RejectSessionAsync(context, "session_context_mismatch");
                 return;
             }
 
@@ -79,17 +83,29 @@ public sealed class AuthenticationSessionMiddleware
         await _next(context);
     }
 
-    private static async Task RejectSessionAsync(HttpContext context, string? code = null)
+    private async Task RejectSessionAsync(HttpContext context, string? code = null)
     {
         // A late request may carry an old token after a login or clinic switch.
         // Only explicit, cookie-bound logout may remove the current refresh cookie.
+        code ??= "session_invalid";
+        LogFailure(context, code, StatusCodes.Status401Unauthorized);
+        context.Response.Headers.CacheControl = "no-store";
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         await context.Response.WriteAsJsonAsync(new
         {
             code,
+            requestId = context.TraceIdentifier,
             message = code == SessionLifetimePolicy.AbsoluteExpired ? SessionLifetimePolicy.AbsoluteExpiredMessage
                 : "Sessao expirada ou usuario inativo. Autentique-se novamente."
         }, context.RequestAborted);
+    }
+
+    private void LogFailure(HttpContext context, string code, int statusCode)
+    {
+        // Correlate without logging bearer/cookie material or client-supplied payloads.
+        _logger.LogWarning(new EventId(4101, "SessionValidationRejected"),
+            "Session validation rejected: {FailureCode}; HTTP {StatusCode}; request {RequestId}",
+            code, statusCode, context.TraceIdentifier);
     }
 
     private static void SynchronizeProfileClaims(
