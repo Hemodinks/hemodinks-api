@@ -19,7 +19,7 @@ internal static class SchemaGuardProgram
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
         {
-            Console.Error.WriteLine("Schema check blocked: homologation connection is not configured.");
+            Console.Error.WriteLine("Schema check blocked: database connection is not configured.");
             return 2;
         }
 
