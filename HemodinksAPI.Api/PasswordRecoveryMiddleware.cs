@@ -15,9 +15,12 @@ public sealed class PasswordRecoveryMiddleware(RequestDelegate next)
         }
         var principal = context.User;
         int.TryParse(principal.FindFirstValue(ClaimTypes.NameIdentifier), out var userId);
-        var membership = await db.UsuariosClinicas.AsNoTracking().Where(x => x.UserId == userId)
-            .Select(x => new { x.UsuarioGlobal.SecurityVersion, x.UsuarioGlobal.TemporaryPasswordRecovery, x.User.PrecisaTrocarSenha })
-            .SingleOrDefaultAsync(context.RequestAborted);
+        var snapshot = ValidatedSessionRequest.Get(context);
+        var membership = snapshot != null
+            ? new RecoveryState(snapshot.SecurityVersion, snapshot.TemporaryPasswordRecovery)
+            : await db.UsuariosClinicas.AsNoTracking().Where(x => x.UserId == userId)
+                .Select(x => new RecoveryState(x.UsuarioGlobal.SecurityVersion, x.UsuarioGlobal.TemporaryPasswordRecovery))
+                .SingleOrDefaultAsync(context.RequestAborted);
         var version = Guid.TryParse(principal.FindFirstValue("security_version"), out var parsed) ? parsed : Guid.Empty;
         if (membership != null && (membership.SecurityVersion != version
             || (membership.TemporaryPasswordRecovery && principal.FindFirstValue("temporary_password") != "true")))
@@ -43,4 +46,6 @@ public sealed class PasswordRecoveryMiddleware(RequestDelegate next)
         }
         await next(context);
     }
+
+    private sealed record RecoveryState(Guid SecurityVersion, bool TemporaryPasswordRecovery);
 }

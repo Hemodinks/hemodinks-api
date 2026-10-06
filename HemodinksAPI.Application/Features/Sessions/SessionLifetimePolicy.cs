@@ -12,6 +12,8 @@ public sealed class SessionLifetimePolicy(AuthenticationSessionOptions options, 
     public DateTime UtcNow => clock.GetUtcNow().UtcDateTime;
 
     public DateTime AbsoluteExpiresAt(DateTime startedAt) => startedAt.AddHours(options.AbsoluteLifetimeHours);
+    public DateTime IdleExpiresAt(DateTime lastActivityAt) => lastActivityAt
+        .AddMinutes(options.IdleTimeoutMinutes).AddSeconds(options.ActivityPersistenceIntervalSeconds);
 
     public string? Failure(DateTime? startedAt, DateTime? lastActivityAt = null)
     {
@@ -21,8 +23,8 @@ public sealed class SessionLifetimePolicy(AuthenticationSessionOptions options, 
             return ReauthenticationRequired;
         var absolute = AbsoluteExpiresAt(startedAt.Value);
         // Report the first deadline reached when both have elapsed.
-        if (lastActivityAt.HasValue && lastActivityAt.Value <= now.AddMinutes(-options.IdleTimeoutMinutes)
-            && lastActivityAt.Value.AddMinutes(options.IdleTimeoutMinutes) < absolute)
+        if (lastActivityAt.HasValue && now >= IdleExpiresAt(lastActivityAt.Value)
+            && IdleExpiresAt(lastActivityAt.Value) < absolute)
             return IdleExpired;
         return now >= absolute ? AbsoluteExpired : null;
     }
@@ -47,6 +49,9 @@ public sealed class SessionLifetimePolicy(AuthenticationSessionOptions options, 
             throw new InvalidOperationException("AuthenticationSession:AbsoluteLifetimeHours must be between 1 and 8760.");
         if (options.IdleTimeoutMinutes is < 1 or > 525600)
             throw new InvalidOperationException("AuthenticationSession:IdleTimeoutMinutes must be between 1 and 525600.");
+        if (options.ActivityPersistenceIntervalSeconds < 0 || options.ActivityPersistenceIntervalSeconds > 60
+            || options.ActivityPersistenceIntervalSeconds >= options.IdleTimeoutMinutes * 60)
+            throw new InvalidOperationException("AuthenticationSession:ActivityPersistenceIntervalSeconds must be between 0 and 60 and less than the idle timeout.");
         if (options.RefreshCookieLifetimeDays is < 1 or > 365)
             throw new InvalidOperationException("AuthenticationSession:RefreshCookieLifetimeDays must be between 1 and 365.");
     }

@@ -25,7 +25,7 @@ public sealed partial class AuthenticationSessionService
             : _jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, user, team.Team, team.Operator,
                 session.IdentificacaoConfiavel, session.CreatedAt, session.Id);
         return new IssuedAuthenticationSession(token, refreshToken,
-            session.LastActivityAt.AddMinutes(_options.IdleTimeoutMinutes), _lifetime.CookieExpiresAt(session.CreatedAt))
+            _lifetime.IdleExpiresAt(session.LastActivityAt), _lifetime.CookieExpiresAt(session.CreatedAt))
         {
             Identity = new AuthenticateUserResponse
             {

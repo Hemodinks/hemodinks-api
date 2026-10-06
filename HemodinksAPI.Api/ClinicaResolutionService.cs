@@ -24,6 +24,8 @@ public sealed class ClinicaResolutionService
         var user = httpContext.User;
         if (user.Identity?.IsAuthenticated == true)
         {
+            if (ValidatedSessionRequest.Get(httpContext) is { } snapshot)
+                return new ResolvedClinica(snapshot.ClinicaId, snapshot.ClinicaNome, snapshot.ClinicaSlug);
             // Fail-closed: uma requisicao autenticada nunca troca de clinica por header/subdominio.
             return await ResolveFromAuthenticatedUserAsync(user, cancellationToken);
         }

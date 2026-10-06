@@ -65,7 +65,9 @@ public sealed class ClinicaResolutionMiddleware
         }
 
         clinicaContext.SetCurrent(resolvedClinica.Id, resolvedClinica.Slug);
-        if (!await ValidateActiveMembershipAsync(httpContext.User, resolvedClinica, dbContext, httpContext.RequestAborted))
+        var snapshot = ValidatedSessionRequest.Get(httpContext);
+        if (!(snapshot != null && snapshot.ClinicaId == resolvedClinica.Id)
+            && !await ValidateActiveMembershipAsync(httpContext.User, resolvedClinica, dbContext, httpContext.RequestAborted))
         {
             httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
             await httpContext.Response.WriteAsJsonAsync(new

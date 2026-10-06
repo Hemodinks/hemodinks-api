@@ -46,6 +46,7 @@ public sealed class AuthenticationSessionMiddleware
             }
 
             SynchronizeProfileClaims(context.User, validation);
+            if (validation.Snapshot is { } snapshot) ValidatedSessionRequest.Set(context, snapshot);
             if (validation.AuthenticatedAt.HasValue && context.User.Identity is System.Security.Claims.ClaimsIdentity identity)
                 ReplaceClaim(identity, AuthenticationSessionClaimTypes.AuthenticatedAt,
                     new DateTimeOffset(DateTime.SpecifyKind(validation.AuthenticatedAt.Value, DateTimeKind.Utc))
