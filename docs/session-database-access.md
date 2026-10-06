@@ -107,7 +107,12 @@ filtros tenant e autorização por recurso continuam independentes.
 
 As atualizações continuam usando o WHERE de rowversion gerado por EF/SQL Server.
 Um conflito limpa o tracking e recomeça a validação, até três tentativas; não
-autoriza usando entidades antigas. Se não conseguir concluir, recusa acesso.
+autoriza usando entidades antigas. Se as três tentativas sofrerem conflito,
+recusa somente a requisição com HTTP 503, código `session_validation_busy`,
+`Retry-After: 1` e `Cache-Control: no-store`. Não revoga a sessão nem emite
+401 por contenção: isso provocava logout de sessões válidas em rajadas de
+requisições, como no carregamento do dashboard. Expiração, revogação e contexto
+inválido continuam recusados com 401.
 Falhas de persistência propagam erro, sem avançar para o endpoint. O retry também
 preserva atividade quando uma rotação passiva concorre com o touch. Nenhuma
 transação fica aberta durante toda a requisição.

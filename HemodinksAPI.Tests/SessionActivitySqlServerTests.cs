@@ -20,13 +20,13 @@ public sealed class SessionActivitySqlServerTests
         public override DateTimeOffset GetUtcNow() => Now;
     }
 
-    private sealed class Interleave(Func<Task> action) : SaveChangesInterceptor
+    private sealed class Interleave(Func<Task> action, bool repeat = false) : SaveChangesInterceptor
     {
         private int called;
         public override async ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData data,
             InterceptionResult<int> result, CancellationToken ct = default)
         {
-            if (Interlocked.Increment(ref called) == 1) await action();
+            if (Interlocked.Increment(ref called) == 1 || repeat) await action();
             return result;
         }
     }
@@ -38,6 +38,7 @@ public sealed class SessionActivitySqlServerTests
     [InlineData("membership")]
     [InlineData("refresh")]
     [InlineData("save-failure")]
+    [InlineData("repeated-touch")]
     public async Task ActivityRacePreservesCommittedSecurityState(string scenario)
     {
         if (Environment.GetEnvironmentVariable("HEMODINKS_TEST_LOCALDB") != "1"
@@ -55,7 +56,7 @@ public sealed class SessionActivitySqlServerTests
             await setup.SaveChangesAsync();
             var member = await GlobalIdentityService.EnsureForUserAsync(setup, user, default);
             var clock = new Clock();
-            var settings = new AuthenticationSessionOptions { ActivityPersistenceIntervalSeconds = 30 };
+            var settings = new AuthenticationSessionOptions { ActivityPersistenceIntervalSeconds = scenario == "repeated-touch" ? 0 : 30 };
             AuthenticationSessionService Service(PlatformDbContext db) => new(new EfAuthenticationSessionStore(db),
                 new JwtTokenService(new JwtSettings { SecretKey = new string('s', 64), Issuer = "test", Audience = "test",
                     ExpirationMinutes = 30 }, NullLogger<JwtTokenService>.Instance, clock), settings, clock,
@@ -98,19 +99,38 @@ public sealed class SessionActivitySqlServerTests
                     case "refresh":
                         Assert.NotNull(await Service(competing).RefreshAsync(issued.RefreshToken, default, touchActivity: false));
                         break;
+                    case "repeated-touch":
+                        // A concurrent request changes rowversion before each attempt commits.
+                        await competing.AuthenticationSessions.Where(s => s.Id == id).ExecuteUpdateAsync(
+                            setters => setters.SetProperty(s => s.LastActivityAt, requestedAt.UtcDateTime.AddTicks(-1)));
+                        break;
                     case "save-failure": throw new InvalidOperationException("Simulated persistence failure");
                 }
-            });
+            }, repeat: scenario == "repeated-touch");
             var contestedOptions = new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(connection).AddInterceptors(interceptor).Options;
             await using var contested = new PlatformDbContext(contestedOptions);
             var reached = false;
             var http = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(new[] {
                 new Claim("sid", id.ToString()), new Claim("usuarioClinicaId", member.Id.ToString()) }, "test")) };
+            http.Response.Body = new MemoryStream();
             var middleware = new AuthenticationSessionMiddleware(_ => { reached = true; return Task.CompletedTask; });
             Task Invoke() => middleware.InvokeAsync(http, Service(contested), new SessionLifetimePolicy(settings, clock));
             if (scenario == "save-failure") await Assert.ThrowsAsync<InvalidOperationException>(Invoke);
             else await Invoke();
             Assert.Equal(scenario is "newer-touch" or "refresh", reached);
+            if (scenario == "repeated-touch")
+            {
+                Assert.Equal(StatusCodes.Status503ServiceUnavailable, http.Response.StatusCode);
+                Assert.Equal("1", http.Response.Headers.RetryAfter.ToString());
+                Assert.Equal("no-store", http.Response.Headers.CacheControl.ToString());
+                http.Response.Body.Position = 0;
+                var body = await System.Text.Json.JsonDocument.ParseAsync(http.Response.Body);
+                Assert.Equal("session_validation_busy", body.RootElement.GetProperty("code").GetString());
+                Assert.False(http.Response.Headers.ContainsKey("Set-Cookie"));
+                // Once contention stops, the same session can authorize a new request.
+                await using var retry = new PlatformDbContext(options);
+                Assert.True((await Service(retry).ValidateAndTouchAsync(id, default)).IsValid);
+            }
             await using var verify = new PlatformDbContext(options);
             var saved = await verify.AuthenticationSessions.SingleAsync(s => s.Id == id);
             Assert.Equal(started, saved.CreatedAt);

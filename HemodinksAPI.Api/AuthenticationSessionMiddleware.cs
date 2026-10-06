@@ -32,6 +32,18 @@ public sealed class AuthenticationSessionMiddleware
             var validation = await sessionService.ValidateAndTouchAsync(sessionId, context.RequestAborted);
             if (!validation.IsValid)
             {
+                if (validation.FailureCode == AuthenticationSessionValidation.TemporarilyUnavailable)
+                {
+                    context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                    context.Response.Headers.CacheControl = "no-store";
+                    context.Response.Headers.RetryAfter = "1";
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        code = validation.FailureCode,
+                        message = "Nao foi possivel validar a sessao agora. Tente novamente."
+                    }, context.RequestAborted);
+                    return;
+                }
                 await RejectSessionAsync(context, validation.FailureCode);
                 return;
             }

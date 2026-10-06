@@ -35,7 +35,10 @@ public sealed record AuthenticationSessionValidation(
     int? UsuarioClinicaId = null,
     string? FailureCode = null,
     DateTime? AuthenticatedAt = null,
-    SessionValidationSnapshot? Snapshot = null);
+    SessionValidationSnapshot? Snapshot = null)
+{
+    public const string TemporarilyUnavailable = "session_validation_busy";
+}
 
 public sealed class SessionRefreshConflictException : Exception;
 
@@ -241,7 +244,10 @@ public sealed partial class AuthenticationSessionService
                 AuthenticatedAt: session.CreatedAt,
                 Snapshot: SessionValidationSnapshot.From(session));
         }
-        return new AuthenticationSessionValidation(false);
+        // Contention is not evidence of expiration. Fail this request closed without
+        // telling clients to destroy an otherwise valid session.
+        _logger.LogWarning("Validacao temporariamente indisponivel por concorrencia na sessao {SessionId}", sessionId);
+        return new AuthenticationSessionValidation(false, FailureCode: AuthenticationSessionValidation.TemporarilyUnavailable);
     }
 
     public async Task<bool> ChangeMembershipAsync(
