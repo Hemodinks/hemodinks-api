@@ -25,6 +25,38 @@ public sealed class TemporaryAccessTests
         await db.SaveChangesAsync();
         return user;
     }
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PasswordPolicy_CompletionFailurePreservesRecovery(bool unavailable)
+    {
+        await using var db = TestDbContextFactory.Create();
+        var user = await AddUser(db, 100);
+        var normal = new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock());
+        var generated = await normal.GenerateAsync(user.Id, Actor(user), default);
+        var membership = await db.UsuariosClinicas.Include(x => x.UsuarioGlobal).SingleAsync();
+        await normal.AuthenticateAsync(user, membership, generated.SenhaTemporaria!, default);
+        var beforePassword = membership.UsuarioGlobal.Senha;
+        var beforeVersion = membership.UsuarioGlobal.SecurityVersion;
+        var policy = unavailable ? new HemodinksAPI.Application.Security.NewPasswordPolicy(new UnavailablePasswordLookup()) : TestPasswordPolicy.Instance;
+        var service = new TemporaryAccessService(policy, db, Hasher, new Clock());
+        var command = new ChangeTemporaryPasswordCommand {
+            CurrentUser = Actor(user), SecurityVersion = beforeVersion, NovaSenha = "qwertyuiop", Confirmacao = "qwertyuiop" };
+        if (unavailable)
+            await Assert.ThrowsAsync<HemodinksAPI.Application.Security.PasswordPolicyUnavailableException>(() => service.CompleteAsync(command, default));
+        else await Assert.ThrowsAsync<HemodinksAPI.Application.Security.CompromisedPasswordException>(() => service.CompleteAsync(command, default));
+        Assert.Equal(beforePassword, membership.UsuarioGlobal.Senha);
+        Assert.Equal(beforeVersion, membership.UsuarioGlobal.SecurityVersion);
+        Assert.True(membership.UsuarioGlobal.TemporaryPasswordRecovery);
+        Assert.Null((await db.TemporaryAccessCredentials.SingleAsync()).RevokedAtUtc);
+    }
+
+    private sealed class UnavailablePasswordLookup : HemodinksAPI.Application.Security.ICompromisedPasswordLookup
+    {
+        public HemodinksAPI.Application.Security.PasswordLookupResult Check(string candidate)
+            => HemodinksAPI.Application.Security.PasswordLookupResult.Unavailable;
+    }
+
     private static CurrentUserContext Actor(User user) => new(user.Id, user.PerfilId, user.Nome, user.ClinicaId);
 
     [Theory]
@@ -36,7 +68,7 @@ public sealed class TemporaryAccessTests
         var actor = await AddUser(db, 100, profile);
         var target = await AddUser(db, 101, Perfil.MedicosId);
         var clock = new Clock();
-        var response = await new TemporaryAccessService(db, Hasher, clock).GenerateAsync(target.Id, Actor(actor), default);
+        var response = await new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, clock).GenerateAsync(target.Id, Actor(actor), default);
         var stored = await db.TemporaryAccessCredentials.SingleAsync();
         Assert.Equal(clock.Now.UtcDateTime.AddMinutes(5), stored.ExpiresAtUtc);
         Assert.True(Hasher.VerifyPassword(response.SenhaTemporaria!, stored.PasswordHash));
@@ -58,7 +90,7 @@ public sealed class TemporaryAccessTests
         var actor = await AddUser(db, 100, actorProfile);
         var target = await AddUser(db, 101, targetProfile);
         var caller = Actor(actor) with { ClinicaId = tenant };
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => new TemporaryAccessService(db, Hasher, new Clock()).GenerateAsync(target.Id, caller, default));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock()).GenerateAsync(target.Id, caller, default));
         Assert.Empty(db.TemporaryAccessCredentials);
     }
 
@@ -71,7 +103,7 @@ public sealed class TemporaryAccessTests
         await using var db = TestDbContextFactory.Create();
         var user = await AddUser(db, 100);
         var clock = new Clock();
-        var service = new TemporaryAccessService(db, Hasher, clock);
+        var service = new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, clock);
         var password = await service.GenerateAsync(user.Id, Actor(user), default);
         clock.Now = clock.Now.AddSeconds(seconds);
         var membership = await db.UsuariosClinicas.Include(x => x.UsuarioGlobal).SingleAsync();
@@ -91,7 +123,7 @@ public sealed class TemporaryAccessTests
         await using var db = TestDbContextFactory.Create();
         var user = await AddUser(db, 100);
         var clock = new Clock();
-        var service = new TemporaryAccessService(db, Hasher, clock);
+        var service = new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, clock);
         var first = await service.GenerateAsync(user.Id, Actor(user), default);
         var membership = await db.UsuariosClinicas.Include(x => x.UsuarioGlobal).SingleAsync();
         var version = membership.UsuarioGlobal.SecurityVersion;
@@ -113,7 +145,7 @@ public sealed class TemporaryAccessTests
         await using var db = TestDbContextFactory.Create();
         var user = await AddUser(db, 100);
         var other = await AddUser(db, 101);
-        var service = new TemporaryAccessService(db, Hasher, new Clock());
+        var service = new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock());
         var response = await service.GenerateAsync(user.Id, Actor(user), default);
         var membership = await db.UsuariosClinicas.Include(x => x.UsuarioGlobal).SingleAsync();
         var wrongScope = new User { Id = user.Id, ClinicaId = 2 };
@@ -129,7 +161,7 @@ public sealed class TemporaryAccessTests
     {
         await using var db = TestDbContextFactory.Create();
         var user = await AddUser(db, 100);
-        var service = new TemporaryAccessService(db, Hasher, new Clock());
+        var service = new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock());
         var generated = await service.GenerateAsync(user.Id, Actor(user), default);
         var membership = await db.UsuariosClinicas.Include(x => x.UsuarioGlobal).SingleAsync();
         var command = new ChangeTemporaryPasswordCommand { CurrentUser = Actor(user), SecurityVersion = membership.UsuarioGlobal.SecurityVersion,
@@ -165,7 +197,7 @@ public sealed class TemporaryAccessTests
         var actor = await AddUser(db, 100);
         var target = await AddUser(db, 101, Perfil.MedicosId, 2);
         await db.SaveChangesAsync();
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => new TemporaryAccessService(db, Hasher, new Clock()).GenerateAsync(target.Id, Actor(actor), default));
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock()).GenerateAsync(target.Id, Actor(actor), default));
         Assert.Empty(db.TemporaryAccessCredentials);
     }
 
@@ -185,7 +217,7 @@ public sealed class TemporaryAccessTests
         if (linked) db.UsuariosClinicas.Add(new UsuarioClinica { UsuarioGlobalId = membership.UsuarioGlobalId, UserId = higher.Id,
             ClinicaId = 2, PerfilId = Perfil.SuperAdministradorId, Ativo = true });
         await db.SaveChangesAsync();
-        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => new TemporaryAccessService(db, Hasher, new Clock()).GenerateAsync(target.Id, Actor(actor), default));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock()).GenerateAsync(target.Id, Actor(actor), default));
         Assert.Empty(db.TemporaryAccessCredentials);
         Assert.Contains(db.AuditoriasPlataforma, x => x.Acao == "TemporaryPassword.GenerationDenied" && !x.Sucesso);
     }
@@ -195,7 +227,7 @@ public sealed class TemporaryAccessTests
     {
         await using var db = TestDbContextFactory.Create();
         var user = await AddUser(db, 100);
-        var service = new TemporaryAccessService(db, Hasher, new Clock());
+        var service = new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock());
         var response = await service.GenerateAsync(user.Id, Actor(user), default);
         await Assert.ThrowsAsync<InvalidOperationException>(() => service.GenerateAsync(user.Id, Actor(user), default));
         Assert.True(Hasher.VerifyPassword(response.SenhaTemporaria!, (await db.TemporaryAccessCredentials.SingleAsync()).PasswordHash));

@@ -20,11 +20,11 @@ public sealed class PasswordHashUpgradeConcurrencyTests
         await using (var winner = database.Open())
         {
             if (reset)
-                await new ConfirmPasswordResetCommandHandler(winner, new PasswordHasher(),
+                await new ConfirmPasswordResetCommandHandler(TestPasswordPolicy.Instance, winner, new PasswordHasher(),
                     NullLogger<ConfirmPasswordResetCommandHandler>.Instance).Handle(new ConfirmPasswordResetCommand
                     { Token = PasswordResetSecurityTestDatabase.Token, NovaSenha = PasswordResetSecurityTestDatabase.NewPassword }, default);
             else
-                await new ChangePasswordCommandHandler(winner, new PasswordHasher(),
+                await new ChangePasswordCommandHandler(TestPasswordPolicy.Instance, winner, new PasswordHasher(),
                     NullLogger<ChangePasswordCommandHandler>.Instance).Handle(new ChangePasswordCommand
                     { UserId = (await winner.Users.SingleAsync()).Id, SenhaAtual = PasswordResetSecurityTestDatabase.OldPassword,
                         NovaSenha = PasswordResetSecurityTestDatabase.NewPassword }, default);

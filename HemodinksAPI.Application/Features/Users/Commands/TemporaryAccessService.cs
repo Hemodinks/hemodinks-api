@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Data;
@@ -9,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
 public sealed class TemporaryAccessService(
+    NewPasswordPolicy passwordPolicy,
     ITemporaryAccessDbContext context,
     IPasswordHasher hasher,
     TimeProvider clock)
@@ -59,6 +61,7 @@ public sealed class TemporaryAccessService(
         }
 
         var password = TemporaryPasswordGenerator.Generate();
+        passwordPolicy.Validate(password);
         credential.Id = Guid.NewGuid();
         credential.UserId = target.Id;
         credential.ClinicaId = target.ClinicaId;
@@ -124,7 +127,7 @@ public sealed class TemporaryAccessService(
             || credential == null || credential.UserId != user.Id || credential.ClinicaId != actor.ClinicaId
             || credential.UsedAtUtc == null || credential.RevokedAtUtc != null)
             throw new UnauthorizedAccessException("Sessão de recuperação inválida. Autentique-se novamente.");
-        PasswordCommandRules.ValidatePasswordChangeCandidate(request.NovaSenha);
+        passwordPolicy.Validate(request.NovaSenha);
         if (hasher.VerifyPassword(request.NovaSenha, global.Senha) || hasher.VerifyPassword(request.NovaSenha, credential.PasswordHash))
             throw new InvalidOperationException("A nova senha deve ser diferente das senhas anteriores.");
         var now = clock.GetUtcNow().UtcDateTime;

@@ -23,15 +23,6 @@ internal static class PasswordResetRules
         return Convert.ToHexString(bytes);
     }
 
-    public static void ValidateNewPassword(string? password)
-    {
-        if (string.IsNullOrWhiteSpace(password) || password.Length < 8)
-        {
-            throw new InvalidOperationException("A nova senha deve ter pelo menos 8 caracteres");
-        }
-
-    }
-
     public static RequestPasswordResetResponse CreateRequestResponse()
     {
         return new RequestPasswordResetResponse

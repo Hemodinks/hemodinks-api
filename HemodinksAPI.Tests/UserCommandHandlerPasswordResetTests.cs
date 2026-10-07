@@ -113,6 +113,7 @@ public partial class UserCommandHandlerTests
         }, CancellationToken.None);
 
         var confirmHandler = new ConfirmPasswordResetCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             hasher,
             NullLogger<ConfirmPasswordResetCommandHandler>.Instance);

@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Licencas;
@@ -18,6 +19,7 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 /// </summary>
 public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, CreateUserResponse>
 {
+    private readonly NewPasswordPolicy passwordPolicy;
     private readonly IUserFeatureDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly IProfilePhotoStorage _profilePhotoStorage;
@@ -28,6 +30,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
     private readonly IPasswordResetNotificationSender? _passwordResetNotificationSender;
 
     internal CreateUserCommandHandler(
+        NewPasswordPolicy passwordPolicy,
         IUserFeatureDbContext context,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
@@ -36,6 +39,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
         ILogger<CreateUserCommandHandler> logger,
         IPasswordResetNotificationSender? passwordResetNotificationSender = null)
         : this(
+            passwordPolicy,
             context,
             passwordHasher,
             profilePhotoStorage,
@@ -48,6 +52,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
     }
 
     public CreateUserCommandHandler(
+        NewPasswordPolicy passwordPolicy,
         IUserFeatureDbContext context,
         IPasswordHasher passwordHasher,
         IProfilePhotoStorage profilePhotoStorage,
@@ -58,6 +63,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
         IPasswordResetNotificationSender? passwordResetNotificationSender = null)
     {
         _context = context;
+        this.passwordPolicy = passwordPolicy;
         _passwordHasher = passwordHasher;
         _profilePhotoStorage = profilePhotoStorage;
         _userPatientSyncService = userPatientSyncService;
@@ -113,6 +119,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 existingUser?.FotoPerfil,
                 cancellationToken);
             var temporaryPassword = TemporaryPasswordGenerator.Generate();
+            passwordPolicy.Validate(temporaryPassword);
             var now = DateTime.UtcNow;
             var user = existingUser ?? new User
             {

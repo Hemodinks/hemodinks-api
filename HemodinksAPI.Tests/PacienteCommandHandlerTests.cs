@@ -64,6 +64,7 @@ public partial class PacienteCommandHandlerTests
         var hasher = new PasswordHasher();
         var invitationSender = new RecordingPasswordResetNotificationSender();
         var handler = new CreatePacienteCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             CreateCbhpmCache(context),
             hasher,
@@ -193,6 +194,7 @@ public partial class PacienteCommandHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new CreatePacienteCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             CreateCbhpmCache(context),
             new PasswordHasher(),

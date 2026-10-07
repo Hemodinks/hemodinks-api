@@ -20,13 +20,8 @@ public sealed partial class ClinicaPlatformRequestHandler
         throw new InvalidOperationException(validation.Errors[0].ErrorMessage);
         }
 
-        var administratorNewPassword = string.IsNullOrWhiteSpace(request.AdministradorNovaSenha)
-        ? null
-        : RequireText(request.AdministradorNovaSenha, "Nova senha do administrador invalida", 200);
-        if (administratorNewPassword is { Length: < 8 })
-        {
-        throw new InvalidOperationException("Nova senha do administrador deve possuir ao menos 8 caracteres");
-        }
+        var administratorNewPassword = request.AdministradorNovaSenha;
+        if (administratorNewPassword != null) passwordPolicy.Validate(administratorNewPassword);
         
         var equipeNome = request.NovaEquipe == null
         ? null
@@ -36,15 +31,16 @@ public sealed partial class ClinicaPlatformRequestHandler
         : GlobalIdentityService.NormalizeEmail(RequireText(request.NovaEquipe.Email, "Email da equipe obrigatorio", 255));
         var equipePassword = request.NovaEquipe == null
         ? null
-        : RequireText(request.NovaEquipe.Senha, "Senha da equipe obrigatoria", 200);
+        : request.NovaEquipe.Senha;
+        if (request.NovaEquipe != null) passwordPolicy.Validate(equipePassword);
         var equipeModo = request.NovaEquipe == null
         ? null
         : EquipeAuthenticationRules.NormalizeModo(request.NovaEquipe.ModoIdentificacao);
         
         if (equipeEmail != null
-        && (!MailAddress.TryCreate(equipeEmail, out _) || equipePassword!.Length < 8))
+        && !MailAddress.TryCreate(equipeEmail, out _))
         {
-        throw new InvalidOperationException("Nova equipe deve possuir email valido e senha com ao menos 8 caracteres");
+        throw new InvalidOperationException("Nova equipe deve possuir email valido");
         }
         
         var clinica = await context.Clinicas.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);

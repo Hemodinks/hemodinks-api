@@ -23,6 +23,7 @@ public partial class UserCommandHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new ChangePasswordCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             hasher,
             NullLogger<ChangePasswordCommandHandler>.Instance);
@@ -47,6 +48,7 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var handler = new ChangePasswordCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             new PasswordHasher(),
             NullLogger<ChangePasswordCommandHandler>.Instance);
@@ -74,6 +76,7 @@ public partial class UserCommandHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new ChangePasswordCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             hasher,
             NullLogger<ChangePasswordCommandHandler>.Instance);
@@ -94,11 +97,12 @@ public partial class UserCommandHandlerTests
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
         var handler = new ChangePasswordCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             hasher,
             NullLogger<ChangePasswordCommandHandler>.Instance);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new ChangePasswordCommand
+        await Assert.ThrowsAsync<HemodinksAPI.Application.Security.CompromisedPasswordException>(() => handler.Handle(new ChangePasswordCommand
         {
             UserId = 1,
             SenhaAtual = "TestPassword@123",
@@ -120,6 +124,7 @@ public partial class UserCommandHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new ChangePasswordCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             hasher,
             NullLogger<ChangePasswordCommandHandler>.Instance);
@@ -148,7 +153,7 @@ public partial class UserCommandHandlerTests
         user.PerfilId = HemodinksAPI.Domain.Models.Perfil.AdministradorId;
         await context.SaveChangesAsync();
         var handler = new ResetUserPasswordCommandHandler(
-            new TemporaryAccessService(context, hasher, TimeProvider.System));
+            new TemporaryAccessService(TestPasswordPolicy.Instance, context, hasher, TimeProvider.System));
 
         var response = await handler.Handle(new ResetUserPasswordCommand
         {
@@ -171,7 +176,7 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var handler = new ResetUserPasswordCommandHandler(
-            new TemporaryAccessService(context, new PasswordHasher(), TimeProvider.System));
+            new TemporaryAccessService(TestPasswordPolicy.Instance, context, new PasswordHasher(), TimeProvider.System));
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new ResetUserPasswordCommand
         {

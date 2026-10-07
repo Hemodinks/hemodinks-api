@@ -127,7 +127,7 @@ public sealed class PasswordResetSecurityPersistenceTests
     }
 
     private static ConfirmPasswordResetCommandHandler Handler(PasswordResetSecurityDbContext db) =>
-        new(db, new PasswordHasher(), NullLogger<ConfirmPasswordResetCommandHandler>.Instance);
+        new(TestPasswordPolicy.Instance, db, new PasswordHasher(), NullLogger<ConfirmPasswordResetCommandHandler>.Instance);
 
     private static Task<ResetUserPasswordResponse> Reset(PasswordResetSecurityDbContext db,
         string password = PasswordResetSecurityTestDatabase.NewPassword) => Handler(db).Handle(

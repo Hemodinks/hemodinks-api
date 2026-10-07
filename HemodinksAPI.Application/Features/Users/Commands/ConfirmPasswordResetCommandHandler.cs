@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Utils;
@@ -8,26 +9,30 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 
 public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswordResetCommand, ResetUserPasswordResponse>
 {
+    private readonly NewPasswordPolicy passwordPolicy;
     private readonly IPlatformPasswordResetDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<ConfirmPasswordResetCommandHandler> _logger;
     private readonly TimeProvider _timeProvider;
 
     internal ConfirmPasswordResetCommandHandler(
+        NewPasswordPolicy passwordPolicy,
         IPlatformPasswordResetDbContext context,
         IPasswordHasher passwordHasher,
         ILogger<ConfirmPasswordResetCommandHandler> logger)
-        : this(context, passwordHasher, logger, TimeProvider.System)
+        : this(passwordPolicy, context, passwordHasher, logger, TimeProvider.System)
     {
     }
 
     public ConfirmPasswordResetCommandHandler(
+        NewPasswordPolicy passwordPolicy,
         IPlatformPasswordResetDbContext context,
         IPasswordHasher passwordHasher,
         ILogger<ConfirmPasswordResetCommandHandler> logger,
         TimeProvider timeProvider)
     {
         _context = context;
+        this.passwordPolicy = passwordPolicy;
         _passwordHasher = passwordHasher;
         _logger = logger;
         _timeProvider = timeProvider;
@@ -35,7 +40,7 @@ public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswor
 
     public async Task<ResetUserPasswordResponse> Handle(ConfirmPasswordResetCommand request, CancellationToken cancellationToken)
     {
-        PasswordResetRules.ValidateNewPassword(request.NovaSenha);
+        passwordPolicy.Validate(request.NovaSenha);
 
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var resetToken = await PasswordCommandQueries.GetValidResetTokenAsync(_context, request.Token, now, cancellationToken);

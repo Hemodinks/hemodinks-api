@@ -42,6 +42,8 @@ public static partial class ApiServiceCollectionExtensions
                 "LoginProtection:LockoutMinutes deve estar entre 1 e 1440.")
             .ValidateOnStart();
         services.AddScoped<ILoginAccountProtection, EfLoginAccountProtection>();
+        services.AddSingleton<HemodinksAPI.Application.Security.ICompromisedPasswordLookup, HemodinksAPI.Infrastructure.Security.LocalCompromisedPasswordLookup>();
+        services.AddSingleton<HemodinksAPI.Application.Security.NewPasswordPolicy>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IPinHasher, PinHasher>();
         services.AddScoped<HemodinksAPI.Application.Features.Users.Commands.TemporaryAccessService>();

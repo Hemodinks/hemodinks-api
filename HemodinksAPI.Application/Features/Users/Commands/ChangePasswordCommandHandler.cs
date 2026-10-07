@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Utils;
@@ -11,16 +12,19 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 /// </summary>
 public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordCommand, ChangePasswordResponse>
 {
+    private readonly NewPasswordPolicy passwordPolicy;
     private readonly IPasswordCredentialDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<ChangePasswordCommandHandler> _logger;
 
     public ChangePasswordCommandHandler(
+        NewPasswordPolicy passwordPolicy,
         IPasswordCredentialDbContext context,
         IPasswordHasher passwordHasher,
         ILogger<ChangePasswordCommandHandler> logger)
     {
         _context = context;
+        this.passwordPolicy = passwordPolicy;
         _passwordHasher = passwordHasher;
         _logger = logger;
     }
@@ -32,7 +36,7 @@ public class ChangePasswordCommandHandler : IRequestHandler<ChangePasswordComman
             _logger.LogInformation("Alterando senha do usuario: {UserId}", request.UserId);
 
             PasswordCommandAccess.EnsureCanChangeOwnPassword(request.CurrentUser, request.UserId);
-            PasswordCommandRules.ValidatePasswordChangeCandidate(request.NovaSenha);
+            passwordPolicy.Validate(request.NovaSenha);
 
             var user = await _context.Users
                 .FirstOrDefaultAsync(u => u.Id == request.UserId && u.Ativo, cancellationToken);
