@@ -21,6 +21,7 @@ internal sealed class AuthenticationSessionConfiguration : IEntityTypeConfigurat
         entity.Property(item => item.CreatedByIp).HasMaxLength(45);
         entity.Property(item => item.UserAgent).HasMaxLength(512);
         entity.Property(item => item.RowVersion).IsRowVersion();
+        entity.Property(item => item.ContextVersion).IsConcurrencyToken();
 
         entity.HasIndex(item => item.RefreshTokenHash).IsUnique();
         entity.HasIndex(item => new { item.UsuarioGlobalId, item.RevokedAt, item.LastActivityAt });

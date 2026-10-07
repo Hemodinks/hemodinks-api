@@ -6,7 +6,7 @@ internal static class PasswordCommandAccess
 {
     public static void EnsureCanChangeOwnPassword(CurrentUserContext? currentUser, int userId)
     {
-        if (currentUser != null && currentUser.Id != userId)
+        if (currentUser == null || currentUser.Id != userId)
         {
             throw new UnauthorizedAccessException("Sem permissao para alterar senha do usuario");
         }

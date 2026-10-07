@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Infrastructure.Services;
 
-public class SmtpPasswordResetNotificationSender : IPasswordResetNotificationTransport
+public class SmtpPasswordResetNotificationSender : IPasswordResetNotificationTransport, HemodinksAPI.Application.Services.IEmailChangeNotificationSender
 {
     private readonly EmailOptions _emailOptions;
     private readonly FrontendOptions _frontendOptions;
@@ -48,13 +48,30 @@ public class SmtpPasswordResetNotificationSender : IPasswordResetNotificationTra
         return PasswordResetNotificationDispatchStatus.Sent;
     }
 
+    public async Task SendConfirmationAsync(string newEmail, string code, CancellationToken cancellationToken)
+    {
+        if (!IsSmtpEnabled()) throw new InvalidOperationException("SMTP unavailable.");
+        ValidateOptions(requireResetUrl: false);
+        using var message = new MailMessage
+        {
+            From = new MailAddress(_emailOptions.FromEmail!, _emailOptions.FromName ?? "Hemodinks"),
+            Subject = "Confirmação de alteração de email - Hemodinks",
+            Body = "Para confirmar seu novo email no Hemodinks, copie este código na tela de alteração: " + code
+                + "\nSe você não solicitou a alteração, ignore esta mensagem.",
+            IsBodyHtml = false
+        };
+        message.To.Add(new MailAddress(newEmail));
+        using var client = CreateClient();
+        await client.SendMailAsync(message, cancellationToken);
+    }
+
     private bool IsSmtpEnabled()
     {
         return string.Equals(_emailOptions.Provider, "GmailSmtp", StringComparison.OrdinalIgnoreCase)
             || string.Equals(_emailOptions.Provider, "Smtp", StringComparison.OrdinalIgnoreCase);
     }
 
-    private void ValidateOptions()
+    private void ValidateOptions(bool requireResetUrl = true)
     {
         if (string.IsNullOrWhiteSpace(_emailOptions.Smtp.Host))
         {
@@ -76,7 +93,7 @@ public class SmtpPasswordResetNotificationSender : IPasswordResetNotificationTra
             throw new InvalidOperationException("Email:FromEmail deve ser configurado para envio SMTP.");
         }
 
-        if (string.IsNullOrWhiteSpace(_frontendOptions.ResetPasswordUrl))
+        if (requireResetUrl && string.IsNullOrWhiteSpace(_frontendOptions.ResetPasswordUrl))
         {
             throw new InvalidOperationException("Frontend:ResetPasswordUrl deve ser configurado para envio de reset de senha.");
         }

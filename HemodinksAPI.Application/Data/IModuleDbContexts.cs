@@ -173,6 +173,12 @@ public interface ICredentialRevocationDbContext : IGlobalIdentityDbContext, IPas
 
 public interface IPlatformPasswordResetDbContext : IPasswordResetOperationsDbContext, ICredentialRevocationDbContext;
 
+// Explicit global-identity scope: every operation must bind a persisted session and identity.
+public interface ISensitiveIdentityDbContext : IPlatformPasswordResetDbContext
+{
+    DbSet<EmailChangeRequest> EmailChangeRequests { get; }
+}
+
 public interface IUserFeatureDbContext :
     IUnitOfWork,
     ITeamDbContext,

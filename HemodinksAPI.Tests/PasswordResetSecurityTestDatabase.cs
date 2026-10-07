@@ -30,7 +30,7 @@ internal sealed class PasswordResetSecurityTestDatabase : IAsyncDisposable
         var hash = new PasswordHasher().HashPassword(OldPassword);
         var user = new User { Nome = "Recovery", Email = "recovery@example.com", Telefone = "11999999999", Senha = hash, PrecisaTrocarSenha = false };
         var global = new UsuarioGlobal { Nome = user.Nome, Email = user.Email, Senha = hash, SecurityVersion = Guid.NewGuid() };
-        var membership = new UsuarioClinica { User = user, UsuarioGlobal = global, ClinicaId = 1, PerfilId = user.PerfilId };
+        var membership = new UsuarioClinica { User = user, UsuarioGlobal = global, ClinicaId = 1, Clinica = new Clinica { Id = 1, Nome = "Test" }, PerfilId = user.PerfilId };
         db.UsuariosClinicas.Add(membership);
         db.PasswordResetTokens.Add(new PasswordResetToken
         {
@@ -50,13 +50,15 @@ internal sealed class PasswordResetSecurityTestDatabase : IAsyncDisposable
 }
 
 internal sealed class PasswordResetSecurityDbContext(DbContextOptions<PasswordResetSecurityDbContext> options)
-    : DbContext(options), IPlatformPasswordResetDbContext
+    : DbContext(options), ISensitiveIdentityDbContext
 {
+    public DbSet<EmailChangeRequest> EmailChangeRequests => Set<EmailChangeRequest>();
     public DbSet<User> Users => Set<User>();
     public DbSet<UsuarioGlobal> UsuariosGlobais => Set<UsuarioGlobal>();
     public DbSet<UsuarioClinica> UsuariosClinicas => Set<UsuarioClinica>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<AuthenticationSession> AuthenticationSessions => Set<AuthenticationSession>();
+    public Func<Task>? BeforeSensitiveSave { get; set; }
     public Func<Task>? BeforeCredentialSave { get; set; }
 
     public override async Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
@@ -64,6 +66,9 @@ internal sealed class PasswordResetSecurityDbContext(DbContextOptions<PasswordRe
         if (BeforeCredentialSave != null && ChangeTracker.Entries<PasswordResetToken>()
             .Any(entry => entry.State == EntityState.Modified && entry.Entity.UsedAt != null))
             await BeforeCredentialSave();
+        if (BeforeSensitiveSave != null && ChangeTracker.Entries<EmailChangeRequest>()
+            .Any(entry => entry.State == EntityState.Modified && entry.Entity.UsedAt != null))
+            await BeforeSensitiveSave();
         return await base.SaveChangesAsync(cancellationToken);
     }
 
@@ -74,8 +79,8 @@ internal sealed class PasswordResetSecurityDbContext(DbContextOptions<PasswordRe
             .Ignore(x => x.Arquivos).Ignore(x => x.GruposMedicos)
             .Ignore(x => x.ObservacoesEnviadas).Ignore(x => x.ObservacoesRecebidas);
         builder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly, type => type.Name is
-            "UsuarioGlobalConfiguration" or "UsuarioClinicaConfiguration" or "PasswordResetTokenConfiguration" or "AuthenticationSessionConfiguration");
-        builder.Ignore<Clinica>();
+            "UsuarioGlobalConfiguration" or "UsuarioClinicaConfiguration" or "PasswordResetTokenConfiguration" or "AuthenticationSessionConfiguration" or "EmailChangeRequestConfiguration");
+        builder.Entity<Clinica>().HasKey(x => x.Id);
         builder.Ignore<Perfil>();
         // SQLite has no SQL Server-generated rowversion. Keep its concurrency mapping, supply the value.
         builder.Entity<AuthenticationSession>().Property(x => x.RowVersion).ValueGeneratedNever();

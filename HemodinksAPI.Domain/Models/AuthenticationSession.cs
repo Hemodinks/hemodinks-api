@@ -8,6 +8,8 @@ public class AuthenticationSession
     public int? OperadorVersaoSessao { get; set; }
     public bool IdentificacaoConfiavel { get; set; }
 
+    public Guid ContextVersion { get; set; } = Guid.NewGuid();
+
     public Guid SecurityVersion { get; set; }
     public Guid Id { get; set; }
 

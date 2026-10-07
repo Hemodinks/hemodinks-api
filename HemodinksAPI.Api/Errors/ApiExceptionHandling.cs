@@ -59,6 +59,14 @@ internal static class ApiExceptionResults
 
         return exception switch
         {
+            HemodinksAPI.Application.Security.SensitiveIdentityException identity => Results.Json(
+                new { code = identity.Code, message = identity.Message }, statusCode: identity.Code switch
+                {
+                    "email_confirmation_unavailable" => StatusCodes.Status503ServiceUnavailable,
+                    "individual_identity_required" or "identity_revalidation_failed" => StatusCodes.Status403Forbidden,
+                    "identity_change_conflict" or "email_change_unavailable" or "email_confirmation_required" => StatusCodes.Status409Conflict,
+                    _ => StatusCodes.Status400BadRequest
+                }),
             HemodinksAPI.Application.Security.CompromisedPasswordException compromised => Results.BadRequest(
                 new { code = HemodinksAPI.Application.Security.CompromisedPasswordException.Code, message = compromised.Message }),
             HemodinksAPI.Application.Security.PasswordPolicyUnavailableException unavailable => Results.Json(

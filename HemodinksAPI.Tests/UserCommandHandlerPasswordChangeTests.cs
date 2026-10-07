@@ -22,15 +22,12 @@ public partial class UserCommandHandlerTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var handler = new ChangePasswordCommandHandler(
-            TestPasswordPolicy.Instance,
-            context,
-            hasher,
-            NullLogger<ChangePasswordCommandHandler>.Instance);
+        var handler = new ChangePasswordCommandHandler(TestPasswordPolicy.Instance, SensitiveIdentityTestSupport.Service(context));
 
         var response = await handler.Handle(new ChangePasswordCommand
         {
             UserId = user.Id,
+            CurrentUser = await SensitiveIdentityTestSupport.SeedActorAsync(context, user),
             SenhaAtual = "TestPassword@123",
             NovaSenha = "NovaTestPassword@123"
         }, CancellationToken.None);
@@ -47,11 +44,7 @@ public partial class UserCommandHandlerTests
     public async Task ChangePassword_WhenCurrentUserDoesNotMatchRouteUser_ThrowsUnauthorizedAccessException()
     {
         await using var context = TestDbContextFactory.Create();
-        var handler = new ChangePasswordCommandHandler(
-            TestPasswordPolicy.Instance,
-            context,
-            new PasswordHasher(),
-            NullLogger<ChangePasswordCommandHandler>.Instance);
+        var handler = new ChangePasswordCommandHandler(TestPasswordPolicy.Instance, SensitiveIdentityTestSupport.Service(context));
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new ChangePasswordCommand
         {
@@ -75,20 +68,17 @@ public partial class UserCommandHandlerTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var handler = new ChangePasswordCommandHandler(
-            TestPasswordPolicy.Instance,
-            context,
-            hasher,
-            NullLogger<ChangePasswordCommandHandler>.Instance);
+        var handler = new ChangePasswordCommandHandler(TestPasswordPolicy.Instance, SensitiveIdentityTestSupport.Service(context));
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new ChangePasswordCommand
+        var exception = await Assert.ThrowsAsync<HemodinksAPI.Application.Security.SensitiveIdentityException>(async () => await handler.Handle(new ChangePasswordCommand
         {
             UserId = user.Id,
+            CurrentUser = await SensitiveIdentityTestSupport.SeedActorAsync(context, user),
             SenhaAtual = "SenhaErrada@123",
             NovaSenha = "NovaTestPassword@123"
         }, CancellationToken.None));
 
-        Assert.Equal("Senha atual invalida", exception.Message);
+        Assert.Equal("identity_revalidation_failed", Assert.IsType<HemodinksAPI.Application.Security.SensitiveIdentityException>(exception).Code);
     }
 
     [Fact]
@@ -96,15 +86,12 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
-        var handler = new ChangePasswordCommandHandler(
-            TestPasswordPolicy.Instance,
-            context,
-            hasher,
-            NullLogger<ChangePasswordCommandHandler>.Instance);
+        var handler = new ChangePasswordCommandHandler(TestPasswordPolicy.Instance, SensitiveIdentityTestSupport.Service(context));
 
         await Assert.ThrowsAsync<HemodinksAPI.Application.Security.CompromisedPasswordException>(() => handler.Handle(new ChangePasswordCommand
         {
             UserId = 1,
+            CurrentUser = new CurrentUserContext(1, Perfil.MedicosId, "Test"),
             SenhaAtual = "TestPassword@123",
             NovaSenha = TestPasswords.RetiredSharedCredential
         }, CancellationToken.None));
@@ -123,15 +110,12 @@ public partial class UserCommandHandlerTests
         context.Users.Add(user);
         await context.SaveChangesAsync();
 
-        var handler = new ChangePasswordCommandHandler(
-            TestPasswordPolicy.Instance,
-            context,
-            hasher,
-            NullLogger<ChangePasswordCommandHandler>.Instance);
+        var handler = new ChangePasswordCommandHandler(TestPasswordPolicy.Instance, SensitiveIdentityTestSupport.Service(context));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new ChangePasswordCommand
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await handler.Handle(new ChangePasswordCommand
         {
             UserId = user.Id,
+            CurrentUser = await SensitiveIdentityTestSupport.SeedActorAsync(context, user),
             SenhaAtual = "SenhaAtual@123",
             NovaSenha = "SenhaAtual@123"
         }, CancellationToken.None));

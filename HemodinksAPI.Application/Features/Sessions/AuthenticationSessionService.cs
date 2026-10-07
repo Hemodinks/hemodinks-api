@@ -264,6 +264,7 @@ public sealed partial class AuthenticationSessionService
         // A context transition can only select another active membership of this identity.
         var membership = await _store.FindMembershipAsync(session.UsuarioGlobalId, usuarioClinicaId, cancellationToken);
         if (membership == null || session.EquipeId.HasValue || membership.User.PerfilId == Perfil.EquipeId) return false;
+        session.ContextVersion = Guid.NewGuid();
         session.UsuarioClinicaId = usuarioClinicaId;
         session.LastActivityAt = Later(session.LastActivityAt, UtcNow());
         return await _store.TrySaveChangesAsync(cancellationToken)

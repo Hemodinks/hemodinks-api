@@ -24,9 +24,9 @@ public sealed class PasswordHashUpgradeConcurrencyTests
                     NullLogger<ConfirmPasswordResetCommandHandler>.Instance).Handle(new ConfirmPasswordResetCommand
                     { Token = PasswordResetSecurityTestDatabase.Token, NovaSenha = PasswordResetSecurityTestDatabase.NewPassword }, default);
             else
-                await new ChangePasswordCommandHandler(TestPasswordPolicy.Instance, winner, new PasswordHasher(),
-                    NullLogger<ChangePasswordCommandHandler>.Instance).Handle(new ChangePasswordCommand
-                    { UserId = (await winner.Users.SingleAsync()).Id, SenhaAtual = PasswordResetSecurityTestDatabase.OldPassword,
+                await new ChangePasswordCommandHandler(TestPasswordPolicy.Instance, SensitiveIdentityTestSupport.Service(winner)).Handle(new ChangePasswordCommand
+                    { CurrentUser = SensitiveIdentityTestSupport.Actor(await winner.AuthenticationSessions.Include(x => x.UsuarioClinica).ThenInclude(x => x.User).SingleAsync()),
+                        UserId = (await winner.Users.SingleAsync()).Id, SenhaAtual = PasswordResetSecurityTestDatabase.OldPassword,
                         NovaSenha = PasswordResetSecurityTestDatabase.NewPassword }, default);
         }
 
@@ -38,8 +38,8 @@ public sealed class PasswordHashUpgradeConcurrencyTests
         var global = await verify.UsuariosGlobais.SingleAsync();
         Assert.True(new PasswordHasher().VerifyPassword(PasswordResetSecurityTestDatabase.NewPassword, global.Senha));
         Assert.Equal((await verify.Users.SingleAsync()).Senha, global.Senha);
-        Assert.Equal(!reset, global.SecurityVersion == oldVersion);
-        Assert.Equal(reset, (await verify.AuthenticationSessions.SingleAsync()).RevokedAt.HasValue);
+        Assert.NotEqual(oldVersion, global.SecurityVersion);
+        Assert.True((await verify.AuthenticationSessions.SingleAsync()).RevokedAt.HasValue);
     }
 
     [Fact]

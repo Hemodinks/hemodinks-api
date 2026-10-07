@@ -130,7 +130,7 @@ public sealed class SecurityObservationMiddleware(RequestDelegate next)
         "AuthenticateUser" => "login", "ResolveLoginClinics" => "discovery",
         "IdentifyTeamOperator" => "operator", "ResetPasswordByEmail" => "recovery",
         "ConfirmPasswordReset" => "recovery_confirm",
-        "ChangePassword" => "credential_change",
+        "ChangePassword" or "ConfirmEmailChange" => "credential_change",
         "ChangeTemporaryPassword" or "ResetPassword" => "credential_revoke",
         "RestoreSession" => "bootstrap",
         "RefreshSession" or "EndSession" or "TouchSessionActivity" => "session",

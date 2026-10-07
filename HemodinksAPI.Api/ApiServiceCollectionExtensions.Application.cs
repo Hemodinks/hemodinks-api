@@ -44,6 +44,12 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<ILoginAccountProtection, EfLoginAccountProtection>();
         services.AddSingleton<HemodinksAPI.Application.Security.ICompromisedPasswordLookup, HemodinksAPI.Infrastructure.Security.LocalCompromisedPasswordLookup>();
         services.AddSingleton<HemodinksAPI.Application.Security.NewPasswordPolicy>();
+        services.AddOptions<HemodinksAPI.Application.Features.Users.Commands.SensitiveIdentityOptions>()
+            .Bind(configuration.GetSection("SensitiveIdentity"))
+            .Validate(x => x.EmailConfirmationMinutes is >= 1 and <= 15, "Email confirmation lifetime must be between 1 and 15 minutes.").ValidateOnStart();
+        services.AddScoped<HemodinksAPI.Application.Features.Users.Commands.SensitiveIdentityService>();
+        services.AddScoped<IEmailChangeNotificationSender>(p => p.GetRequiredService<SmtpPasswordResetNotificationSender>());
+        services.AddScoped<SmtpPasswordResetNotificationSender>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();
         services.AddScoped<IPinHasher, PinHasher>();
         services.AddScoped<HemodinksAPI.Application.Features.Users.Commands.TemporaryAccessService>();

@@ -100,6 +100,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             }
 
             var emailChanged = !string.Equals(user.Email, effectiveEmail, StringComparison.OrdinalIgnoreCase);
+            if (emailChanged) throw HemodinksAPI.Application.Security.SensitiveIdentityException.EmailConfirmationRequired();
             var emailAlreadyExists = emailChanged && await _context.Users
                 .AnyAsync(u => u.Id != request.Id && u.Email == effectiveEmail, cancellationToken);
 

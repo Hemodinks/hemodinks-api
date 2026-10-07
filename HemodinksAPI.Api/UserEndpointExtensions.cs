@@ -82,6 +82,10 @@ public static partial class UserEndpointExtensions
             .WithDescription("Altera a senha do usuario autenticado")
             .RequireAuthorization().RequireRateLimiting("PasswordReset");
 
+        group.MapPost("/email/change", RequestEmailChange).WithName("RequestEmailChange").RequireAuthorization().RequireRateLimiting("PasswordReset");
+        group.MapPost("/email/change/confirm", ConfirmEmailChange).WithName("ConfirmEmailChange").RequireAuthorization().RequireRateLimiting("PasswordReset");
+        group.MapPost("/email/change/cancel", CancelEmailChange).WithName("CancelEmailChange").RequireAuthorization().RequireRateLimiting("PasswordReset");
+
         group.MapPost("/password/temporary/complete", ChangeTemporaryPassword)
             .WithName("ChangeTemporaryPassword")
             .RequireAuthorization().RequireRateLimiting("TemporaryAccess");
