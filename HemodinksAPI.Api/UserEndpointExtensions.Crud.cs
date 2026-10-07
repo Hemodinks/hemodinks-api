@@ -38,13 +38,18 @@ public static partial class UserEndpointExtensions
                 return Results.StatusCode(403);
             var result = await mediator.Send(command, cancellationToken);
             httpContext.Response.Headers.CacheControl = "no-store";
-            if (result.EquipeDesafio != null) return Results.Ok(result);
+            if (result.EquipeDesafio != null)
+            {
+                httpContext.Items[SecurityObservationMiddleware.CredentialOnly] = true;
+                return Results.Ok(result);
+            }
             var session = await SessionLoginIssuer.StartAsync(result, httpContext, sessionService, cancellationToken);
             if (session == null)
             {
                 return Results.Unauthorized();
             }
 
+            httpContext.Items[SecurityObservationMiddleware.IssuedClinic] = result.ClinicaId;
             result.Token = session.AccessToken;
             sessionCookie.Write(httpContext, session);
             return Results.Ok(result);

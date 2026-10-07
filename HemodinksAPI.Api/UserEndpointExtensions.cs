@@ -11,7 +11,8 @@ public static partial class UserEndpointExtensions
     public static void MapUserEndpoints(this WebApplication app)
     {
         var group = app.MapGroup("/api/users")
-            .WithTags("Users");
+            .WithTags("Users")
+            .AddEndpointFilter<SecurityAccountObservationFilter>();
 
         group.MapPost("/", CreateUser)
             .WithName("CreateUser")

@@ -39,9 +39,10 @@ public static partial class SessionEndpointExtensions
         Guid? authenticatedId = context.User.Identity?.IsAuthenticated == true
             && Guid.TryParse(context.User.FindFirstValue(AuthenticationSessionClaimTypes.SessionId), out var sid) ? sid : null;
         int? authenticatedMembership = int.TryParse(context.User.FindFirstValue(GlobalIdentityClaimTypes.UsuarioClinicaId), out var member) ? member : null;
-        if (await sessions.RevokeMatchingAsync(token ?? string.Empty, request.SessionId, request.MembershipId,
-            cancellationToken, authenticatedId, authenticatedMembership))
-            cookie.Delete(context);
+        var revocation = await sessions.RevokeMatchingAsync(token ?? string.Empty, request.SessionId, request.MembershipId,
+            cancellationToken, authenticatedId, authenticatedMembership);
+        if (revocation.Revoked) context.Items[SecurityObservationMiddleware.Revoked] = true;
+        if (revocation.DeleteCookie) cookie.Delete(context);
         return Results.NoContent();
     }
 
@@ -79,6 +80,7 @@ public static partial class SessionEndpointExtensions
                 request.SessionId, request.MembershipId, request.Active);
             // Never delete a cookie on a failed refresh: another tab may have rotated it.
             if (issued == null) return Results.Unauthorized();
+            context.Items[SecurityObservationMiddleware.IssuedClinic] = issued.Identity.ClinicaId;
             cookie.Write(context, issued);
             return Results.Ok(new { token = issued.AccessToken, idleTimeoutMinutes = options.IdleTimeoutMinutes });
         }
@@ -88,6 +90,7 @@ public static partial class SessionEndpointExtensions
         }
         catch (SessionAbsoluteExpiredException)
         {
+            context.Items[SecurityObservationMiddleware.Failure] = SessionLifetimePolicy.AbsoluteExpired;
             return Results.Json(new { code = SessionLifetimePolicy.AbsoluteExpired,
                 message = SessionLifetimePolicy.AbsoluteExpiredMessage }, statusCode: StatusCodes.Status401Unauthorized);
         }

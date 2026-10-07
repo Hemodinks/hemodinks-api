@@ -31,7 +31,13 @@ public sealed class AuthenticationSessionMiddleware
         if (context.User.Identity?.IsAuthenticated == true
             && Guid.TryParse(sessionIdClaim, out var sessionId))
         {
-            var validation = await sessionService.ValidateAndTouchAsync(sessionId, context.RequestAborted);
+            AuthenticationSessionValidation validation;
+            try { validation = await sessionService.ValidateAndTouchAsync(sessionId, context.RequestAborted); }
+            catch
+            {
+                context.Items[SecurityObservationMiddleware.Failure] = "infrastructure_failure";
+                throw;
+            }
             if (!validation.IsValid)
             {
                 if (validation.FailureCode == AuthenticationSessionValidation.TemporarilyUnavailable)
@@ -102,8 +108,9 @@ public sealed class AuthenticationSessionMiddleware
 
     private void LogFailure(HttpContext context, string code, int statusCode)
     {
+        context.Items[SecurityObservationMiddleware.Failure] = code;
         // Correlate without logging bearer/cookie material or client-supplied payloads.
-        _logger.LogWarning(new EventId(4101, "SessionValidationRejected"),
+        _logger.LogDebug(new EventId(4101, "SessionValidationRejected"),
             "Session validation rejected: {FailureCode}; HTTP {StatusCode}; request {RequestId}",
             code, statusCode, context.TraceIdentifier);
     }

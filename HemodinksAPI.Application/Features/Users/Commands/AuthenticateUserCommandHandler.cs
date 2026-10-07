@@ -69,8 +69,6 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
         try
         {
             var currentClinicaId = _clinicaContext.GetRequiredClinicaId();
-            var maskedEmail = HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(request.Email);
-            _logger.LogInformation("Autenticando usuario: {MaskedEmail}", maskedEmail);
 
             var user = await _context.Users
                 .Include(u => u.Perfil)
@@ -87,7 +85,6 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                     ?? await GlobalIdentityService.EnsureForUserAsync(_context, user, cancellationToken);
             if (membership != null && await _loginProtection.IsLockedAsync(membership.UsuarioGlobalId, cancellationToken))
             {
-                _logger.LogWarning("Conta temporariamente bloqueada para: {MaskedEmail}", maskedEmail);
                 throw new UnauthorizedAccessException("Email ou senha invalidos");
             }
 
@@ -120,7 +117,6 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                     await _loginProtection.RegisterFailureAsync(membership.UsuarioGlobalId, cancellationToken);
                 }
 
-                _logger.LogWarning("Falha na autenticacao para: {MaskedEmail}", maskedEmail);
                 throw new UnauthorizedAccessException("Email ou senha invalidos");
             }
 
@@ -202,7 +198,6 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                     user);
             }
 
-            _logger.LogInformation("Usuario autenticado com sucesso: {MaskedEmail}", maskedEmail);
 
             return new AuthenticateUserResponse
             {

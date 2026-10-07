@@ -21,6 +21,7 @@ public static class EquipeEndpointExtensions
         admin.MapPut("/{id:int}/operadores/{operadorId:int}/bloqueio", AlterarBloqueio);
 
         app.MapPost("/api/equipe-auth/identificar", IdentificarOperador)
+            .WithName("IdentifyTeamOperator")
             .WithTags("Equipes - Autenticacao")
             .AllowAnonymous()
             .RequireRateLimiting("PasswordReset");
@@ -132,6 +133,7 @@ public static class EquipeEndpointExtensions
         if (result.Status != TeamUseCaseStatus.Success) return MapError(result.Status, result.Message);
         var issued = await SessionLoginIssuer.StartAsync(result.Value!, httpContext, sessions, cancellationToken);
         if (issued == null) return Results.Unauthorized();
+        httpContext.Items[SecurityObservationMiddleware.IssuedClinic] = result.Value!.ClinicaId;
         result.Value!.Token = issued.AccessToken;
         httpContext.Response.Headers.CacheControl = "no-store";
         cookie.Write(httpContext, issued);

@@ -5,6 +5,8 @@ using HemodinksAPI.Api;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Infrastructure.Storage;
+using HemodinksAPI.Infrastructure.Security;
+using HemodinksAPI.Application.Security;
 using Microsoft.Extensions.FileProviders;
 using Serilog;
 using Serilog.Context;
@@ -36,6 +38,15 @@ builder.Services
     .AddApplicationServices(builder.Configuration, builder.Environment)
     .AddApiDocumentation();
 
+builder.Services.AddOptions<SecurityObservationOptions>()
+    .Bind(builder.Configuration.GetSection(SecurityObservationOptions.SectionName))
+    .Validate(options => options.IsValid(), "Invalid security observation thresholds").ValidateOnStart();
+builder.Services.AddOpenTelemetry().WithMetrics(metrics => metrics.AddMeter("Hemodinks.Security"));
+builder.Services.AddSingleton<ISecurityObservationReader, SecurityObservationReader>();
+builder.Services.AddSingleton<SecurityObservationWorker>();
+builder.Services.AddSingleton<ISecurityObservationWriter>(sp => sp.GetRequiredService<SecurityObservationWorker>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SecurityObservationWorker>());
+
 var servicesDurationMs = startupStage.Elapsed.TotalMilliseconds;
 startupStage.Restart();
 var app = builder.Build();
@@ -46,6 +57,7 @@ app.Lifetime.ApplicationStarted.Register(() =>
     startupDiagnostics.Record(app.Logger, "http_started", startupStage.Elapsed.TotalMilliseconds));
 app.UseForwardedHeaders();
 app.UseMiddleware<ApiExceptionHandlingMiddleware>();
+app.UseMiddleware<SecurityObservationMiddleware>();
 app.UseStatusCodePages(async statusCodeContext =>
 {
     var response = statusCodeContext.HttpContext.Response;
@@ -225,6 +237,13 @@ public partial class Program
                     rollingInterval: RollingInterval.Day,
                     retainedFileCountLimit: 30,
                     shared: true))
+            .WriteTo.Logger(securityLogger => securityLogger
+                .Filter.ByIncludingOnly(value => value.Properties.ContainsKey("SecurityEvent"))
+                .WriteTo.File(new JsonFormatter(renderMessage: true),
+                    Path.Combine(logDirectory, SecurityObservationWorker.FilePattern),
+                    rollingInterval: RollingInterval.Day, retainedFileCountLimit: SecurityObservationWorker.MaximumFiles,
+                    retainedFileTimeLimit: TimeSpan.FromDays(SecurityObservationWorker.RetentionDays),
+                    fileSizeLimitBytes: SecurityObservationWorker.MaximumFileBytes, rollOnFileSizeLimit: true, shared: true))
             .Enrich.FromLogContext()
             .Enrich.WithThreadId();
     }

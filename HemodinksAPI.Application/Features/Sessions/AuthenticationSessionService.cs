@@ -42,6 +42,8 @@ public sealed record AuthenticationSessionValidation(
 
 public sealed class SessionRefreshConflictException : Exception;
 
+public sealed record SessionRevocationResult(bool Revoked, bool DeleteCookie);
+
 public sealed partial class AuthenticationSessionService
 {
     private readonly IAuthenticationSessionStore _store;
@@ -150,8 +152,7 @@ public sealed partial class AuthenticationSessionService
         if (!sessionIsActive || !membershipIsActive)
         {
             _logger.LogInformation(
-                "Refresh recusado para sessao {SessionId}. SessaoAtiva: {SessionIsActive}; VinculoAtivo: {MembershipIsActive}; UltimaAtividade: {LastActivityAt}",
-                session.Id,
+                "Refresh recusado. SessaoAtiva: {SessionIsActive}; VinculoAtivo: {MembershipIsActive}; UltimaAtividade: {LastActivityAt}",
                 sessionIsActive,
                 membershipIsActive,
                 session.LastActivityAt);
@@ -178,7 +179,7 @@ public sealed partial class AuthenticationSessionService
                 await _store.RevokeByIdAsync(session.Id, UtcNow(), cancellationToken);
                 throw new SessionAbsoluteExpiredException();
             }
-            _logger.LogWarning("Tentativa concorrente de renovar a sessao {SessionId}", session.Id);
+            _logger.LogWarning("Tentativa concorrente de renovar a sessao");
             throw new SessionRefreshConflictException();
         }
 
@@ -290,18 +291,21 @@ public sealed partial class AuthenticationSessionService
         }
     }
 
-    public async Task<bool> RevokeMatchingAsync(string refreshToken, Guid sessionId, int membershipId,
+    public async Task<SessionRevocationResult> RevokeMatchingAsync(string refreshToken, Guid sessionId, int membershipId,
         CancellationToken cancellationToken, Guid? authenticatedSessionId = null, int? authenticatedMembershipId = null)
     {
         var cookieSession = await _store.FindByRefreshTokenHashAsync(HashRefreshToken(refreshToken), cancellationToken);
         var cookieMatches = cookieSession?.Id == sessionId && cookieSession.UsuarioClinicaId == membershipId;
         if (cookieMatches)
-            return await _store.RevokeByIdAsync(sessionId, UtcNow(), cancellationToken);
+        {
+            var revoked = await _store.RevokeByIdAsync(sessionId, UtcNow(), cancellationToken);
+            return new(revoked, revoked);
+        }
         if (authenticatedSessionId == sessionId && authenticatedMembershipId == membershipId)
-            await _store.RevokeByIdAsync(sessionId, UtcNow(), cancellationToken);
+            return new(await _store.RevokeByIdAsync(sessionId, UtcNow(), cancellationToken), false);
         // An old bearer may revoke its own session, but must never delete a different
         // session's cookie (or an unrecognized cookie rotated by another request).
-        return false;
+        return new(false, false);
     }
 
     private static bool IsActive(UsuarioClinica membership)

@@ -39,7 +39,6 @@ public sealed class ResolveLoginClinicsCommandHandler : IRequestHandler<ResolveL
     {
         var stopwatch = Stopwatch.StartNew();
         var normalizedEmail = GlobalIdentityService.NormalizeEmail(request.Email);
-        var maskedEmail = HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(normalizedEmail);
 
         var users = await _context.Users
             .IgnoreQueryFilters()
@@ -53,7 +52,6 @@ public sealed class ResolveLoginClinicsCommandHandler : IRequestHandler<ResolveL
 
         if (users.Count == 0)
         {
-            _logger.LogWarning("Falha ao resolver contexto de login para {MaskedEmail}", maskedEmail);
             throw new UnauthorizedAccessException("Email ou senha invalidos");
         }
 
@@ -149,13 +147,11 @@ public sealed class ResolveLoginClinicsCommandHandler : IRequestHandler<ResolveL
                 await _loginProtection.RegisterFailureAsync(globalId, cancellationToken);
             }
 
-            _logger.LogWarning("Credencial inválida ao resolver contexto de login para {MaskedEmail}", maskedEmail);
             throw new UnauthorizedAccessException("Email ou senha invalidos");
         }
 
         _logger.LogInformation(
-            "Contexto de login resolvido para {MaskedEmail}: {ClinicCount} clínica(s) autorizada(s) em {ElapsedMs} ms. Usuarios: {UserLookupMs} ms; vinculos: {MembershipLookupMs} ms; hashes verificados: {HashVerificationCount}",
-            maskedEmail,
+            "Contexto de login resolvido: {ClinicCount} clínica(s) autorizada(s) em {ElapsedMs} ms. Usuarios: {UserLookupMs} ms; vinculos: {MembershipLookupMs} ms; hashes verificados: {HashVerificationCount}",
             options.Count, stopwatch.Elapsed.TotalMilliseconds, userLookupMs, membershipLookupMs, verifiedHashes.Count);
 
         return new ResolveLoginClinicsResponse(options.Values
