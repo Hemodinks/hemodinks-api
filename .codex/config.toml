@@ -1,0 +1,31 @@
+#:schema https://developers.openai.com/codex/config-schema.json
+
+developer_instructions = "Leia AGENTS.md integralmente antes de editar. Classifique risco (baixo/moderado/alto/crítico), dependências e escopo. Para tarefa trivial execute diretamente sem subagentes. Delegue somente investigações independentes ou especialidades necessárias, no máximo dois subagentes ativos por sessão; não permita edição paralela dos mesmos arquivos. Use agentes definidos aqui pelos seus nomes e responsabilidades, priorizando segurança e isolamento multiclínica. Esforço do agente principal não muda automaticamente durante a sessão: não afirme que mudou. Para trabalhos de alto risco, prefira subagente security ou architect com high; para trabalho simples evite delegação. Não faça deploy, merge, commit não solicitado pelo executor nem modifique regras fora do escopo. Na resposta final detalhe classificação, agentes acionados, testes reais, riscos e limitações."
+
+[agents]
+enabled = true
+max_concurrent_threads_per_session = 2
+
+[agents.backend]
+description = "Implementação .NET 10, CQRS, MediatR, FluentValidation e Clean Architecture"
+config_file = "agents/backend.toml"
+
+[agents.security]
+description = "Auditoria crítica de autenticação, JWT, SecurityVersion, permissões e isolamento por clínica"
+config_file = "agents/security.toml"
+
+[agents.database]
+description = "EF Core 10, SQL Server/Azure SQL, performance e integridade multiclínica"
+config_file = "agents/database.toml"
+
+[agents.qa]
+description = "Testes .NET, integração, regressão e segurança de isolamento"
+config_file = "agents/qa.toml"
+
+[agents.devops]
+description = "Docker, Azure Container Apps e pipelines GitHub Actions"
+config_file = "agents/devops.toml"
+
+[agents.architect]
+description = "Revisão estrutural e dependências entre projetos Clean Architecture"
+config_file = "agents/architect.toml"
