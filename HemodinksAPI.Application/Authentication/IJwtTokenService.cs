@@ -15,7 +15,7 @@ public interface IJwtTokenService
         UsuarioGlobal usuarioGlobal,
         UsuarioClinica usuarioClinica,
         User user,
-        Guid? sessionId);
+        Guid? sessionId, DateTime? authenticatedAt = null);
 
     string GenerateToken(
         UsuarioGlobal usuarioGlobal,
@@ -23,5 +23,5 @@ public interface IJwtTokenService
         User user,
         Equipe? equipe = null,
         EquipeOperador? operador = null,
-        bool identificacaoConfiavel = false);
+        bool identificacaoConfiavel = false, DateTime? authenticatedAt = null, Guid? teamSessionId = null);
 }

@@ -37,10 +37,7 @@ public sealed class ChangePasswordCommandValidator : IRequestValidator<ChangePas
             throw new InvalidOperationException("Informe a senha atual.");
         }
 
-        if (string.IsNullOrWhiteSpace(request.NovaSenha) || request.NovaSenha.Length < 8)
-        {
-            throw new InvalidOperationException("A nova senha deve ter pelo menos 8 caracteres");
-        }
+        HemodinksAPI.Application.Security.NewPasswordPolicy.ValidateLength(request.NovaSenha);
     }
 }
 

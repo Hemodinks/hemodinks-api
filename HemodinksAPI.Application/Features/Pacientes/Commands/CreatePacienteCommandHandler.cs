@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Cbhpm;
@@ -16,6 +17,7 @@ namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
 public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteCommand, PacienteDto>
 {
+    private readonly NewPasswordPolicy passwordPolicy;
     private readonly IPatientFeatureDbContext _context;
     private readonly ICbhpmCache _cbhpmCache;
     private readonly IPasswordHasher _passwordHasher;
@@ -25,6 +27,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
     private readonly IPasswordResetNotificationSender? _passwordResetNotificationSender;
 
     internal CreatePacienteCommandHandler(
+        NewPasswordPolicy passwordPolicy,
         IPatientFeatureDbContext context,
         ICbhpmCache cbhpmCache,
         IPasswordHasher passwordHasher,
@@ -32,6 +35,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
         ILogger<CreatePacienteCommandHandler> logger,
         IPasswordResetNotificationSender? passwordResetNotificationSender = null)
         : this(
+            passwordPolicy,
             context,
             cbhpmCache,
             passwordHasher,
@@ -43,6 +47,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
     }
 
     public CreatePacienteCommandHandler(
+        NewPasswordPolicy passwordPolicy,
         IPatientFeatureDbContext context,
         ICbhpmCache cbhpmCache,
         IPasswordHasher passwordHasher,
@@ -53,6 +58,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
     {
         _context = context;
         _cbhpmCache = cbhpmCache;
+        this.passwordPolicy = passwordPolicy;
         _passwordHasher = passwordHasher;
         _profilePhotoStorage = profilePhotoStorage;
         _clinicaContext = clinicaContext;
@@ -112,6 +118,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 request.CbhpmCodigo, request.Procedimento, request.CbhpmPorte, cancellationToken);
             var procedimentoPrincipal = procedimentos.FirstOrDefault();
             var temporaryPassword = TemporaryPasswordGenerator.Generate();
+            passwordPolicy.Validate(temporaryPassword);
             var user = new User
             {
                 ClinicaId = clinicaId,

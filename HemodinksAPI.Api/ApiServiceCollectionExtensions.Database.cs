@@ -48,6 +48,7 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<ITemporaryAccessDbContext>(provider => provider.GetRequiredService<PlatformDbContext>());
         services.AddScoped<IPasswordCredentialDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IPasswordResetOperationsDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<ISensitiveIdentityDbContext>(provider => provider.GetRequiredService<PlatformDbContext>());
         services.AddScoped<IPlatformPasswordResetDbContext>(provider => provider.GetRequiredService<PlatformDbContext>());
         services.AddScoped<IPlatformTeamDbContext>(provider => provider.GetRequiredService<PlatformDbContext>());
         services.AddScoped<IPlatformClinicDbContext>(provider => provider.GetRequiredService<PlatformDbContext>());

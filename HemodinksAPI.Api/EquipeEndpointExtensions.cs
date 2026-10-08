@@ -21,9 +21,10 @@ public static class EquipeEndpointExtensions
         admin.MapPut("/{id:int}/operadores/{operadorId:int}/bloqueio", AlterarBloqueio);
 
         app.MapPost("/api/equipe-auth/identificar", IdentificarOperador)
+            .WithName("IdentifyTeamOperator")
             .WithTags("Equipes - Autenticacao")
             .AllowAnonymous()
-            .RequireRateLimiting("PasswordReset");
+            .AddEndpointFilter<AuthenticationRateLimitFilter>();
 
         app.MapPut("/api/equipe-auth/pin", TrocarPin)
             .WithTags("Equipes - Autenticacao")
@@ -120,15 +121,28 @@ public static class EquipeEndpointExtensions
 
     private static async Task<IResult> IdentificarOperador(
         IdentificarEquipeRequest request,
+        HttpContext httpContext,
+        HemodinksAPI.Application.Features.Sessions.AuthenticationSessionService sessions,
+        AuthenticationSessionCookie cookie,
         TeamUseCases useCases,
         CancellationToken cancellationToken)
     {
+        if (!SessionRequestSecurity.IsTrusted(httpContext, httpContext.RequestServices.GetRequiredService<IConfiguration>(), login: true))
+            return Results.StatusCode(403);
         var result = await useCases.IdentifyOperatorAsync(request.Token, request.OperadorId, request.Pin, cancellationToken);
-        return result.Status == TeamUseCaseStatus.Success ? Results.Ok(result.Value) : MapError(result.Status, result.Message);
+        if (result.Status != TeamUseCaseStatus.Success) return MapError(result.Status, result.Message);
+        var issued = await SessionLoginIssuer.StartAsync(result.Value!, httpContext, sessions, cancellationToken);
+        if (issued == null) return Results.Unauthorized();
+        httpContext.Items[SecurityObservationMiddleware.IssuedClinic] = result.Value!.ClinicaId;
+        result.Value!.Token = issued.AccessToken;
+        httpContext.Response.Headers.CacheControl = "no-store";
+        cookie.Write(httpContext, issued);
+        return Results.Ok(result.Value);
     }
 
     private static async Task<IResult> TrocarPin(
         TrocarEquipePinRequest request,
+        HemodinksAPI.Application.Features.Sessions.AuthenticationSessionService sessions,
         ClaimsPrincipal principal,
         HttpContext httpContext,
         TeamUseCases useCases,
@@ -138,6 +152,15 @@ public static class EquipeEndpointExtensions
         var currentUser = GetCurrentUser(principal);
         var result = await useCases.ChangePinAsync(currentUser, request.PinAtual, request.NovoPin, cancellationToken);
         if (result.Status != TeamUseCaseStatus.Success) return MapError(result.Status, result.Message);
+        if (currentUser.SessionId.HasValue)
+        {
+            var issuedClaims = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler().ReadJwtToken(result.Value!.Token).Claims;
+            var nextVersion = int.Parse(issuedClaims.Single(c => c.Type == "operadorVersaoSessao").Value);
+            var previousVersion = int.Parse(principal.FindFirst("operadorVersaoSessao")!.Value);
+            if (!await sessions.AdvanceOperatorVersionAsync(currentUser.SessionId.Value, currentUser.UsuarioClinicaId,
+                currentUser.EquipeOperadorId!.Value, previousVersion, nextVersion, cancellationToken)) return Results.Unauthorized();
+        }
+        httpContext.Response.Headers.CacheControl = "no-store";
         await RecordAuditAsync(result.Audit, httpContext, auditService, cancellationToken);
         return Results.Ok(result.Value);
     }

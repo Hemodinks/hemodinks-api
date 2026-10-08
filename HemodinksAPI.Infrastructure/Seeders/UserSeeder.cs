@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Domain.Models;
 using Microsoft.Extensions.Configuration;
 
@@ -8,16 +9,18 @@ namespace HemodinksAPI.Infrastructure.Seeders;
 /// </summary>
 public class UserSeeder
 {
+    private readonly NewPasswordPolicy passwordPolicy;
     private readonly IPasswordHasher _passwordHasher;
     private readonly string _initialPassword;
 
-    public UserSeeder(IPasswordHasher passwordHasher)
-        : this(passwordHasher, null)
+    public UserSeeder(NewPasswordPolicy passwordPolicy, IPasswordHasher passwordHasher)
+        : this(passwordPolicy, passwordHasher, null)
     {
     }
 
-    public UserSeeder(IPasswordHasher passwordHasher, IConfiguration? configuration)
+    public UserSeeder(NewPasswordPolicy passwordPolicy, IPasswordHasher passwordHasher, IConfiguration? configuration)
     {
+        this.passwordPolicy = passwordPolicy;
         _passwordHasher = passwordHasher;
         _initialPassword = configuration?["Seed:InitialPassword"]
             ?? TemporaryPasswordGenerator.Generate();
@@ -28,6 +31,7 @@ public class UserSeeder
     /// </summary>
     public List<User> GenerateUsers()
     {
+        passwordPolicy.Validate(_initialPassword);
         var users = new List<User>();
 
         // Adicionar o usuário específico (George Marcone)

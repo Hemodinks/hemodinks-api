@@ -1,32 +1,38 @@
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Utils;
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
 public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswordResetCommand, ResetUserPasswordResponse>
 {
+    private readonly NewPasswordPolicy passwordPolicy;
     private readonly IPlatformPasswordResetDbContext _context;
     private readonly IPasswordHasher _passwordHasher;
     private readonly ILogger<ConfirmPasswordResetCommandHandler> _logger;
     private readonly TimeProvider _timeProvider;
 
     internal ConfirmPasswordResetCommandHandler(
+        NewPasswordPolicy passwordPolicy,
         IPlatformPasswordResetDbContext context,
         IPasswordHasher passwordHasher,
         ILogger<ConfirmPasswordResetCommandHandler> logger)
-        : this(context, passwordHasher, logger, TimeProvider.System)
+        : this(passwordPolicy, context, passwordHasher, logger, TimeProvider.System)
     {
     }
 
     public ConfirmPasswordResetCommandHandler(
+        NewPasswordPolicy passwordPolicy,
         IPlatformPasswordResetDbContext context,
         IPasswordHasher passwordHasher,
         ILogger<ConfirmPasswordResetCommandHandler> logger,
         TimeProvider timeProvider)
     {
         _context = context;
+        this.passwordPolicy = passwordPolicy;
         _passwordHasher = passwordHasher;
         _logger = logger;
         _timeProvider = timeProvider;
@@ -34,7 +40,7 @@ public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswor
 
     public async Task<ResetUserPasswordResponse> Handle(ConfirmPasswordResetCommand request, CancellationToken cancellationToken)
     {
-        PasswordResetRules.ValidateNewPassword(request.NovaSenha);
+        passwordPolicy.Validate(request.NovaSenha);
 
         var now = _timeProvider.GetUtcNow().UtcDateTime;
         var resetToken = await PasswordCommandQueries.GetValidResetTokenAsync(_context, request.Token, now, cancellationToken);
@@ -49,11 +55,22 @@ public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswor
 
         PasswordCommandMutations.ApplyNewPassword(resetToken.User, _passwordHasher, request.NovaSenha, requirePasswordChange: false, now);
         await GlobalIdentityService.SynchronizePasswordAsync(_context, resetToken.UserId, resetToken.User.Senha, cancellationToken);
+        membership.UsuarioGlobal.SecurityVersion = Guid.NewGuid();
+        await PasswordCommandMutations.RevokeSessionsAndResetTokensAsync(_context, membership.UsuarioGlobalId, now, cancellationToken);
         resetToken.UsedAt = now;
 
-        await _context.SaveChangesAsync(cancellationToken);
+        // One unit of work commits the password, version, token consumption and revocations atomically.
+        try
+        {
+            await _context.SaveChangesAsync(cancellationToken);
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            _logger.LogWarning("Conflito ao confirmar recuperacao de senha para usuario {UserId}", resetToken.UserId);
+            throw new InvalidOperationException("Token de reset invalido ou expirado");
+        }
 
-        _logger.LogInformation("Senha redefinida com token para usuario {UserId}", resetToken.UserId);
+        _logger.LogInformation("Senha redefinida e sessoes anteriores revogadas para usuario {UserId}", resetToken.UserId);
 
         return new ResetUserPasswordResponse
         {

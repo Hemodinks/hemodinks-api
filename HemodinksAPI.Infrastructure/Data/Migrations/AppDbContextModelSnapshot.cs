@@ -346,6 +346,10 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("ContextVersion")
+                        .IsConcurrencyToken()
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
@@ -355,8 +359,23 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasMaxLength(45)
                         .HasColumnType("nvarchar(45)");
 
+                    b.Property<int?>("EquipeId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EquipeOperadorId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("EquipeVersaoSessao")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IdentificacaoConfiavel")
+                        .HasColumnType("bit");
+
                     b.Property<DateTime>("LastActivityAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<int?>("OperadorVersaoSessao")
+                        .HasColumnType("int");
 
                     b.Property<string>("RefreshTokenHash")
                         .IsRequired()
@@ -817,6 +836,54 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.EmailChangeRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("ClinicaId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<Guid>("ContextVersion")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("NewEmail")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("SecurityVersion")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .IsConcurrencyToken()
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UsuarioClinicaId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UsuarioGlobalId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiresAt");
+
+                    b.ToTable("EmailChangeRequests");
+                });
+
             modelBuilder.Entity("HemodinksAPI.Domain.Models.Equipe", b =>
                 {
                     b.Property<int>("Id")
@@ -977,6 +1044,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasDefaultValue(true);
 
                     b.Property<DateTime?>("BloqueadoAte")
+                        .IsConcurrencyToken()
                         .HasColumnType("datetime2");
 
                     b.Property<int>("ClinicaId")
@@ -1006,6 +1074,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasDefaultValue(false);
 
                     b.Property<int>("TentativasFalhas")
+                        .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(0);
@@ -1014,6 +1083,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("VersaoSessao")
+                        .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(1);
@@ -2187,6 +2257,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("nvarchar(128)");
 
                     b.Property<DateTime?>("UsedAt")
+                        .IsConcurrencyToken()
                         .HasColumnType("datetime2");
 
                     b.Property<int>("UserId")
@@ -2740,6 +2811,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Senha")
+                        .IsConcurrencyToken()
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");

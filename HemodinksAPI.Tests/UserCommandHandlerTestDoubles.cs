@@ -96,7 +96,7 @@ public partial class UserCommandHandlerTests
             UsuarioGlobal usuarioGlobal,
             UsuarioClinica usuarioClinica,
             User user,
-            Guid? sessionId = null)
+            Guid? sessionId = null, DateTime? authenticatedAt = null)
         {
             return _token;
         }
@@ -107,7 +107,7 @@ public partial class UserCommandHandlerTests
             User user,
             Equipe? equipe = null,
             EquipeOperador? operador = null,
-            bool identificacaoConfiavel = false)
+            bool identificacaoConfiavel = false, DateTime? authenticatedAt = null, Guid? teamSessionId = null)
         {
             return _token;
         }

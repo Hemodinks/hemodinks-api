@@ -9,7 +9,7 @@ public static partial class UserEndpointExtensions
     private static Task<IResult> ChangePassword(
         int id,
         ChangePasswordCommand command,
-        ClaimsPrincipal claimsPrincipal,
+        HttpContext httpContext,
         IMediator mediator,
         ILogger<Program> logger,
         CancellationToken cancellationToken)
@@ -17,7 +17,8 @@ public static partial class UserEndpointExtensions
         return EndpointExecution.RunAsync(async () =>
         {
             command.UserId = id;
-            command.CurrentUser = GetRequiredCurrentUser(claimsPrincipal);
+            command.CurrentUser = GetRequiredCurrentUser(httpContext.User);
+            httpContext.Response.Headers.CacheControl = "no-store";
 
             var result = await mediator.Send(command, cancellationToken);
             return Results.Ok(result);

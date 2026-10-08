@@ -22,6 +22,9 @@ internal sealed class PasswordResetTokenConfiguration : IEntityTypeConfiguration
         entity.Property(e => e.ExpiresAt)
             .IsRequired();
 
+        // A token read before another confirmation must not be consumed twice.
+        entity.Property(e => e.UsedAt).IsConcurrencyToken();
+
         entity.Property(e => e.CreatedAt)
             .IsRequired()
             .HasDefaultValueSql("GETUTCDATE()");

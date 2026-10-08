@@ -8,6 +8,10 @@ public static class MonitoringEndpointExtensions
 {
     public static void MapMonitoringEndpoints(this WebApplication app)
     {
+        app.MapGet("/api/monitoramento/seguranca", GetSecurityEvents)
+            .WithTags("Monitoramento")
+            .RequireAuthorization("Administrador");
+
         app.MapGet("/api/monitoramento/erros", GetErrors)
             .WithTags("Monitoramento")
             .WithSummary("Listar erros técnicos")
@@ -19,6 +23,17 @@ public static class MonitoringEndpointExtensions
             .WithSummary("Limpar erros técnicos")
             .WithDescription("Oculta os erros existentes no escopo do administrador sem interromper a gravação de novos eventos.")
             .RequireAuthorization("Administrador");
+    }
+
+    private static IResult GetSecurityEvents(HttpContext context,
+        HemodinksAPI.Application.Security.ISecurityObservationReader reader, int page = 1, int pageSize = 25)
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        if (context.User.FindFirstValue("perfilId") == Perfil.SuperAdministradorId.ToString())
+            return Results.Ok(reader.Read(page, pageSize, null));
+        if (!int.TryParse(context.User.FindFirstValue(ClinicaClaimTypes.ClinicaId), out var clinic) || clinic <= 0)
+            return Results.Forbid();
+        return Results.Ok(reader.Read(page, pageSize, clinic));
     }
 
     private static IResult GetErrors(

@@ -17,6 +17,7 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var handler = new CreateUserCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             new PasswordHasher(),
             new FakeProfilePhotoStorage(),
@@ -41,6 +42,7 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var handler = new CreateUserCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             new PasswordHasher(),
             new FakeProfilePhotoStorage(),
@@ -65,6 +67,7 @@ public partial class UserCommandHandlerTests
         var hasher = new PasswordHasher();
         var invitationSender = new RecordingPasswordResetNotificationSender();
         var handler = new CreateUserCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             hasher,
             new FakeProfilePhotoStorage(),
@@ -113,6 +116,7 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var handler = new CreateUserCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             new PasswordHasher(),
             new FakeProfilePhotoStorage(),
@@ -142,6 +146,7 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var handler = new CreateUserCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             new PasswordHasher(),
             new FakeProfilePhotoStorage(),
@@ -168,6 +173,7 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var handler = new CreateUserCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             new PasswordHasher(),
             new FakeProfilePhotoStorage(),
@@ -193,6 +199,7 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var handler = new CreateUserCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             new PasswordHasher(),
             new FakeProfilePhotoStorage(),
@@ -217,6 +224,7 @@ public partial class UserCommandHandlerTests
         await using var context = TestDbContextFactory.Create();
         var hasher = new PasswordHasher();
         var handler = new CreateUserCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             hasher,
             new FakeProfilePhotoStorage(),
@@ -246,6 +254,7 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var handler = new CreateUserCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             new PasswordHasher(),
             new FakeProfilePhotoStorage(),
@@ -269,6 +278,7 @@ public partial class UserCommandHandlerTests
     {
         await using var context = TestDbContextFactory.Create();
         var handler = new CreateUserCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             new PasswordHasher(),
             new FakeProfilePhotoStorage(),
@@ -296,6 +306,7 @@ public partial class UserCommandHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new CreateUserCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             hasher,
             new FakeProfilePhotoStorage(),

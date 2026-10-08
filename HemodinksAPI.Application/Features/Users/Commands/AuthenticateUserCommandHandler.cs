@@ -23,6 +23,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
     private readonly ILogger<AuthenticateUserCommandHandler> _logger;
     private readonly ILoginAccountProtection _loginProtection;
     private readonly TemporaryAccessService? _temporaryAccess;
+    private readonly TimeProvider _timeProvider;
 
     internal AuthenticateUserCommandHandler(
         IUserFeatureDbContext context,
@@ -49,9 +50,11 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
         IClinicaContext clinicaContext,
         ILoginAccountProtection loginProtection,
         ILogger<AuthenticateUserCommandHandler> logger,
-        TemporaryAccessService? temporaryAccess = null)
+        TemporaryAccessService? temporaryAccess = null,
+        TimeProvider? timeProvider = null)
     {
         _temporaryAccess = temporaryAccess;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _context = context;
         _passwordHasher = passwordHasher;
         _jwtTokenService = jwtTokenService;
@@ -66,24 +69,33 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
         try
         {
             var currentClinicaId = _clinicaContext.GetRequiredClinicaId();
-            var maskedEmail = HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(request.Email);
-            _logger.LogInformation("Autenticando usuario: {MaskedEmail}", maskedEmail);
 
             var user = await _context.Users
                 .Include(u => u.Perfil)
                 .Include(u => u.Clinica)
-                .Where(u => u.Email == request.Email && u.Ativo)
+                .Where(u => u.Email == request.Email && u.Ativo && u.Clinica.Ativa)
                 .OrderByDescending(u => _context.Equipes.Any(equipe => equipe.UsuarioLoginId == u.Id && equipe.Ativa))
                 .ThenBy(u => u.Id)
                 .FirstOrDefaultAsync(cancellationToken);
 
             var membership = user == null
                 ? null
-                : await GlobalIdentityService.EnsureForUserAsync(_context, user, cancellationToken);
+                : await _context.UsuariosClinicas.Include(item => item.UsuarioGlobal)
+                    .FirstOrDefaultAsync(item => item.UserId == user.Id, cancellationToken)
+                    ?? await GlobalIdentityService.EnsureForUserAsync(_context, user, cancellationToken);
             if (membership != null && await _loginProtection.IsLockedAsync(membership.UsuarioGlobalId, cancellationToken))
             {
-                _logger.LogWarning("Conta temporariamente bloqueada para: {MaskedEmail}", maskedEmail);
                 throw new UnauthorizedAccessException("Email ou senha invalidos");
+            }
+
+            // Validate the collective account before confirming any legacy credential.
+            Equipe? equipe = null;
+            if (user?.PerfilId == Perfil.EquipeId)
+            {
+                equipe = await _context.Equipes
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(item => item.UsuarioLoginId == user.Id && item.Ativa, cancellationToken)
+                    ?? throw new UnauthorizedAccessException("Email ou senha invalidos");
             }
 
             var globalAuthentication = user == null || membership!.UsuarioGlobal.TemporaryPasswordRecovery ? null : await GlobalIdentityService.AuthenticateAsync(
@@ -105,32 +117,38 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                     await _loginProtection.RegisterFailureAsync(membership.UsuarioGlobalId, cancellationToken);
                 }
 
-                _logger.LogWarning("Falha na autenticacao para: {MaskedEmail}", maskedEmail);
                 throw new UnauthorizedAccessException("Email ou senha invalidos");
             }
 
-            await _loginProtection.RegisterSuccessAsync(globalAuthentication.UsuarioGlobal.Id, cancellationToken);
-
-            Equipe? equipe = null;
             EquipeLoginChallengeDto? equipeDesafio = null;
             string? token = null;
-            if (user.PerfilId == Perfil.EquipeId)
-            {
-                equipe = await _context.Equipes
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(item => item.UsuarioLoginId == user.Id && item.Ativa, cancellationToken)
-                    ?? throw new UnauthorizedAccessException("Email ou senha invalidos");
 
+            var licenca = await _licencaService.GetCurrentAsync(
+                new CurrentUserContext(
+                    user.Id, user.PerfilId, user.Nome, user.ClinicaId, user.Clinica.Slug,
+                    globalAuthentication.UsuarioGlobal.Id, globalAuthentication.UsuarioClinica.Id),
+                cancellationToken);
+
+            if (!await PasswordHashUpgrade.TryUpgradeAsync(
+                _context, _passwordHasher, globalAuthentication, request.Senha, cancellationToken))
+                throw new UnauthorizedAccessException("Email ou senha invalidos");
+
+            await _loginProtection.RegisterSuccessAsync(globalAuthentication.UsuarioGlobal.Id, cancellationToken);
+
+            if (equipe != null)
+            {
                 if (!equipe.ModoIdentificacao.Equals(EquipeModosIdentificacao.Nenhuma, StringComparison.OrdinalIgnoreCase))
                 {
                     var challengeToken = EquipeAuthenticationRules.GenerateChallengeToken();
-                    var expiresAt = DateTime.UtcNow.AddMinutes(5);
+                    var authenticatedAt = _timeProvider.GetUtcNow().UtcDateTime;
+                    var expiresAt = authenticatedAt.AddMinutes(5);
                     _context.EquipeLoginDesafios.Add(new EquipeLoginDesafio
                     {
                         ClinicaId = user.ClinicaId,
                         EquipeId = equipe.Id,
                         TokenHash = EquipeAuthenticationRules.HashChallengeToken(challengeToken),
                         SecurityVersion = globalAuthentication.UsuarioGlobal.SecurityVersion,
+                        DataCadastro = authenticatedAt,
                         ExpiraEm = expiresAt
                     });
                     await _context.SaveChangesAsync(cancellationToken);
@@ -179,18 +197,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                     globalAuthentication.UsuarioClinica,
                     user);
             }
-            var licenca = await _licencaService.GetCurrentAsync(
-                new CurrentUserContext(
-                    user.Id,
-                    user.PerfilId,
-                    user.Nome,
-                    user.ClinicaId,
-                    user.Clinica.Slug,
-                    globalAuthentication.UsuarioGlobal.Id,
-                    globalAuthentication.UsuarioClinica.Id),
-                cancellationToken);
 
-            _logger.LogInformation("Usuario autenticado com sucesso: {MaskedEmail}", maskedEmail);
 
             return new AuthenticateUserResponse
             {

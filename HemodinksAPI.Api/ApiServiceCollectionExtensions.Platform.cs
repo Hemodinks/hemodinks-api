@@ -9,7 +9,7 @@ namespace HemodinksAPI.Api;
 
 public static partial class ApiServiceCollectionExtensions
 {
-    private const int MaxClinicSlugLength = 120;
+
 
     public static IServiceCollection AddProxyForwarding(this IServiceCollection services, IConfiguration configuration)
     {
@@ -37,9 +37,7 @@ public static partial class ApiServiceCollectionExtensions
 
             if (trustAnyImmediateProxy)
             {
-                options.KnownIPNetworks.Clear();
-                options.KnownProxies.Clear();
-                return;
+                throw new InvalidOperationException("Configure proxies confiaveis explicitamente em ForwardedHeaders:KnownProxies/KnownNetworks.");
             }
 
             var configuredProxies = section.GetSection("KnownProxies").Get<string[]>() ?? [];
@@ -122,18 +120,26 @@ public static partial class ApiServiceCollectionExtensions
                 policy.WithOrigins(allowedOrigins)
                     .AllowAnyHeader()
                     .AllowAnyMethod()
-                    .AllowCredentials();
+                    .AllowCredentials()
+                    .WithExposedHeaders("Retry-After");
             });
         });
 
         return services;
     }
 
-    public static IServiceCollection AddApiRateLimiting(this IServiceCollection services)
+    public static IServiceCollection AddApiRateLimiting(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddOptions<AuthenticationRateLimitOptions>()
+            .Bind(configuration.GetSection(AuthenticationRateLimitOptions.SectionName))
+            .Validate(options => options.IsValid(), "Invalid authentication rate limits").ValidateOnStart();
+        services.AddSingleton<AuthenticationRateLimits>();
+        var settings = configuration.GetSection(AuthenticationRateLimitOptions.SectionName).Get<AuthenticationRateLimitOptions>() ?? new();
         services.AddRateLimiter(options =>
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.OnRejected = async (rejected, cancellationToken) =>
+                await RateLimitResponse.Result(rejected.HttpContext, rejected.Lease).ExecuteAsync(rejected.HttpContext);
             options.AddPolicy("Warmup", context =>
                 RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     _ => new FixedWindowRateLimiterOptions
@@ -145,27 +151,13 @@ public static partial class ApiServiceCollectionExtensions
                 RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     _ => new FixedWindowRateLimiterOptions
                     {
-                        PermitLimit = 300, Window = TimeSpan.FromMinutes(1), QueueLimit = 0,
+                        PermitLimit = settings.SessionPermitLimit, Window = TimeSpan.FromSeconds(settings.SessionWindowSeconds), QueueLimit = 0,
                         AutoReplenishment = true
                     }));
-            options.AddPolicy("Login", context =>
-            {
-                var clinic = context.Request.Headers[ClinicaResolutionService.ClinicaSlugHeaderName].ToString();
-                var partitionKey = BuildLoginRateLimitPartitionKey(
-                    context.Connection.RemoteIpAddress,
-                    clinic);
-                return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ =>
-                    new FixedWindowRateLimiterOptions
-                    {
-                        PermitLimit = 10,
-                        Window = TimeSpan.FromMinutes(5),
-                        QueueLimit = 0,
-                        AutoReplenishment = true
-                    });
-            });
             options.AddPolicy("PasswordReset", context =>
             {
-                var partitionKey = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+                var actor = context.User.FindFirst(HemodinksAPI.Application.Authentication.GlobalIdentityClaimTypes.UsuarioGlobalId)?.Value;
+                var partitionKey = actor != null ? $"user:{actor}" : $"ip:{context.Connection.RemoteIpAddress}";
                 return RateLimitPartition.GetFixedWindowLimiter(partitionKey, _ =>
                     new FixedWindowRateLimiterOptions
                     {
@@ -202,24 +194,6 @@ public static partial class ApiServiceCollectionExtensions
         });
 
         return services;
-    }
-
-    internal static string BuildLoginRateLimitPartitionKey(IPAddress? remoteIpAddress, string? clinicSlug)
-    {
-        var normalizedClinic = NormalizeClinicSlugForRateLimit(clinicSlug);
-        return $"{remoteIpAddress?.ToString() ?? "unknown"}:{normalizedClinic}";
-    }
-
-    private static string NormalizeClinicSlugForRateLimit(string? clinicSlug)
-    {
-        if (string.IsNullOrWhiteSpace(clinicSlug))
-        {
-            return "unknown-clinic";
-        }
-
-        var trimmed = clinicSlug.AsSpan().Trim();
-        var bounded = trimmed[..Math.Min(trimmed.Length, MaxClinicSlugLength)];
-        return bounded.ToString().ToLowerInvariant();
     }
 
     public static IServiceCollection AddLicensing(this IServiceCollection services, IConfiguration configuration)

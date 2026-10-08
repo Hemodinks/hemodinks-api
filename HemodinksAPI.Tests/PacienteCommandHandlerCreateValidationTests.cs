@@ -30,6 +30,7 @@ public partial class PacienteCommandHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new CreatePacienteCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             CreateCbhpmCache(context),
             new PasswordHasher(),
@@ -95,6 +96,7 @@ public partial class PacienteCommandHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new CreatePacienteCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             CreateCbhpmCache(context),
             new PasswordHasher(),
@@ -138,6 +140,7 @@ public partial class PacienteCommandHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new CreatePacienteCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             CreateCbhpmCache(context),
             new PasswordHasher(),
@@ -191,6 +194,7 @@ public partial class PacienteCommandHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new CreatePacienteCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             CreateCbhpmCache(context),
             new PasswordHasher(),
@@ -238,6 +242,7 @@ public partial class PacienteCommandHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new CreatePacienteCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             CreateCbhpmCache(context),
             new PasswordHasher(),
@@ -286,6 +291,7 @@ public partial class PacienteCommandHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new CreatePacienteCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             CreateCbhpmCache(context),
             new PasswordHasher(),
@@ -351,6 +357,7 @@ public partial class PacienteCommandHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new CreatePacienteCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             CreateCbhpmCache(context),
             new PasswordHasher(),
@@ -405,6 +412,7 @@ public partial class PacienteCommandHandlerTests
         await context.SaveChangesAsync();
 
         var handler = new CreatePacienteCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             CreateCbhpmCache(context),
             new PasswordHasher(),

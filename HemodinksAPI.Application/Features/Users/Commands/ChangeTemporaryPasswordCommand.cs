@@ -18,15 +18,14 @@ public sealed class ChangeTemporaryPasswordCommandValidator : AbstractValidator<
 {
     public ChangeTemporaryPasswordCommandValidator()
     {
-        RuleFor(x => x.NovaSenha).NotEmpty().MinimumLength(8).MaximumLength(128)
-            .WithMessage("A nova senha deve ter entre 8 e 128 caracteres.");
+        RuleFor(x => x.NovaSenha).NotEmpty().MinimumLength(HemodinksAPI.Application.Security.NewPasswordPolicy.MinimumLength).MaximumLength(HemodinksAPI.Application.Security.NewPasswordPolicy.MaximumLength)
+            .WithMessage("A nova senha deve ter entre 8 e 500 caracteres.");
         RuleFor(x => x.Confirmacao).Equal(x => x.NovaSenha).WithMessage("A confirmação precisa ser igual à nova senha.");
     }
     void IRequestValidator<ChangeTemporaryPasswordCommand>.Validate(ChangeTemporaryPasswordCommand request)
     {
         var result = Validate(request);
         if (!result.IsValid) throw new InvalidOperationException(result.Errors[0].ErrorMessage);
-        PasswordCommandRules.ValidatePasswordChangeCandidate(request.NovaSenha);
     }
 }
 

@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Application.Utils;
@@ -11,6 +12,7 @@ public sealed partial class ClinicaPlatformRequestHandler
         private const string DuplicateCnpjMessage = "Este CNPJ ja esta cadastrado em outra clinica";
         private const string UniqueCnpjIndexName = "IX_Clinicas_Cnpj";
 
+        private readonly NewPasswordPolicy passwordPolicy;
         private readonly IPlatformClinicDbContext context;
         private readonly IDataExecutionStrategy executionStrategy;
         private readonly IDataTransactionManager transactionManager;
@@ -21,6 +23,7 @@ public sealed partial class ClinicaPlatformRequestHandler
         private readonly IValidator<UpdateClinicaRequest> updateValidator;
 
         public ClinicaPlatformRequestHandler(
+            NewPasswordPolicy passwordPolicy,
             IPlatformClinicDbContext context,
             IDataExecutionStrategy executionStrategy,
             IDataTransactionManager transactionManager,
@@ -30,6 +33,7 @@ public sealed partial class ClinicaPlatformRequestHandler
             IValidator<CreateClinicaRequest> createValidator,
             IValidator<UpdateClinicaRequest> updateValidator)
         {
+            this.passwordPolicy = passwordPolicy;
             this.context = context;
             this.executionStrategy = executionStrategy;
             this.transactionManager = transactionManager;

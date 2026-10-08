@@ -8,6 +8,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="HemodinksAPI.Tests" />
+    <None Update="Security/PasswordData/LICENSE-SecLists.txt" CopyToPublishDirectory="PreserveNewest" />
+    <EmbeddedResource Include="Security/PasswordData/ncsc-100k.txt" LogicalName="Hemodinks.PasswordData.ncsc-100k.txt" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="Data\SeedData\cbhpm-geral.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>

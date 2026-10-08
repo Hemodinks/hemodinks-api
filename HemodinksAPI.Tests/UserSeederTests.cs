@@ -10,7 +10,7 @@ public class UserSeederTests
     public void GenerateUsers_ReturnsExpectedInitialUsers()
     {
         var hasher = new PasswordHasher();
-        var seeder = new UserSeeder(hasher);
+        var seeder = new UserSeeder(TestPasswordPolicy.Instance, hasher);
 
         var users = seeder.GenerateUsers();
 

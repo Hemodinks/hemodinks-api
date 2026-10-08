@@ -22,7 +22,10 @@ Não há novo DbContext, CQRS de negócio ou política de retry paralela.
 ## Limites e respostas
 
 - Sucesso: `204 No Content`, com `Cache-Control: no-store`.
-- Falha ou timeout: `503` vazio, sem detalhes de banco/exceção.
+- Falha: `503` com `code: warmup_unavailable`, mensagem genérica, `requestId`
+  e `retryAfterSeconds: 5`. Cancelamento/TimeoutException usam `warmup_timeout`.
+  O cabeçalho `Retry-After: 5` também orienta clientes; o corpo permite ler a
+  orientação entre origens sem ampliar a política CORS. Sem detalhes de banco/exceção.
 - Rate limiter nativo: 5 requisições por minuto por IP, sem fila; excesso: `429`.
 - Cancelamento da requisição e prazo total de 30 segundos enviados ao probe.
   O timeout de comando existente de 3 segundos permanece. O timeout de conexão
@@ -38,6 +41,10 @@ Não há novo DbContext, CQRS de negócio ou política de retry paralela.
   de uma aba de origem podem herdar a flag também.
 
 ## Operação e Azure
+
+**Atualização #146:** confiança irrestrita no proxy agora é recusada. A descrição
+do workflow abaixo é histórica; antes de publicar, configurar proxies/redes
+explicitamente confiáveis conforme [contrato de autenticação](issue-146-authentication-rate-limiting.md#proxy-e-publicação-pendente).
 
 Não são necessárias migrations, novas credenciais ou mudanças de JWT, tenant,
 réplicas, auto-pause, probes ou permissões SQL. Publicar o backend antes do
@@ -78,6 +85,14 @@ Usar o logging estruturado/Serilog existente, categoria `InfrastructureWarmup`:
 começa no handler, não inclui startup do container. Logs HTTP existentes
 registram status/duração da requisição. Não são registrados texto de exceção,
 connection string, usuário ou SQL adicional pelo warm-up.
+
+O probe de Infrastructure registra `DatabaseReadinessProbe` com tempos separados
+de conexão, `SELECT 1` e validação de schema (esta não ocorre no warm-up), fase,
+código seguro de falha e trace ID. Não inclui exceções ou seus textos. Falhas do
+logger não alteram o resultado da prontidão. O contrato não agenda retries, não
+aumenta timeouts e não elimina o cold start; a interface precisa consumir o código
+e a orientação para apresentar feedback específico. O tratamento de homologação
+está descrito em [homologation-login-warmup.md](homologation-login-warmup.md).
 
 Para desativar a chamada, definir `VITE_WARMUP_ENABLED=false` e gerar/publicar
 um novo build frontend. Para desativar somente o toque ao banco, configurar

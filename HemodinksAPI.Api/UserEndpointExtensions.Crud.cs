@@ -34,25 +34,22 @@ public static partial class UserEndpointExtensions
     {
         return EndpointExecution.RunAsync(async () =>
         {
+            if (!SessionRequestSecurity.IsTrusted(httpContext, httpContext.RequestServices.GetRequiredService<IConfiguration>(), login: true))
+                return Results.StatusCode(403);
             var result = await mediator.Send(command, cancellationToken);
-            // Team tokens carry the team/operator versions; the individual session issuer does not.
-            if (result.EquipeDesafio != null || result.PerfilId == HemodinksAPI.Domain.Models.Perfil.EquipeId)
+            httpContext.Response.Headers.CacheControl = "no-store";
+            if (result.EquipeDesafio != null)
             {
-                if (result.EquipeDesafio == null) sessionCookie.Delete(httpContext);
+                httpContext.Items[SecurityObservationMiddleware.CredentialOnly] = true;
                 return Results.Ok(result);
             }
-            var session = await sessionService.StartAsync(
-                result.UsuarioGlobalId,
-                result.Id,
-                result.ClinicaId,
-                httpContext.Connection.RemoteIpAddress?.ToString(),
-                httpContext.Request.Headers.UserAgent.ToString(),
-                cancellationToken, result.SecurityVersion);
+            var session = await SessionLoginIssuer.StartAsync(result, httpContext, sessionService, cancellationToken);
             if (session == null)
             {
                 return Results.Unauthorized();
             }
 
+            httpContext.Items[SecurityObservationMiddleware.IssuedClinic] = result.ClinicaId;
             result.Token = session.AccessToken;
             sessionCookie.Write(httpContext, session);
             return Results.Ok(result);

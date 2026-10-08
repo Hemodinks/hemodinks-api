@@ -41,17 +41,13 @@ public class ForwardedHeadersConfigurationTests
     }
 
     [Fact]
-    public void AddProxyForwarding_WhenImmediateProxyIsIsolated_AllowsExplicitPlatformTrust()
+    public void AddProxyForwarding_RejectsUnrestrictedProxyTrust()
     {
-        var options = ResolveOptions(new Dictionary<string, string?>
+        Assert.Throws<InvalidOperationException>(() => ResolveOptions(new Dictionary<string, string?>
         {
             ["ForwardedHeaders:Enabled"] = "true",
             ["ForwardedHeaders:TrustAnyImmediateProxy"] = "true"
-        });
-
-        Assert.Empty(options.KnownProxies);
-        Assert.Empty(options.KnownIPNetworks);
-        Assert.Equal(1, options.ForwardLimit);
+        }));
     }
 
     private static ForwardedHeadersOptions ResolveOptions(Dictionary<string, string?> values)

@@ -34,6 +34,7 @@ public sealed class ClinicaResolutionMiddleware
         // The HttpOnly refresh credential selects the session and its current membership.
         if (HttpMethods.IsPost(httpContext.Request.Method)
             && (httpContext.Request.Path.Equals("/api/session/renovar", StringComparison.OrdinalIgnoreCase)
+                || httpContext.Request.Path.Equals("/api/session/restaurar", StringComparison.OrdinalIgnoreCase)
                 || httpContext.Request.Path.Equals("/api/session/sair", StringComparison.OrdinalIgnoreCase)))
         {
             await _next(httpContext);
@@ -64,7 +65,9 @@ public sealed class ClinicaResolutionMiddleware
         }
 
         clinicaContext.SetCurrent(resolvedClinica.Id, resolvedClinica.Slug);
-        if (!await ValidateActiveMembershipAsync(httpContext.User, resolvedClinica, dbContext, httpContext.RequestAborted))
+        var snapshot = ValidatedSessionRequest.Get(httpContext);
+        if (!(snapshot != null && snapshot.ClinicaId == resolvedClinica.Id)
+            && !await ValidateActiveMembershipAsync(httpContext.User, resolvedClinica, dbContext, httpContext.RequestAborted))
         {
             httpContext.Response.StatusCode = StatusCodes.Status403Forbidden;
             await httpContext.Response.WriteAsJsonAsync(new

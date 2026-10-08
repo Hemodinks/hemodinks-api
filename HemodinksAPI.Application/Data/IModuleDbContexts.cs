@@ -58,6 +58,9 @@ public interface ITeamDbContext : IGlobalIdentityDbContext, IUserSearchDbContext
 {
     DbSet<EquipeOperador> EquipeOperadores { get; }
     DbSet<EquipeLoginDesafio> EquipeLoginDesafios { get; }
+    Task RegisterOperatorPinFailureAsync(int operatorId, int teamId, int clinicId, int expectedVersion,
+        DateTime now, CancellationToken cancellationToken);
+    void MarkOperatorAuthenticationSuccessful(EquipeOperador op);
 }
 
 public interface IPlatformTeamDbContext : ITeamDbContext, IClinicDirectoryDbContext;
@@ -166,7 +169,18 @@ public interface IPasswordResetOperationsDbContext :
     IPasswordCredentialDbContext,
     IPasswordResetDbContext;
 
-public interface IPlatformPasswordResetDbContext : IPasswordResetOperationsDbContext;
+public interface ICredentialRevocationDbContext : IGlobalIdentityDbContext, IPasswordResetDbContext
+{
+    DbSet<AuthenticationSession> AuthenticationSessions { get; }
+}
+
+public interface IPlatformPasswordResetDbContext : IPasswordResetOperationsDbContext, ICredentialRevocationDbContext;
+
+// Explicit global-identity scope: every operation must bind a persisted session and identity.
+public interface ISensitiveIdentityDbContext : IPlatformPasswordResetDbContext
+{
+    DbSet<EmailChangeRequest> EmailChangeRequests { get; }
+}
 
 public interface IUserFeatureDbContext :
     IUnitOfWork,

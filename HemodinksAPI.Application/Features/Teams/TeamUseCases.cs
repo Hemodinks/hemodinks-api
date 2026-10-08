@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Data;
@@ -10,10 +11,14 @@ using Microsoft.EntityFrameworkCore;
 namespace HemodinksAPI.Application.Features.Teams;
 
 public sealed partial class TeamUseCases(
+    NewPasswordPolicy passwordPolicy,
     ITeamDbContext context,
     IPasswordHasher passwordHasher,
+    IPinHasher pinHasher,
     IJwtTokenService jwtTokenService,
-    ILicencaService licencaService)
+    ILicencaService licencaService,
+    HemodinksAPI.Application.Features.Sessions.SessionLifetimePolicy lifetime,
+    TimeProvider timeProvider)
 {
     public Task<List<TeamResponse>> ListAsync(CancellationToken cancellationToken) =>
         context.Equipes.AsNoTracking().OrderBy(item => item.Nome)
@@ -36,8 +41,8 @@ public sealed partial class TeamUseCases(
     {
         var name = RequireText(input.Name, 120, "Nome da equipe obrigatorio");
         var email = GlobalIdentityService.NormalizeEmail(RequireText(input.Email, 255, "Email da equipe obrigatorio"));
-        var password = RequireText(input.Password, 200, "Senha da equipe obrigatoria");
-        if (password.Length < 8) return TeamUseCaseResult<int>.BadRequest("Senha da equipe deve possuir ao menos 8 caracteres");
+        var password = input.Password;
+        passwordPolicy.Validate(password);
         if (await context.Users.AnyAsync(item => item.Email == email, cancellationToken))
             return TeamUseCaseResult<int>.Conflict("Email da equipe ja cadastrado nesta clinica");
         if (await context.UsuariosGlobais.AnyAsync(item => item.Email == email, cancellationToken))

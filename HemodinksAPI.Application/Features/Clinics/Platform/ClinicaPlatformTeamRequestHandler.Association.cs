@@ -171,7 +171,7 @@ public sealed partial class ClinicaPlatformTeamRequestHandler
         if (request.GerarPin)
         {
         temporaryPin = EquipeAuthenticationRules.GeneratePin();
-        op.PinHash = passwordHasher.HashPassword(temporaryPin);
+        op.PinHash = pinHasher.HashPin(temporaryPin);
         op.PrecisaTrocarPin = true;
         op.DataUltimaTroca = DateTime.UtcNow;
         }
@@ -218,7 +218,7 @@ public sealed partial class ClinicaPlatformTeamRequestHandler
         if (request.GerarPin)
         {
         temporaryPin = EquipeAuthenticationRules.GeneratePin();
-        op.PinHash = passwordHasher.HashPassword(temporaryPin);
+        op.PinHash = pinHasher.HashPin(temporaryPin);
         op.PrecisaTrocarPin = true;
         op.DataUltimaTroca = DateTime.UtcNow;
         }
@@ -259,7 +259,7 @@ public sealed partial class ClinicaPlatformTeamRequestHandler
         if (request.GerarPin)
         {
         temporaryPin = EquipeAuthenticationRules.GeneratePin();
-        op.PinHash = passwordHasher.HashPassword(temporaryPin);
+        op.PinHash = pinHasher.HashPin(temporaryPin);
         op.PrecisaTrocarPin = true;
         op.DataUltimaTroca = DateTime.UtcNow;
         }

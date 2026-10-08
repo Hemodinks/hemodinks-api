@@ -6,16 +6,16 @@ namespace HemodinksAPI.Application.Features.Clinics.Platform;
 public sealed partial class ClinicaPlatformTeamRequestHandler
 {
         private readonly IPlatformTeamDbContext context;
-        private readonly IPasswordHasher passwordHasher;
+        private readonly IPinHasher pinHasher;
         private readonly PlatformAuditRecorder auditService;
 
         public ClinicaPlatformTeamRequestHandler(
             IPlatformTeamDbContext context,
-            IPasswordHasher passwordHasher,
+            IPinHasher pinHasher,
             PlatformAuditRecorder auditService)
         {
             this.context = context;
-            this.passwordHasher = passwordHasher;
+            this.pinHasher = pinHasher;
             this.auditService = auditService;
         }
 }

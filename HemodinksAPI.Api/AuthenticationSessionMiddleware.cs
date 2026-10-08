@@ -6,17 +6,21 @@ namespace HemodinksAPI.Api;
 public sealed class AuthenticationSessionMiddleware
 {
     private readonly RequestDelegate _next;
+    private readonly ILogger<AuthenticationSessionMiddleware> _logger;
 
-    public AuthenticationSessionMiddleware(RequestDelegate next)
+    public AuthenticationSessionMiddleware(RequestDelegate next, ILogger<AuthenticationSessionMiddleware>? logger = null)
     {
         _next = next;
+        _logger = logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<AuthenticationSessionMiddleware>.Instance;
     }
 
     public async Task InvokeAsync(
         HttpContext context,
-        AuthenticationSessionService sessionService)
+        AuthenticationSessionService sessionService,
+        SessionLifetimePolicy lifetime)
     {
-        if (context.Request.Path.StartsWithSegments("/api/session/renovar", StringComparison.OrdinalIgnoreCase)
+        if (context.GetEndpoint()?.Metadata.GetMetadata<Microsoft.AspNetCore.Authorization.IAllowAnonymous>() != null
+            || context.Request.Path.StartsWithSegments("/api/session/renovar", StringComparison.OrdinalIgnoreCase)
             || context.Request.Path.StartsWithSegments("/api/session/sair", StringComparison.OrdinalIgnoreCase))
         {
             await _next(context);
@@ -27,10 +31,30 @@ public sealed class AuthenticationSessionMiddleware
         if (context.User.Identity?.IsAuthenticated == true
             && Guid.TryParse(sessionIdClaim, out var sessionId))
         {
-            var validation = await sessionService.ValidateAndTouchAsync(sessionId, context.RequestAborted);
+            AuthenticationSessionValidation validation;
+            try { validation = await sessionService.ValidateAndTouchAsync(sessionId, context.RequestAborted); }
+            catch
+            {
+                context.Items[SecurityObservationMiddleware.Failure] = "infrastructure_failure";
+                throw;
+            }
             if (!validation.IsValid)
             {
-                await RejectSessionAsync(context);
+                if (validation.FailureCode == AuthenticationSessionValidation.TemporarilyUnavailable)
+                {
+                    LogFailure(context, validation.FailureCode, StatusCodes.Status503ServiceUnavailable);
+                    context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                    context.Response.Headers.CacheControl = "no-store";
+                    context.Response.Headers.RetryAfter = "1";
+                    await context.Response.WriteAsJsonAsync(new
+                    {
+                        code = validation.FailureCode,
+                        requestId = context.TraceIdentifier,
+                        message = "Nao foi possivel validar a sessao agora. Tente novamente."
+                    }, context.RequestAborted);
+                    return;
+                }
+                await RejectSessionAsync(context, validation.FailureCode);
                 return;
             }
 
@@ -39,25 +63,56 @@ public sealed class AuthenticationSessionMiddleware
             if (!int.TryParse(membershipIdClaim, out var membershipId)
                 || validation.UsuarioClinicaId != membershipId)
             {
-                await RejectSessionAsync(context);
+                await RejectSessionAsync(context, "session_context_mismatch");
                 return;
             }
 
             SynchronizeProfileClaims(context.User, validation);
+            if (validation.Snapshot is { } snapshot) ValidatedSessionRequest.Set(context, snapshot);
+            if (validation.AuthenticatedAt.HasValue && context.User.Identity is System.Security.Claims.ClaimsIdentity identity)
+                ReplaceClaim(identity, AuthenticationSessionClaimTypes.AuthenticatedAt,
+                    new DateTimeOffset(DateTime.SpecifyKind(validation.AuthenticatedAt.Value, DateTimeKind.Utc))
+                        .ToUnixTimeSeconds().ToString(System.Globalization.CultureInfo.InvariantCulture));
+        }
+        else if (context.User.Identity?.IsAuthenticated == true)
+        {
+            var startedAt = SessionLifetimePolicy.ParseAuthenticationTime(
+                context.User.FindFirst(AuthenticationSessionClaimTypes.AuthenticatedAt)?.Value);
+            var failure = sessionIdClaim != null ? SessionLifetimePolicy.ReauthenticationRequired : lifetime.Failure(startedAt);
+            if (failure != null)
+            {
+                await RejectSessionAsync(context, failure);
+                return;
+            }
         }
 
         await _next(context);
     }
 
-    private static async Task RejectSessionAsync(HttpContext context)
+    private async Task RejectSessionAsync(HttpContext context, string? code = null)
     {
         // A late request may carry an old token after a login or clinic switch.
         // Only explicit, cookie-bound logout may remove the current refresh cookie.
+        code ??= "session_invalid";
+        LogFailure(context, code, StatusCodes.Status401Unauthorized);
+        context.Response.Headers.CacheControl = "no-store";
         context.Response.StatusCode = StatusCodes.Status401Unauthorized;
         await context.Response.WriteAsJsonAsync(new
         {
-            message = "Sessao expirada ou usuario inativo. Autentique-se novamente."
+            code,
+            requestId = context.TraceIdentifier,
+            message = code == SessionLifetimePolicy.AbsoluteExpired ? SessionLifetimePolicy.AbsoluteExpiredMessage
+                : "Sessao expirada ou usuario inativo. Autentique-se novamente."
         }, context.RequestAborted);
+    }
+
+    private void LogFailure(HttpContext context, string code, int statusCode)
+    {
+        context.Items[SecurityObservationMiddleware.Failure] = code;
+        // Correlate without logging bearer/cookie material or client-supplied payloads.
+        _logger.LogDebug(new EventId(4101, "SessionValidationRejected"),
+            "Session validation rejected: {FailureCode}; HTTP {StatusCode}; request {RequestId}",
+            code, statusCode, context.TraceIdentifier);
     }
 
     private static void SynchronizeProfileClaims(

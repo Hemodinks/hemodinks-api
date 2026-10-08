@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Data;
@@ -9,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
 public sealed class TemporaryAccessService(
+    NewPasswordPolicy passwordPolicy,
     ITemporaryAccessDbContext context,
     IPasswordHasher hasher,
     TimeProvider clock)
@@ -59,6 +61,7 @@ public sealed class TemporaryAccessService(
         }
 
         var password = TemporaryPasswordGenerator.Generate();
+        passwordPolicy.Validate(password);
         credential.Id = Guid.NewGuid();
         credential.UserId = target.Id;
         credential.ClinicaId = target.ClinicaId;
@@ -70,7 +73,7 @@ public sealed class TemporaryAccessService(
         credential.CreatedByUserId = actor.Id;
         global.SecurityVersion = Guid.NewGuid();
         global.TemporaryPasswordRecovery = true;
-        await RevokeSessionsAndResetTokensAsync(global.Id, now, ct);
+        await PasswordCommandMutations.RevokeSessionsAndResetTokensAsync(context, global.Id, now, ct);
         Audit(requesterMembership.UsuarioGlobalId, target, "TemporaryPassword.Generated", now, actor.Id);
         await SaveAsync(ct);
         return new ResetUserPasswordResponse
@@ -124,7 +127,7 @@ public sealed class TemporaryAccessService(
             || credential == null || credential.UserId != user.Id || credential.ClinicaId != actor.ClinicaId
             || credential.UsedAtUtc == null || credential.RevokedAtUtc != null)
             throw new UnauthorizedAccessException("Sessão de recuperação inválida. Autentique-se novamente.");
-        PasswordCommandRules.ValidatePasswordChangeCandidate(request.NovaSenha);
+        passwordPolicy.Validate(request.NovaSenha);
         if (hasher.VerifyPassword(request.NovaSenha, global.Senha) || hasher.VerifyPassword(request.NovaSenha, credential.PasswordHash))
             throw new InvalidOperationException("A nova senha deve ser diferente das senhas anteriores.");
         var now = clock.GetUtcNow().UtcDateTime;
@@ -137,19 +140,10 @@ public sealed class TemporaryAccessService(
         var linkedUsers = await context.Users.IgnoreQueryFilters().Where(x => context.UsuariosClinicas
             .Any(m => m.UsuarioGlobalId == global.Id && m.UserId == x.Id)).ToListAsync(ct);
         foreach (var linkedUser in linkedUsers) linkedUser.PrecisaTrocarSenha = false;
-        await RevokeSessionsAndResetTokensAsync(global.Id, now, ct);
+        await PasswordCommandMutations.RevokeSessionsAndResetTokensAsync(context, global.Id, now, ct);
         Audit(global.Id, user, "TemporaryPassword.Completed", now, user.Id);
         await SaveAsync(ct);
         return new ChangePasswordResponse { Id = user.Id, PrecisaTrocarSenha = false, Message = "Senha alterada com sucesso. Entre com sua nova senha." };
-    }
-
-    private async Task RevokeSessionsAndResetTokensAsync(int globalId, DateTime now, CancellationToken ct)
-    {
-        var sessions = await context.AuthenticationSessions.Where(x => x.UsuarioGlobalId == globalId && x.RevokedAt == null).ToListAsync(ct);
-        foreach (var session in sessions) session.RevokedAt = now;
-        var tokens = await context.PasswordResetTokens.IgnoreQueryFilters().Where(x => x.UsedAt == null
-            && context.UsuariosClinicas.IgnoreQueryFilters().Any(m => m.UserId == x.UserId && m.UsuarioGlobalId == globalId)).ToListAsync(ct);
-        foreach (var token in tokens) token.UsedAt = now;
     }
 
     private void Audit(int globalId, User target, string action, DateTime now, int actorId, bool success = true)

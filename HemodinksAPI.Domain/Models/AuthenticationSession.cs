@@ -2,6 +2,14 @@ namespace HemodinksAPI.Domain.Models;
 
 public class AuthenticationSession
 {
+    public int? EquipeId { get; set; }
+    public int? EquipeOperadorId { get; set; }
+    public int? EquipeVersaoSessao { get; set; }
+    public int? OperadorVersaoSessao { get; set; }
+    public bool IdentificacaoConfiavel { get; set; }
+
+    public Guid ContextVersion { get; set; } = Guid.NewGuid();
+
     public Guid SecurityVersion { get; set; }
     public Guid Id { get; set; }
 

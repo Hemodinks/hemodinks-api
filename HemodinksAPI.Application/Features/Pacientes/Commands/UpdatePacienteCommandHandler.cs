@@ -76,6 +76,8 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             var email = string.IsNullOrWhiteSpace(request.Email)
                 ? paciente.User.Email
                 : await PacienteRules.ResolveEmailAsync(_context, request.Email, cpf, paciente.UserId, cancellationToken);
+            if (!string.Equals(paciente.User.Email, email, StringComparison.OrdinalIgnoreCase))
+                throw HemodinksAPI.Application.Security.SensitiveIdentityException.EmailConfirmationRequired();
             var telefone = string.IsNullOrWhiteSpace(request.Telefone)
                 ? paciente.User.Telefone
                 : PacienteRules.ResolveTelefone(request.Telefone);

@@ -12,6 +12,23 @@ namespace HemodinksAPI.Tests;
 public sealed class LoginContextWorkTests
 {
     [Fact]
+    public async Task Discovery_WeakSharedHashIsVerifiedOnceWithoutUpgradeOrWrites()
+    {
+        await using var context = await SeedAsync();
+        var global = await context.UsuariosGlobais.SingleAsync(item => item.Email == "shared@example.com");
+        var hash = PasswordHashTestData.Create(TestPasswords.Valid, 210_000);
+        global.Senha = hash;
+        await context.SaveChangesAsync();
+        var hasher = new CountingHasher();
+        var response = await Handler(context, hasher, new RecordingProtection()).Handle(
+            new ResolveLoginClinicsCommand { Email = global.Email, Senha = TestPasswords.Valid }, default);
+        Assert.Equal(3, response.Clinicas.Count);
+        Assert.Equal(1, hasher.Verifications);
+        Assert.Equal(hash, (await context.UsuariosGlobais.AsNoTracking().SingleAsync(item => item.Id == global.Id)).Senha);
+        Assert.False(context.ChangeTracker.HasChanges());
+    }
+
+    [Fact]
     public async Task SharedIdentity_VerifiesHashAndChecksLockOncePerRequest()
     {
         await using var context = await SeedAsync();
@@ -97,6 +114,11 @@ public sealed class LoginContextWorkTests
         private readonly PasswordHasher _inner = new();
         public int Verifications { get; private set; }
         public string HashPassword(string password) => _inner.HashPassword(password);
+        public PasswordVerificationResult VerifyPasswordWithRehash(string password, string hash)
+        {
+            Verifications++;
+            return _inner.VerifyPasswordWithRehash(password, hash);
+        }
         public bool VerifyPassword(string password, string hash)
         {
             Verifications++;

@@ -85,13 +85,60 @@ jobs:
             artifacts/hemodinks-production-migrations.sql
           if-no-files-found: error
 
-      - name: Apply migrations to Azure SQL
+      - name: Select production schema action
+        id: schema_mode
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
+        shell: bash
         run: |
           if [ -z "$ConnectionStrings__DefaultConnection" ]; then
             echo "::error::Configure AZURE_SQL_CONNECTION_STRING in the production environment secrets."
             exit 2
           fi
+
+          set +e
+          dotnet tools/Hemodinks.SchemaGuard/bin/Release/net10.0/Hemodinks.SchemaGuard.dll
+          schema_status=$?
+          set -e
+
+          case "$schema_status" in
+            0)
+              echo "mode=no-migration" >> "$GITHUB_OUTPUT"
+              echo "### Production schema check" >> "$GITHUB_STEP_SUMMARY"
+              echo "Database migration history already matches this commit. No migration will be applied." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            10)
+              echo "mode=apply-known-pending" >> "$GITHUB_OUTPUT"
+              echo "### Production schema check" >> "$GITHUB_STEP_SUMMARY"
+              echo "Only known pending migrations were detected. The reviewed EF bundle is authorized to run." >> "$GITHUB_STEP_SUMMARY"
+              ;;
+            2)
+              echo "::error::Production schema inspection could not be completed safely. No changes were applied."
+              exit 2
+              ;;
+            3)
+              echo "::error::Production migration history is inconsistent with this commit (unknown, missing, or out-of-order migration). No changes were applied."
+              exit 3
+              ;;
+            *)
+              echo "::error::SchemaGuard returned unexpected exit code $schema_status. Production migration blocked."
+              exit "$schema_status"
+              ;;
+          esac
+
+      - name: Apply only known pending migrations to Azure SQL
+        if: steps.schema_mode.outputs.mode == 'apply-known-pending'
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
+        shell: bash
+        run: |
           chmod +x ./artifacts/hemodinks-efbundle
           ./artifacts/hemodinks-efbundle
+
+      - name: Verify production schema after migration
+        if: steps.schema_mode.outputs.mode == 'apply-known-pending'
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
+        shell: bash
+        run: |
+          dotnet tools/Hemodinks.SchemaGuard/bin/Release/net10.0/Hemodinks.SchemaGuard.dll

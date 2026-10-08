@@ -23,6 +23,7 @@ public sealed class LoginBrowserTests
     [InlineData("replay")]
     [InlineData("cancel")]
     [InlineData("layout")]
+    [InlineData("bootstrap-lock")]
     public async Task Browser_UsesRealApi(string scenario)
     {
         var frontPath = Environment.GetEnvironmentVariable("HEMODINKS_E2E_FRONT_PATH");

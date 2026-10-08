@@ -25,7 +25,7 @@ public sealed partial class ClinicaPlatformRequestHandler
         var cnpj = CnpjUtils.Normalize(request.Cnpj)!;
         var adminNome = RequireText(request.AdministradorNome, "Nome do administrador obrigatorio", 255);
         var adminEmail = RequireText(request.AdministradorEmail, "Email do administrador obrigatorio", 255).ToLowerInvariant();
-        var adminCredential = RequireText(request.AdministradorSenha, "Senha do administrador obrigatoria", 200);
+        var adminCredential = request.AdministradorSenha;
         var equipeNome = request.EquipeInicial == null
         ? null
         : RequireText(request.EquipeInicial.Nome, "Nome da equipe obrigatorio", 120);
@@ -34,22 +34,23 @@ public sealed partial class ClinicaPlatformRequestHandler
         : GlobalIdentityService.NormalizeEmail(RequireText(request.EquipeInicial.Email, "Email da equipe obrigatorio", 255));
         var equipeCredential = request.EquipeInicial == null
         ? null
-        : RequireText(request.EquipeInicial.Senha, "Senha da equipe obrigatoria", 200);
+        : request.EquipeInicial.Senha;
+        passwordPolicy.Validate(adminCredential);
+        if (request.EquipeInicial != null) passwordPolicy.Validate(equipeCredential);
         var equipeModo = request.EquipeInicial == null
         ? null
         : EquipeAuthenticationRules.NormalizeModo(request.EquipeInicial.ModoIdentificacao);
         
-        if (!MailAddress.TryCreate(adminEmail, out _) || adminCredential.Length < 8)
+        if (!MailAddress.TryCreate(adminEmail, out _))
         {
-        throw new InvalidOperationException("Email invalido ou senha com menos de 8 caracteres");
+        throw new InvalidOperationException("Email do administrador invalido");
         }
         
         if (equipeEmail != null
         && (!MailAddress.TryCreate(equipeEmail, out _)
-        || equipeCredential!.Length < 8
         || equipeEmail.Equals(adminEmail, StringComparison.OrdinalIgnoreCase)))
         {
-        throw new InvalidOperationException("Equipe inicial deve possuir email diferente do administrador e senha com ao menos 8 caracteres");
+        throw new InvalidOperationException("Equipe inicial deve possuir email valido e diferente do administrador");
         }
         
         if (request.LimiteUsuarios is <= 0)

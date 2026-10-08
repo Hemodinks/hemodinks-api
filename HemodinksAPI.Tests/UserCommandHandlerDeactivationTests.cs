@@ -83,6 +83,7 @@ public partial class UserCommandHandlerTests
         var originalId = user.Id;
 
         var handler = new CreateUserCommandHandler(
+            TestPasswordPolicy.Instance,
             context,
             hasher,
             new FakeProfilePhotoStorage(),

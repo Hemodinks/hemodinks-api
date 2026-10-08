@@ -46,7 +46,8 @@ internal static class ApiExceptionResults
         "Alguns campos estao ausentes ou possuem formato invalido. Revise os dados informados.";
 
     public static bool IsExpected(Exception exception) =>
-        exception is BadHttpRequestException
+        exception is HemodinksAPI.Application.Security.PasswordPolicyUnavailableException
+            or BadHttpRequestException
             or KeyNotFoundException
             or UnauthorizedAccessException
             or InvalidOperationException
@@ -58,6 +59,18 @@ internal static class ApiExceptionResults
 
         return exception switch
         {
+            HemodinksAPI.Application.Security.SensitiveIdentityException identity => Results.Json(
+                new { code = identity.Code, message = identity.Message }, statusCode: identity.Code switch
+                {
+                    "email_confirmation_unavailable" => StatusCodes.Status503ServiceUnavailable,
+                    "individual_identity_required" or "identity_revalidation_failed" => StatusCodes.Status403Forbidden,
+                    "identity_change_conflict" or "email_change_unavailable" or "email_confirmation_required" => StatusCodes.Status409Conflict,
+                    _ => StatusCodes.Status400BadRequest
+                }),
+            HemodinksAPI.Application.Security.CompromisedPasswordException compromised => Results.BadRequest(
+                new { code = HemodinksAPI.Application.Security.CompromisedPasswordException.Code, message = compromised.Message }),
+            HemodinksAPI.Application.Security.PasswordPolicyUnavailableException unavailable => Results.Json(
+                new { code = "password_policy_unavailable", message = unavailable.Message }, statusCode: StatusCodes.Status503ServiceUnavailable),
             BadHttpRequestException => Results.BadRequest(new { message = InvalidPayloadMessage }),
             KeyNotFoundException notFound => MapNotFound(notFound, options),
             UnauthorizedAccessException when options.UnauthorizedAccessAsUnauthorized => Results.Unauthorized(),

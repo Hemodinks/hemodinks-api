@@ -13,7 +13,7 @@ internal sealed class UsuarioGlobalConfiguration : IEntityTypeConfiguration<Usua
         entity.Property(item => item.SecurityVersion).IsConcurrencyToken();
         entity.Property(item => item.Nome).IsRequired().HasMaxLength(255);
         entity.Property(item => item.Email).IsRequired().HasMaxLength(255);
-        entity.Property(item => item.Senha).IsRequired().HasMaxLength(500);
+        entity.Property(item => item.Senha).IsRequired().HasMaxLength(500).IsConcurrencyToken();
         entity.Property(item => item.Ativo).IsRequired().HasDefaultValue(true);
         entity.Property(item => item.DataCadastro).IsRequired().HasDefaultValueSql("GETUTCDATE()");
         entity.Property(item => item.TentativasLoginFalhas).IsRequired().HasDefaultValue(0);

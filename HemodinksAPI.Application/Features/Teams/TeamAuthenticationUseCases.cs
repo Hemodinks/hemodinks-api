@@ -20,7 +20,7 @@ public sealed partial class TeamUseCases
         var challenge = await context.EquipeLoginDesafios
             .Include(item => item.Equipe).ThenInclude(item => item.UsuarioLogin).ThenInclude(item => item.Perfil)
             .Include(item => item.Equipe).ThenInclude(item => item.UsuarioLogin).ThenInclude(item => item.Clinica)
-            .FirstOrDefaultAsync(item => item.TokenHash == tokenHash && item.UtilizadoEm == null && item.ExpiraEm > DateTime.UtcNow, cancellationToken);
+            .FirstOrDefaultAsync(item => item.TokenHash == tokenHash && item.UtilizadoEm == null && item.ExpiraEm > timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
         if (challenge == null || !challenge.Equipe.Ativa
             || challenge.Equipe.DataAtualizacao > challenge.DataCadastro
             || challenge.Equipe.ClinicaId != challenge.ClinicaId
@@ -34,23 +34,17 @@ public sealed partial class TeamUseCases
         var op = await context.EquipeOperadores.Include(item => item.User)
             .FirstOrDefaultAsync(item => item.Id == operatorId && item.EquipeId == challenge.EquipeId && item.Ativo, cancellationToken);
         if (op == null || !op.User.Ativo || op.ClinicaId != challenge.ClinicaId
-            || op.User.ClinicaId != challenge.ClinicaId || op.BloqueadoAte > DateTime.UtcNow
+            || op.User.ClinicaId != challenge.ClinicaId || op.BloqueadoAte > timeProvider.GetUtcNow().UtcDateTime
             || !await context.EquipeMembros.AnyAsync(item => item.EquipeId == challenge.EquipeId
                 && item.ClinicaId == challenge.ClinicaId && item.UserId == op.UserId && item.Ativo, cancellationToken))
             return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
 
         var requiresPin = challenge.Equipe.ModoIdentificacao.Equals(EquipeModosIdentificacao.Pin, StringComparison.OrdinalIgnoreCase);
         if (requiresPin && (op.PinHash == null || !EquipeAuthenticationRules.IsValidPinFormat(pin)
-            || !passwordHasher.VerifyPassword(pin!, op.PinHash)))
+            || !pinHasher.VerifyPin(pin!, op.PinHash)))
         {
-            op.TentativasFalhas++;
-            if (op.TentativasFalhas >= 5)
-            {
-                op.BloqueadoAte = DateTime.UtcNow.AddMinutes(15);
-                op.TentativasFalhas = 0;
-                op.VersaoSessao++;
-            }
-            await context.SaveChangesAsync(cancellationToken);
+            await context.RegisterOperatorPinFailureAsync(op.Id, challenge.EquipeId, challenge.ClinicaId,
+                op.VersaoSessao, timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
             return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
         }
 
@@ -61,7 +55,10 @@ public sealed partial class TeamUseCases
             return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
         op.TentativasFalhas = 0;
         op.BloqueadoAte = null;
-        challenge.UtilizadoEm = DateTime.UtcNow;
+        // Force an operator UPDATE even when its counter was already zero. Its original
+        // security fields must still match when the challenge and login are committed.
+        context.MarkOperatorAuthenticationSuccessful(op);
+        challenge.UtilizadoEm = timeProvider.GetUtcNow().UtcDateTime;
         try
         {
             await context.SaveChangesAsync(cancellationToken);
@@ -71,7 +68,9 @@ public sealed partial class TeamUseCases
             return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
         }
         var loginUser = challenge.Equipe.UsuarioLogin;
-        var jwt = jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, loginUser, challenge.Equipe, op, requiresPin);
+        if (lifetime.Failure(challenge.DataCadastro) != null)
+            return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
+        var jwt = jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, loginUser, challenge.Equipe, op, requiresPin, challenge.DataCadastro);
         var license = await licencaService.GetCurrentAsync(new CurrentUserContext(loginUser.Id, loginUser.PerfilId,
             op.User.Nome, loginUser.ClinicaId, loginUser.Clinica.Slug, membership.UsuarioGlobalId, membership.Id,
             challenge.EquipeId, op.Id, requiresPin), cancellationToken);
@@ -96,6 +95,8 @@ public sealed partial class TeamUseCases
     public async Task<TeamUseCaseResult<ChangeTeamPinResponse>> ChangePinAsync(
         CurrentUserContext currentUser, string currentPin, string newPin, CancellationToken cancellationToken)
     {
+        if (lifetime.Failure(currentUser.AuthenticatedAt) != null)
+            return TeamUseCaseResult<ChangeTeamPinResponse>.Unauthorized();
         if (!currentUser.IsEquipe || !currentUser.EquipeId.HasValue || !currentUser.EquipeOperadorId.HasValue)
             return TeamUseCaseResult<ChangeTeamPinResponse>.Forbidden();
         if (!EquipeAuthenticationRules.IsValidPinFormat(currentPin) || !EquipeAuthenticationRules.IsValidPinFormat(newPin))
@@ -109,20 +110,20 @@ public sealed partial class TeamUseCases
         var op = await context.EquipeOperadores.Include(item => item.User)
             .FirstOrDefaultAsync(item => item.Id == currentUser.EquipeOperadorId.Value
                 && item.EquipeId == currentUser.EquipeId.Value && item.Ativo, cancellationToken);
-        if (team == null || op?.PinHash == null || !passwordHasher.VerifyPassword(currentPin, op.PinHash))
+        if (team == null || op?.PinHash == null || !pinHasher.VerifyPin(currentPin, op.PinHash))
             return TeamUseCaseResult<ChangeTeamPinResponse>.Unauthorized();
 
-        op.PinHash = passwordHasher.HashPassword(newPin);
+        op.PinHash = pinHasher.HashPin(newPin);
         op.PrecisaTrocarPin = false;
         op.TentativasFalhas = 0;
         op.BloqueadoAte = null;
         op.VersaoSessao++;
-        op.DataUltimaTroca = DateTime.UtcNow;
-        op.DataAtualizacao = DateTime.UtcNow;
+        op.DataUltimaTroca = timeProvider.GetUtcNow().UtcDateTime;
+        op.DataAtualizacao = timeProvider.GetUtcNow().UtcDateTime;
         await context.SaveChangesAsync(cancellationToken);
         var membership = await context.UsuariosClinicas.Include(item => item.UsuarioGlobal)
             .FirstAsync(item => item.UserId == team.UsuarioLoginId && item.Ativo, cancellationToken);
-        var jwt = jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, team.UsuarioLogin, team, op, true);
+        var jwt = jwtTokenService.GenerateToken(membership.UsuarioGlobal, membership, team.UsuarioLogin, team, op, true, currentUser.AuthenticatedAt, currentUser.SessionId);
         return TeamUseCaseResult<ChangeTeamPinResponse>.Success(new ChangeTeamPinResponse(jwt, false),
             TeamAudit.Create("team.operator.pin.change", "team-operator", op.Id, op.ClinicaId,
                 new Dictionary<string, object?> { ["equipeId"] = team.Id, ["operadorId"] = op.Id }));

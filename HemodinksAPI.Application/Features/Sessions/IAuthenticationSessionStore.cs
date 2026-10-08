@@ -4,6 +4,7 @@ namespace HemodinksAPI.Application.Features.Sessions;
 
 public interface IAuthenticationSessionStore
 {
+    Task<UsuarioClinica?> FindMembershipAsync(int globalId, int membershipId, CancellationToken cancellationToken);
     Task<UsuarioClinica?> FindActiveMembershipAsync(
         int usuarioGlobalId,
         int userId,
@@ -16,6 +17,7 @@ public interface IAuthenticationSessionStore
 
     Task<AuthenticationSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken);
 
+    Task<SessionTeamBinding?> FindTeamBindingAsync(AuthenticationSession session, DateTime now, CancellationToken cancellationToken);
     void Add(AuthenticationSession session);
 
     Task SaveChangesAsync(CancellationToken cancellationToken);

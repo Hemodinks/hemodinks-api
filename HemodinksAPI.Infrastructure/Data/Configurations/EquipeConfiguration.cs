@@ -45,9 +45,10 @@ internal sealed class EquipeOperadorConfiguration : IEntityTypeConfiguration<Equ
         entity.ToTable("EquipeOperadores");
         entity.HasKey(item => item.Id);
         entity.Property(item => item.PinHash).HasMaxLength(500);
+        entity.Property(item => item.BloqueadoAte).IsConcurrencyToken();
         entity.Property(item => item.PrecisaTrocarPin).IsRequired().HasDefaultValue(false);
-        entity.Property(item => item.TentativasFalhas).IsRequired().HasDefaultValue(0);
-        entity.Property(item => item.VersaoSessao).IsRequired().HasDefaultValue(1);
+        entity.Property(item => item.TentativasFalhas).IsConcurrencyToken().IsRequired().HasDefaultValue(0);
+        entity.Property(item => item.VersaoSessao).IsConcurrencyToken().IsRequired().HasDefaultValue(1);
         entity.Property(item => item.Ativo).IsRequired().HasDefaultValue(true);
         entity.Property(item => item.DataCadastro).IsRequired().HasDefaultValueSql("GETUTCDATE()");
         entity.HasIndex(item => new { item.EquipeId, item.UserId }).IsUnique();
