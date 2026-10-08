@@ -43,14 +43,8 @@ public sealed partial class TeamUseCases
         if (requiresPin && (op.PinHash == null || !EquipeAuthenticationRules.IsValidPinFormat(pin)
             || !pinHasher.VerifyPin(pin!, op.PinHash)))
         {
-            op.TentativasFalhas++;
-            if (op.TentativasFalhas >= 5)
-            {
-                op.BloqueadoAte = timeProvider.GetUtcNow().UtcDateTime.AddMinutes(15);
-                op.TentativasFalhas = 0;
-                op.VersaoSessao++;
-            }
-            await context.SaveChangesAsync(cancellationToken);
+            await context.RegisterOperatorPinFailureAsync(op.Id, challenge.EquipeId, challenge.ClinicaId,
+                op.VersaoSessao, timeProvider.GetUtcNow().UtcDateTime, cancellationToken);
             return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
         }
 
@@ -61,6 +55,9 @@ public sealed partial class TeamUseCases
             return TeamUseCaseResult<AuthenticateUserResponse>.Unauthorized();
         op.TentativasFalhas = 0;
         op.BloqueadoAte = null;
+        // Force an operator UPDATE even when its counter was already zero. Its original
+        // security fields must still match when the challenge and login are committed.
+        context.MarkOperatorAuthenticationSuccessful(op);
         challenge.UtilizadoEm = timeProvider.GetUtcNow().UtcDateTime;
         try
         {

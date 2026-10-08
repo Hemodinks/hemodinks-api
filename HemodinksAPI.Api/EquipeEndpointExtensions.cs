@@ -24,7 +24,7 @@ public static class EquipeEndpointExtensions
             .WithName("IdentifyTeamOperator")
             .WithTags("Equipes - Autenticacao")
             .AllowAnonymous()
-            .RequireRateLimiting("PasswordReset");
+            .AddEndpointFilter<AuthenticationRateLimitFilter>();
 
         app.MapPut("/api/equipe-auth/pin", TrocarPin)
             .WithTags("Equipes - Autenticacao")

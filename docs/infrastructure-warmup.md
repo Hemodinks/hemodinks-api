@@ -42,6 +42,10 @@ Não há novo DbContext, CQRS de negócio ou política de retry paralela.
 
 ## Operação e Azure
 
+**Atualização #146:** confiança irrestrita no proxy agora é recusada. A descrição
+do workflow abaixo é histórica; antes de publicar, configurar proxies/redes
+explicitamente confiáveis conforme [contrato de autenticação](issue-146-authentication-rate-limiting.md#proxy-e-publicação-pendente).
+
 Não são necessárias migrations, novas credenciais ou mudanças de JWT, tenant,
 réplicas, auto-pause, probes ou permissões SQL. Publicar o backend antes do
 frontend; manter `VITE_API_URL` apontado para a API e o domínio do frontend em

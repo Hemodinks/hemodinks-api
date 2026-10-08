@@ -58,6 +58,9 @@ public interface ITeamDbContext : IGlobalIdentityDbContext, IUserSearchDbContext
 {
     DbSet<EquipeOperador> EquipeOperadores { get; }
     DbSet<EquipeLoginDesafio> EquipeLoginDesafios { get; }
+    Task RegisterOperatorPinFailureAsync(int operatorId, int teamId, int clinicId, int expectedVersion,
+        DateTime now, CancellationToken cancellationToken);
+    void MarkOperatorAuthenticationSuccessful(EquipeOperador op);
 }
 
 public interface IPlatformTeamDbContext : ITeamDbContext, IClinicDirectoryDbContext;

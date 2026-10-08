@@ -1044,6 +1044,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasDefaultValue(true);
 
                     b.Property<DateTime?>("BloqueadoAte")
+                        .IsConcurrencyToken()
                         .HasColumnType("datetime2");
 
                     b.Property<int>("ClinicaId")
@@ -1073,6 +1074,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasDefaultValue(false);
 
                     b.Property<int>("TentativasFalhas")
+                        .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(0);
@@ -1081,6 +1083,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     b.Property<int>("VersaoSessao")
+                        .IsConcurrencyToken()
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(1);

@@ -25,14 +25,14 @@ public static partial class UserEndpointExtensions
             .WithSummary("Resolver contextos autorizados para login")
             .WithDescription("Valida a credencial e retorna somente as clinicas em que ela pode ser autenticada, sem criar sessao")
             .AllowAnonymous()
-            .RequireRateLimiting("Login");
+            .AddEndpointFilter<AuthenticationRateLimitFilter>();
 
         group.MapPost("/authenticate", AuthenticateUser)
             .WithName("AuthenticateUser")
             .WithSummary("Autenticar usuario")
             .WithDescription("Autentica um usuario e retorna um token JWT")
             .AllowAnonymous()
-            .RequireRateLimiting("Login");
+            .AddEndpointFilter<AuthenticationRateLimitFilter>();
 
         group.MapGet("/", GetAllUsers)
             .WithName("GetAllUsers")
@@ -95,14 +95,14 @@ public static partial class UserEndpointExtensions
             .WithSummary("Resetar senha por email")
             .WithDescription("Solicita um token temporario para redefinicao de senha. A API prioriza Function HTTP valida, depois fila Azure e por fim SMTP. A senha atual permanece inalterada ate a confirmacao do token. Envie Idempotency-Key para tornar retries seguros.")
             .AllowAnonymous()
-            .RequireRateLimiting("PasswordReset");
+            .AddEndpointFilter<AuthenticationRateLimitFilter>();
 
         group.MapPost("/password/reset/confirm", ConfirmPasswordReset)
             .WithName("ConfirmPasswordReset")
             .WithSummary("Confirmar reset de senha")
             .WithDescription("Redefine a senha usando o token temporario gerado anteriormente. Envie Idempotency-Key para tornar retries seguros.")
             .AllowAnonymous()
-            .RequireRateLimiting("PasswordReset");
+            .AddEndpointFilter<AuthenticationRateLimitFilter>();
 
         group.MapPut("/{id}/password/reset", ResetPassword)
             .WithName("ResetPassword")

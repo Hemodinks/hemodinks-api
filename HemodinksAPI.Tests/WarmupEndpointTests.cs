@@ -250,7 +250,7 @@ public sealed class WarmupEndpointTests
             {
                 ["Warmup:Enabled"] = enabled.ToString(),
                 ["ForwardedHeaders:Enabled"] = forwarded.ToString(),
-                ["ForwardedHeaders:TrustAnyImmediateProxy"] = forwarded.ToString(),
+                ["ForwardedHeaders:KnownProxies:0"] = "127.0.0.1",
                 ["ForwardedHeaders:ForwardLimit"] = "1",
                 ["Database:RunMigrationsOnStartup"] = "false",
                 ["Database:SchemaManagedByDeployment"] = "true",

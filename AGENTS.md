@@ -252,3 +252,65 @@ Em caso de conflito, priorize:
 
 SEGURANÇA > ISOLAMENTO DE DADOS > CORREÇÃO FUNCIONAL > ARQUITETURA >
 TESTABILIDADE > PERFORMANCE > CONVENIÊNCIA.
+
+## Orquestração inteligente de agentes
+
+Antes de implementar qualquer tarefa, avaliar:
+
+- Complexidade técnica e arquitetural.
+- Risco de regressão.
+- Impacto na segurança.
+- Impacto no isolamento multiclínica.
+- Quantidade de módulos afetados.
+- Dependências entre frontend, API e banco.
+- Necessidade de testes unitários, integração e E2E.
+
+### Seleção dos agentes
+
+Delegar tarefas a agentes especializados quando houver benefício objetivo. Não criar subagentes para tarefas triviais que possam ser executadas diretamente.
+
+Preferir:
+
+- **Explorer:** investigação e localização de código.
+- **Frontend:** interfaces, componentes e acessibilidade.
+- **Backend:** endpoints, CQRS, validações e regras de negócio.
+- **Security:** autenticação, autorização e isolamento de dados.
+- **Database:** EF Core, SQL, migrações e integridade.
+- **QA:** testes, regressão e Playwright.
+- **DevOps:** Docker, Azure e GitHub Actions.
+- **Architect:** decisões estruturais de alto impacto.
+
+### Política de esforço
+
+- **Low:** tarefas triviais, localizadas e de baixo risco.
+- **Medium:** implementações convencionais e correções moderadas.
+- **High:** alterações com múltiplas dependências ou regras complexas.
+- **XHigh:** alterações críticas de segurança, isolamento entre clínicas e decisões arquiteturais com elevado risco de regressão, quando suportado pelo modelo.
+
+Selecionar o menor nível de esforço compatível com o risco e a complexidade.
+
+Quando o esforço não puder ser alterado dinamicamente no agente principal, preferir subagentes com configurações apropriadas.
+
+### Regras obrigatórias
+
+1. Preservar Clean Architecture e a organização existente.
+2. Não alterar regras de negócio fora do escopo.
+3. Preservar o isolamento de dados por clínica.
+4. Evitar mudanças desnecessárias em contratos públicos.
+5. Executar testes proporcionais ao impacto, incluindo E2E para fluxos afetados.
+6. Evitar paralelismo entre agentes que editam os mesmos arquivos.
+7. Não criar commits, merges ou deploys sem autorização explícita.
+8. Não reduzir a profundidade dos testes apenas para economizar tokens.
+9. Não alterar AGENTS.md ou configurações de agentes sem necessidade justificada.
+
+### Relatório obrigatório
+
+Ao concluir, informar:
+
+- Classificação de complexidade e risco.
+- Agentes efetivamente utilizados.
+- Modelo e esforço, quando identificáveis.
+- Arquivos modificados.
+- Testes executados e resultados.
+- Riscos restantes e limitações.
+- Status final da implementação.

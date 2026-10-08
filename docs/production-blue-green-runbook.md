@@ -150,7 +150,11 @@ Ordem esperada:
 8. cleanup idempotente, preservando somente `CURRENT` e `PREVIOUS`;
 9. workers depois da migration.
 
-Em cada revisao candidata, o workflow substitui explicitamente
+**Pendência #146:** a API recusa `TrustAnyImmediateProxy=true` com forwarding habilitado.
+Antes da próxima publicação, revisar o workflow e configurar proxies/redes explicitamente
+confiáveis; ver [contrato de autenticação](issue-146-authentication-rate-limiting.md#proxy-e-publicação-pendente).
+
+Em cada revisao candidata, o workflow atualmente substitui explicitamente
 `ForwardedHeaders__Enabled`, `ForwardedHeaders__ForwardLimit` e
 `ForwardedHeaders__TrustAnyImmediateProxy`. Assim, a configuracao nao depende de
 valores herdados de uma revisao anterior.

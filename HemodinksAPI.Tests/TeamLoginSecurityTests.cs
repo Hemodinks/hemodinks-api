@@ -129,6 +129,25 @@ public sealed class TeamLoginSecurityTests
     }
 
     [Fact]
+    public async Task OtherClinicChallenge_CannotConsumeOperatorPinAttempts()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var fixture = await TeamLoginFixture.SeedAsync(factory.Services);
+        var clinicBLogin = await LoginAsync(client, fixture.Other);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await IdentifyAsync(client,
+            clinicBLogin.EquipeDesafio!.Token, fixture.Pin.OperatorId, "000000")).StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var clinicAOperator = await db.EquipeOperadores.SingleAsync(item => item.Id == fixture.Pin.OperatorId);
+        Assert.Equal(0, clinicAOperator.TentativasFalhas);
+        Assert.Null(clinicAOperator.BloqueadoAte);
+        Assert.Equal(1, clinicAOperator.VersaoSessao);
+    }
+
+    [Fact]
     public async Task PinFailures_LockOperator_AndKeepHttpRateLimit()
     {
         using var factory = new HemodinksApiFactory();
@@ -151,6 +170,26 @@ public sealed class TeamLoginSecurityTests
         }
     }
 
+    [Fact]
+    public async Task RecoveryAndAttackedOperator_DoNotConsumeAnotherOperatorsBudget()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var fixture = await TeamLoginFixture.SeedAsync(factory.Services);
+        var attacked = await LoginAsync(client, fixture.Pin);
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/api/users/password/reset",
+                new { email = "unknown-recovery@example.invalid" })).StatusCode);
+            Assert.Equal(HttpStatusCode.Unauthorized, (await IdentifyAsync(client,
+                attacked.EquipeDesafio!.Token, fixture.Pin.OperatorId, "000000")).StatusCode);
+        }
+        Assert.Equal(HttpStatusCode.TooManyRequests, (await IdentifyAsync(client,
+            attacked.EquipeDesafio!.Token, fixture.Pin.OperatorId, TeamLoginFixture.PinValue)).StatusCode);
+        var other = await LoginAsync(client, fixture.Selection);
+        Assert.Equal(HttpStatusCode.OK, (await IdentifyAsync(client,
+            other.EquipeDesafio!.Token, fixture.Selection.OperatorId)).StatusCode);
+    }
     [Fact]
     public async Task ChallengeCannotBeReplayed()
     {

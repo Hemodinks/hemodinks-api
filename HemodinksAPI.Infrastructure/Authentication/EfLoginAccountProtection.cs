@@ -36,7 +36,7 @@ public sealed class EfLoginAccountProtection(
                 return;
             }
 
-            account.TentativasLoginFalhas = account.UltimaFalhaLoginEm >= attemptCutoff
+            account.TentativasLoginFalhas = !account.BloqueadoAte.HasValue && account.UltimaFalhaLoginEm >= attemptCutoff
                 ? account.TentativasLoginFalhas + 1
                 : 1;
             account.UltimaFalhaLoginEm = now;
@@ -51,12 +51,12 @@ public sealed class EfLoginAccountProtection(
             .ExecuteUpdateAsync(setters => setters
                 .SetProperty(
                     item => item.TentativasLoginFalhas,
-                    item => item.UltimaFalhaLoginEm.HasValue && item.UltimaFalhaLoginEm >= attemptCutoff
+                    item => !item.BloqueadoAte.HasValue && item.UltimaFalhaLoginEm.HasValue && item.UltimaFalhaLoginEm >= attemptCutoff
                         ? item.TentativasLoginFalhas + 1
                         : 1)
                 .SetProperty(
                     item => item.BloqueadoAte,
-                    item => (item.UltimaFalhaLoginEm.HasValue && item.UltimaFalhaLoginEm >= attemptCutoff
+                    item => (!item.BloqueadoAte.HasValue && item.UltimaFalhaLoginEm.HasValue && item.UltimaFalhaLoginEm >= attemptCutoff
                         ? item.TentativasLoginFalhas + 1
                         : 1) >= maximumAttempts
                             ? lockoutEnd
@@ -67,14 +67,16 @@ public sealed class EfLoginAccountProtection(
 
     public async Task RegisterSuccessAsync(int usuarioGlobalId, CancellationToken cancellationToken)
     {
+        var now = timeProvider.GetUtcNow().UtcDateTime;
         if (!context.Database.IsRelational())
         {
             var account = await context.UsuariosGlobais.SingleAsync(
                 item => item.Id == usuarioGlobalId,
                 cancellationToken);
-            if (account.TentativasLoginFalhas == 0
+            if (account.BloqueadoAte > now
+                || (account.TentativasLoginFalhas == 0
                 && account.UltimaFalhaLoginEm == null
-                && account.BloqueadoAte == null)
+                && account.BloqueadoAte == null))
             {
                 return;
             }
@@ -88,6 +90,7 @@ public sealed class EfLoginAccountProtection(
 
         await context.UsuariosGlobais
             .Where(item => item.Id == usuarioGlobalId
+                && (!item.BloqueadoAte.HasValue || item.BloqueadoAte <= now)
                 && (item.TentativasLoginFalhas != 0
                     || item.UltimaFalhaLoginEm != null
                     || item.BloqueadoAte != null))

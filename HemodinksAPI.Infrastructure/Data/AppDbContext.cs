@@ -8,7 +8,7 @@ namespace HemodinksAPI.Infrastructure.Data;
 /// <summary>
 /// Contexto de banco de dados da aplicação
 /// </summary>
-public class AppDbContext : DbContext,
+public partial class AppDbContext : DbContext,
     ISensitiveIdentityDbContext,
     ITemporaryAccessDbContext,
     IUserFeatureDbContext,

@@ -112,12 +112,12 @@ public sealed class SecurityObservationEndpointTests(ITestOutputHelper output)
         var recovery = await client.PostAsJsonAsync("/api/users/password/reset", new { email = "unknown-security-test@example.invalid" });
         recovery.EnsureSuccessStatusCode();
         Assert.Null(Assert.Single(sink.Events, x => x.Kind == SecurityEventKind.RecoveryRequested).ClinicId);
-        for (var i = 0; i < 10; i++)
+        for (var i = 0; i < 30; i++)
         {
             var refused = await client.PostAsJsonAsync("/api/users/login-context", new { email = "unknown-security-test@example.invalid", senha = "private-secret" });
             Assert.Equal(HttpStatusCode.Unauthorized, refused.StatusCode);
         }
-        var limited = await client.PostAsJsonAsync("/api/users/login-context", new { email = "other@example.invalid", senha = "another-secret" });
+        var limited = await client.PostAsJsonAsync("/api/users/login-context", new { email = "unknown-security-test@example.invalid", senha = "another-secret" });
         Assert.Equal(HttpStatusCode.TooManyRequests, limited.StatusCode);
         Assert.Null(Assert.Single(sink.Events, x => x.Kind == SecurityEventKind.Throttled).ClinicId);
         Assert.All(sink.Events, value => Assert.Null(value.ClinicId));
@@ -126,6 +126,27 @@ public sealed class SecurityObservationEndpointTests(ITestOutputHelper output)
         Assert.DoesNotContain("example.invalid", json);
     }
 
+    [Fact]
+    public async Task DurableAccountBlock_RemainsGenericAndAuditedWithoutCredentials()
+    {
+        var sink = new CaptureWriter();
+        using var factory = new HemodinksApiFactory(s => s.AddSingleton<ISecurityObservationWriter>(sink));
+        using var client = factory.CreateClient();
+        for (var i = 0; i < 7; i++)
+            Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/api/users/login-context",
+                new { email = "gmarcone@gmail.com", senha = "private-lock-secret" })).StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<HemodinksAPI.Infrastructure.Data.PlatformDbContext>();
+        var account = await Microsoft.EntityFrameworkCore.EntityFrameworkQueryableExtensions.SingleAsync(
+            db.UsuariosGlobais, x => x.Email == "gmarcone@gmail.com");
+        Assert.True(account.BloqueadoAte > DateTime.UtcNow);
+        Assert.Equal(5, account.TentativasLoginFalhas);
+        Assert.Equal(7, sink.Events.Count(x => x.Kind == SecurityEventKind.AuthenticationRefused));
+        Assert.All(sink.Events, x => Assert.Null(x.ClinicId));
+        var events = System.Text.Json.JsonSerializer.Serialize(sink.Events);
+        Assert.DoesNotContain("private-lock-secret", events);
+        Assert.DoesNotContain("gmarcone@gmail.com", events);
+    }
     [Fact]
     public async Task RefreshAbsoluteExpiryIsObservedWithoutRemovingCookie()
     {

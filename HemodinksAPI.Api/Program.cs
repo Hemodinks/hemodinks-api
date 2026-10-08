@@ -32,7 +32,7 @@ builder.Services
     .AddTenancy()
     .AddAuth(builder.Configuration, builder.Environment)
     .AddFrontendCors(builder.Configuration, builder.Environment)
-    .AddApiRateLimiting()
+    .AddApiRateLimiting(builder.Configuration)
     .AddLicensing(builder.Configuration)
     .AddStorage(builder.Configuration, builder.Environment)
     .AddApplicationServices(builder.Configuration, builder.Environment)
