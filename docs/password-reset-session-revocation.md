@@ -125,3 +125,80 @@ Login, seleção de clínica, autorização, pacientes, financeiro, frontend e c
 de usuários não foram modificados. O fluxo de senha temporária apenas passou a
 chamar a rotina compartilhada; sua regra permanece a mesma. A troca comum de
 senha autenticada permanece fora do escopo desta correção.
+
+## Revisão da issue #152 em 2026-10-08
+
+A revisão da branch `developer` encontrou a correção funcional já implementada
+no histórico (`ed65363`). Foram preservados o handler, a revogação compartilhada,
+os concurrency tokens e os fluxos de senha temporária e troca autenticada.
+Nenhuma alteração de produção ou migration foi necessária nesta revisão.
+
+Complementos de validação:
+
+- `PasswordResetSecurityEndpointTests.cs`: execução sobre Kestrel em porta
+  efêmera, com clientes sem cookies automáticos e endereço real do servidor.
+- `PasswordResetSecurityEndpointTests.Teams.cs`: recuperação no login unificado
+  nos modos Seleção, PIN e Nenhuma; rejeição de access/refresh anteriores,
+  renovação de equipe e desafio pendente; novo login, versão e renovação válidos;
+  preservação da identidade, vínculo, clínica, perfil, equipe e operador.
+
+Os cenários HTTP usam banco InMemory isolado e captura de email; os testes de
+persistência usam SQLite com transações e mapeamentos de produção. O E2E da
+recuperação valida a API por HTTP real; não automatiza a entrega de email nem a
+interface de recuperação no navegador. Os E2E existentes de navegador são
+executados separadamente como regressão do login individual/unificado.
+
+Validação específica desta revisão:
+
+- Antes dos complementos: 16 aprovados, zero falhas/ignorados (recuperação,
+  persistência e teste unitário existente de confirmação).
+- Após os complementos: **18 aprovados, zero falhas/ignorados**, em 1min36s;
+  inclui sete cenários E2E da API por HTTP real e onze casos relacionais.
+- Relatórios locais ignorados pelo Git: `logs/issue-152/issue-152-targeted.trx`
+  e `logs/issue-152/issue-152-security.trx`.
+- Comando final específico: `dotnet test HemodinksAPI.Tests/HemodinksAPI.Tests.csproj --no-restore --output logs/issue-152/diagnostic --filter "FullyQualifiedName~PasswordResetSecurity" --logger "trx;LogFileName=issue-152-security.trx" --results-directory logs/issue-152`.
+
+A saída isolada evita disputar o executável com a suíte geral. No transporte
+Kestrel, o teste controla os cookies com `SocketsHttpHandler.UseCookies=false`;
+isso impede que um cookie automático interfira na credencial escolhida por cada
+cenário. Os rate limits de produção permanecem ativos.
+
+Reexecução isolada das falhas de concorrência sensível e seleção de equipe:
+**6 aprovados, zero falhas/ignorados**, em 54s. Inclui o E2E de navegador
+`LoginBrowserTests.Browser_UsesRealApi("selection")` e os cinco casos de
+`SensitiveIdentitySqlServerTests.ConfirmationRace_CannotCommitAcrossConsumedProofOrChangedSession`.
+Relatório: `logs/issue-152/issue-152-failure-review.trx`. Ambos haviam falhado
+na execução completa; a aprovação isolada não apaga esse resultado nem comprova
+CI verde.
+
+Suíte geral executada com LocalDB descartável e frontend local:
+`dotnet test HemodinksAPI.slnx --no-build --no-restore --logger "trx;LogFileName=issue-152-regression.trx" --results-directory logs/issue-152 --verbosity quiet`.
+Configuração: `HEMODINKS_TEST_LOCALDB=1` e `HEMODINKS_E2E_FRONT_PATH` para o
+checkout local. Resultado: **791 aprovados, 5 falhas, zero ignorados (796 casos)**,
+em 17min03s. Relatório: `logs/issue-152/issue-152-regression.trx`.
+
+Falhas dessa execução e revisão:
+
+- `PasswordResetSecurityEndpointTests.TokenRecovery_RevokesSameIdentityAcrossClinics_WithoutChangingOtherUsersOrMemberships`: refresh recebeu 401 com o cliente inicial do Kestrel; passou após controle explícito de cookies, junto aos 18 casos finais de segurança.
+- `LoginBrowserTests.Browser_UsesRealApi("selection")`: timeout de 60s ao carregar a página; passou isoladamente.
+- `SensitiveIdentitySqlServerTests.ConfirmationRace_CannotCommitAcrossConsumedProofOrChangedSession("password")`: falha de transporte/conexão física do SQL Server; passou isoladamente, junto aos outros quatro casos.
+- `EventReminderProcessorConcurrencyTests.ProcessDueReminders_ClaimsEventBeforeSendingAcrossReplicas`: Full-Text Search ausente no LocalDB.
+- `LegacyFinancialBackfillMigrationTests.Migration_backfills_valid_legacy_values_and_audits_invalid_originals`: Full-Text Search ausente no LocalDB.
+
+Na execução geral, 11 dos 12 E2E de navegador passaram; o caso restante passou na
+reexecução isolada. Não houve alteração no frontend. A suíte geral não foi
+repetida após o ajuste final do cliente de testes; não se declara CI verde com
+base em reexecuções parciais.
+
+Revalidação dos dois testes dependentes de Full-Text Search: **2 aprovados,
+zero falhas/ignorados**, em 23s, usando a imagem local
+`hemodinks-sqlserver:2022-fts-ci` em container exclusivo, porta efêmera e bancos
+descartáveis. Comando: `dotnet test HemodinksAPI.Tests/HemodinksAPI.Tests.csproj --no-build --no-restore --output logs/issue-152/diagnostic --filter "FullyQualifiedName~EventReminderProcessorConcurrencyTests|FullyQualifiedName~LegacyFinancialBackfillMigrationTests" --logger "trx;LogFileName=issue-152-fts.trx" --results-directory logs/issue-152`.
+A conexão de teste foi configurada apenas no processo e o container foi removido
+no `finally`. Nenhum banco da aplicação foi usado. Relatório:
+`logs/issue-152/issue-152-fts.trx`.
+
+As cinco falhas da execução geral possuem revalidações aprovadas. Permanecem
+como limitações a ausência de uma nova execução completa com o ajuste final e a
+necessidade de SQL Server com FTS para reproduzir integralmente o ambiente do CI.
+Não houve merge, push, deploy nem atualização remota da issue.

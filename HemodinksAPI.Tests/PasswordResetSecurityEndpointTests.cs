@@ -6,7 +6,8 @@ using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Infrastructure.Data;
-using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Hosting.Server;
+using Microsoft.AspNetCore.Hosting.Server.Features;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -79,11 +80,19 @@ public sealed partial class PasswordResetSecurityEndpointTests
         Assert.Equal(HttpStatusCode.OK, (await GetUsers(client, current.Token)).StatusCode);
     }
 
-    private static HemodinksApiFactory CreateFactory(RecordingPasswordResetNotificationSender sender) =>
-        new(services => services.AddSingleton<IPasswordResetNotificationSender>(sender));
+    private static HemodinksApiFactory CreateFactory(RecordingPasswordResetNotificationSender sender)
+    {
+        var factory = new HemodinksApiFactory(services => services.AddSingleton<IPasswordResetNotificationSender>(sender));
+        factory.UseKestrel(0); // Exercise recovery end to end over real HTTP on an ephemeral port.
+        return factory;
+    }
 
     private static HttpClient CreateClient(HemodinksApiFactory factory) =>
-        factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        new(new SocketsHttpHandler { UseCookies = false })
+        {
+            BaseAddress = new Uri(factory.Services.GetRequiredService<IServer>()
+                .Features.Get<IServerAddressesFeature>()!.Addresses.Single())
+        };
 
     private sealed record LoginResult(AuthenticateUserResponse User, string Cookie, Guid SessionId, int MembershipId, Guid Version)
     {
