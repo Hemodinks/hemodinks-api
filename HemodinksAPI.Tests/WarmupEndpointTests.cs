@@ -2,6 +2,7 @@ using System.Net;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Text;
+using System.Text.Json;
 using HemodinksAPI.Api;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Infrastructure.Data;
@@ -119,7 +120,7 @@ public sealed class WarmupEndpointTests
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
-    public async Task Unavailable_database_returns_generic_empty_failure(bool throws)
+    public async Task Unavailable_database_returns_safe_retry_contract(bool throws)
     {
         using var factory = CreateFactory(new RecordingProbe
         {
@@ -130,7 +131,42 @@ public sealed class WarmupEndpointTests
         using var client = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost") });
         using var response = await client.GetAsync("/api/warmup");
         Assert.Equal(HttpStatusCode.ServiceUnavailable, response.StatusCode);
-        Assert.Empty(await response.Content.ReadAsStringAsync());
+        Assert.Equal(TimeSpan.FromSeconds(5), response.Headers.RetryAfter?.Delta);
+        Assert.True(response.Headers.CacheControl?.NoStore);
+        Assert.False(response.Headers.Contains("Set-Cookie"));
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("secret", body);
+        using var json = JsonDocument.Parse(body);
+        Assert.Equal("warmup_unavailable", json.RootElement.GetProperty("code").GetString());
+        Assert.Equal(5, json.RootElement.GetProperty("retryAfterSeconds").GetInt32());
+        Assert.Equal(response.Headers.GetValues("X-Request-ID").Single(),
+            json.RootElement.GetProperty("requestId").GetString());
+    }
+
+    [Fact]
+    public async Task Timeout_has_distinct_code_and_later_success_is_not_cached_or_retried_implicitly()
+    {
+        var attempts = 0;
+        var probe = new RecordingProbe
+        {
+            Operation = _ => ++attempts == 1
+                ? throw new TimeoutException("secret connection details")
+                : Task.FromResult(new DatabaseReadinessResult(true, []))
+        };
+        using var factory = CreateFactory(probe);
+        using var client = factory.CreateClient(new() { BaseAddress = new Uri("https://localhost") });
+        using var failed = await client.GetAsync("/api/warmup");
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, failed.StatusCode);
+        Assert.Equal(1, attempts);
+        var body = await failed.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(body);
+        Assert.Equal("warmup_timeout", json.RootElement.GetProperty("code").GetString());
+        Assert.DoesNotContain("secret", body);
+        using var recovered = await client.GetAsync("/api/warmup");
+        Assert.Equal(HttpStatusCode.NoContent, recovered.StatusCode);
+        Assert.False(recovered.Headers.Contains("Retry-After"));
+        Assert.False(recovered.Headers.Contains("Set-Cookie"));
+        Assert.Equal(2, attempts);
     }
 
     [Fact]

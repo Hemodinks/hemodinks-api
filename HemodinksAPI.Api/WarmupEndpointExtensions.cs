@@ -5,6 +5,7 @@ namespace HemodinksAPI.Api;
 
 public static class WarmupEndpointExtensions
 {
+    private const int RetryAfterSeconds = 5;
     public static IApplicationBuilder UseInfrastructureWarmup(this IApplicationBuilder app)
     {
         // An exact infrastructure-only branch: never run session/tenant middleware,
@@ -46,7 +47,7 @@ public static class WarmupEndpointExtensions
             if (!result.Connected)
             {
                 logger.LogWarning("WarmupFailed {WarmupDurationMs} {Reason}", timer.Elapsed.TotalMilliseconds, "Unavailable");
-                return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+                return Unavailable(context, timedOut: false);
             }
 
             logger.LogInformation("WarmupCompleted {WarmupDurationMs}", timer.Elapsed.TotalMilliseconds);
@@ -58,7 +59,19 @@ public static class WarmupEndpointExtensions
             logger.LogWarning("WarmupFailed {WarmupDurationMs} {Reason}",
                 timer.Elapsed.TotalMilliseconds,
                 exception is OperationCanceledException ? "CancelledOrTimedOut" : "Unavailable");
-            return Results.StatusCode(StatusCodes.Status503ServiceUnavailable);
+            return Unavailable(context, exception is OperationCanceledException or TimeoutException);
         }
+    }
+
+    private static IResult Unavailable(HttpContext context, bool timedOut)
+    {
+        context.Response.Headers.RetryAfter = RetryAfterSeconds.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        return Results.Json(new
+        {
+            code = timedOut ? "warmup_timeout" : "warmup_unavailable",
+            requestId = context.TraceIdentifier,
+            retryAfterSeconds = RetryAfterSeconds,
+            message = "O ambiente ainda nao esta disponivel. Aguarde alguns segundos e tente novamente."
+        }, statusCode: StatusCodes.Status503ServiceUnavailable);
     }
 }
