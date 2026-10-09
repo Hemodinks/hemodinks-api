@@ -5,6 +5,8 @@ O workflow e o bootstrap usam uma allowlist explicita de proxies/redes do ingres
 invalida ou ausente interrompe o workflow antes de aplicar o bundle de migrations.
 A candidata recebe exatamente o JSON validado nessa etapa, sem herdar indices
 antigos, aliases ou confianca irrestrita da revisao anterior.
+Se a candidata ja existir, o reuso exige que sua politica de proxy corresponda
+ao preflight aprovado; divergencias bloqueiam o reuso e a promocao.
 
 No GitHub Environment **production**, configurar ao menos uma destas variaveis
 como array JSON de strings:

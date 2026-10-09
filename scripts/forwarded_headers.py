@@ -94,9 +94,17 @@ def main():
     parser.add_argument('--known-networks', default=os.getenv('API_FORWARDED_HEADERS_KNOWN_NETWORKS', '[]'))
     parser.add_argument('--github-output')
     parser.add_argument('--merge', help='Previously validated proxy JSON; existing environment is read from stdin.')
+    parser.add_argument('--verify-existing', action='store_true', help='Require the existing proxy policy to match the approved policy without printing environment values.')
     args = parser.parse_args()
     try:
-        entries = merge_environment(json.load(sys.stdin), json.loads(args.merge)) if args.merge is not None else build_environment(args.known_proxies, args.known_networks)
+        if args.verify_existing and args.merge is None:
+            raise ValueError('Verification requires an approved proxy environment.')
+        existing = json.load(sys.stdin) if args.merge is not None else None
+        entries = merge_environment(existing, json.loads(args.merge)) if args.merge is not None else build_environment(args.known_proxies, args.known_networks)
+        if args.verify_existing:
+            if sorted(existing, key=lambda item: item['name']) != sorted(entries, key=lambda item: item['name']):
+                raise ValueError('Existing proxy policy differs from the approved policy.')
+            return 0
         payload = json.dumps(entries, separators=(',', ':'))
         if args.github_output:
             with Path(args.github_output).open('a', encoding='utf-8') as output:

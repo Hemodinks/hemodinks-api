@@ -63,7 +63,7 @@ $readyRevision = @(
         Where-Object {
             $_.properties.active -eq $true -and
             $_.properties.healthState -eq "Healthy" -and
-            $_.properties.runningState -eq "Running"
+            $_.properties.runningState -like "Running*"
         } |
         Sort-Object { $_.properties.createdTime } -Descending
 )[0]

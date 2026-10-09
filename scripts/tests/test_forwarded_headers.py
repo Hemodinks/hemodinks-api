@@ -14,6 +14,23 @@ spec.loader.exec_module(m)
 
 
 class ForwardedHeadersTests(unittest.TestCase):
+    def test_existing_candidate_must_match_approved_policy_without_exposing_values(self):
+        approved = m.build_environment('["10.20.0.4"]', '[]')
+        existing = list(reversed(approved)) + [{"name": "BusinessSecret", "secretRef": "sensitive-test-reference"}]
+        command = [sys.executable, '-B', str(SCRIPT), '--merge', json.dumps(approved), '--verify-existing']
+        valid = subprocess.run(command, input=json.dumps(existing), text=True, capture_output=True)
+        self.assertEqual(0, valid.returncode, valid.stderr)
+        self.assertEqual('', valid.stdout)
+        for changed in [
+            [{"name": "ForwardedHeaders__TrustAnyImmediateProxy", "value": "true"}],
+            m.build_environment('["10.20.0.5"]', '[]'),
+            approved + [{"name": "ForwardedHeaders__KnownNetworks__9", "value": "0.0.0.0/0"}],
+        ]:
+            invalid = subprocess.run(command, input=json.dumps(changed + existing[-1:]), text=True, capture_output=True)
+            self.assertNotEqual(0, invalid.returncode)
+            self.assertEqual('', invalid.stdout)
+            self.assertNotIn('sensitive-test-reference', invalid.stderr)
+
     def test_preflight_transports_approved_json_and_invalid_policy_writes_nothing(self):
         with tempfile.TemporaryDirectory() as directory:
             output = Path(directory) / 'github-output'

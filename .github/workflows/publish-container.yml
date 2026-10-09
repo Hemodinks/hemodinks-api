@@ -47,6 +47,39 @@ jobs:
         shell: pwsh
         run: ./scripts/tests/test_bootstrap_proxy.ps1
 
+      - name: Start SQL Server for relational tests
+        shell: bash
+        run: |
+          test_password="Test_${GITHUB_RUN_ID}_Aa!"
+          docker build \
+            --file sqlserver/Dockerfile.fts \
+            --tag hemodinks-sqlserver:2022-fts-ci \
+            .
+
+          docker run --detach --name hemodinks-test-sqlserver \
+            --env ACCEPT_EULA=Y \
+            --env MSSQL_PID=Developer \
+            --env MSSQL_SA_PASSWORD="$test_password" \
+            --publish 1433:1433 \
+            hemodinks-sqlserver:2022-fts-ci
+
+          for attempt in {1..30}; do
+            if docker exec hemodinks-test-sqlserver \
+              /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$test_password" -C -Q "SELECT 1" \
+              > /dev/null 2>&1; then
+              break
+            fi
+
+            if [ "$attempt" -eq 30 ]; then
+              docker logs hemodinks-test-sqlserver
+              exit 1
+            fi
+
+            sleep 2
+          done
+
+          echo "HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING=Server=localhost,1433;User ID=sa;Password=$test_password;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=True" >> "$GITHUB_ENV"
+
       - name: Setup .NET
         uses: actions/setup-dotnet@v6.0.0
         with:
@@ -172,7 +205,7 @@ jobs:
           retention-days: 30
 
   migrate-production:
-    name: Approve and migrate Production once
+    name: Approve Production release and migrate once
     needs:
       - publish
       - prepare-migrations
@@ -214,7 +247,18 @@ jobs:
           ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
         run: |
           chmod +x ./artifacts/hemodinks-efbundle
-          ./artifacts/hemodinks-efbundle
+          for attempt in $(seq 1 5); do
+            if ./artifacts/hemodinks-efbundle; then
+              exit 0
+            fi
+            if [ "$attempt" -eq 5 ]; then
+              echo "::error::Migration bundle failed after ${attempt} attempts."
+              exit 1
+            fi
+            delay=$((attempt * 15))
+            echo "::warning::Migration attempt ${attempt}/5 failed; retrying in ${delay}s."
+            sleep "$delay"
+          done
 
       - name: Migration summary
         if: always()
@@ -231,11 +275,10 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-api:
-    name: Approve and switch API Blue/Green
+    name: Switch API Blue/Green
     needs: migrate-production
     runs-on: ubuntu-latest
     timeout-minutes: 30
-    environment: production
 
     steps:
       - name: Checkout revision policy script
@@ -270,6 +313,37 @@ jobs:
             echo "::error::Run scripts/Bootstrap-ProductionBlueGreen.ps1 manually before deploying."
             exit 4
           fi
+
+      - name: Ensure Production Container App is running
+        run: |
+          set -euo pipefail
+          app_id="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query id -o tsv)"
+          running_status="$(az containerapp show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --query properties.runningStatus -o tsv)"
+          if [ "$running_status" != "Running" ]; then
+            az rest \
+              --method post \
+              --uri "https://management.azure.com${app_id}/start?api-version=2025-07-01" \
+              --output none
+          fi
+          for attempt in $(seq 1 30); do
+            running_status="$(az containerapp show \
+              --name "$API_NAME" \
+              --resource-group "$API_RESOURCE_GROUP" \
+              --query properties.runningStatus -o tsv)"
+            if [ "$running_status" = "Running" ]; then
+              exit 0
+            fi
+            echo "Container App start attempt ${attempt}/30 (status=${running_status})."
+            sleep 5
+          done
+          echo "::error::Container App did not reach Running state."
+          exit 5
 
       - name: Create candidate revision with zero traffic
         id: candidate
@@ -399,20 +473,54 @@ jobs:
           patch_body="$(jq -n \
             --arg suffix "$suffix" \
             --argjson containers "$containers" '
-              {properties: {template: {revisionSuffix: $suffix, containers: $containers}}}
+              {
+                properties: {
+                  template: {
+                    revisionSuffix: $suffix,
+                    containers: $containers,
+                    scale: {minReplicas: 0, maxReplicas: 1}
+                  }
+                }
+              }
             ')"
-          az rest \
-            --method patch \
-            --uri "https://management.azure.com${app_id}?api-version=2025-07-01" \
-            --body "$patch_body" \
-            --output none
-
-          actual_revision="$(az containerapp show \
+          if existing_candidate_json="$(az containerapp revision show \
             --name "$API_NAME" \
             --resource-group "$API_RESOURCE_GROUP" \
-            --query properties.latestRevisionName -o tsv)"
-          if [ "$actual_revision" != "$candidate_revision" ]; then
-            echo "::error::Expected revision '$candidate_revision', got '$actual_revision'."
+            --revision "$candidate_revision" \
+            --output json 2>/dev/null)"; then
+            if ! jq -c '.properties.template.containers[0].env // []' <<<"$existing_candidate_json" \
+              | python3 -B scripts/forwarded_headers.py --merge "$FORWARDED_HEADERS_ENV" --verify-existing; then
+              echo "::error::Existing candidate proxy policy differs from the approved preflight. Reuse and promotion are blocked."
+              exit 8
+            fi
+            echo "::notice::Reusing existing candidate revision '$candidate_revision'."
+          else
+            az rest \
+              --method patch \
+              --uri "https://management.azure.com${app_id}?api-version=2025-07-01" \
+              --body "$patch_body" \
+              --output none
+          fi
+
+          candidate_provisioned=false
+          for attempt in $(seq 1 30); do
+            actual_revision="$(az containerapp show \
+              --name "$API_NAME" \
+              --resource-group "$API_RESOURCE_GROUP" \
+              --query properties.latestRevisionName -o tsv)"
+            provisioning_state="$(az containerapp show \
+              --name "$API_NAME" \
+              --resource-group "$API_RESOURCE_GROUP" \
+              --query properties.provisioningState -o tsv)"
+            if [ "$actual_revision" = "$candidate_revision" ] && [ "$provisioning_state" = "Succeeded" ]; then
+              candidate_provisioned=true
+              break
+            fi
+            echo "Candidate provisioning attempt ${attempt}/30 (latest=${actual_revision}, state=${provisioning_state})."
+            sleep $(( attempt < 6 ? attempt * 2 : 10 ))
+          done
+          if [ "$candidate_provisioned" != "true" ]; then
+            echo "::error::Expected provisioned revision '$candidate_revision', got '$actual_revision' with state '$provisioning_state'."
             exit 7
           fi
 
@@ -616,7 +724,6 @@ jobs:
       - publish
       - migrate-production
     runs-on: ubuntu-latest
-    environment: production
     if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME != '' && (vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
 
     steps:
@@ -648,7 +755,6 @@ jobs:
     name: Deploy Workers to Azure Function App
     needs: migrate-production
     runs-on: ubuntu-latest
-    environment: production
     if: ${{ vars.AZURE_FUNCTION_APP_WORKERS_NAME != '' && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
 
     steps:
