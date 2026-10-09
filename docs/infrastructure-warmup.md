@@ -42,12 +42,11 @@ Não há novo DbContext, CQRS de negócio ou política de retry paralela.
 
 ## Operação e Azure
 
-O workflow configura `ForwardedHeaders__Enabled=true`, `ForwardLimit=1` e uma
-allowlist explicita de IPs/CIDRs verificados, recusando confianca irrestrita.
-Configurar as variaveis no Environment production conforme o
-[preflight de proxy](forwarded-headers-production-preflight.md).
-A topologia real deve ser confirmada; somente o proxy imediato verificado pode
-fornecer o ultimo salto aceito de `X-Forwarded-For`.
+O workflow verifica a topologia HTTP do Azure Container Apps antes das migrations
+e da promocao. Com allowlists vazias, habilita a politica especifica do ingress
+gerenciado, que usa somente o IP acrescentado a direita pelo Azure. Listas nao
+vazias selecionam a politica convencional de proxies/redes verificados.
+Consulte o [preflight de proxy](forwarded-headers-production-preflight.md).
 
 O limitador usa `RemoteIpAddress` depois do middleware existente. Fora desse
 ambiente protegido, manter a confiança restrita a proxies/redes conhecidos.

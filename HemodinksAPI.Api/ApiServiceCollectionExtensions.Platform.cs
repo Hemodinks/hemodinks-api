@@ -17,6 +17,24 @@ public static partial class ApiServiceCollectionExtensions
         var enabled = section.GetValue<bool>("Enabled");
         var trustAnyImmediateProxy = section.GetValue<bool>("TrustAnyImmediateProxy");
         var forwardLimit = section.GetValue<int?>("ForwardLimit") ?? 1;
+        var azureIngress = section.GetValue<bool>("AzureContainerAppsIngress");
+
+        if (azureIngress)
+        {
+            var expectedName = section["AzureContainerAppName"];
+            var expectedSuffix = section["AzureContainerAppDnsSuffix"];
+            var revision = configuration["CONTAINER_APP_REVISION"];
+            if (!enabled || trustAnyImmediateProxy || forwardLimit != 1
+                || string.IsNullOrWhiteSpace(expectedName) || string.IsNullOrWhiteSpace(expectedSuffix)
+                || configuration["CONTAINER_APP_NAME"] != expectedName
+                || configuration["CONTAINER_APP_ENV_DNS_SUFFIX"] != expectedSuffix
+                || revision?.StartsWith(expectedName + "--", StringComparison.Ordinal) != true
+                || section.GetSection("KnownProxies").GetChildren().Any()
+                || section.GetSection("KnownNetworks").GetChildren().Any())
+            {
+                throw new InvalidOperationException("Modo de ingress Azure Container Apps requer identidade da plataforma, um salto e ausencia de politicas conflitantes.");
+            }
+        }
 
         if (forwardLimit < 1)
         {
@@ -25,7 +43,7 @@ public static partial class ApiServiceCollectionExtensions
 
         services.Configure<ForwardedHeadersOptions>(options =>
         {
-            options.ForwardedHeaders = enabled
+            options.ForwardedHeaders = enabled && !azureIngress
                 ? ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto
                 : ForwardedHeaders.None;
             options.ForwardLimit = forwardLimit;

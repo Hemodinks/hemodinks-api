@@ -220,12 +220,26 @@ jobs:
       - name: Checkout proxy preflight
         uses: actions/checkout@v7.0.1
 
+      - name: Log in to Azure for ingress preflight
+        uses: azure/login@v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Install Container Apps extension for preflight
+        run: az extension add --name containerapp --upgrade
+
       - name: Validate trusted ingress before migrations
         id: proxy
         env:
           API_FORWARDED_HEADERS_KNOWN_PROXIES: ${{ vars.API_FORWARDED_HEADERS_KNOWN_PROXIES }}
           API_FORWARDED_HEADERS_KNOWN_NETWORKS: ${{ vars.API_FORWARDED_HEADERS_KNOWN_NETWORKS }}
-        run: python3 -B scripts/forwarded_headers.py --github-output "$GITHUB_OUTPUT"
+        run: |
+          set -euo pipefail
+          az containerapp show --name "$API_NAME" --resource-group "$API_RESOURCE_GROUP" \
+            --query '{name:name,resourceGroup:resourceGroup,properties:{configuration:{ingress:properties.configuration.ingress}}}' -o json \
+            | python3 -B scripts/forwarded_headers.py --azure-app-config --github-output "$GITHUB_OUTPUT"
 
       - name: Download reviewed migration bundle
         uses: actions/download-artifact@v8.0.1
@@ -353,6 +367,9 @@ jobs:
         run: |
           set -euo pipefail
           printf '[]' | python3 -B scripts/forwarded_headers.py --merge "$FORWARDED_HEADERS_ENV" > /dev/null
+          az containerapp show --name "$API_NAME" --resource-group "$API_RESOURCE_GROUP" \
+            --query '{name:name,resourceGroup:resourceGroup,properties:{configuration:{ingress:properties.configuration.ingress}}}' -o json \
+            | python3 -B scripts/forwarded_headers.py --validate-azure-app-config
           new_relic_enabled=false
           if [ -n "$NEW_RELIC_LICENSE_KEY" ]; then
             az containerapp secret set \
@@ -602,6 +619,9 @@ jobs:
           CANDIDATE_REVISION: ${{ steps.candidate.outputs.candidate_revision }}
         run: |
           set -euo pipefail
+          az containerapp show --name "$API_NAME" --resource-group "$API_RESOURCE_GROUP" \
+            --query '{name:name,resourceGroup:resourceGroup,properties:{configuration:{ingress:properties.configuration.ingress}}}' -o json \
+            | python3 -B scripts/forwarded_headers.py --validate-azure-app-config
 
           traffic_matches() {
             local label="$1"

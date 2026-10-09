@@ -1,4 +1,5 @@
 import importlib.util
+import copy
 import json
 import os
 from pathlib import Path
@@ -14,6 +15,61 @@ spec.loader.exec_module(m)
 
 
 class ForwardedHeadersTests(unittest.TestCase):
+    @staticmethod
+    def azure_app():
+        return {'name': 'hemodinks-api-prod', 'resourceGroup': 'rg-hemodinks-prod', 'properties': {'configuration': {'ingress': {
+            'transport': 'Auto', 'targetPort': 8080, 'allowInsecure': False, 'additionalPortMappings': None,
+            'fqdn': 'hemodinks-api-prod.test.brazilsouth.azurecontainerapps.io'
+        }}}}
+
+    def test_managed_ingress_allows_empty_lists_only_with_verified_azure_topology(self):
+        identity = m.validate_azure_http_ingress(self.azure_app())
+        approved = m.build_environment('[]', '[]', identity)
+        values = {item['name']: item['value'] for item in approved}
+        self.assertEqual('true', values['ForwardedHeaders__AzureContainerAppsIngress'])
+        self.assertEqual('false', values['ForwardedHeaders__TrustAnyImmediateProxy'])
+        self.assertEqual('1', values['ForwardedHeaders__ForwardLimit'])
+        self.assertEqual('hemodinks-api-prod', values['ForwardedHeaders__AzureContainerAppName'])
+        self.assertEqual(approved, m.merge_environment([{'name': 'ForwardedHeaders__TrustAnyImmediateProxy', 'value': 'true'}], approved))
+        explicit = m.build_environment('["10.20.0.4"]', '[]', identity)
+        self.assertEqual('false', next(item['value'] for item in explicit if item['name'] == 'ForwardedHeaders__AzureContainerAppsIngress'))
+        self.assertFalse(any(item['name'] == 'ForwardedHeaders__AzureContainerAppName' for item in explicit))
+
+    def test_managed_ingress_rejects_tcp_bypass_wrong_port_or_target(self):
+        for field, value in [('transport', 'tcp'), ('targetPort', 9090), ('allowInsecure', True),
+                             ('additionalPortMappings', [{'targetPort': 8080}]), ('fqdn', 'attacker.invalid')]:
+            app = self.azure_app()
+            app['properties']['configuration']['ingress'][field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                m.validate_azure_http_ingress(app)
+        for field, value in [('name', 'other-app'), ('resourceGroup', 'other-resource-group')]:
+            app = self.azure_app()
+            app[field] = value
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                m.validate_azure_http_ingress(app)
+        for app in [None, {}, {'properties': {'configuration': {'ingress': None}}}]:
+            with self.assertRaises(ValueError):
+                m.validate_azure_http_ingress(app)
+
+    def test_managed_ingress_cli_transports_policy_and_rejects_changed_candidate(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'github-output'
+            command = [sys.executable, '-B', str(SCRIPT), '--azure-app-config', '--known-proxies', '[]', '--known-networks', '[]', '--github-output', str(output)]
+            result = subprocess.run(command, input=json.dumps(self.azure_app()), text=True, capture_output=True)
+            self.assertEqual(0, result.returncode, result.stderr)
+            self.assertEqual('', result.stdout)
+            approved = json.loads(output.read_text().removeprefix('environment='))
+            command = [sys.executable, '-B', str(SCRIPT), '--merge', json.dumps(approved), '--verify-existing']
+            self.assertEqual(0, subprocess.run(command, input=json.dumps(approved), text=True, capture_output=True).returncode)
+            changed = copy.deepcopy(approved)
+            changed[-1]['value'] = 'other.azurecontainerapps.io'
+            self.assertNotEqual(0, subprocess.run(command, input=json.dumps(changed), text=True, capture_output=True).returncode)
+            app = self.azure_app()
+            app['properties']['configuration']['ingress']['transport'] = 'tcp'
+            invalid = subprocess.run([sys.executable, '-B', str(SCRIPT), '--validate-azure-app-config'], input=json.dumps(app), text=True, capture_output=True)
+            self.assertNotEqual(0, invalid.returncode)
+            self.assertEqual('', invalid.stdout)
+
     def test_existing_candidate_must_match_approved_policy_without_exposing_values(self):
         approved = m.build_environment('["10.20.0.4"]', '[]')
         existing = list(reversed(approved)) + [{"name": "BusinessSecret", "secretRef": "sensitive-test-reference"}]
