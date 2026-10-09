@@ -26,7 +26,7 @@ class RetentionTests(unittest.TestCase):
 
     def test_azure_digest_protected(self):
         data = inventory()
-        data["azure"]["protected_digests"] = [data["ghcr"]["versions"][0]["digest"]]
+        data["azure"]["protected_digests"] = [data["ghcr"]["versions"][6]["digest"]]
         self.assertEqual(classify(data, NOW)["candidate_count"], 1)
 
     def test_incomplete_azure_blocks_everything(self):
