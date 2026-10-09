@@ -1,0 +1,59 @@
+name: GHCR Weekly Audit (dry-run only)
+
+on:
+  schedule:
+    - cron: '17 6 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+  id-token: write
+
+concurrency:
+  group: ghcr-weekly-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GHCR_AUDIT_OWNER: Hemodinks
+      GHCR_AUDIT_PACKAGE: ${{ vars.GHCR_AUDIT_PACKAGE }}
+      GHCR_AUDIT_RESOURCE_GROUP: ${{ vars.GHCR_AUDIT_RESOURCE_GROUP }}
+      GHCR_AUDIT_CONTAINER_APP: ${{ vars.GHCR_AUDIT_CONTAINER_APP }}
+      AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Azure OIDC sign-in (non-blocking; collector fails closed)
+        id: azure_login
+        if: ${{ vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && vars.AZURE_SUBSCRIPTION_ID != '' }}
+        continue-on-error: true
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Run read-only audit and write reports
+        id: audit
+        continue-on-error: true
+        run: python3 tools/ghcr_retention/weekly_audit.py --output ghcr-audit-output
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ghcr-weekly-audit-${{ github.run_id }}
+          path: ghcr-audit-output/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Fail closed if inventory incomplete
+        if: always()
+        env:
+          AUDIT_OUTCOME: ${{ steps.audit.outcome }}
+        run: |
+          if [ "$AUDIT_OUTCOME" != "success" ]; then
+            echo "GHCR audit blocked or failed; no DELETE operations exist."
+            exit 1
+          fi
