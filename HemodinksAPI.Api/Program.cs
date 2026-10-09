@@ -56,6 +56,10 @@ startupDiagnostics.Record(app.Logger, "host_build", hostBuildDurationMs);
 app.Lifetime.ApplicationStarted.Register(() =>
     startupDiagnostics.Record(app.Logger, "http_started", startupStage.Elapsed.TotalMilliseconds));
 app.UseForwardedHeaders();
+if (app.Configuration.GetValue<bool>("ForwardedHeaders:AzureContainerAppsIngress"))
+{
+    app.UseMiddleware<AzureContainerAppsIngressMiddleware>();
+}
 app.UseMiddleware<ApiExceptionHandlingMiddleware>();
 app.UseMiddleware<SecurityObservationMiddleware>();
 app.UseStatusCodePages(async statusCodeContext =>

@@ -95,6 +95,32 @@ public sealed class AuthenticationRateLimitingEndpointTests
     }
 
     [Fact]
+    public async Task AzureIngress_ClientPrefixesCannotEvadeOriginBudget()
+    {
+        using var factory = Limited(ip: 2, azureIngress: true);
+        for (var i = 0; i < 3; i++)
+            Assert.Equal(i < 2 ? 401 : 429, await Send(factory, $"unknown{i}@example.invalid", "10.0.0.10",
+                forwarded: $"203.0.113.{i + 1}, 198.51.100.1", proto: "https"));
+    }
+
+    [Fact]
+    public async Task AzureIngress_DifferentClientsBehindSameProxyHaveSeparateOriginBudgets()
+    {
+        using var factory = Limited(ip: 1, azureIngress: true);
+        Assert.Equal(401, await Send(factory, "first@example.invalid", "10.0.0.10", forwarded: "198.51.100.1", proto: "https"));
+        Assert.Equal(429, await Send(factory, "second@example.invalid", "10.0.0.10", forwarded: "198.51.100.1", proto: "https"));
+        Assert.Equal(401, await Send(factory, "third@example.invalid", "10.0.0.10", forwarded: "198.51.100.2", proto: "https"));
+    }
+
+    [Fact]
+    public async Task AzureIngress_AccountBudgetCannotBeEvadedByChangingOriginOrClinic()
+    {
+        using var factory = Limited(login: 1, azureIngress: true);
+        Assert.Equal(401, await Send(factory, "unknown@example.invalid", "10.0.0.10", forwarded: "198.51.100.1", proto: "https"));
+        Assert.Equal(429, await Send(factory, "unknown@example.invalid", "10.0.0.10", slug: "other-clinic", forwarded: "198.51.100.2", proto: "https"));
+    }
+
+    [Fact]
     public async Task RecoveryBudgets_AreSeparateFromLoginAndOtherAccounts()
     {
         using var factory = new HemodinksApiFactory(s => s.Configure<AuthenticationRateLimitOptions>(o => o.RecoveryPermitLimit = 1));
@@ -121,15 +147,17 @@ public sealed class AuthenticationRateLimitingEndpointTests
         Assert.Equal(401, await Send(factory, "unknown@example.invalid", "203.0.113.1"));
     }
 
-    private static WebApplicationFactory<Program> Limited(int login = 30, int ip = 300, bool forwarding = false) =>
+    private static WebApplicationFactory<Program> Limited(int login = 30, int ip = 300, bool forwarding = false, bool azureIngress = false) =>
         new HemodinksApiFactory(s => s.Configure<AuthenticationRateLimitOptions>(o => { o.LoginPermitLimit = login; o.IpPermitLimit = ip; }))
-            .WithWebHostBuilder(b => b.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(new Dictionary<string, string?>
-            { ["ForwardedHeaders:Enabled"] = forwarding.ToString(), ["ForwardedHeaders:KnownProxies:0"] = "127.0.0.1" })));
+            .WithWebHostBuilder(b => b.ConfigureAppConfiguration((_, c) => c.AddInMemoryCollection(azureIngress
+                ? ForwardedHeadersConfigurationTests.AzureValues()
+                : new Dictionary<string, string?>
+                { ["ForwardedHeaders:Enabled"] = forwarding.ToString(), ["ForwardedHeaders:KnownProxies:0"] = "127.0.0.1" })));
 
     private sealed class BodyDetection : IHttpRequestBodyDetectionFeature { public bool CanHaveBody => true; }
 
     private static async Task<int> Send(WebApplicationFactory<Program> factory, string email, string origin,
-        string? slug = null, string? forwarded = null, string path = "/api/users/login-context")
+        string? slug = null, string? forwarded = null, string path = "/api/users/login-context", string? proto = null)
     {
         // Start the host before obtaining TestServer.
         using var client = factory.CreateClient();
@@ -145,6 +173,7 @@ public sealed class AuthenticationRateLimitingEndpointTests
             context.Request.Body = new MemoryStream(body);
             if (slug != null) context.Request.Headers["X-Clinica-Slug"] = slug;
             if (forwarded != null) context.Request.Headers["X-Forwarded-For"] = forwarded;
+            if (proto != null) context.Request.Headers["X-Forwarded-Proto"] = proto;
         });
         return response.Response.StatusCode;
     }

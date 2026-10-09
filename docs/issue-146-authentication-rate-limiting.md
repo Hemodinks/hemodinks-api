@@ -83,10 +83,11 @@ com `ForwardLimit` adequado ao caminho real. `TrustAnyImmediateProxy=true` agora
 `KnownNetworks` com a fronteira real; sem configuração explícita, permanecem
 somente os padrões loopback do framework. Não usar uma rede universal.
 
-**Antes de publicar:** configurar a allowlist de ingress no Environment production
-conforme [preflight de proxy](forwarded-headers-production-preflight.md). O workflow
-agora valida esses valores antes da migration e substitui configuracao herdada
-na candidata. Nenhum IP/CIDR real foi presumido ou publicado nesta alteracao.
+**Publicacao no ACA:** allowlists ausentes/vazias/`[]` selecionam a politica
+especifica do ingress HTTP gerenciado, com topologia verificada antes da migration
+e da promocao, conforme [preflight de proxy](forwarded-headers-production-preflight.md).
+Somente o IP acrescentado a direita pelo Azure e usado. Listas nao vazias
+continuam exigindo IPs/CIDRs verificados. Nenhuma rede privada e presumida.
 Cabeçalhos de clientes não confiáveis continuam ignorados; o teste do proxy
 confiável confirma que o prefixo do cliente não substitui o salto confiável.
 

@@ -144,19 +144,19 @@ Ordem esperada:
 1. `validate`;
 2. `publish` e `prepare-migrations`;
 3. aprovacao de `migrate-production`;
-4. preflight da allowlist de ingress e execucao unica do bundle;
-5. aprovacao de `deploy-api`;
+4. preflight do ingress HTTP e execucao unica do bundle;
+5. `deploy-api` depois da aprovacao unica de `migrate-production`;
 6. candidata a 0% e warm-up/smoke pela URL do label;
 7. troca de trafego, confirmacao de `CURRENT=100%` e restauracao automatica da
    revisao anterior se a promocao nao puder ser confirmada;
 8. cleanup idempotente, preservando somente `CURRENT` e `PREVIOUS`;
 9. workers depois da migration.
 
-Antes de publicar, configurar as variaveis de allowlist no Environment production
-conforme [preflight de proxy](forwarded-headers-production-preflight.md).
+No ingress HTTP gerenciado atual, as duas variaveis de allowlist podem permanecer
+ausentes, vazias ou `[]`, conforme [preflight de proxy](forwarded-headers-production-preflight.md).
 O workflow valida antes da migration, transporta o resultado para a candidata e
 substitui todas as configuracoes herdadas de proxy, incluindo indices antigos.
-Configuracao ausente/invalida impede o deploy com erro explicito.
+Topologia invalida ou listas nao vazias invalidas impedem o deploy com erro explicito.
 
 O SQL idempotente e o bundle ficam no artifact
 `production-migrations-<commit>` por 30 dias. O Job Summary registra commit,
