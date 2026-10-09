@@ -40,6 +40,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
 
+      - name: Test trusted proxy configuration
+        run: python3 -B -m unittest discover -s scripts/tests -p test_forwarded_headers.py -v
+
+      - name: Test bootstrap proxy payload without Azure
+        shell: pwsh
+        run: ./scripts/tests/test_bootstrap_proxy.ps1
+
       - name: Start SQL Server for relational tests
         shell: bash
         run: |
@@ -206,8 +213,20 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
+    outputs:
+      forwarded_headers_env: ${{ steps.proxy.outputs.environment }}
 
     steps:
+      - name: Checkout proxy preflight
+        uses: actions/checkout@v7.0.1
+
+      - name: Validate trusted ingress before migrations
+        id: proxy
+        env:
+          API_FORWARDED_HEADERS_KNOWN_PROXIES: ${{ vars.API_FORWARDED_HEADERS_KNOWN_PROXIES }}
+          API_FORWARDED_HEADERS_KNOWN_NETWORKS: ${{ vars.API_FORWARDED_HEADERS_KNOWN_NETWORKS }}
+        run: python3 -B scripts/forwarded_headers.py --github-output "$GITHUB_OUTPUT"
+
       - name: Download reviewed migration bundle
         uses: actions/download-artifact@v8.0.1
         with:
@@ -330,8 +349,10 @@ jobs:
         id: candidate
         env:
           NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+          FORWARDED_HEADERS_ENV: ${{ needs.migrate-production.outputs.forwarded_headers_env }}
         run: |
           set -euo pipefail
+          printf '[]' | python3 -B scripts/forwarded_headers.py --merge "$FORWARDED_HEADERS_ENV" > /dev/null
           new_relic_enabled=false
           if [ -n "$NEW_RELIC_LICENSE_KEY" ]; then
             az containerapp secret set \
@@ -380,24 +401,24 @@ jobs:
             exit 6
           fi
 
+          environment_json="$(jq -c '.properties.template.containers[0].env // []' <<<"$active_revision_json" \
+            | python3 -B scripts/forwarded_headers.py --merge "$FORWARDED_HEADERS_ENV")"
           containers="$(jq \
             --arg image "$API_IMAGE" \
             --arg commit "$GITHUB_SHA" \
             --arg new_relic_enabled "$new_relic_enabled" \
+            --argjson environment "$environment_json" \
             --argjson port "$target_port" '
               .properties.template.containers
               | .[0].image = $image
               | .[0].env = (
-                  (.[0].env // [])
+                  $environment
                   | map(select(
                       .name != "Deployment__CommitSha"
                       and .name != "Database__RunMigrationsOnStartup"
                       and .name != "Database__RunMaintenanceOnStartup"
                       and .name != "Database__SchemaManagedByDeployment"
                       and .name != "EventReminders__RunHostedProcessor"
-                      and .name != "ForwardedHeaders__Enabled"
-                      and .name != "ForwardedHeaders__ForwardLimit"
-                      and .name != "ForwardedHeaders__TrustAnyImmediateProxy"
                       and ($new_relic_enabled != "true" or (
                         .name != "CORECLR_ENABLE_PROFILING"
                         and .name != "NEW_RELIC_LICENSE_KEY"
@@ -410,10 +431,7 @@ jobs:
                       {name: "Database__RunMigrationsOnStartup", value: "false"},
                       {name: "Database__RunMaintenanceOnStartup", value: "false"},
                       {name: "Database__SchemaManagedByDeployment", value: "true"},
-                      {name: "EventReminders__RunHostedProcessor", value: "false"},
-                      {name: "ForwardedHeaders__Enabled", value: "true"},
-                      {name: "ForwardedHeaders__ForwardLimit", value: "1"},
-                      {name: "ForwardedHeaders__TrustAnyImmediateProxy", value: "true"}
+                      {name: "EventReminders__RunHostedProcessor", value: "false"}
                     ]
                   + (if $new_relic_enabled == "true" then [
                       {name: "CORECLR_ENABLE_PROFILING", value: "1"},
@@ -465,11 +483,16 @@ jobs:
                 }
               }
             ')"
-          if az containerapp revision show \
+          if existing_candidate_json="$(az containerapp revision show \
             --name "$API_NAME" \
             --resource-group "$API_RESOURCE_GROUP" \
             --revision "$candidate_revision" \
-            --output none 2>/dev/null; then
+            --output json 2>/dev/null)"; then
+            if ! jq -c '.properties.template.containers[0].env // []' <<<"$existing_candidate_json" \
+              | python3 -B scripts/forwarded_headers.py --merge "$FORWARDED_HEADERS_ENV" --verify-existing; then
+              echo "::error::Existing candidate proxy policy differs from the approved preflight. Reuse and promotion are blocked."
+              exit 8
+            fi
             echo "::notice::Reusing existing candidate revision '$candidate_revision'."
           else
             az rest \
@@ -530,6 +553,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Warm up and smoke test candidate
+        timeout-minutes: 12
         id: smoke
         env:
           CANDIDATE_REVISION: ${{ steps.candidate.outputs.candidate_revision }}
@@ -537,23 +561,29 @@ jobs:
         run: |
           set -euo pipefail
           ready=false
+          deadline=$((SECONDS + 600))
           for attempt in $(seq 1 30); do
-            revision_json="$(az containerapp revision show \
+            if [ "$SECONDS" -ge "$deadline" ]; then break; fi
+            revision_json="$(timeout 20s az containerapp revision show \
               --name "$API_NAME" \
               --resource-group "$API_RESOURCE_GROUP" \
               --revision "$CANDIDATE_REVISION" \
               --output json || true)"
             state="$(jq -r '[.properties.healthState,.properties.runningState,.properties.provisioningState] | @tsv' <<< "$revision_json" 2>/dev/null || true)"
             live_status="$(curl --silent --show-error --output /dev/null --write-out '%{http_code}' \
-              --connect-timeout 10 --max-time 20 "https://${CANDIDATE_FQDN}/livez" || true)"
+              --connect-timeout 5 --max-time 10 "https://${CANDIDATE_FQDN}/livez" || true)"
             ready_status="$(curl --silent --show-error --output /tmp/readiness.json --write-out '%{http_code}' \
-              --connect-timeout 10 --max-time 30 "https://${CANDIDATE_FQDN}/healthz" || true)"
+              --connect-timeout 5 --max-time 20 "https://${CANDIDATE_FQDN}/healthz" || true)"
             commit="$(jq -r '.properties.template.containers[0].env[]? | select(.name == "Deployment__CommitSha") | .value' <<< "$revision_json" 2>/dev/null || true)"
             if [[ "$state" == *"Healthy"* && "$state" == *"Running"* && "$live_status" = "200" && "$ready_status" = "200" && "$commit" = "$GITHUB_SHA" ]]; then
               ready=true
               break
             fi
-            echo "Candidate warm-up attempt ${attempt}/30 (live=${live_status}, ready=${ready_status})."
+            echo "Candidate warm-up attempt ${attempt}/30 (state=${state}, live=${live_status}, ready=${ready_status})."
+            if jq -e '.properties.provisioningState == "Failed" or .properties.runningState == "Failed"' <<<"$revision_json" > /dev/null 2>&1; then
+              echo "::error::Candidate startup/provisioning failed. Inspect its Azure console/system logs; promotion is blocked."
+              break
+            fi
             sleep $(( attempt < 6 ? attempt * 2 : 12 ))
           done
           rm -f /tmp/readiness.json
