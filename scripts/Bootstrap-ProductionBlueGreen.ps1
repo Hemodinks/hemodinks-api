@@ -3,7 +3,9 @@ param(
     [Parameter(Mandatory)]
     [string]$SubscriptionId,
     [string]$ResourceGroup = "rg-hemodinks-prod",
-    [string]$ContainerAppName = "hemodinks-api-prod"
+    [string]$ContainerAppName = "hemodinks-api-prod",
+    [string[]]$KnownProxies = @(),
+    [string[]]$KnownNetworks = @()
 )
 
 Set-StrictMode -Version Latest
@@ -11,6 +13,14 @@ $ErrorActionPreference = "Stop"
 
 if ($ResourceGroup -ne "rg-hemodinks-prod" -or $ContainerAppName -ne "hemodinks-api-prod") {
     throw "Este bootstrap e restrito a hemodinks-api-prod no Resource Group rg-hemodinks-prod."
+}
+
+$python = Get-Command python -ErrorAction Stop
+$trustedProxyEnvJson = & $python.Source "$PSScriptRoot/forwarded_headers.py" `
+    --known-proxies (ConvertTo-Json -InputObject @($KnownProxies) -Compress) `
+    --known-networks (ConvertTo-Json -InputObject @($KnownNetworks) -Compress)
+if ($LASTEXITCODE -ne 0) {
+    throw "Informe KnownProxies/KnownNetworks verificados para o ingress antes de executar o bootstrap."
 }
 
 if (-not (Get-Command az -ErrorAction SilentlyContinue)) {
@@ -93,15 +103,13 @@ $targetPort = [int]$app.properties.configuration.ingress.targetPort
 if ($targetPort -le 0) {
     throw "O Container App nao possui targetPort HTTP valido para configurar probes."
 }
-$environmentVariables = @($container.env)
+$environmentVariables = ConvertTo-Json -InputObject @($container.env) -Depth 30 -Compress |
+    & $python.Source "$PSScriptRoot/forwarded_headers.py" --merge $trustedProxyEnvJson |
+    ConvertFrom-Json
+if ($LASTEXITCODE -ne 0) { throw "Falha ao substituir a configuracao de proxy herdada." }
 foreach ($setting in @(
     @{ name = "Database__RunMigrationsOnStartup"; value = "false" },
-    @{ name = "Database__RunMaintenanceOnStartup"; value = "false" },
-    @{ name = "ForwardedHeaders__Enabled"; value = "true" },
-    @{ name = "ForwardedHeaders__ForwardLimit"; value = "1" },
-    # O Container App recebe trafego externo somente pelo ingress gerenciado.
-    # O limite de um salto impede que valores anteriores da cadeia sejam aceitos.
-    @{ name = "ForwardedHeaders__TrustAnyImmediateProxy"; value = "true" }
+    @{ name = "Database__RunMaintenanceOnStartup"; value = "false" }
 )) {
     $existing = $environmentVariables | Where-Object { $_.name -eq $setting.name } | Select-Object -First 1
     if ($null -eq $existing) {

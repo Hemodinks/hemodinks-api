@@ -42,23 +42,12 @@ Não há novo DbContext, CQRS de negócio ou política de retry paralela.
 
 ## Operação e Azure
 
-**Atualização #146:** confiança irrestrita no proxy agora é recusada. A descrição
-do workflow abaixo é histórica; antes de publicar, configurar proxies/redes
-explicitamente confiáveis conforme [contrato de autenticação](issue-146-authentication-rate-limiting.md#proxy-e-publicação-pendente).
-
-Não são necessárias migrations, novas credenciais ou mudanças de JWT, tenant,
-réplicas, auto-pause, probes ou permissões SQL. Publicar o backend antes do
-frontend; manter `VITE_API_URL` apontado para a API e o domínio do frontend em
-`Cors:AllowedOrigins`. A funcionalidade não foi publicada por esta alteração.
-
-O workflow atual `publish-container.yml` já configura `ForwardedHeaders__Enabled=true`,
-`ForwardedHeaders__ForwardLimit=1` e `ForwardedHeaders__TrustAnyImmediateProxy=true`.
-Nada disso foi alterado. A segurança dessa configuração pressupõe que o processo
-só receba tráfego pelo ingress gerenciado, sem acesso direto à porta da aplicação.
-O Azure acrescenta o IP à direita de `X-Forwarded-For`; somente esse último valor
-é fornecido pelo ingress. A configuração de um salto é coerente com esse caminho,
-mas a topologia real precisa ser confirmada em homologação.
-[Referência Azure](https://learn.microsoft.com/en-us/azure/container-apps/ingress-overview#http-headers).
+O workflow configura `ForwardedHeaders__Enabled=true`, `ForwardLimit=1` e uma
+allowlist explicita de IPs/CIDRs verificados, recusando confianca irrestrita.
+Configurar as variaveis no Environment production conforme o
+[preflight de proxy](forwarded-headers-production-preflight.md).
+A topologia real deve ser confirmada; somente o proxy imediato verificado pode
+fornecer o ultimo salto aceito de `X-Forwarded-For`.
 
 O limitador usa `RemoteIpAddress` depois do middleware existente. Fora desse
 ambiente protegido, manter a confiança restrita a proxies/redes conhecidos.

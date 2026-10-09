@@ -1,8 +1,10 @@
 import importlib.util
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
+import tempfile
 import unittest
 
 SCRIPT = Path(__file__).parents[1] / "forwarded_headers.py"
@@ -12,6 +14,22 @@ spec.loader.exec_module(m)
 
 
 class ForwardedHeadersTests(unittest.TestCase):
+    def test_preflight_transports_approved_json_and_invalid_policy_writes_nothing(self):
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / 'github-output'
+            environment = dict(os.environ, API_FORWARDED_HEADERS_KNOWN_PROXIES='[]',
+                               API_FORWARDED_HEADERS_KNOWN_NETWORKS='[]')
+            command = [sys.executable, '-B', str(SCRIPT), '--github-output', str(output)]
+            invalid = subprocess.run(command, env=environment, text=True, capture_output=True)
+            self.assertNotEqual(0, invalid.returncode)
+            self.assertFalse(output.exists())
+            environment['API_FORWARDED_HEADERS_KNOWN_NETWORKS'] = '["10.21.0.0/24"]'
+            valid = subprocess.run(command, env=environment, text=True, capture_output=True)
+            self.assertEqual(0, valid.returncode, valid.stderr)
+            self.assertEqual('', valid.stdout)
+            self.assertEqual(m.build_environment('[]', '["10.21.0.0/24"]'),
+                             json.loads(output.read_text().removeprefix('environment=')))
+
     def test_verified_allowlist_generates_explicit_single_hop_policy(self):
         values = {x["name"]: x["value"] for x in m.build_environment(
             '["10.20.0.4", "::ffff:10.20.0.4"]', '["10.21.0.0/24", "fd00:abcd::/64"]')}

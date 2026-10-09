@@ -83,12 +83,12 @@ com `ForwardLimit` adequado ao caminho real. `TrustAnyImmediateProxy=true` agora
 `KnownNetworks` com a fronteira real; sem configuração explícita, permanecem
 somente os padrões loopback do framework. Não usar uma rede universal.
 
-**Antes de publicar:** o workflow atual ainda define `TrustAnyImmediateProxy`.
-Ele precisa ser revisto com a topologia confirmada em homologação; não foi
-alterado nem executado nesta tarefa. Não publicar esta versão com aquela opção
-habilitada. Cabeçalhos de origem de clientes não confiáveis são ignorados;
-o teste do proxy confiável confirma que o prefixo fornecido pelo cliente não
-substitui o último salto confiável.
+**Antes de publicar:** configurar a allowlist de ingress no Environment production
+conforme [preflight de proxy](forwarded-headers-production-preflight.md). O workflow
+agora valida esses valores antes da migration e substitui configuracao herdada
+na candidata. Nenhum IP/CIDR real foi presumido ou publicado nesta alteracao.
+Cabeçalhos de clientes não confiáveis continuam ignorados; o teste do proxy
+confiável confirma que o prefixo do cliente não substitui o salto confiável.
 
 ## Evidências
 

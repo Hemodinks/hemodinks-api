@@ -109,8 +109,8 @@ O bootstrap:
 - valida subscription, Resource Group e nome exatos antes de alterar;
 - muda para multiple revisions;
 - reforca `Database__RunMigrationsOnStartup=false`;
-- habilita `ForwardedHeaders` com `ForwardLimit=1` para confiar somente no salto
-  imediato do ingress gerenciado do Azure Container Apps;
+- habilita `ForwardedHeaders` com `ForwardLimit=1` e allowlist explicita do proxy
+  imediato verificado, sem confianca irrestrita;
 - configura inicialmente probes HTTP compatíveis em `/healthz`, usando o target
   port atual; no primeiro rollout, o pipeline substitui startup/liveness por
   `/livez` e mantém readiness em `/healthz`;
@@ -125,9 +125,11 @@ az login
 az account set --subscription "<subscription-id>"
 ./scripts/Bootstrap-ProductionBlueGreen.ps1 `
   -SubscriptionId "<subscription-id>" `
+  -KnownProxies @("<IP verificado>") `
   -WhatIf
 ./scripts/Bootstrap-ProductionBlueGreen.ps1 `
-  -SubscriptionId "<subscription-id>"
+  -SubscriptionId "<subscription-id>" `
+  -KnownProxies @("<IP verificado>")
 ```
 
 Nao execute o bootstrap pelo GitHub Actions e nao o use em homologacao.
@@ -142,7 +144,7 @@ Ordem esperada:
 1. `validate`;
 2. `publish` e `prepare-migrations`;
 3. aprovacao de `migrate-production`;
-4. execucao unica do bundle;
+4. preflight da allowlist de ingress e execucao unica do bundle;
 5. aprovacao de `deploy-api`;
 6. candidata a 0% e warm-up/smoke pela URL do label;
 7. troca de trafego, confirmacao de `CURRENT=100%` e restauracao automatica da
@@ -150,14 +152,11 @@ Ordem esperada:
 8. cleanup idempotente, preservando somente `CURRENT` e `PREVIOUS`;
 9. workers depois da migration.
 
-**Pendência #146:** a API recusa `TrustAnyImmediateProxy=true` com forwarding habilitado.
-Antes da próxima publicação, revisar o workflow e configurar proxies/redes explicitamente
-confiáveis; ver [contrato de autenticação](issue-146-authentication-rate-limiting.md#proxy-e-publicação-pendente).
-
-Em cada revisao candidata, o workflow atualmente substitui explicitamente
-`ForwardedHeaders__Enabled`, `ForwardedHeaders__ForwardLimit` e
-`ForwardedHeaders__TrustAnyImmediateProxy`. Assim, a configuracao nao depende de
-valores herdados de uma revisao anterior.
+Antes de publicar, configurar as variaveis de allowlist no Environment production
+conforme [preflight de proxy](forwarded-headers-production-preflight.md).
+O workflow valida antes da migration, transporta o resultado para a candidata e
+substitui todas as configuracoes herdadas de proxy, incluindo indices antigos.
+Configuracao ausente/invalida impede o deploy com erro explicito.
 
 O SQL idempotente e o bundle ficam no artifact
 `production-migrations-<commit>` por 30 dias. O Job Summary registra commit,
