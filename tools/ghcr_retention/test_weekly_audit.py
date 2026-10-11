@@ -45,9 +45,54 @@ class InventoryTests(unittest.TestCase):
             with patch("sys.argv", ["weekly_audit", "--output", temp]):
                 self.assertEqual(main(), 2)
             report = json.loads((Path(temp) / "ghcr-retention-report.json").read_text())
-            self.assertEqual(report["status"], "BLOCKED")
+            self.assertEqual(report["status"], "ERROR")
             self.assertEqual(report["classification"]["candidate_count"], 0)
             self.assertFalse(report["classification"]["inventory_complete"])
+
+    @patch.dict(os.environ, {"GHCR_AUDIT_OWNER": "Hemodinks", "GHCR_AUDIT_PACKAGE": "hemodinks-api", "AZURE_SUBSCRIPTION_ID": "sub", "GHCR_AUDIT_RESOURCE_GROUP": "rg", "GHCR_AUDIT_CONTAINER_APP": "app"}, clear=True)
+    @patch("weekly_audit.collect_azure")
+    @patch("weekly_audit.collect_ghcr")
+    def test_complete_reads_stay_blocked_without_scope_proof(self, ghcr, azure):
+        ghcr.return_value = [{"package": "hemodinks-api", "id": 1, "digest": "sha256:" + "a"*64, "tags": [], "created_at": "2026-01-01T00:00:00Z"}]
+        azure.return_value = (["sha256:" + "a"*64], [], [{"revision": "blue", "image": "ghcr.io/api@sha256:" + "a"*64, "active": True}])
+        with tempfile.TemporaryDirectory() as temp:
+            with patch("sys.argv", ["weekly_audit", "--output", temp]):
+                self.assertEqual(main(), 0)
+            report = json.loads((Path(temp) / "ghcr-retention-report.json").read_text())
+            self.assertEqual(report["status"], "BLOCKED")
+            self.assertEqual(report["errors"], [])
+            self.assertTrue(report["blockers"])
+            self.assertTrue(report["collection"]["azure_revision_query_succeeded"])
+            self.assertFalse(report["deletion_authorized"])
+            self.assertEqual(report["classification"]["candidate_count"], 0)
+            self.assertFalse(report["classification"]["inventory_complete"])
+
+    @patch.dict(os.environ, {"GHCR_AUDIT_OWNER": "Hemodinks", "GHCR_AUDIT_PACKAGE": "hemodinks-api", "AZURE_SUBSCRIPTION_ID": "sub", "GHCR_AUDIT_RESOURCE_GROUP": "rg", "GHCR_AUDIT_CONTAINER_APP": "app"}, clear=True)
+    @patch("weekly_audit.collect_azure")
+    @patch("weekly_audit.collect_ghcr")
+    def test_ghcr_failure_returns_error(self, ghcr, azure):
+        ghcr.side_effect = RuntimeError("gh read failed with exit code 1")
+        azure.return_value = ([], [], [{"revision": "green", "image": "x", "active": True}])
+        with tempfile.TemporaryDirectory() as temp:
+            with patch("sys.argv", ["weekly_audit", "--output", temp]):
+                self.assertEqual(main(), 2)
+            report = json.loads((Path(temp) / "ghcr-retention-report.json").read_text())
+            self.assertEqual(report["status"], "ERROR")
+            self.assertFalse(report["classification"]["inventory_complete"])
+            self.assertEqual(report["classification"]["candidate_count"], 0)
+
+    @patch.dict(os.environ, {"GHCR_AUDIT_OWNER": "Hemodinks", "GHCR_AUDIT_PACKAGE": "hemodinks-api", "AZURE_SUBSCRIPTION_ID": "sub", "GHCR_AUDIT_RESOURCE_GROUP": "rg", "GHCR_AUDIT_CONTAINER_APP": "app"}, clear=True)
+    @patch("weekly_audit.collect_azure")
+    @patch("weekly_audit.collect_ghcr")
+    def test_azure_auth_failure_returns_error(self, ghcr, azure):
+        ghcr.return_value = [{"package": "hemodinks-api", "id": 1, "digest": "sha256:" + "b"*64, "tags": [], "created_at": "2026-01-01T00:00:00Z"}]
+        azure.side_effect = RuntimeError("az read failed with exit code 1")
+        with tempfile.TemporaryDirectory() as temp:
+            with patch("sys.argv", ["weekly_audit", "--output", temp]):
+                self.assertEqual(main(), 2)
+            report = json.loads((Path(temp) / "ghcr-retention-report.json").read_text())
+            self.assertEqual(report["status"], "ERROR")
+            self.assertEqual(report["classification"]["candidate_count"], 0)
 
     def test_no_delete_commands_exist_in_script(self):
         source = Path(__file__).with_name("weekly_audit.py").read_text()
