@@ -69,8 +69,10 @@ def collect_azure(subscription, group, app):
                 unresolved.append(image)
     return refs, unresolved, summary
 
-def build_report(result, azure_revisions, errors):
+def build_report(result, azure_revisions, errors, blockers, status):
     lines = ["# GHCR retention weekly audit", "",
+             f"- Audit status: **{status}**",
+             "- Deletion authorized: **False**",
              "- Mode: **dry-run only** (DELETE unavailable)",
              f"- Inventory complete: **{result['inventory_complete']}**",
              f"- Candidate count: **{result['candidate_count']}**",
@@ -80,8 +82,10 @@ def build_report(result, azure_revisions, errors):
              "| --- | --- | --- | --- |"]
     for v in result["results"]:
         lines.append(f"| {v['package']} | {v['id']} | {v['status']} | {', '.join(v['reasons'])} |")
+    if blockers:
+        lines += ["", "## Safety blockers (informational collection completed)"] + [f"- {b}" for b in blockers]
     if errors:
-        lines += ["", "## Blocking errors"] + [f"- {e}" for e in errors]
+        lines += ["", "## Collection errors"] + [f"- {e}" for e in errors]
     return "\n".join(lines) + "\n"
 
 def main():
@@ -89,7 +93,7 @@ def main():
     parser.add_argument("--output", type=Path, default=Path("ghcr-audit-output"))
     args = parser.parse_args()
     args.output.mkdir(parents=True, exist_ok=True)
-    errors, revisions = [], []
+    errors, blockers, revisions = [], [], []
     package = os.environ.get("GHCR_AUDIT_PACKAGE", "")
     owner = os.environ.get("GHCR_AUDIT_OWNER", "")
     subscription = os.environ.get("AZURE_SUBSCRIPTION_ID", "")
@@ -102,7 +106,7 @@ def main():
         "azure": {"complete": False, "protected_digests": [], "unresolved_image_references": []}
     }
     if not all((owner, package, subscription, group, app)):
-        errors.append("Missing explicit GHCR/Azure scope variables; audit blocked")
+        errors.append("Missing explicit GHCR/Azure scope variables; collection cannot run")
     else:
         try:
             inventory["ghcr"]["versions"] = collect_ghcr(owner, package)
@@ -117,26 +121,42 @@ def main():
             inventory["azure"]["unresolved_image_references"] = unknown
             # A single app is not enough to assert all protected environments
             # have been scanned, even when every digest is immutable.
-            errors.append("Environment/recovery scope not yet independently verified")
+            blockers.append("Environment/recovery scope not yet independently verified")
         except (OSError, RuntimeError, ValueError, KeyError, subprocess.TimeoutExpired, json.JSONDecodeError) as exc:
             errors.append(f"Azure inventory blocked: {type(exc).__name__}: {exc}")
+    # An observed revision list is not proof of complete recovery/environment scope.
+    # Keep classification fail-closed, even after successful reads.
+    if blockers:
+        inventory["azure"]["complete"] = False
     try:
         result = classify(inventory)
     except (ValueError, TypeError, KeyError) as exc:
         errors.append(f"Classification blocked: {type(exc).__name__}: {exc}")
         result = {"dry_run": True, "delete_enabled": False, "inventory_complete": False,
                   "candidate_count": 0, "results": []}
+    # Classifier candidates must never be trusted while scope is unverified.
+    if errors or blockers or not result["inventory_complete"]:
+        for entry in result["results"]:
+            if entry["status"] == "DELETE_CANDIDATE":
+                entry["status"] = "BLOCKED_INVENTORY"
+                entry["reasons"].append("BLOCKED_INVENTORY")
+        result["candidate_count"] = 0
+    status = "ERROR" if errors else ("BLOCKED" if blockers or not result["inventory_complete"] else "DRY_RUN")
     payload = {"generated_at_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
-               "status": "BLOCKED" if errors else "DRY_RUN", "errors": errors,
+               "status": status, "errors": errors, "blockers": blockers,
+               "deletion_authorized": False,
+               "collection": {"ghcr_complete": inventory["ghcr"]["complete"],
+                              "azure_revision_query_succeeded": bool(revisions),
+                              "scope_verified": False},
                "azure_revision_images": revisions, "classification": result}
     (args.output / "ghcr-retention-report.json").write_text(json.dumps(payload, indent=2) + "\n")
-    markdown = build_report(result, revisions, errors)
+    markdown = build_report(result, revisions, errors, blockers, status)
     (args.output / "ghcr-retention-report.md").write_text(markdown)
     summary = os.environ.get("GITHUB_STEP_SUMMARY")
     if summary:
         with open(summary, "a", encoding="utf-8") as file:
             file.write(markdown)
-    return 2 if errors or not result["inventory_complete"] else 0
+    return 2 if errors else 0
 
 if __name__ == "__main__":
     sys.exit(main())
