@@ -45,7 +45,7 @@ class InventoryTests(unittest.TestCase):
             with patch("sys.argv", ["weekly_audit", "--output", temp]):
                 self.assertEqual(main(), 2)
             report = json.loads((Path(temp) / "ghcr-retention-report.json").read_text())
-            self.assertEqual(report["status"], "BLOCKED")
+            self.assertEqual(report["status"], "ERROR")
             self.assertEqual(report["classification"]["candidate_count"], 0)
             self.assertFalse(report["classification"]["inventory_complete"])
 
