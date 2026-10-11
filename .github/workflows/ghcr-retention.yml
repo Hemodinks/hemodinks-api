@@ -48,12 +48,12 @@ jobs:
           path: ghcr-audit-output/
           if-no-files-found: warn
           retention-days: 30
-      - name: Fail closed if inventory incomplete
+      - name: Fail if audit collector failed
         if: always()
         env:
           AUDIT_OUTCOME: ${{ steps.audit.outcome }}
         run: |
           if [ "$AUDIT_OUTCOME" != "success" ]; then
-            echo "GHCR audit blocked or failed; no DELETE operations exist."
+            echo "GHCR audit collection failed; inspect artifacts. No DELETE operations exist."
             exit 1
           fi
