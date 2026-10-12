@@ -73,11 +73,12 @@ internal sealed class HemodinksApiFactory : WebApplicationFactory<Program>
                 services.Remove(descriptor);
             }
 
-            var eventWorker = services.FirstOrDefault(descriptor =>
+            var eventWorkers = services.Where(descriptor =>
                 descriptor.ServiceType == typeof(IHostedService)
-                && descriptor.ImplementationType == typeof(EventNotificationHostedService));
+                && (descriptor.ImplementationType == typeof(EventNotificationHostedService)
+                    || descriptor.ImplementationType == typeof(EventEmailDeliveryHostedService))).ToList();
 
-            if (eventWorker != null)
+            foreach (var eventWorker in eventWorkers)
             {
                 services.Remove(eventWorker);
             }

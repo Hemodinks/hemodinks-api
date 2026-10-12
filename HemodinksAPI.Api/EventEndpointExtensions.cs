@@ -28,6 +28,15 @@ public static partial class EventEndpointExtensions
             .WithName("GetEventById")
             .WithSummary("Buscar evento da agenda por ID");
 
+        group.MapGet("/{id:int}/email-notification", GetEventEmailNotification)
+            .WithName("GetEventEmailNotification")
+            .WithSummary("Consultar destinatarios e status de email do evento");
+
+        group.MapPost("/{id:int}/email-notification", QueueEventEmailNotification)
+            .WithName("QueueEventEmailNotification")
+            .WithSummary("Solicitar envio unico de email aos participantes do evento")
+            .RequireAuthorization("EquipeOperacaoSensivel");
+
         group.MapPost("/", CreateEvent)
             .WithName("CreateEvent")
             .WithSummary("Criar evento na agenda")
