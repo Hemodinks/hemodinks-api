@@ -16,8 +16,12 @@ public sealed class EventEmailConcurrencyTests
     [Trait("Category", "SqlServer")]
     public async Task ConcurrentRequestsAndWorkers_QueueAndClaimEachRecipientOnlyOnce()
     {
+        if (Environment.GetEnvironmentVariable("HEMODINKS_TEST_LOCALDB") != "1"
+            && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING")))
+            Assert.Skip("Configure an isolated SQL Server to verify event email concurrency and tenant isolation.");
+
         var databaseName = $"HemodinksEventEmailTest_{Guid.NewGuid():N}";
-        var connection = $"Server=(localdb)\\MSSQLLocalDB;Database={databaseName};Trusted_Connection=True;TrustServerCertificate=True";
+        var connection = SqlServerTestConnection.Create(databaseName);
         var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(connection).Options;
         await using var seed = new PlatformDbContext(options);
         try
@@ -71,9 +75,13 @@ public sealed class EventEmailConcurrencyTests
     [Trait("Category", "SqlServer")]
     public async Task RelationalOutbox_CannotLinkRecipientFromAnotherClinic()
     {
+        if (Environment.GetEnvironmentVariable("HEMODINKS_TEST_LOCALDB") != "1"
+            && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING")))
+            Assert.Skip("Configure an isolated SQL Server to verify event email concurrency and tenant isolation.");
+
         var databaseName = $"HemodinksEventEmailIsolationTest_{Guid.NewGuid():N}";
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlServer($"Server=(localdb)\\MSSQLLocalDB;Database={databaseName};Trusted_Connection=True;TrustServerCertificate=True").Options;
+            .UseSqlServer(SqlServerTestConnection.Create(databaseName)).Options;
         await using var db = new PlatformDbContext(options);
         try
         {
