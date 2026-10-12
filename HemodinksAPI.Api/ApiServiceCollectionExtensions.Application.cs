@@ -73,6 +73,27 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<ClinicaPlatformTeamRequestHandler>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IEventReminderProcessor, EventReminderProcessor>();
+        services.AddScoped<HemodinksAPI.Application.Data.IEventEmailFeatureDbContext>(sp => sp.GetRequiredService<AppDbContext>());
+        services.Configure<EventEmailFunctionOptions>(options =>
+        {
+            options.BaseUrl = configuration["EventEmailFunctions:BaseUrl"] ?? configuration["PasswordResetFunctions:BaseUrl"];
+            options.FunctionKey = configuration["EventEmailFunctions:FunctionKey"] ?? configuration["PasswordResetFunctions:FunctionKey"];
+        });
+        services.AddHttpClient(nameof(FunctionEventEmailSender), client => client.Timeout = TimeSpan.FromSeconds(50))
+            .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })
+            .RedactLoggedHeaders(["x-functions-key"]);
+        services.AddScoped<FunctionEventEmailSender>();
+        services.AddScoped<SmtpEventEmailSender>();
+        services.AddScoped<IEventEmailSender>(provider =>
+        {
+            var options = provider.GetRequiredService<Microsoft.Extensions.Options.IOptions<EventEmailFunctionOptions>>().Value;
+            return !string.IsNullOrWhiteSpace(options.BaseUrl) || !string.IsNullOrWhiteSpace(options.FunctionKey)
+                ? provider.GetRequiredService<FunctionEventEmailSender>()
+                : provider.GetRequiredService<SmtpEventEmailSender>();
+        });
+        services.AddScoped<EventEmailDeliveryProcessor>();
+        if (configuration.GetValue<bool?>("EventEmails:RunHostedProcessor") ?? true)
+            services.AddHostedService<EventEmailDeliveryHostedService>();
         services.AddScoped<SessionUseCases>();
         services.AddScoped<IAuthenticationSessionStore, EfAuthenticationSessionStore>();
         services.AddScoped<PublicClinicQueries>();

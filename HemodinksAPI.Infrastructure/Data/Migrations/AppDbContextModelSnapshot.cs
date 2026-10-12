@@ -1198,6 +1198,79 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.EventEmailDelivery", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("Attempts")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ClinicaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("LeaseId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("LeaseUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("NextAttemptAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RecipientEmail")
+                        .IsRequired()
+                        .HasMaxLength(320)
+                        .HasColumnType("nvarchar(320)");
+
+                    b.Property<int>("RecipientUserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SenderEquipeId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("SenderEquipeOperadorId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SenderUserId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("SentAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventId");
+
+                    b.HasIndex("ClinicaId", "RecipientUserId");
+
+                    b.HasIndex("ClinicaId", "SenderUserId");
+
+                    b.HasIndex("ClinicaId", "EventId", "RecipientEmail")
+                        .IsUnique();
+
+                    b.HasIndex("ClinicaId", "EventId", "RecipientUserId")
+                        .IsUnique();
+
+                    b.HasIndex("Status", "NextAttemptAt", "LeaseUntil");
+
+                    b.ToTable("EventEmailDeliveries", (string)null);
+                });
+
             modelBuilder.Entity("HemodinksAPI.Domain.Models.Faturamento", b =>
                 {
                     b.Property<int>("Id")
@@ -3214,6 +3287,41 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Navigation("MedicalUser");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.EventEmailDelivery", b =>
+                {
+                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HemodinksAPI.Domain.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HemodinksAPI.Domain.Models.User", "RecipientUser")
+                        .WithMany()
+                        .HasForeignKey("ClinicaId", "RecipientUserId")
+                        .HasPrincipalKey("ClinicaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HemodinksAPI.Domain.Models.User", "SenderUser")
+                        .WithMany()
+                        .HasForeignKey("ClinicaId", "SenderUserId")
+                        .HasPrincipalKey("ClinicaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("RecipientUser");
+
+                    b.Navigation("SenderUser");
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.Faturamento", b =>
