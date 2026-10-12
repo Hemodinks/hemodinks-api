@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Tests;
 
-public sealed class EventEmailNotificationTests
+public sealed partial class EventEmailNotificationTests
 {
     [Fact]
     public async Task PreviewAndQueue_DeduplicateHistoryAndSharedEmails_AndDoubleSubmitIsSafe()
@@ -231,7 +231,7 @@ public sealed class EventEmailNotificationTests
     {
         var sender = await AgendaSecurityTests.AddUser(db, "sender", profile);
         var recipient = await AgendaSecurityTests.AddUser(db, "recipient", Perfil.ControllerId);
-        var ev = new Event { ClinicaId = 1, UserId = sender.Id, Title = "Title <unsafe>",
+        var ev = new Event { ClinicaId = 1, UserId = sender.Id, CreatedByUserId = sender.Id, Title = "Title <unsafe>",
             Description = "Description", Start = DateTime.UtcNow.AddDays(1), End = DateTime.UtcNow.AddDays(1).AddHours(1) };
         db.Events.Add(ev); await db.SaveChangesAsync();
         db.AgendaNotifications.Add(Notification(ev, sender.Id, recipient.Id)); await db.SaveChangesAsync();

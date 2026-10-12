@@ -91,9 +91,12 @@ public sealed class ResolveLoginClinicsCommandHandler : IRequestHandler<ResolveL
         foreach (var user in users)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var membership = membershipLookup[(user.Id, user.ClinicaId)].FirstOrDefault(item =>
-                item.Ativo
-                && item.UsuarioGlobal.Ativo);
+            var membership = membershipLookup[(user.Id, user.ClinicaId)].FirstOrDefault();
+            // An existing revoked identity is not a legacy user awaiting migration.
+            if (membership != null && (!membership.Ativo || !membership.UsuarioGlobal.Ativo))
+            {
+                continue;
+            }
 
             var credentialValid = false;
 

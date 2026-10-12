@@ -103,6 +103,8 @@ public sealed class EventEmailDeliveryProcessor(
         if (ev.IsCompleted) return null;
         var users = await EventEmailRules.EligibleRecipientsAsync(db, ev.Id, actor, ct);
         var user = users.SingleOrDefault(item => item.Id == delivery.RecipientUserId);
+        if (user == null && delivery.RecipientUserId == ev.CreatedByUserId)
+            user = await EventEmailRules.EligibleCreatorAsync(db, ev, ct);
         if (user == null || EventEmailRules.NormalizeEmail(user.Email) != delivery.RecipientEmail) return null;
         var dates = ev.IsAllDay && ev.AllDayStartDate.HasValue && ev.AllDayEndDate.HasValue
             ? $"Datas: {ev.AllDayStartDate:dd/MM/yyyy} a {ev.AllDayEndDate:dd/MM/yyyy} (dia inteiro)."

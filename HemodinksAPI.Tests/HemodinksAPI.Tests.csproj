@@ -31,6 +31,7 @@
     <ProjectReference Include="..\HemodinksAPI.Api\HemodinksAPI.Api.csproj" />
     <ProjectReference Include="..\HemodinksAPI.Domain\HemodinksAPI.Domain.csproj" />
     <ProjectReference Include="..\HemodinksAPI.Infrastructure\HemodinksAPI.Infrastructure.csproj" />
+    <ProjectReference Include="..\HemodinksAPI.Workers\HemodinksAPI.Workers.csproj" Aliases="workers" />
   </ItemGroup>
 
 </Project>

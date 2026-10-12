@@ -1125,6 +1125,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
 
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Description")
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
@@ -1183,6 +1186,8 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ClinicaId", "CreatedByUserId");
 
                     b.HasIndex("ClinicaId", "MedicalUserId");
 
@@ -3268,6 +3273,12 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasForeignKey("ClinicaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("HemodinksAPI.Domain.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicaId", "CreatedByUserId")
+                        .HasPrincipalKey("ClinicaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("HemodinksAPI.Domain.Models.User", "MedicalUser")
                         .WithMany("MedicalEvents")

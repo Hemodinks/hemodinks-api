@@ -88,6 +88,7 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
 public class DeletePacienteCommand : IRequest
 {
     public int Id { get; set; }
+    public int CurrentUserId { get; set; }
     public int CurrentPerfilId { get; set; }
 }
 

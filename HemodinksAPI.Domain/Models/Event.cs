@@ -12,6 +12,9 @@ public class Event : IClinicaOwnedEntity
 
     public User User { get; set; } = null!;
 
+    // Authenticated creator, independent of the assignable event owner. Unknown for legacy events.
+    public int? CreatedByUserId { get; set; }
+
     public int? MedicalUserId { get; set; }
 
     public User? MedicalUser { get; set; }

@@ -63,6 +63,18 @@ public static class EventEmailRules
             .OrderBy(user => user.Id).ToListAsync(ct);
     }
 
+    public static async Task<User?> EligibleCreatorAsync(IEventEmailFeatureDbContext db, Event ev, CancellationToken ct)
+    {
+        if (!ev.CreatedByUserId.HasValue) return null;
+        var creator = await EventRecipientScope.ActiveUsers(db, ev.ClinicaId)
+            .SingleOrDefaultAsync(user => user.Id == ev.CreatedByUserId && user.PerfilId != Perfil.PacientesId, ct);
+        if (creator == null) return null;
+        var currentCreator = new CurrentUserContext(creator.Id, creator.PerfilId, creator.Nome, ev.ClinicaId);
+        // Authorship does not override a later loss of event visibility (including private teams).
+        return await EventFeatureRules.ApplyScope(db, db.Events.AsNoTracking(), currentCreator)
+            .AnyAsync(item => item.Id == ev.Id && item.ClinicaId == ev.ClinicaId, ct) ? creator : null;
+    }
+
     public static string? NormalizeEmail(string? email)
     {
         if (string.IsNullOrWhiteSpace(email) || email.Length > 320 || email.Contains('\r') || email.Contains('\n'))

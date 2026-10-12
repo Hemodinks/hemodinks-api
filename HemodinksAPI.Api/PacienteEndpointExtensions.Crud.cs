@@ -117,6 +117,7 @@ public static partial class PacienteEndpointExtensions
             await mediator.Send(new DeletePacienteCommand
             {
                 Id = id,
+                CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId
             }, cancellationToken);
 

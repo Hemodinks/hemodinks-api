@@ -1,5 +1,6 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Storage;
+using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -37,9 +38,12 @@ public class DeletePacienteCommandHandler : IRequestHandler<DeletePacienteComman
                 throw new UnauthorizedAccessException("Sem permissao para excluir paciente");
             }
 
-            var paciente = await _context.Pacientes
+            var query = _context.Pacientes
                 .Include(p => p.User)
-                .Include(p => p.Arquivos)
+                .Include(p => p.Arquivos);
+            var paciente = await PacienteAccess.ApplyScope(
+                    _context, query, request.CurrentPerfilId, request.CurrentUserId)
+                .AsTracking()
                 .FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken);
 
             if (paciente == null)

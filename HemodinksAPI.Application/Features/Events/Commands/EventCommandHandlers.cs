@@ -45,6 +45,7 @@ public sealed class EventCommandHandler :
             medicalUserId,
             isCreate: true);
         ev.ClinicaId = clinicaId;
+        ev.CreatedByUserId = request.CurrentUser.Id;
 
         EventNotificationMutations.AddAgendaNotifications(_context, ev, request.CurrentUser, request.Request, clinicaId);
         _context.Events.Add(ev);

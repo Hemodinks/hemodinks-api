@@ -47,7 +47,7 @@ public class FileExportFunction
         var containerName = _configuration["ExportsContainerName"] ?? "exports";
         var blobName = $"clinica-{job.ClinicaId}/{job.Resource}/{job.JobId:N}.{job.Format.ToLowerInvariant()}";
         var containerClient = new BlobContainerClient(GetStorageConnectionString(), containerName);
-        await containerClient.CreateIfNotExistsAsync(PublicAccessType.Blob, cancellationToken: cancellationToken);
+        await containerClient.CreateIfNotExistsAsync(PublicAccessType.None, cancellationToken: cancellationToken);
 
         var blobClient = containerClient.GetBlobClient(blobName);
         await using var stream = new MemoryStream(bytes);
