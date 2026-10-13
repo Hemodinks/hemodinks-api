@@ -22,6 +22,7 @@ public sealed class SessionLifetimeConcurrencyTests
     [InlineData("deadline")]
     [InlineData("activity")]
     [InlineData("deadline-during-save")]
+    [InlineData("credential-rotation")]
     public async Task ConcurrentRevocationOrDeadlineCannotResurrectSession(string scenario)
     {
         if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING"))
@@ -46,12 +47,30 @@ public sealed class SessionLifetimeConcurrencyTests
             Assert.NotNull(initial);
             var sessionId = (await setup.AuthenticationSessions.SingleAsync()).Id;
             var originalStart = clock.Now.UtcDateTime;
+            var originalSecurityVersion = member.UsuarioGlobal.SecurityVersion;
+            int rotationActorId = 0;
+            if (scenario == "credential-rotation")
+            {
+                var admin = new User { ClinicaId = user.ClinicaId, Nome = "Rotation actor", Email = "rotation-actor@example.invalid",
+                    Telefone = "11999998766", Senha = "test-hash", PerfilId = Perfil.AdministradorId, Ativo = true };
+                setup.Users.Add(admin);
+                await setup.SaveChangesAsync();
+                await GlobalIdentityService.EnsureForUserAsync(setup, admin, default);
+                rotationActorId = admin.Id;
+            }
 
             await using var first = new PlatformDbContext(options);
             await using var second = new PlatformDbContext(options);
             var secondStore = new EfAuthenticationSessionStore(second);
             var contestedStore = new InterleavingStore(new EfAuthenticationSessionStore(first), async () =>
             {
+                if (scenario == "credential-rotation")
+                {
+                    await new HemodinksAPI.Application.Features.Users.Commands.TemporaryAccessService(
+                        TestPasswordPolicy.Instance, second, new HemodinksAPI.Infrastructure.Utils.PasswordHasher(), clock)
+                        .GenerateAsync(user.Id, new(rotationActorId, Perfil.AdministradorId, "Rotation actor", user.ClinicaId), default);
+                    return;
+                }
                 if (scenario.StartsWith("deadline", StringComparison.Ordinal)) clock.Now = clock.Now.AddHours(12);
                 // Native SQL Server rowversion changes on this atomic update.
                 if (scenario != "deadline-during-save")
@@ -77,6 +96,14 @@ public sealed class SessionLifetimeConcurrencyTests
             Assert.Equal(originalStart, stored.CreatedAt);
             Assert.Null(await Service(new EfAuthenticationSessionStore(verify), clock)
                 .RefreshAsync(initial.RefreshToken, default));
+            if (scenario == "credential-rotation")
+            {
+                Assert.NotEqual(originalSecurityVersion, (await verify.UsuariosGlobais.SingleAsync(g => g.Id == member.UsuarioGlobalId)).SecurityVersion);
+                Assert.Equal(originalSecurityVersion, stored.SecurityVersion);
+                Assert.True((await verify.UsuariosGlobais.SingleAsync(g => g.Id == member.UsuarioGlobalId)).TemporaryPasswordRecovery);
+                Assert.Single(await verify.TemporaryAccessCredentials.Where(c => c.UsuarioGlobalId == member.UsuarioGlobalId).ToListAsync());
+                Assert.False((await Service(new EfAuthenticationSessionStore(verify), clock).ValidateAndTouchAsync(sessionId, default)).IsValid);
+            }
         }
         finally
         {
