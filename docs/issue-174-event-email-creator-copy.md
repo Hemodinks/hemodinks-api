@@ -93,3 +93,118 @@ Falhas: `EventReminderProcessorConcurrencyTests.ProcessDueReminders_ClaimsEventB
 Arquivos principais: `HemodinksAPI.Api/EventEndpointExtensions.Email.cs`; `HemodinksAPI.Application/Features/Events/EventEmailRequests.cs`, `EventEmailRequestHandlers.cs`, `EventEmailRules.cs` e `Commands/EventCommandHandlers.cs`; `HemodinksAPI.Domain/Models/Event.cs`; configuração, migration e snapshot em `HemodinksAPI.Infrastructure/Data/`; `HemodinksAPI.Infrastructure/Services/EventEmailDeliveryProcessor.cs`; testes `ApiEndpointEventEmailCopyTests`, `EventEmailCreatorCopyTests`, `EventEmailCreatorVisibilityTests`, `EventCreatorMigrationTests` e `EventEmailConcurrencyTests`.
 
 Status: implementação local concluída, com contrato documentado e verificações negativas/regressão/SQL executadas. Pendências externas: migration ainda não aplicada em ambiente implantado, frontend/E2E não executado e Full-Text Search indisponível no LocalDB para os dois testes amplos. Eventos legados sem autoria comprovada continuam sem cópia; FK de autoria restrita impede exclusão física de um criador enquanto eventos ainda o referenciam. Não houve alteração em AGENTS.md/.codex, regras de destinatários originais, lembretes ou permissões de acesso ao evento.
+
+## Reutilização do transporte de recuperação — 2026-10-13
+
+Verificação posterior da homologação confirmou o deploy `6c64170` e a aplicação
+de `20261012210010_AddEventAuthenticatedCreator` nos logs da publicação. O worker
+estava ativo, mas três entregas falharam repetidamente com `SmtpException`.
+Isso atualiza as pendências de publicação registradas acima para esse ambiente,
+sem afirmar entrega real ou disponibilidade do transporte em produção Azure.
+
+Remetente e SMTP já são compartilhados: os senders de recuperação/eventos usam
+`EmailOptions`, tanto na API quanto no worker. Não foi criado email, senha ou
+serviço novo. A recuperação também suporta Function HTTP e fila Azure; copiar
+somente o SMTP local não reproduz necessariamente seu canal efetivo.
+
+Corrigido `ApiServiceCollectionExtensions.Application.cs`: `EventEmailFunctions`
+ausente, vazio ou whitespace agora reutiliza **o par** `PasswordResetFunctions`
+(BaseUrl/FunctionKey). O operador não precisa duplicar secrets quando o canal de
+recuperação é a Function HTTP. O evento utiliza `/api/event-email/send`, já
+existente no mesmo worker, e seu SMTP/remetente compartilhados.
+
+Uma configuração própria não vazia requer **ambos os campos**. Configuração
+parcial falha antes da rede, sem misturar a chave da recuperação com outro host
+e sem cair silenciosamente no SMTP. Instalações que antes informavam somente
+um campo próprio precisam fornecer o par completo ou remover o override.
+HTTPS, redaction do header, validação de destinatário e HTTP 200 após conclusão
+do SMTP permanecem obrigatórios. Uma chave exclusiva da função de recuperação
+pode não autorizar a função de eventos; deve-se verificar sua autorização.
+
+Limite: recuperação que funciona exclusivamente por Azure Storage Queue não
+passa a enviar eventos por essa fila. Seu payload é específico para recuperação;
+não foi utilizado token fictício nem marcado `sent` após simples enfileiramento.
+Após login manual no painel Render, a consulta confirmou
+`AsyncQueues__PasswordResetEnabled=true`, `PasswordResetFunctions__BaseUrl`
+vazio e SMTP na porta 587. Portanto, a recuperação usa a fila Azure e o fallback
+HTTP desta correção, sozinho, não resolve o envio de eventos nesse ambiente.
+O plano Free do Render bloqueia saída SMTP nas portas 25/465/587
+([documentação oficial](https://render.com/docs/free)).
+
+A alternativa existente é configurar o par `EventEmailFunctions` para a rota
+HTTPS `/api/event-email/send` do mesmo worker Azure que processa a recuperação,
+preservando seu remetente e SMTP. Uma consulta sem chave e com payload vazio
+recebeu HTTP 401; isso não comprova autorização da chave nem entrega SMTP.
+A sessão local da CLI Azure expirou; o Cloud Shell autenticado permitiu concluir
+a consulta. A fila do Render é `password-reset-emails-confirmation`, igual à do
+worker `hemodinks-workers-confirmation`, que está `Running` e usa
+`smtp.gmail.com:587`. A lista de funções desse worker contém recuperação,
+exportação e uploads, mas **não contém `SendEventEmail`**; a consulta específica
+retornou `NotFound`. A função de eventos existe no worker de produção, cujo uso
+para homologação cruzaria ambientes e não foi adotado.
+
+É necessário publicar o pacote Workers na Function App de confirmação e,
+após verificar a nova função, configurar seu URL e chave restrita no par
+`EventEmailFunctions` do Render de homologação. O pacote inclui as outras
+funções existentes; app settings e fila de recuperação devem ser preservados.
+Nenhum secret foi revelado ou copiado, nenhuma configuração remota foi
+modificada e nenhum email real foi enviado. Publicação e aplicação do par no
+Render, que reiniciam os serviços envolvidos, dependem de autorização explícita.
+Não houve commit, push, merge ou deploy desta correção.
+
+Pacote local preparado com `dotnet publish HemodinksAPI.Workers/HemodinksAPI.Workers.csproj --configuration Release --no-restore --output out/issue-validation/event-email-worker-package --verbosity quiet`: sucesso, com avisos IDE0005 existentes.
+O `functions.metadata` contém `SendEventEmail` como POST protegido por
+`AuthorizationLevel.Function`, rota `event-email/send`, além das cinco funções
+existentes. O pacote não contém `local.settings.json` nem o arquivo de exemplo.
+Preparação local não publica nem altera configurações Azure/Render.
+
+O usuário autorizou publicar o pacote no worker de confirmação e configurar o
+par de eventos no Render de homologação. O bloqueio inicial de autenticação
+local foi resolvido com `az login` na sessão da CLI usada pela execução.
+
+### Publicação autorizada e validação do ambiente
+
+- ZIP local `event-email-worker-confirmation.zip`, SHA-256
+  `c380f8a655acbd7fbf1d21d6500b849a66d34d55feed15e3052636a6b7e77d96`,
+  inclui `.azurefunctions/` e não inclui `local.settings`.
+- Publicado somente em `hemodinks-workers-confirmation`, resource group
+  `hemodinks-workers-confirmation_group`. Deploy Azure
+  `6b6f5991-1101-4032-a72c-92ca27590aa4`: status 4, complete/active true,
+  concluído em 2026-10-13T22:32:25Z. A comparação integral dos app settings,
+  realizada em memória sem exibir valores, confirmou igualdade antes/depois.
+- A lista remota contém as seis funções, incluindo `SendEventEmail`.
+  Utilizada a chave existente restrita à função; nenhuma chave nova foi criada.
+  POST `{}` sem chave retornou 401; com chave retornou 400, antes do SMTP.
+  Esses probes não enviaram email e não comprovam entrega SMTP.
+- Adicionados somente `EventEmailFunctions__BaseUrl` e
+  `EventEmailFunctions__FunctionKey` no Render `hemodinks-api-1`, com merge das
+  variáveis existentes. URL aponta ao worker de confirmação; recuperação
+  continua pela fila `password-reset-emails-confirmation` e mesmo SMTP Azure.
+- A atualização das variáveis pelo conector Render iniciou automaticamente o
+  deploy `dep-db7b3ni5b2lc73f8evdg`, commit remoto existente `256cab8`, live em
+  2026-10-13T22:35:58Z. O diff entre esse commit e o anterior `6c64170` contém
+  somente dois arquivos de testes e documentação da #171, sem mudança de
+  código executável. Não houve commit/push/merge nesta execução. A correção
+  local de fallback/configuração descrita acima permanece sem publicação;
+  o par completo configurado funciona com o código já publicado.
+- Após o rollout, `/healthz` e `/livez` responderam HTTP 200,
+  `{"status":"Healthy"}`. A primeira consulta durante a implantação expirou;
+  a verificação posterior com o deploy live passou.
+
+Status: infraestrutura publicada/configurada e probes negativos/saúde aprovados.
+Entrega efetiva e cópia ao autor ainda exigem um evento/destinatário de teste
+autorizados; não houve email real nesta validação nem reprocessamento de
+entregas `failed`. Os HTTP 503 por `session_validation_busy` são uma ocorrência
+distinta de validação de sessão e não foram corrigidos por esta configuração.
+
+Complexidade moderada, risco alto de integração/configuração de credenciais.
+Architect (`high`) investigou/revisou; implementação pelo principal. Testes:
+`EventEmailRegistrationTests.cs` e classe parcial `StorageRegistrationTests`;
+compartilhamento da Function, blanks, override completo/parcial e SMTP preservado.
+Red: quatro falhas demonstraram o defeito. Regressão final: **106 aprovados,
+zero falhas/ignorados**, em 44s, incluindo recuperação de senha, transportes,
+cópia, permissões e clínica cruzada. Relatório ignorado pelo Git:
+`out/issue-validation/event-email-shared-config-regression.trx`.
+
+Comando: `dotnet test HemodinksAPI.Tests/HemodinksAPI.Tests.csproj --no-restore --filter "FullyQualifiedName~StorageRegistrationTests|FullyQualifiedName~EventEmailTransportTests|FullyQualifiedName~PasswordResetNotificationFallbackSenderTests|FullyQualifiedName~EventEmailNotificationTests|FullyQualifiedName~EventEmailCopy_|FullyQualifiedName~PasswordResetSecurity" --logger "trx;LogFileName=event-email-shared-config-regression.trx" --results-directory out/issue-validation --verbosity quiet`.
+Entregas anteriores em estado `failed` não são reiniciadas automaticamente por esta correção. Qualquer reprocessamento exige avaliação separada de destinatários, autorização e risco de duplicidade; não foi realizada alteração da fila no ambiente.
