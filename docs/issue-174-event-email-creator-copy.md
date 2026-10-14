@@ -208,3 +208,47 @@ cópia, permissões e clínica cruzada. Relatório ignorado pelo Git:
 
 Comando: `dotnet test HemodinksAPI.Tests/HemodinksAPI.Tests.csproj --no-restore --filter "FullyQualifiedName~StorageRegistrationTests|FullyQualifiedName~EventEmailTransportTests|FullyQualifiedName~PasswordResetNotificationFallbackSenderTests|FullyQualifiedName~EventEmailNotificationTests|FullyQualifiedName~EventEmailCopy_|FullyQualifiedName~PasswordResetSecurity" --logger "trx;LogFileName=event-email-shared-config-regression.trx" --results-directory out/issue-validation --verbosity quiet`.
 Entregas anteriores em estado `failed` não são reiniciadas automaticamente por esta correção. Qualquer reprocessamento exige avaliação separada de destinatários, autorização e risco de duplicidade; não foi realizada alteração da fila no ambiente.
+
+## Validação real autorizada — 2026-10-14
+
+O usuário autorizou os destinatários Gmail/Outlook de teste. Em 13/10, duas
+mensagens técnicas com identificador `HMD-EVENT-20261013-0b3a7132` foram enviadas
+pela Function de confirmação: HTTP 200 em ambos os casos. A busca restrita ao
+identificador confirmou a mensagem na caixa de entrada Gmail; a caixa Outlook
+não foi inspecionada. Isso comprovou o SMTP compartilhado do worker, sem dados
+de pacientes, mas ainda não comprovava o fluxo da agenda.
+
+A interface de homologação inicialmente não apresentava o checkbox de cópia.
+O PR frontend #170 foi posteriormente integrado pelo usuário, merge commit
+`8351640041bf4e5338d8c56bd5e8b1022396d802`; todos os checks GitHub passaram.
+QA (`medium`) revisou o HEAD `df79aa1` sem editar arquivos: 29 testes
+direcionados aprovados, build TypeScript/Vite aprovado, diff check aprovado e
+hook copy-only executado em memória com serviços simulados. O diff continuava
+restrito aos dez arquivos da correção #169. Não foi realizada nova publicação
+ou integração de frontend pelo executor nesta validação.
+
+E2E real em 14/10 na clínica de homologação originalmente utilizada:
+
+- Reutilizado o evento técnico `Teste técnico de e-mail HMD-EVENT-20261013-0b3a7132`,
+  criado no dia anterior com conteúdo sintético, sem participantes adicionais,
+  grupos selecionados ou lembretes. Entregas antigas com falha não foram alteradas.
+- Modal atualizado identificou o autor autenticado e seu email autorizado como
+  disponível. Seleção explícita de `Enviar cópia ao criador` mudou o preview de
+  zero para um destinatário e liberou a confirmação.
+- Uma confirmação colocou uma cópia na fila. Após atualizar somente o status,
+  a interface mostrou **1 enviado, 0 na fila, 0 falhas**, cópia solicitada e
+  confirmação desabilitada para evitar novo envio.
+- A busca Gmail pelo título técnico confirmou uma mensagem da agenda na caixa
+  de entrada, às 2026-10-14T12:23:55Z, distinta do teste direto do transporte.
+  Portanto, foram validados navegador → API → fila persistente → worker da API
+  → Function Azure → SMTP → caixa de entrada do autor.
+- O evento técnico foi marcado como concluído após o teste; histórico preservado.
+  A captura real está no diretório ignorado pelo Git:
+  `out/issue-validation/event-creator-copy-live-20261014.jpg`.
+
+Status: envio real de evento e cópia ao autor confirmados em homologação. A cópia
+continua opcional, mediante seleção no modal e autoria/email/acesso válidos.
+Limites restantes: não houve reenvio de falhas antigas nem teste da caixa Outlook;
+os HTTP 503 por `session_validation_busy` continuam uma investigação separada.
+Nenhum secret ou dado de paciente foi inserido no relatório. Sem commit/push/merge
+ou nova publicação pelo executor durante o teste real.
