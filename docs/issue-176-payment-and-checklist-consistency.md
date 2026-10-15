@@ -181,3 +181,28 @@ dos arquivos novos não encontrou secrets nem dados sensíveis reais.
 Sem alteração no ambiente de produção, nova dependência, migration, commit, push, merge ou
 deploy. Ajuste visual/nomenclatura/popup e exportações pertencem à dependência
 frontend #171 e não foram implementados no repositório API.
+
+## Revalidação em 15/10/2026
+
+A execução solicitada encontrou a entrega da #176 já presente no commit
+`03f658b`. A revisão do fluxo e a auditoria independente Security (`high`, modelo
+não informado pelo runtime) não identificaram lacuna adicional que exigisse
+alteração do código. Nesta rodada, somente este relatório foi atualizado.
+
+O comando direcionado acima foi reexecutado com o nome de resultado
+`issue176-revalidation-20261015.trx`: **96 aprovados, zero falhas e um ignorado**,
+97 casos no total. O ignorado continua sendo o teste opt-in de exclusão com SQL
+Server LocalDB. A suíte completa não foi repetida nesta rodada; os resultados
+históricos e seus limites permanecem descritos acima. Não foi executado E2E no
+frontend nem feita conciliação de registros reais sem seus IDs e filtros.
+
+A compilação emitiu avisos NU1902/NU1903 preexistentes para
+`System.Security.Cryptography.Pkcs` 9.0.4. A atualização da dependência requer
+tratamento separado. A revisão confirmou também o achado de autorização de
+Equipe no resumo financeiro descrito acima, de risco alto dentro da mesma clínica;
+essa rota não deve alimentar o popup da #171 antes da correção específica.
+
+Complexidade e risco altos; principal e Security participaram desta revalidação.
+A entrega técnica da API foi revalidada, mantendo as pendências de frontend,
+conciliação real e infraestrutura já explicitadas. Sem nova mudança de produção,
+dependência, migration, commit, merge ou deploy.
