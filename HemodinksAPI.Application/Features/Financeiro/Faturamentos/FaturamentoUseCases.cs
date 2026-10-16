@@ -61,7 +61,7 @@ public sealed class CriarFaturamentoCommandHandler(IFinanceFeatureDbContext db, 
 public sealed class ListarFaturamentosQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ListarFaturamentosQuery, List<FaturamentoDto>>
 {
     public async Task<List<FaturamentoDto>> Handle(ListarFaturamentosQuery request, CancellationToken ct) =>
-        (await ApplyScope(Full(db.Faturamentos.AsNoTracking()), request)
+        (await ApplyScope(ForResponse(db.Faturamentos.AsNoTracking()), request)
             .OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro)
             .ThenByDescending(x => x.Id).ToListAsync(ct)).Select(FinanceiroMapper.ToDto).ToList();
     private static IQueryable<Faturamento> ApplyScope(IQueryable<Faturamento> query, ListarFaturamentosQuery request) =>
@@ -70,9 +70,11 @@ public sealed class ListarFaturamentosQueryHandler(IFinanceFeatureDbContext db) 
                 || x.AtendimentoCirurgico.MedicoAuxiliar1Id == request.CurrentUserId
                 || x.AtendimentoCirurgico.MedicoAuxiliar2Id == request.CurrentUserId)
             : query;
-    internal static IQueryable<Faturamento> Full(IQueryable<Faturamento> query) => query
+    // FaturamentoDto contains items and appeals, but no accounts or receipts.
+    internal static IQueryable<Faturamento> ForResponse(IQueryable<Faturamento> query) => query
         .Include(x => x.AtendimentoCirurgico).ThenInclude(x => x.Paciente).Include(x => x.Itens)
-        .Include(x => x.Glosas).ThenInclude(x => x.Recursos)
+        .Include(x => x.Glosas).ThenInclude(x => x.Recursos);
+    internal static IQueryable<Faturamento> Full(IQueryable<Faturamento> query) => ForResponse(query)
         .Include(x => x.ContasReceber).ThenInclude(x => x.Recebimentos);
 }
 

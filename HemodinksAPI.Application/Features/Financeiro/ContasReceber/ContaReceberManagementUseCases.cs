@@ -79,7 +79,7 @@ public sealed class PesquisarFaturamentosQueryHandler(IFinanceFeatureDbContext d
 {
     public async Task<PagedResult<FaturamentoDto>> Handle(PesquisarFaturamentosQuery request, CancellationToken ct)
     {
-        FinanceiroManagementQueries.ValidatePage(request.Page, request.PageSize); var query = ListarFaturamentosQueryHandler.Full(db.Faturamentos.AsNoTracking());
+        FinanceiroManagementQueries.ValidatePage(request.Page, request.PageSize); var query = ListarFaturamentosQueryHandler.ForResponse(db.Faturamentos.AsNoTracking());
         if (request.CurrentPerfilId == Perfil.MedicosId) query = query.Where(x => x.AtendimentoCirurgico.MedicoResponsavelId == request.CurrentUserId || x.AtendimentoCirurgico.MedicoAuxiliar1Id == request.CurrentUserId || x.AtendimentoCirurgico.MedicoAuxiliar2Id == request.CurrentUserId);
         if (!string.IsNullOrWhiteSpace(request.Termo)) { var term = request.Termo.Trim(); query = query.Where(x => x.NumeroGuia!.Contains(term) || x.NumeroLote!.Contains(term) || x.AtendimentoCirurgico.Paciente.NomePaciente.Contains(term)); }
         if (request.Status.HasValue) query = query.Where(x => x.Status == request.Status);
