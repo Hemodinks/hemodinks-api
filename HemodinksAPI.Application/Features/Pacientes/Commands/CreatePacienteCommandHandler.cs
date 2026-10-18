@@ -83,11 +83,10 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             var email = await PacienteRules.ResolveEmailAsync(_context, request.Email, cpf, null, cancellationToken);
             var telefone = PacienteRules.ResolveTelefone(request.Telefone);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, null, cancellationToken);
-            var medico = await PacienteRules.ResolveMedicoAsync(
+            var medico = await PacienteRules.ResolveOptionalMedicoAsync(
                 _context,
                 request.CurrentPerfilId,
                 request.CurrentUserId,
-                request.CurrentUserName,
                 request.CurrentEquipeId,
                 request.MedicoUserId,
                 request.Medico,
@@ -108,7 +107,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 request.MedicoAuxiliar2UserId,
                 request.MedicoAuxiliar2,
                 cancellationToken);
-            PacienteRules.ValidateDistinctMedicos(medico, medicoAuxiliar1, medicoAuxiliar2);
+            HemodinksAPI.Domain.Services.SurgicalTeamRules.Validate(medico.UserId, medicoAuxiliar1.UserId, medicoAuxiliar2.UserId);
             var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
                 ? await PacienteRules.ResolveHospitalAsync(_context, clinicaId, request.HospitalId, request.Hospital, cancellationToken)
                 : null;

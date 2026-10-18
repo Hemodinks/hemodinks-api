@@ -8,7 +8,11 @@ internal sealed class AtendimentoCirurgicoConfiguration : IEntityTypeConfigurati
 {
     public void Configure(EntityTypeBuilder<AtendimentoCirurgico> entity)
     {
-        entity.ToTable("AtendimentosCirurgicos", table => table.HasCheckConstraint("CK_AtendimentosCirurgicos_MedicosDistintos", "([MedicoAuxiliar1Id] IS NULL OR [MedicoAuxiliar1Id] <> [MedicoResponsavelId]) AND ([MedicoAuxiliar2Id] IS NULL OR ([MedicoAuxiliar2Id] <> [MedicoResponsavelId] AND ([MedicoAuxiliar1Id] IS NULL OR [MedicoAuxiliar2Id] <> [MedicoAuxiliar1Id])))"));
+        entity.ToTable("AtendimentosCirurgicos", table =>
+        {
+            table.HasCheckConstraint("CK_AtendimentosCirurgicos_AuxiliaresDistintos", "[MedicoAuxiliar1Id] IS NULL OR [MedicoAuxiliar2Id] IS NULL OR [MedicoAuxiliar1Id] <> [MedicoAuxiliar2Id]");
+            table.HasCheckConstraint("CK_AtendimentosCirurgicos_EquipeObrigatoria", "[MedicoResponsavelId] IS NOT NULL OR [MedicoAuxiliar1Id] IS NOT NULL OR [MedicoAuxiliar2Id] IS NOT NULL");
+        });
         entity.HasKey(x => x.Id);
         entity.Property(x => x.ClinicaId).IsRequired();
         entity.Property(x => x.DataProcedimento).IsRequired();

@@ -6,7 +6,7 @@ namespace HemodinksAPI.Application.Features.Financeiro;
 
 public record ObterAtendimentoQuery(int Id, int CurrentUserId, int CurrentPerfilId) : IRequest<AtendimentoDto>;
 public record AtualizarAtendimentoCommand(int Id, DateTime DataProcedimento, int? HospitalId, int? ConvenioId,
-    int? OpmeFornecedorId, int MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id, string? Diagnostico,
+    int? OpmeFornecedorId, int? MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id, string? Diagnostico,
     string? TratamentoMedico, string? NumeroAutorizacao, AtendimentoCirurgicoStatus Status,
     decimal? ValorGlosa, string? MotivoGlosa, string? Observacao, List<AtendimentoProcedimentoInput> Procedimentos,
     int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<AtendimentoDto>;

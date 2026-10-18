@@ -14,8 +14,8 @@ public class AtendimentoCirurgico : IClinicaOwnedEntity
     public Convenio? Convenio { get; set; }
     public int? OpmeFornecedorId { get; set; }
     public Opme? OpmeFornecedor { get; set; }
-    public int MedicoResponsavelId { get; set; }
-    public User MedicoResponsavel { get; set; } = null!;
+    public int? MedicoResponsavelId { get; set; }
+    public User? MedicoResponsavel { get; set; }
     public int? MedicoAuxiliar1Id { get; set; }
     public User? MedicoAuxiliar1 { get; set; }
     public int? MedicoAuxiliar2Id { get; set; }

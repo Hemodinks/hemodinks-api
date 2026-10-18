@@ -9,7 +9,7 @@ public record AtendimentoProcedimentoInput(string? CbhpmCodigo, string? Descrica
 public record CriarAtendimentoCommand(
     int PacienteId, DateTime DataProcedimento, int? HospitalId, int? ConvenioId, int? OpmeFornecedorId,
     string? Hospital, string? Convenio, string? OpmeFornecedor,
-    int MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
+    int? MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
     string? Diagnostico, string? TratamentoMedico, string? NumeroAutorizacao,
     decimal? ValorGlosa, string? MotivoGlosa, string? Observacao,
     AtendimentoCirurgicoStatus Status, List<AtendimentoProcedimentoInput> Procedimentos) : IRequest<AtendimentoDto>
@@ -58,7 +58,7 @@ public record FaturamentoHistoricoArquivoDto(
     long TamanhoBytes,
     DateTime DataUpload);
 public record AtendimentoDto(int Id, int PacienteId, string Paciente, DateTime DataProcedimento, int? HospitalId,
-    int? ConvenioId, int? OpmeFornecedorId, string? OpmeFornecedor, int MedicoResponsavelId,
+    int? ConvenioId, int? OpmeFornecedorId, string? OpmeFornecedor, int? MedicoResponsavelId,
     int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
     string? Diagnostico, string? TratamentoMedico, string? NumeroAutorizacao,
     decimal? ValorGlosa, string? MotivoGlosa, string? Observacao,

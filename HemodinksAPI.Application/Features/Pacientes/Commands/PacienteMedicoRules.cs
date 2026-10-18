@@ -123,27 +123,4 @@ internal static partial class PacienteRules
             cancellationToken);
     }
 
-    public static void ValidateDistinctMedicos(params ResolvedMedico[] medicos)
-    {
-        var selectedIds = new HashSet<int>();
-        var selectedNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var medico in medicos)
-        {
-            if (medico.UserId.HasValue)
-            {
-                if (!selectedIds.Add(medico.UserId.Value))
-                {
-                    throw new InvalidOperationException("Cirurgiao e medicos auxiliares devem ser diferentes");
-                }
-
-                continue;
-            }
-
-            if (medico.Nome != null && !selectedNames.Add(medico.Nome))
-            {
-                throw new InvalidOperationException("Cirurgiao e medicos auxiliares devem ser diferentes");
-            }
-        }
-    }
 }

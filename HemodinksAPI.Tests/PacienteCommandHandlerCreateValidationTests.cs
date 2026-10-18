@@ -29,6 +29,11 @@ public partial class PacienteCommandHandlerTests
         });
         await context.SaveChangesAsync();
 
+        var doctor = new User { ClinicaId = clinicId, Nome = "Synthetic doctor",
+            Email = "surgical-doctor7@example.com", Telefone = string.Empty, Senha = "test-hash", PerfilId = Perfil.MedicosId };
+        context.Users.Add(doctor);
+        await context.SaveChangesAsync();
+
         var handler = new CreatePacienteCommandHandler(
             TestPasswordPolicy.Instance,
             context,
@@ -41,6 +46,7 @@ public partial class PacienteCommandHandlerTests
         await handler.Handle(new CreatePacienteCommand
         {
             NomePaciente = "Paciente com procedimento cirurgico",
+            MedicoUserId = doctor.Id,
             Hospital = "Hospital Manual da Clinica Sete",
             Convenio = "Convenio Manual da Clinica Sete",
             OpmeFornecedor = "OPME Manual da Clinica Sete",
@@ -225,7 +231,7 @@ public partial class PacienteCommandHandlerTests
     }
 
     [Fact]
-    public async Task CreatePaciente_WhenMedicalTeamHasDuplicates_ThrowsInvalidOperationException()
+    public async Task CreatePaciente_WhenAssistantsAreDuplicated_ThrowsInvalidOperationException()
     {
         await using var context = TestDbContextFactory.Create();
         var doctor = new User
@@ -258,6 +264,8 @@ public partial class PacienteCommandHandlerTests
             Medico = doctor.Nome,
             MedicoAuxiliar1UserId = doctor.Id,
             MedicoAuxiliar1 = doctor.Nome,
+            MedicoAuxiliar2UserId = doctor.Id,
+            MedicoAuxiliar2 = doctor.Nome,
             Procedimentos =
             [
                 new PacienteProcedimentoCommandDto
@@ -269,7 +277,7 @@ public partial class PacienteCommandHandlerTests
             CurrentPerfilId = Perfil.AdministradorId
         }, CancellationToken.None));
 
-        Assert.Equal("Cirurgiao e medicos auxiliares devem ser diferentes", exception.Message);
+        Assert.Equal("Os medicos auxiliares devem ser diferentes.", exception.Message);
         Assert.Empty(await context.Pacientes.ToListAsync());
     }
 
@@ -422,6 +430,7 @@ public partial class PacienteCommandHandlerTests
         var response = await handler.Handle(new CreatePacienteCommand
         {
             NomePaciente = "Paciente Medico",
+            MedicoUserId = doctor.Id,
             DataNascimento = new DateTime(1990, 1, 1),
             Data = new DateTime(2026, 6, 10),
             HospitalId = 1,

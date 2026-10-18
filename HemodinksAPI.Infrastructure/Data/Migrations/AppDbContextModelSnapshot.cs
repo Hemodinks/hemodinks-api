@@ -157,7 +157,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Property<int?>("MedicoAuxiliar2Id")
                         .HasColumnType("int");
 
-                    b.Property<int>("MedicoResponsavelId")
+                    b.Property<int?>("MedicoResponsavelId")
                         .HasColumnType("int");
 
                     b.Property<string>("MotivoGlosa")
@@ -207,7 +207,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.ToTable("AtendimentosCirurgicos", null, t =>
                         {
-                            t.HasCheckConstraint("CK_AtendimentosCirurgicos_MedicosDistintos", "([MedicoAuxiliar1Id] IS NULL OR [MedicoAuxiliar1Id] <> [MedicoResponsavelId]) AND ([MedicoAuxiliar2Id] IS NULL OR ([MedicoAuxiliar2Id] <> [MedicoResponsavelId] AND ([MedicoAuxiliar1Id] IS NULL OR [MedicoAuxiliar2Id] <> [MedicoAuxiliar1Id])))");
+                            t.HasCheckConstraint("CK_AtendimentosCirurgicos_AuxiliaresDistintos", "[MedicoAuxiliar1Id] IS NULL OR [MedicoAuxiliar2Id] IS NULL OR [MedicoAuxiliar1Id] <> [MedicoAuxiliar2Id]");
+
+                            t.HasCheckConstraint("CK_AtendimentosCirurgicos_EquipeObrigatoria", "[MedicoResponsavelId] IS NOT NULL OR [MedicoAuxiliar1Id] IS NOT NULL OR [MedicoAuxiliar2Id] IS NOT NULL");
                         });
                 });
 
@@ -3012,8 +3014,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .WithMany()
                         .HasForeignKey("ClinicaId", "MedicoResponsavelId")
                         .HasPrincipalKey("ClinicaId", "Id")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("HemodinksAPI.Domain.Models.Paciente", "Paciente")
                         .WithMany("AtendimentosCirurgicos")

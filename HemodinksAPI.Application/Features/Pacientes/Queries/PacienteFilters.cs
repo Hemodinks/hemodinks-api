@@ -49,10 +49,20 @@ internal static class PacienteFilters
                     // Navegacoes com filtro global de clinica viram derived tables no SQL.
                     // O SQL Server nao permite CONTAINS sobre a coluna projetada delas.
                     (p.MedicoUser != null && p.MedicoUser.Nome.Contains(medico))
-                    || (p.Medico != null && FullTextSearch.Contains(p.Medico, condition)))
+                    || (p.Medico != null && FullTextSearch.Contains(p.Medico, condition))
+                    || !p.MedicoUserId.HasValue && (
+                        (p.MedicoAuxiliar1User != null && p.MedicoAuxiliar1User.Nome.Contains(medico))
+                        || (p.MedicoAuxiliar1 != null && p.MedicoAuxiliar1.Contains(medico))
+                        || (p.MedicoAuxiliar2User != null && p.MedicoAuxiliar2User.Nome.Contains(medico))
+                        || (p.MedicoAuxiliar2 != null && p.MedicoAuxiliar2.Contains(medico))))
                 : query.Where(p =>
                     (p.MedicoUser != null && p.MedicoUser.Nome.Contains(medico))
-                    || (p.Medico != null && p.Medico.Contains(medico)));
+                    || (p.Medico != null && p.Medico.Contains(medico))
+                    || !p.MedicoUserId.HasValue && (
+                        (p.MedicoAuxiliar1User != null && p.MedicoAuxiliar1User.Nome.Contains(medico))
+                        || (p.MedicoAuxiliar1 != null && p.MedicoAuxiliar1.Contains(medico))
+                        || (p.MedicoAuxiliar2User != null && p.MedicoAuxiliar2User.Nome.Contains(medico))
+                        || (p.MedicoAuxiliar2 != null && p.MedicoAuxiliar2.Contains(medico))));
         }
 
         if (!string.IsNullOrWhiteSpace(convenio))
@@ -81,7 +91,10 @@ internal static class PacienteFilters
 
         if (medicoUserIds.Length > 0)
         {
-            query = query.Where(p => p.MedicoUserId.HasValue && medicoUserIds.Contains(p.MedicoUserId.Value));
+            query = query.Where(p => p.MedicoUserId.HasValue && medicoUserIds.Contains(p.MedicoUserId.Value)
+                || !p.MedicoUserId.HasValue && (
+                    p.MedicoAuxiliar1UserId.HasValue && medicoUserIds.Contains(p.MedicoAuxiliar1UserId.Value)
+                    || p.MedicoAuxiliar2UserId.HasValue && medicoUserIds.Contains(p.MedicoAuxiliar2UserId.Value)));
         }
 
         if (convenioIds.Length > 0)

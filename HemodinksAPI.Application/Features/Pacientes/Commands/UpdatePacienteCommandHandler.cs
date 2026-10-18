@@ -82,11 +82,10 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 ? paciente.User.Telefone
                 : PacienteRules.ResolveTelefone(request.Telefone);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, paciente.User.FotoPerfil, cancellationToken);
-            var medico = await PacienteRules.ResolveMedicoAsync(
+            var medico = await PacienteRules.ResolveOptionalMedicoAsync(
                 _context,
                 request.CurrentPerfilId,
                 request.CurrentUserId,
-                request.CurrentUserName,
                 request.CurrentEquipeId,
                 request.MedicoUserId,
                 request.Medico,
@@ -107,7 +106,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 request.MedicoAuxiliar2UserId,
                 request.MedicoAuxiliar2,
                 cancellationToken);
-            PacienteRules.ValidateDistinctMedicos(medico, medicoAuxiliar1, medicoAuxiliar2);
+            HemodinksAPI.Domain.Services.SurgicalTeamRules.Validate(medico.UserId, medicoAuxiliar1.UserId, medicoAuxiliar2.UserId);
             var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
                 ? await PacienteRules.ResolveHospitalAsync(_context, clinicaId, request.HospitalId, request.Hospital, cancellationToken)
                 : null;

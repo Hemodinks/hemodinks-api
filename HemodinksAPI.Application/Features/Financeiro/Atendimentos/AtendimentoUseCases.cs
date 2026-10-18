@@ -17,10 +17,9 @@ public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, 
             throw new InvalidOperationException("Data e ao menos um procedimento sao obrigatorios.");
         if (request.ValorGlosa < 0 || request.ValorGlosa > 0 && string.IsNullOrWhiteSpace(request.MotivoGlosa))
             throw new InvalidOperationException("Informe um valor de glosa valido e o respectivo motivo.");
-        var medicoResponsavelId = request.CurrentPerfilId == Perfil.MedicosId ? request.CurrentUserId : request.MedicoResponsavelId;
-        var ids = new[] { medicoResponsavelId, request.MedicoAuxiliar1Id ?? 0, request.MedicoAuxiliar2Id ?? 0 }.Where(x => x > 0).ToList();
-        if (ids.Distinct().Count() != ids.Count)
-            throw new InvalidOperationException("Os medicos do atendimento devem ser distintos.");
+        var medicoResponsavelId = request.MedicoResponsavelId;
+        await AtendimentoMedicalTeamRules.ValidateAsync(db, medicoResponsavelId, request.MedicoAuxiliar1Id,
+            request.MedicoAuxiliar2Id, request.CurrentPerfilId, request.CurrentUserId, ct);
         var paciente = await db.Pacientes.SingleOrDefaultAsync(x => x.Id == request.PacienteId, ct)
             ?? throw new KeyNotFoundException("Paciente nao encontrado.");
         var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
@@ -29,9 +28,6 @@ public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, 
         var convenio = await ClinicalReferenceResolver.ResolveConvenioAsync(db, clinicaId, request.ConvenioId, request.Convenio, ct);
         var opmeFornecedor = await ClinicalReferenceResolver.ResolveOpmeFornecedorAsync(
             db, clinicaId, request.OpmeFornecedorId, request.OpmeFornecedor, ct);
-        if (await db.Users.CountAsync(x => ids.Contains(x.Id) && x.PerfilId == Perfil.MedicosId && x.Ativo, ct) != ids.Count)
-            throw new InvalidOperationException("Selecione apenas medicos ativos da clinica.");
-
         var atendimento = new AtendimentoCirurgico
         {
             ClinicaId = clinicaId, Paciente = paciente, DataProcedimento = request.DataProcedimento,
