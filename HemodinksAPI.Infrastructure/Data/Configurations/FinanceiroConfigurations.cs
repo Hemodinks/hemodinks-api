@@ -12,10 +12,12 @@ internal sealed class AtendimentoCirurgicoConfiguration : IEntityTypeConfigurati
         {
             table.HasCheckConstraint("CK_AtendimentosCirurgicos_AuxiliaresDistintos", "[MedicoAuxiliar1Id] IS NULL OR [MedicoAuxiliar2Id] IS NULL OR [MedicoAuxiliar1Id] <> [MedicoAuxiliar2Id]");
             table.HasCheckConstraint("CK_AtendimentosCirurgicos_EquipeObrigatoria", "[MedicoResponsavelId] IS NOT NULL OR [MedicoAuxiliar1Id] IS NOT NULL OR [MedicoAuxiliar2Id] IS NOT NULL");
+            table.HasCheckConstraint("CK_AtendimentosCirurgicos_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia')");
         });
         entity.HasKey(x => x.Id);
         entity.Property(x => x.ClinicaId).IsRequired();
         entity.Property(x => x.DataProcedimento).IsRequired();
+        entity.Property(x => x.TipoCirurgia).HasConversion<string>().HasMaxLength(20).HasDefaultValue(TipoCirurgia.Eletiva);
         entity.Property(x => x.Diagnostico).HasMaxLength(1000);
         entity.Property(x => x.TratamentoMedico).HasMaxLength(1000);
         entity.Property(x => x.NumeroAutorizacao).HasMaxLength(255);

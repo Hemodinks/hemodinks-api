@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Text.Json;
@@ -73,20 +74,30 @@ public class FileExportFunction
 
     private static byte[] CreatePdf(FileExportQueueMessage job)
     {
-        var lines = CreateExportLines(job);
-        var text = string.Join("\\n", lines);
-        var content = $"BT /F1 11 Tf 50 760 Td ({EscapePdfText(text)}) Tj ET";
+        var lines = CreateDocumentRows(job).SelectMany(FormatPdfRow).ToArray();
+        // A3 landscape keeps the complete clinical table legible without dropping columns.
+        var pages = lines.Chunk(68).ToArray();
+        var pageReferences = new List<string>();
         var objects = new List<string>
         {
             "<< /Type /Catalog /Pages 2 0 R >>",
-            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
-            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
-            $"<< /Length {Encoding.ASCII.GetByteCount(content)} >>\nstream\n{content}\nendstream"
+            string.Empty,
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>"
         };
+        for (var page = 0; page < pages.Length; page++)
+        {
+            var pageObject = objects.Count + 1;
+            pageReferences.Add($"{pageObject} 0 R");
+            var text = new[] { $"HemoDinks | {job.Resource} | {job.ReportType} | pagina {page + 1}/{pages.Length}" }
+                .Concat(pages[page]);
+            var content = "BT /F1 8 Tf 11 TL 35 807 Td\n" + string.Join("\nT*\n", text.Select(line => $"({EscapePdfText(line)}) Tj")) + "\nET";
+            objects.Add($"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 1191 842] /Resources << /Font << /F1 3 0 R >> >> /Contents {pageObject + 1} 0 R >>");
+            objects.Add($"<< /Length {Encoding.Latin1.GetByteCount(content)} >>\nstream\n{content}\nendstream");
+        }
+        objects[1] = $"<< /Type /Pages /Kids [{string.Join(' ', pageReferences)}] /Count {pages.Length} >>";
 
         using var stream = new MemoryStream();
-        using var writer = new StreamWriter(stream, Encoding.ASCII, leaveOpen: true);
+        using var writer = new StreamWriter(stream, Encoding.Latin1, leaveOpen: true);
         writer.WriteLine("%PDF-1.4");
         var offsets = new List<long> { 0 };
 
@@ -162,10 +173,10 @@ public class FileExportFunction
 
     private static string CreateWorksheetXml(FileExportQueueMessage job)
     {
-        var rows = CreateExportLines(job)
-            .Select((value, index) => $"""
+        var rows = CreateDocumentRows(job)
+            .Select((values, index) => $"""
                 <row r="{index + 1}">
-                  <c r="A{index + 1}" t="inlineStr"><is><t>{WebUtility.HtmlEncode(value)}</t></is></c>
+                  {string.Join(string.Empty, values.Select((value, column) => $"<c r=\"{ColumnName(column)}{index + 1}\" t=\"inlineStr\"><is><t xml:space=\"preserve\">{WebUtility.HtmlEncode(XmlText(value ?? string.Empty))}</t></is></c>"))}
                 </row>
                 """);
 
@@ -188,6 +199,7 @@ public class FileExportFunction
         return
         [
             "Hemodinks exportacao",
+            "Solicitacao legada: somente metadados; este arquivo nao contem registros clinicos.",
             $"Job: {job.JobId}",
             $"Recurso: {job.Resource}",
             $"Formato: {job.Format}",
@@ -197,6 +209,77 @@ public class FileExportFunction
             $"Solicitado em UTC: {job.RequestedAt:O}",
             $"Filtros: {filters}"
         ];
+    }
+
+    private static IEnumerable<string?[]> CreateDocumentRows(FileExportQueueMessage job)
+    {
+        if (job.Snapshot == null)
+        {
+            foreach (var line in CreateExportLines(job)) yield return [line];
+            yield break;
+        }
+        yield return ["Hemodinks exportacao", job.Resource, job.ReportType];
+        yield return ["Registros", job.Snapshot.TotalRows.ToString(CultureInfo.InvariantCulture)];
+        yield return ["Solicitado em UTC", job.RequestedAt.ToString("O", CultureInfo.InvariantCulture)];
+        if (job.ReportType == "completo")
+        {
+            yield return job.Snapshot.Columns.Select(column => (string?)column).ToArray();
+            foreach (var row in job.Snapshot.Rows) yield return row;
+        }
+        yield return ["Totais por tipo de cirurgia"];
+        yield return ["Tipo cirurgia", "Quantidade", "Honorarios cirurgiao", "Honorarios auxiliares", "Repasse medico", "Valor glosa"];
+        foreach (var total in job.Snapshot.Totals)
+            yield return [total.TipoCirurgia, total.Count.ToString(CultureInfo.InvariantCulture),
+                Money(total.HonorariosCirurgiao), Money(total.HonorariosAuxiliares), Money(total.RepasseMedico), Money(total.ValorGlosa)];
+        yield return ["Total", job.Snapshot.TotalRows.ToString(CultureInfo.InvariantCulture),
+            Money(Sum(job.Snapshot.Totals.Select(total => total.HonorariosCirurgiao))),
+            Money(Sum(job.Snapshot.Totals.Select(total => total.HonorariosAuxiliares))),
+            Money(Sum(job.Snapshot.Totals.Select(total => total.RepasseMedico))),
+            Money(Sum(job.Snapshot.Totals.Select(total => total.ValorGlosa)))];
+    }
+
+    private static string? Money(decimal? value) => value?.ToString("F2", CultureInfo.InvariantCulture);
+
+    private static decimal? Sum(IEnumerable<decimal?> values)
+    {
+        var known = values.Where(value => value.HasValue).ToArray();
+        return known.Length == 0 ? null : known.Sum();
+    }
+
+    private static string ColumnName(int index)
+    {
+        var name = string.Empty;
+        for (var value = index + 1; value > 0; value = (value - 1) / 26)
+            name = (char)('A' + (value - 1) % 26) + name;
+        return name;
+    }
+
+    private static string XmlText(string value) => string.Concat(value.Where(character =>
+        character is '\t' or '\r' or '\n' || character >= ' ' && character is not '\uFFFE' and not '\uFFFF'));
+
+    private static IEnumerable<string> FormatPdfRow(string?[] row)
+    {
+        int[] widths = row.Length switch
+        {
+            14 => [7, 22, 10, 8, 16, 16, 16, 14, 27, 10, 10, 10, 10, 10],
+            6 => [24, 12, 24, 24, 24, 24],
+            _ => Enumerable.Repeat(Math.Max(15, 180 / Math.Max(1, row.Length)), row.Length).ToArray()
+        };
+        var cells = row.Select((value, index) => WrapPdfText(value ?? string.Empty, widths[index]).ToArray()).ToArray();
+        var height = cells.Length == 0 ? 1 : cells.Max(cell => cell.Length);
+        for (var line = 0; line < height; line++)
+            yield return string.Join(" | ", cells.Select((cell, index) => (line < cell.Length ? cell[line] : string.Empty).PadRight(widths[index])));
+    }
+
+    private static IEnumerable<string> WrapPdfText(string value, int width)
+    {
+        // Built-in PDF fonts cover Portuguese Latin text. Preserve other characters as explicit
+        // Unicode escapes instead of silently replacing or truncating clinical information.
+        var safe = string.Concat(value.Select(character => character is '\r' or '\n' or '\t' ? " "
+            : character < ' ' || character > '\u00FF' ? $"\\u{(int)character:X4}" : character.ToString()));
+        if (safe.Length == 0) { yield return string.Empty; yield break; }
+        for (var offset = 0; offset < safe.Length; offset += width)
+            yield return safe.Substring(offset, Math.Min(width, safe.Length - offset));
     }
 
     private static string EscapePdfText(string text)

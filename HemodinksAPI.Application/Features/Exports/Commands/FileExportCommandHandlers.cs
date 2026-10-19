@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Async;
+using HemodinksAPI.Domain.Models;
 using MediatR;
 
 namespace HemodinksAPI.Application.Features.Exports.Commands;
@@ -20,13 +21,16 @@ public class RequestFileExportCommandHandler : IRequestHandler<RequestFileExport
 
     private readonly IFileExportQueue _fileExportQueue;
     private readonly ILogger<RequestFileExportCommandHandler> _logger;
+    private readonly ISender _sender;
 
     public RequestFileExportCommandHandler(
         IFileExportQueue fileExportQueue,
-        ILogger<RequestFileExportCommandHandler> logger)
+        ILogger<RequestFileExportCommandHandler> logger,
+        ISender sender)
     {
         _fileExportQueue = fileExportQueue;
         _logger = logger;
+        _sender = sender;
     }
 
     public async Task<RequestFileExportResponse> Handle(RequestFileExportCommand request, CancellationToken cancellationToken)
@@ -46,6 +50,16 @@ public class RequestFileExportCommandHandler : IRequestHandler<RequestFileExport
             throw new InvalidOperationException("Formato de exportacao invalido. Use PDF ou XLSX.");
         }
 
+        var reportType = string.IsNullOrWhiteSpace(request.ReportType) ? "completo" : request.ReportType.Trim().ToLowerInvariant();
+        if (reportType is not ("completo" or "sintetico"))
+            throw new InvalidOperationException("Tipo de relatorio invalido. Use completo ou sintetico.");
+        if (currentUser.ClinicaId <= 0 || currentUser.IsEquipe && !currentUser.EquipeId.HasValue)
+            throw new UnauthorizedAccessException("Contexto de exportacao invalido.");
+        if (resource == "faturamentos-medicos" && !(currentUser.IsAdministrador || currentUser.IsController || currentUser.IsMedico || currentUser.IsEquipe))
+            throw new UnauthorizedAccessException("Sem permissao para exportar faturamentos medicos.");
+        if (resource == "cbhpm" && (reportType != "completo" || request.Filters?.Keys.Any(key => string.Equals(key.Trim(), "tipoCirurgia", StringComparison.OrdinalIgnoreCase)) == true))
+            throw new InvalidOperationException("CBHPM nao possui classificacao cirurgica ou relatorio sintetico.");
+
         var requestedAt = DateTime.UtcNow;
         var jobId = Guid.NewGuid();
         var message = new FileExportQueueMessage(
@@ -56,7 +70,12 @@ public class RequestFileExportCommandHandler : IRequestHandler<RequestFileExport
             currentUser.PerfilId,
             currentUser.ClinicaId,
             requestedAt,
-            NormalizeFilters(request.Filters));
+            NormalizeFilters(request.Filters),
+            reportType);
+
+        FileExportSnapshotBuilder.EnsureQueueLimit(message);
+        if (resource != "cbhpm")
+            message = await FileExportSnapshotBuilder.CaptureAsync(_sender, message, currentUser, cancellationToken);
 
         await _fileExportQueue.EnqueueAsync(message, cancellationToken);
 
@@ -72,6 +91,7 @@ public class RequestFileExportCommandHandler : IRequestHandler<RequestFileExport
             Status = "queued",
             Resource = resource,
             Format = format,
+            ReportType = reportType,
             RequestedAt = requestedAt,
             Message = "Exportacao enfileirada para processamento assincrono"
         };
@@ -94,12 +114,13 @@ public class RequestFileExportCommandHandler : IRequestHandler<RequestFileExport
             return new Dictionary<string, string?>();
         }
 
-        return filters
-            .Where(item => !string.IsNullOrWhiteSpace(item.Key))
-            .ToDictionary(
-                item => item.Key.Trim(),
-                item => string.IsNullOrWhiteSpace(item.Value) ? null : item.Value.Trim(),
-                StringComparer.OrdinalIgnoreCase);
+        var result = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in filters)
+        {
+            if (string.IsNullOrWhiteSpace(item.Key) || !result.TryAdd(item.Key.Trim(), string.IsNullOrWhiteSpace(item.Value) ? null : item.Value.Trim()))
+                throw new InvalidOperationException("Filtros de exportacao invalidos ou duplicados.");
+        }
+        return result;
     }
 }
 

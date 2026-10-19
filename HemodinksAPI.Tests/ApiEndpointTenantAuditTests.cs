@@ -105,6 +105,12 @@ public partial class ApiEndpointIntegrationTests
             resource = "pacientes", format = "xlsx", clinicaId = Clinica.DefaultId,
             filters = new Dictionary<string, string?> { ["ClinicaId"] = "1" }
         });
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Empty(queue.Messages);
+        response = await client.PostAsJsonAsync("/api/exports/", new
+        {
+            resource = "pacientes", format = "xlsx", clinicaId = Clinica.DefaultId
+        });
         Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
         Assert.Equal(beta.Id, Assert.Single(queue.Messages).ClinicaId);
     }

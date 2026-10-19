@@ -3,6 +3,7 @@ using HemodinksAPI.Application.Features.Common;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Models;
 
 namespace HemodinksAPI.Application.Features.Faturamentos.Queries;
 
@@ -52,6 +53,8 @@ public class GetAllFaturamentosMedicosQueryHandler : IRequestHandler<GetAllFatur
                 request.CompetenciaFinal,
                 _supportsFullTextSearch);
 
+            TipoCirurgiaRules.Validate(request.TipoCirurgia);
+            if (request.TipoCirurgia.HasValue) query = query.Where(p => p.TipoCirurgia == request.TipoCirurgia);
             var totalItems = await query.CountAsync(cancellationToken);
 
             var items = await query

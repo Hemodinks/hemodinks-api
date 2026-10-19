@@ -182,6 +182,13 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
 
+                    b.Property<string>("TipoCirurgia")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Eletiva");
+
                     b.Property<string>("TratamentoMedico")
                         .HasMaxLength(1000)
                         .HasColumnType("nvarchar(1000)");
@@ -210,6 +217,8 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                             t.HasCheckConstraint("CK_AtendimentosCirurgicos_AuxiliaresDistintos", "[MedicoAuxiliar1Id] IS NULL OR [MedicoAuxiliar2Id] IS NULL OR [MedicoAuxiliar1Id] <> [MedicoAuxiliar2Id]");
 
                             t.HasCheckConstraint("CK_AtendimentosCirurgicos_EquipeObrigatoria", "[MedicoResponsavelId] IS NOT NULL OR [MedicoAuxiliar1Id] IS NOT NULL OR [MedicoAuxiliar2Id] IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_AtendimentosCirurgicos_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia')");
                         });
                 });
 
@@ -2176,6 +2185,13 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<string>("TipoCirurgia")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Eletiva");
+
                     b.Property<string>("TratamentoMedico")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -2217,7 +2233,10 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.HasIndex("ClinicaId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("Pacientes", (string)null);
+                    b.ToTable("Pacientes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Pacientes_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia')");
+                        });
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.PacienteArquivo", b =>

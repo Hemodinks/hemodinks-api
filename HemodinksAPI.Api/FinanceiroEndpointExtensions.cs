@@ -13,10 +13,10 @@ public static class FinanceiroEndpointExtensions
     {
         var atendimentos = app.MapGroup("/api/atendimentos-cirurgicos").WithTags("Atendimentos cirurgicos").RequireAuthorization()
             .AddEndpointFilter<FinanceiroAuditFilter>();
-        atendimentos.MapGet("/", async (int? pacienteId, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
+        atendimentos.MapGet("/", async (int? pacienteId, TipoCirurgia? tipoCirurgia, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
-            return Results.Ok(await mediator.Send(new ListarAtendimentosQuery(pacienteId, user.Id, user.PerfilId), ct));
+            return Results.Ok(await mediator.Send(new ListarAtendimentosQuery(pacienteId, user.Id, user.PerfilId) { TipoCirurgia = tipoCirurgia }, ct));
         })
             .RequireAuthorization("AtendimentoVisualizar");
         atendimentos.MapPost("/", async (CriarAtendimentoCommand command, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
@@ -69,10 +69,10 @@ public static class FinanceiroEndpointExtensions
 
         var faturamentos = app.MapGroup("/api/faturamentos").WithTags("Faturamento").RequireAuthorization()
             .AddEndpointFilter<FinanceiroAuditFilter>();
-        faturamentos.MapGet("/", async (ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
+        faturamentos.MapGet("/", async (TipoCirurgia? tipoCirurgia, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
-            return Results.Ok(await mediator.Send(new ListarFaturamentosQuery(user.Id, user.PerfilId), ct));
+            return Results.Ok(await mediator.Send(new ListarFaturamentosQuery(user.Id, user.PerfilId) { TipoCirurgia = tipoCirurgia }, ct));
         }).RequireAuthorization("FaturamentoVisualizar");
         faturamentos.MapPost("/", async (CriarFaturamentoCommand command, IMediator mediator, CancellationToken ct) =>
         {
@@ -84,12 +84,12 @@ public static class FinanceiroEndpointExtensions
             return Results.Ok(await mediator.Send(new ObterFaturamentoQuery(id, user.Id, user.PerfilId), ct));
         }).RequireAuthorization("FaturamentoVisualizar");
         faturamentos.MapGet("/pesquisa", async (int page, int pageSize, string? termo, FaturamentoStatus? status,
-            DateTime? competenciaInicio, DateTime? competenciaFim, int? convenioId, ClaimsPrincipal principal,
+            DateTime? competenciaInicio, DateTime? competenciaFim, int? convenioId, TipoCirurgia? tipoCirurgia, ClaimsPrincipal principal,
             IMediator mediator, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
             return Results.Ok(await mediator.Send(new PesquisarFaturamentosQuery(page, pageSize, termo, status,
-                competenciaInicio, competenciaFim, convenioId, user.Id, user.PerfilId), ct));
+                competenciaInicio, competenciaFim, convenioId, user.Id, user.PerfilId) { TipoCirurgia = tipoCirurgia }, ct));
         }).RequireAuthorization("FaturamentoVisualizar");
         faturamentos.MapPut("/{id:int}", async (int id, AtualizarFaturamentoCommand command, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(command with { Id = id }, ct))).RequireAuthorization("FaturamentoGerenciar");
@@ -122,15 +122,15 @@ public static class FinanceiroEndpointExtensions
 
         var financeiro = app.MapGroup("/api/financeiro/contas-receber").WithTags("Contas a receber").RequireAuthorization()
             .AddEndpointFilter<FinanceiroAuditFilter>();
-        financeiro.MapGet("/", async (IMediator mediator, CancellationToken ct) =>
-            Results.Ok(await mediator.Send(new ListarContasReceberQuery(), ct))).RequireAuthorization("FinanceiroVisualizar");
+        financeiro.MapGet("/", async (TipoCirurgia? tipoCirurgia, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarContasReceberQuery() { TipoCirurgia = tipoCirurgia }, ct))).RequireAuthorization("FinanceiroVisualizar");
         financeiro.MapGet("/{id:int}", async (int id, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ObterContaReceberQuery(id), ct))).RequireAuthorization("FinanceiroVisualizar");
         financeiro.MapGet("/pesquisa", async (int page, int pageSize, string? termo, ContaReceberStatus? status,
-            DateTime? vencimentoInicio, DateTime? vencimentoFim, int? convenioId, int? medicoId, int? pacienteId,
+            DateTime? vencimentoInicio, DateTime? vencimentoFim, int? convenioId, int? medicoId, int? pacienteId, TipoCirurgia? tipoCirurgia,
             IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new PesquisarContasReceberQuery(page, pageSize, termo, status,
-                vencimentoInicio, vencimentoFim, convenioId, medicoId, pacienteId), ct))).RequireAuthorization("FinanceiroVisualizar");
+                vencimentoInicio, vencimentoFim, convenioId, medicoId, pacienteId) { TipoCirurgia = tipoCirurgia }, ct))).RequireAuthorization("FinanceiroVisualizar");
         financeiro.MapPut("/{id:int}", async (int id, AtualizarContaReceberCommand command, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(command with { Id = id }, ct))).RequireAuthorization("FinanceiroGerenciar");
         financeiro.MapPost("/{id:int}/cancelamento", async (int id, CancelarContaReceberCommand command, IMediator mediator, CancellationToken ct) =>
@@ -175,9 +175,9 @@ public static class FinanceiroEndpointExtensions
 
         var reports = app.MapGroup("/api/financeiro").WithTags("Relatorios financeiros").RequireAuthorization();
         reports.MapGet("/relatorios/resumo", async (DateTime? inicio, DateTime? fim, int? convenioId, int? medicoId,
-            int? pacienteId,
+            int? pacienteId, TipoCirurgia? tipoCirurgia,
             IMediator mediator, CancellationToken ct) => Results.Ok(await mediator.Send(
-                new ObterFinanceiroResumoQuery(inicio, fim, convenioId, medicoId, pacienteId), ct))).RequireAuthorization("FinanceiroVisualizar");
+                new ObterFinanceiroResumoQuery(inicio, fim, convenioId, medicoId, pacienteId) { TipoCirurgia = tipoCirurgia }, ct))).RequireAuthorization("FinanceiroVisualizar");
         reports.MapGet("/auditoria", async (int page, int pageSize, string? recurso,
             FinanceiroFileUseCases files, CancellationToken ct) =>
             Results.Ok(await files.ListAuditAsync(page, pageSize, recurso, ct)))

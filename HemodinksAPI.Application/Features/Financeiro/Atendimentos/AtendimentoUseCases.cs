@@ -13,6 +13,7 @@ public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, 
     public async Task<AtendimentoDto> Handle(CriarAtendimentoCommand request, CancellationToken ct)
     {
         var clinicaId = tenant.GetRequiredClinicaId();
+        TipoCirurgiaRules.Validate(request.TipoCirurgia);
         if (request.DataProcedimento == default || request.Procedimentos.Count == 0)
             throw new InvalidOperationException("Data e ao menos um procedimento sao obrigatorios.");
         if (request.ValorGlosa < 0 || request.ValorGlosa > 0 && string.IsNullOrWhiteSpace(request.MotivoGlosa))
@@ -31,6 +32,7 @@ public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, 
         var atendimento = new AtendimentoCirurgico
         {
             ClinicaId = clinicaId, Paciente = paciente, DataProcedimento = request.DataProcedimento,
+            TipoCirurgia = request.TipoCirurgia,
             HospitalId = hospital?.Id > 0 ? hospital.Id : null, Hospital = hospital?.Referencia,
             ConvenioId = convenio?.Id > 0 ? convenio.Id : null, Convenio = convenio?.Referencia,
             OpmeFornecedorId = opmeFornecedor?.Id > 0 ? opmeFornecedor.Id : null,
@@ -78,6 +80,8 @@ public sealed class ListarAtendimentosQueryHandler(IFinanceFeatureDbContext db) 
         if (request.CurrentPerfilId == Perfil.MedicosId)
             query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId || x.MedicoAuxiliar1Id == request.CurrentUserId || x.MedicoAuxiliar2Id == request.CurrentUserId);
         if (request.PacienteId.HasValue) query = query.Where(x => x.PacienteId == request.PacienteId);
+        TipoCirurgiaRules.Validate(request.TipoCirurgia);
+        if (request.TipoCirurgia.HasValue) query = query.Where(x => x.TipoCirurgia == request.TipoCirurgia);
         return (await query.OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro)
             .ThenByDescending(x => x.Id).ToListAsync(ct)).Select(FinanceiroMapper.ToDto).ToList();
     }

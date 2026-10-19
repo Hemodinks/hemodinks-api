@@ -10,6 +10,8 @@ public partial class RequestFileExportCommand
 
     public string Format { get; set; } = null!;
 
+    public string? ReportType { get; set; }
+
     public Dictionary<string, string?>? Filters { get; set; }
 }
 
@@ -22,6 +24,8 @@ public class RequestFileExportResponse
     public string Resource { get; set; } = null!;
 
     public string Format { get; set; } = null!;
+
+    public string ReportType { get; set; } = "completo";
 
     public DateTime RequestedAt { get; set; }
 

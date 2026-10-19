@@ -4,6 +4,7 @@ using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Faturamentos.Queries;
 using HemodinksAPI.Application.Features.Financeiro;
 using MediatR;
+using HemodinksAPI.Domain.Models;
 
 namespace HemodinksAPI.Api;
 
@@ -79,6 +80,7 @@ public static class FaturamentoMedicoEndpointExtensions
         IMediator mediator,
         ILogger<Program> logger,
         string? competenciaInicio,
+        TipoCirurgia? tipoCirurgia,
         string? competenciaFinal,
         CancellationToken cancellationToken)
     {
@@ -89,6 +91,7 @@ public static class FaturamentoMedicoEndpointExtensions
             var parsedCompetenciaFinal = ParseCompetencia(competenciaFinal, nameof(competenciaFinal));
             var result = await mediator.Send(new GetAllFaturamentosMedicosQuery
             {
+                TipoCirurgia = tipoCirurgia,
                 Page = page.GetValueOrDefault(1),
                 PageSize = pageSize.GetValueOrDefault(100),
                 Search = search,

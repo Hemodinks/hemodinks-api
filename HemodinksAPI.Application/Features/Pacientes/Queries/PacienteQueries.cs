@@ -1,10 +1,12 @@
 using HemodinksAPI.Application.Features.Common;
 using MediatR;
+using HemodinksAPI.Domain.Models;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Queries;
 
 public class PacienteDto
 {
+    public TipoCirurgia TipoCirurgia { get; set; }
     public int Id { get; set; }
     public int UserId { get; set; }
     public DateTime? Data { get; set; }
@@ -100,6 +102,7 @@ public class PacienteArquivoDto
 
 public class GetAllPacientesQuery : IRequest<PagedResult<PacienteDto>>
 {
+    public TipoCirurgia? TipoCirurgia { get; set; }
     public int Page { get; set; } = 1;
 
     public int PageSize { get; set; } = 10;

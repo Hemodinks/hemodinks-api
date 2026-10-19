@@ -77,6 +77,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
             }
 
             PacienteRules.ValidateNome(request.NomePaciente);
+            TipoCirurgiaRules.Validate(request.TipoCirurgia);
             var diagnostico = PacienteRules.TrimAndValidateOptional(request.Diagnostico, 100, "Diagnostico excede 100 caracteres");
             var tratamentoMedico = PacienteRules.TrimAndValidateOptional(request.TratamentoMedico, 100, "Tratamento medico excede 100 caracteres");
             var cpf = await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, null, cancellationToken);
@@ -145,6 +146,7 @@ public class CreatePacienteCommandHandler : IRequestHandler<CreatePacienteComman
                 User = user,
                 Data = request.Data,
                 DataAtendimento = request.DataAtendimento,
+                TipoCirurgia = request.TipoCirurgia,
                 NomePaciente = user.Nome,
                 Diagnostico = diagnostico,
                 TratamentoMedico = tratamentoMedico,

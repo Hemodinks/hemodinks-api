@@ -8,6 +8,7 @@ public class AtendimentoCirurgico : IClinicaOwnedEntity
     public int PacienteId { get; set; }
     public Paciente Paciente { get; set; } = null!;
     public DateTime DataProcedimento { get; set; }
+    public TipoCirurgia TipoCirurgia { get; set; } = TipoCirurgia.Eletiva;
     public int? HospitalId { get; set; }
     public Hospital? Hospital { get; set; }
     public int? ConvenioId { get; set; }

@@ -38,6 +38,8 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
             var procedimento = PacienteQueryOrdering.TrimOptional(request.Procedimento);
 
             var query = _context.Pacientes.AsNoTracking();
+            TipoCirurgiaRules.Validate(request.TipoCirurgia);
+            if (request.TipoCirurgia.HasValue) query = query.Where(p => p.TipoCirurgia == request.TipoCirurgia);
             query = PacienteAccess.ApplyScope(_context, query, request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId);
             query = PacienteFilters.ApplyFilters(
                 query,

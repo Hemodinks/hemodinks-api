@@ -64,12 +64,16 @@ public sealed class ListarFaturamentosQueryHandler(IFinanceFeatureDbContext db) 
         (await ApplyScope(ForResponse(db.Faturamentos.AsNoTracking()), request)
             .OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro)
             .ThenByDescending(x => x.Id).ToListAsync(ct)).Select(FinanceiroMapper.ToDto).ToList();
-    private static IQueryable<Faturamento> ApplyScope(IQueryable<Faturamento> query, ListarFaturamentosQuery request) =>
-        request.CurrentPerfilId == Perfil.MedicosId
+    private static IQueryable<Faturamento> ApplyScope(IQueryable<Faturamento> query, ListarFaturamentosQuery request)
+    {
+        TipoCirurgiaRules.Validate(request.TipoCirurgia);
+        if (request.TipoCirurgia.HasValue) query = query.Where(x => x.AtendimentoCirurgico.TipoCirurgia == request.TipoCirurgia);
+        return request.CurrentPerfilId == Perfil.MedicosId
             ? query.Where(x => x.AtendimentoCirurgico.MedicoResponsavelId == request.CurrentUserId
                 || x.AtendimentoCirurgico.MedicoAuxiliar1Id == request.CurrentUserId
                 || x.AtendimentoCirurgico.MedicoAuxiliar2Id == request.CurrentUserId)
             : query;
+    }
     // FaturamentoDto contains items and appeals, but no accounts or receipts.
     internal static IQueryable<Faturamento> ForResponse(IQueryable<Faturamento> query) => query
         .Include(x => x.AtendimentoCirurgico).ThenInclude(x => x.Paciente).Include(x => x.Itens)

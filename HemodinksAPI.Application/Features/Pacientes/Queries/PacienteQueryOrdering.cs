@@ -11,6 +11,9 @@ internal static class PacienteQueryOrdering
 
         return normalizedSortBy switch
         {
+            "tipocirurgia" => isDescending
+                ? query.OrderByDescending(p => p.TipoCirurgia).ThenBy(p => p.Id)
+                : query.OrderBy(p => p.TipoCirurgia).ThenBy(p => p.Id),
             "data" or "dataprocedimento" => isDescending
                 ? query.OrderBy(paciente => paciente.Data == null).ThenByDescending(paciente => paciente.Data).ThenByDescending(paciente => paciente.Id)
                 : query.OrderBy(paciente => paciente.Data == null).ThenBy(paciente => paciente.Data).ThenBy(paciente => paciente.Id),

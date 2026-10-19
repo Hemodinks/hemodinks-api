@@ -10,6 +10,7 @@ internal static class PacienteMapper
         var dto = new PacienteDto
         {
             Id = paciente.Id,
+            TipoCirurgia = paciente.TipoCirurgia,
             UserId = paciente.UserId,
             Data = paciente.Data,
             DataAtendimento = paciente.DataAtendimento,

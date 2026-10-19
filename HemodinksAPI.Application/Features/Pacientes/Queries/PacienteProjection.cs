@@ -10,6 +10,7 @@ internal static class PacienteProjection
         return p => new PacienteDto
         {
             Id = p.Id,
+            TipoCirurgia = p.TipoCirurgia,
             UserId = p.UserId,
             Data = p.Data,
             DataAtendimento = p.DataAtendimento,

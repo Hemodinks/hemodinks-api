@@ -73,6 +73,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             var cpf = string.IsNullOrWhiteSpace(request.Cpf)
                 ? paciente.User.Cpf
                 : await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, paciente.UserId, cancellationToken);
+            TipoCirurgiaRules.Validate(request.TipoCirurgia);
             var email = string.IsNullOrWhiteSpace(request.Email)
                 ? paciente.User.Email
                 : await PacienteRules.ResolveEmailAsync(_context, request.Email, cpf, paciente.UserId, cancellationToken);
@@ -127,6 +128,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
 
             paciente.Data = request.Data;
             paciente.DataAtendimento = request.DataAtendimento;
+            paciente.TipoCirurgia = request.TipoCirurgia ?? paciente.TipoCirurgia;
             paciente.NomePaciente = paciente.User.Nome;
             paciente.Diagnostico = PacienteRules.TrimAndValidateOptional(request.Diagnostico, 100, "Diagnostico excede 100 caracteres");
             paciente.TratamentoMedico = PacienteRules.TrimAndValidateOptional(request.TratamentoMedico, 100, "Tratamento medico excede 100 caracteres");
