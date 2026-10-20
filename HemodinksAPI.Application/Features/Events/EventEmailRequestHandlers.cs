@@ -15,6 +15,10 @@ public sealed class EventEmailRequestHandlers(IEventEmailFeatureDbContext db, IC
         var actor = await RequireActorAsync(request.CurrentUser, ct);
         var ev = await EventEmailRules.RequireEventAsync(db, request.Id, actor, ct);
         var users = await EventEmailRules.EligibleRecipientsAsync(db, ev.Id, actor, ct);
+        var historicalRecipientCount = users.Select(user => EventEmailRules.NormalizeEmail(user.Email))
+            .Where(email => email != null).Distinct().Count();
+        var creator = await EventEmailRules.EligibleCreatorAsync(db, ev, ct);
+        if (request.CopyToCreator && creator != null) users.Add(creator);
         var deliveries = await db.EventEmailDeliveries.AsNoTracking()
             .Where(item => item.ClinicaId == actor.ClinicaId && item.EventId == ev.Id).ToListAsync(ct);
         var recipients = users.Select(user => new { User = user, Email = EventEmailRules.NormalizeEmail(user.Email) })
@@ -27,7 +31,8 @@ public sealed class EventEmailRequestHandlers(IEventEmailFeatureDbContext db, IC
             .Select(item => item.RecipientUserId).Distinct().CountAsync(ct);
         return new(recipients, recipients.Count, recipients.Count(item => item.Status == "pending"),
             recipients.Count(item => item.Status == "sent"), recipients.Count(item => item.Status == "failed"),
-            Math.Max(0, historicCount - recipients.Count), !ev.IsCompleted && recipients.Any(item => item.Status == "available"));
+            Math.Max(0, historicCount - historicalRecipientCount), !ev.IsCompleted && recipients.Any(item => item.Status == "available"),
+            CreatorCopy(ev, creator, deliveries));
     }
 
     public async Task<QueueEventEmailResult> Handle(QueueEventEmailNotificationCommand request, CancellationToken ct)
@@ -36,6 +41,11 @@ public sealed class EventEmailRequestHandlers(IEventEmailFeatureDbContext db, IC
         var ev = await EventEmailRules.RequireEventAsync(db, request.Id, actor, ct);
         if (ev.IsCompleted) throw new InvalidOperationException("Eventos concluidos nao podem enviar notificacoes por email.");
         var users = await EventEmailRules.EligibleRecipientsAsync(db, ev.Id, actor, ct);
+        if (request.CopyToCreator)
+        {
+            var creator = await EventEmailRules.EligibleCreatorAsync(db, ev, ct);
+            if (creator != null) users.Add(creator);
+        }
         var existing = await db.EventEmailDeliveries.AsNoTracking()
             .Where(item => item.ClinicaId == actor.ClinicaId && item.EventId == ev.Id).ToListAsync(ct);
         var created = new List<EventEmailDelivery>();
@@ -49,6 +59,18 @@ public sealed class EventEmailRequestHandlers(IEventEmailFeatureDbContext db, IC
         }
         if (created.Count == 0) return new(0);
         return new(await db.EnqueueEventEmailsAsync(created, ct));
+    }
+
+    private static EventEmailCreatorCopyDto CreatorCopy(Event ev, User? creator, List<EventEmailDelivery> deliveries)
+    {
+        if (!ev.CreatedByUserId.HasValue) return new(null, false, "creator_unknown");
+        if (creator == null) return new(null, false, "creator_not_authorized");
+        var email = EventEmailRules.NormalizeEmail(creator.Email);
+        if (email == null) return new(null, false, "invalid_email");
+        var status = deliveries.FirstOrDefault(item => item.RecipientUserId == creator.Id || item.RecipientEmail == email)?.Status ?? "available";
+        var recipient = new EventEmailRecipientDto(creator.Id, creator.Nome, creator.Email, status);
+        return new(recipient, !ev.IsCompleted && status == "available",
+            ev.IsCompleted ? "event_completed" : status == "available" ? null : "already_requested");
     }
 
     private async Task<HemodinksAPI.Application.Authorization.CurrentUserContext> RequireActorAsync(

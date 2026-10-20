@@ -52,7 +52,9 @@ public sealed class ListarContasReceberQueryHandler(IFinanceFeatureDbContext db)
 {
     public async Task<List<ContaReceberDto>> Handle(ListarContasReceberQuery request, CancellationToken ct)
     {
+        TipoCirurgiaRules.Validate(request.TipoCirurgia);
         var accounts = await db.ContasReceber.Include(x => x.Paciente).Include(x => x.Recebimentos)
+            .Where(x => !request.TipoCirurgia.HasValue || x.Faturamento.AtendimentoCirurgico.TipoCirurgia == request.TipoCirurgia)
             .OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro)
             .ThenByDescending(x => x.Id).ToListAsync(ct);
         var changed = false;

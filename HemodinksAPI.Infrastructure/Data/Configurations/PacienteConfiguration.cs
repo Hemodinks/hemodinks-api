@@ -8,12 +8,18 @@ internal sealed class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
 {
     public void Configure(EntityTypeBuilder<Paciente> entity)
     {
-        entity.ToTable("Pacientes");
+        entity.ToTable("Pacientes", table => table.HasCheckConstraint(
+            "CK_Pacientes_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia')"));
 
         entity.HasKey(e => e.Id);
 
         entity.Property(e => e.ClinicaId)
             .IsRequired();
+
+        entity.Property(e => e.TipoCirurgia)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .HasDefaultValue(TipoCirurgia.Eletiva);
 
         entity.Property(e => e.NomePaciente)
             .IsRequired()

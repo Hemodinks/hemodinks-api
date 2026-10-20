@@ -12,6 +12,43 @@ namespace HemodinksAPI.Tests;
 public sealed class LoginContextWorkTests
 {
     [Fact]
+    public async Task Discovery_LegacyUserWithoutMembership_RemainsSupportedWithoutWrites()
+    {
+        await using var context = await SeedAsync();
+        var user = new User { ClinicaId = 102, Nome = "Legacy", Email = "legacy@example.com",
+            Senha = new PasswordHasher().HashPassword(TestPasswords.Valid), Telefone = "11999999999", Ativo = true };
+        context.Users.Add(user);
+        await context.SaveChangesAsync();
+        var response = await Handler(context, new CountingHasher(), new RecordingProtection()).Handle(
+            new ResolveLoginClinicsCommand { Email = user.Email, Senha = TestPasswords.Valid }, default);
+        Assert.Equal(102, Assert.Single(response.Clinicas).ClinicaId);
+        Assert.False(await context.UsuariosClinicas.AnyAsync(x => x.UserId == user.Id));
+        Assert.False(context.ChangeTracker.HasChanges());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Discovery_RevokedMembershipOrGlobalIdentity_DoesNotUseLegacyPassword(bool deactivateGlobal)
+    {
+        await using var context = await SeedAsync();
+        var global = await context.UsuariosGlobais.SingleAsync(item => item.Email == "shared@example.com");
+        if (deactivateGlobal) global.Ativo = false;
+        else (await context.UsuariosClinicas.SingleAsync(item => item.ClinicaId == 102)).Ativo = false;
+        await context.SaveChangesAsync();
+        var handler = Handler(context, new CountingHasher(), new RecordingProtection());
+        var request = new ResolveLoginClinicsCommand { Email = global.Email, Senha = TestPasswords.Valid };
+        if (deactivateGlobal)
+            await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(request, default));
+        else
+        {
+            var response = await handler.Handle(request, default);
+            Assert.Equal(new[] { 101, 103 }, response.Clinicas.Select(x => x.ClinicaId).Order().ToArray());
+        }
+        Assert.False(context.ChangeTracker.HasChanges());
+    }
+
+    [Fact]
     public async Task Discovery_WeakSharedHashIsVerifiedOnceWithoutUpgradeOrWrites()
     {
         await using var context = await SeedAsync();

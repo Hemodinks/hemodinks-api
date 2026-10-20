@@ -67,6 +67,41 @@ public class FaturamentoMedicoQueryHandlerTests
     }
 
     [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SurgicalTeam_BillingWithoutPrincipal_IsVisibleToAssistantOnce(bool samePrincipal)
+    {
+        await using var context = TestDbContextFactory.Create();
+        var doctor = CreateDoctor("Synthetic assistant", "assistant179@example.com", "52998224725");
+        var user = CreatePatientUser("Synthetic patient", "patient179@example.com", "93541134780");
+        context.Users.Add(doctor);
+        await context.SaveChangesAsync();
+        context.Pacientes.Add(new Paciente
+        {
+            User = user, NomePaciente = user.Nome,
+            MedicoUserId = samePrincipal ? doctor.Id : null,
+            MedicoAuxiliar1UserId = doctor.Id,
+            FaturamentoMedico = new FaturamentoMedico { HonorariosCirurgiao = 1000m }
+        });
+        await context.SaveChangesAsync();
+        var result = await new GetAllFaturamentosMedicosQueryHandler(context,
+            NullLogger<GetAllFaturamentosMedicosQueryHandler>.Instance).Handle(new GetAllFaturamentosMedicosQuery
+            { CurrentPerfilId = Perfil.MedicosId, CurrentUserId = doctor.Id }, default);
+        Assert.Equal(1, result.TotalItems);
+        Assert.Equal(1000m, Assert.Single(result.Items).Faturamento!.HonorariosCirurgiao);
+        var filtered = await new GetAllFaturamentosMedicosQueryHandler(context,
+            NullLogger<GetAllFaturamentosMedicosQueryHandler>.Instance).Handle(new GetAllFaturamentosMedicosQuery
+            { CurrentPerfilId = Perfil.AdministradorId, Medico = doctor.Nome }, default);
+        Assert.Equal(1, filtered.TotalItems);
+        Assert.Equal(1000m, Assert.Single(filtered.Items).Faturamento!.HonorariosCirurgiao);
+        var patients = await new HemodinksAPI.Application.Features.Pacientes.Queries.GetAllPacientesQueryHandler(context,
+            NullLogger<HemodinksAPI.Application.Features.Pacientes.Queries.GetAllPacientesQueryHandler>.Instance)
+            .Handle(new HemodinksAPI.Application.Features.Pacientes.Queries.GetAllPacientesQuery
+            { CurrentPerfilId = Perfil.AdministradorId, Medico = doctor.Nome }, default);
+        Assert.Equal(1, patients.TotalItems);
+    }
+
+    [Theory]
     [InlineData(Perfil.AdministradorId)]
     [InlineData(Perfil.ControllerId)]
     public async Task GetAllFaturamentosMedicos_WhenAdminOrController_ReturnsAllBillings(int perfilId)

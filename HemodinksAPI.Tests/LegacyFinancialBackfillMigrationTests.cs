@@ -28,7 +28,11 @@ public sealed class LegacyFinancialBackfillMigrationTests
             // preparar os registros. A coluna temporaria evita que essa preparacao antecipe
             // a migration real, que sera exercitada normalmente logo abaixo.
             await db.Database.ExecuteSqlRawAsync(
-                "ALTER TABLE [Pacientes] ADD [DataAtendimento] datetime2 NULL;");
+                """
+                ALTER TABLE [Pacientes] ADD [DataAtendimento] datetime2 NULL;
+                ALTER TABLE [Pacientes] ADD [TipoCirurgia] nvarchar(20) NOT NULL
+                    CONSTRAINT [DF_TestLegacy_TipoCirurgia] DEFAULT N'Eletiva';
+                """);
 
             var doctor = new User { ClinicaId = Clinica.DefaultId, Nome = "Médico legado", Telefone = "+5581999000001", Cpf = "11144477735", Email = $"doctor-{databaseName}@test.local", Senha = "hash", PerfilId = Perfil.MedicosId };
             var validUser = new User { ClinicaId = Clinica.DefaultId, Nome = "Paciente legado válido", Telefone = "+5581999000002", Cpf = "52998224725", Email = $"valid-{databaseName}@test.local", Senha = "hash", PerfilId = Perfil.PacientesId };
@@ -57,7 +61,11 @@ public sealed class LegacyFinancialBackfillMigrationTests
                 """);
 
             await db.Database.ExecuteSqlRawAsync(
-                "ALTER TABLE [Pacientes] DROP COLUMN [DataAtendimento];");
+                """
+                ALTER TABLE [Pacientes] DROP COLUMN [DataAtendimento];
+                ALTER TABLE [Pacientes] DROP CONSTRAINT [DF_TestLegacy_TipoCirurgia];
+                ALTER TABLE [Pacientes] DROP COLUMN [TipoCirurgia];
+                """);
 
             await migrator.MigrateAsync();
             db.ChangeTracker.Clear();

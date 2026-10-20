@@ -76,8 +76,14 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<HemodinksAPI.Application.Data.IEventEmailFeatureDbContext>(sp => sp.GetRequiredService<AppDbContext>());
         services.Configure<EventEmailFunctionOptions>(options =>
         {
-            options.BaseUrl = configuration["EventEmailFunctions:BaseUrl"] ?? configuration["PasswordResetFunctions:BaseUrl"];
-            options.FunctionKey = configuration["EventEmailFunctions:FunctionKey"] ?? configuration["PasswordResetFunctions:FunctionKey"];
+            var eventUrl = configuration["EventEmailFunctions:BaseUrl"]?.Trim();
+            var eventKey = configuration["EventEmailFunctions:FunctionKey"]?.Trim();
+            // Blank dedicated settings reuse the working recovery Function as a pair.
+            // A partial override must never send its other service's key to a new host.
+            var hasDedicatedConfiguration = !string.IsNullOrWhiteSpace(eventUrl)
+                || !string.IsNullOrWhiteSpace(eventKey);
+            options.BaseUrl = hasDedicatedConfiguration ? eventUrl : configuration["PasswordResetFunctions:BaseUrl"]?.Trim();
+            options.FunctionKey = hasDedicatedConfiguration ? eventKey : configuration["PasswordResetFunctions:FunctionKey"]?.Trim();
         });
         services.AddHttpClient(nameof(FunctionEventEmailSender), client => client.Timeout = TimeSpan.FromSeconds(50))
             .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler { AllowAutoRedirect = false })

@@ -41,10 +41,20 @@ internal static class FaturamentoMedicoFilters
             query = supportsFullTextSearch && condition != null
                 ? query.Where(p =>
                     (p.MedicoUser != null && FullTextSearch.Contains(p.MedicoUser.Nome, condition))
-                    || (p.Medico != null && FullTextSearch.Contains(p.Medico, condition)))
+                    || (p.Medico != null && FullTextSearch.Contains(p.Medico, condition))
+                    || !p.MedicoUserId.HasValue && (
+                        (p.MedicoAuxiliar1User != null && p.MedicoAuxiliar1User.Nome.Contains(normalizedMedico))
+                        || (p.MedicoAuxiliar1 != null && p.MedicoAuxiliar1.Contains(normalizedMedico))
+                        || (p.MedicoAuxiliar2User != null && p.MedicoAuxiliar2User.Nome.Contains(normalizedMedico))
+                        || (p.MedicoAuxiliar2 != null && p.MedicoAuxiliar2.Contains(normalizedMedico))))
                 : query.Where(p =>
                     (p.MedicoUser != null && p.MedicoUser.Nome.Contains(normalizedMedico))
-                    || (p.Medico != null && p.Medico.Contains(normalizedMedico)));
+                    || (p.Medico != null && p.Medico.Contains(normalizedMedico))
+                    || !p.MedicoUserId.HasValue && (
+                        (p.MedicoAuxiliar1User != null && p.MedicoAuxiliar1User.Nome.Contains(normalizedMedico))
+                        || (p.MedicoAuxiliar1 != null && p.MedicoAuxiliar1.Contains(normalizedMedico))
+                        || (p.MedicoAuxiliar2User != null && p.MedicoAuxiliar2User.Nome.Contains(normalizedMedico))
+                        || (p.MedicoAuxiliar2 != null && p.MedicoAuxiliar2.Contains(normalizedMedico))));
         }
 
         if (!string.IsNullOrWhiteSpace(normalizedConvenio))

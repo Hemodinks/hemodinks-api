@@ -9,11 +9,12 @@ public record AtendimentoProcedimentoInput(string? CbhpmCodigo, string? Descrica
 public record CriarAtendimentoCommand(
     int PacienteId, DateTime DataProcedimento, int? HospitalId, int? ConvenioId, int? OpmeFornecedorId,
     string? Hospital, string? Convenio, string? OpmeFornecedor,
-    int MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
+    int? MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
     string? Diagnostico, string? TratamentoMedico, string? NumeroAutorizacao,
     decimal? ValorGlosa, string? MotivoGlosa, string? Observacao,
     AtendimentoCirurgicoStatus Status, List<AtendimentoProcedimentoInput> Procedimentos) : IRequest<AtendimentoDto>
 {
+    public TipoCirurgia TipoCirurgia { get; init; } = TipoCirurgia.Eletiva;
     public int CurrentUserId { get; init; }
     public int CurrentPerfilId { get; init; }
 }
@@ -36,9 +37,12 @@ public record RegistrarRecebimentoCommand(int ContaReceberId, DateTime DataReceb
     FormaRecebimento FormaRecebimento, string? ReferenciaBancaria, string? DocumentoComprovante,
     string? Observacao, int UsuarioCadastroId, byte[] RowVersion) : IRequest<ContaReceberDto>;
 public record EstornarRecebimentoCommand(int RecebimentoId, string MotivoEstorno, int UsuarioEstornoId) : IRequest<ContaReceberDto>;
-public record ListarAtendimentosQuery(int? PacienteId = null, int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<List<AtendimentoDto>>;
-public record ListarFaturamentosQuery(int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<List<FaturamentoDto>>;
-public record ListarContasReceberQuery() : IRequest<List<ContaReceberDto>>;
+public record ListarAtendimentosQuery(int? PacienteId = null, int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<List<AtendimentoDto>>
+{ public TipoCirurgia? TipoCirurgia { get; init; } }
+public record ListarFaturamentosQuery(int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<List<FaturamentoDto>>
+{ public TipoCirurgia? TipoCirurgia { get; init; } }
+public record ListarContasReceberQuery() : IRequest<List<ContaReceberDto>>
+{ public TipoCirurgia? TipoCirurgia { get; init; } }
 public record SalvarConvenioProcedimentoPrecoCommand(int? Id, int ConvenioId, string CbhpmCodigo,
     decimal ValorNegociado, decimal PercentualPrincipal, decimal PercentualAuxiliar1, decimal PercentualAuxiliar2,
     DateTime VigenciaInicio, DateTime? VigenciaFinal, bool Ativo) : IRequest<ConvenioProcedimentoPrecoDto>;
@@ -58,12 +62,13 @@ public record FaturamentoHistoricoArquivoDto(
     long TamanhoBytes,
     DateTime DataUpload);
 public record AtendimentoDto(int Id, int PacienteId, string Paciente, DateTime DataProcedimento, int? HospitalId,
-    int? ConvenioId, int? OpmeFornecedorId, string? OpmeFornecedor, int MedicoResponsavelId,
+    int? ConvenioId, int? OpmeFornecedorId, string? OpmeFornecedor, int? MedicoResponsavelId,
     int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id,
     string? Diagnostico, string? TratamentoMedico, string? NumeroAutorizacao,
     decimal? ValorGlosa, string? MotivoGlosa, string? Observacao,
     AtendimentoCirurgicoStatus Status, DateTime DataCadastro, DateTime? DataAtualizacao,
-    List<AtendimentoProcedimentoDto> Procedimentos, List<AtendimentoArquivoDto> Arquivos);
+    List<AtendimentoProcedimentoDto> Procedimentos, List<AtendimentoArquivoDto> Arquivos)
+{ public TipoCirurgia TipoCirurgia { get; init; } }
 public record FaturamentoItemDto(int Id, int? AtendimentoProcedimentoId, string? Codigo, string Descricao,
     decimal Quantidade, decimal PesoPercentual, decimal ValorUnitario, decimal ValorApresentado,
     decimal ValorGlosado, decimal ValorAprovado, FaturamentoItemStatus Status, int Ordem);
@@ -76,7 +81,8 @@ public record FaturamentoDto(int Id, int AtendimentoCirurgicoId, int PacienteId,
     string? NumeroGuia, string? NumeroLote, DateTime Competencia, DateTime? DataEnvio, DateTime? DataRetorno,
     decimal ValorApresentado, decimal ValorGlosado, decimal ValorGlosaRecuperada, decimal ValorReconhecido,
     FaturamentoStatus Status, string? Observacao, DateTime DataCadastro, DateTime? DataAtualizacao,
-    byte[] RowVersion, List<FaturamentoItemDto> Itens, List<GlosaDto> Glosas);
+    byte[] RowVersion, List<FaturamentoItemDto> Itens, List<GlosaDto> Glosas)
+{ public TipoCirurgia TipoCirurgia { get; init; } }
 public record RecebimentoDto(int Id, DateTime DataRecebimento, decimal ValorRecebido,
     FormaRecebimento FormaRecebimento, string? ReferenciaBancaria, string? DocumentoComprovante,
     bool Estornado, DateTime? DataEstorno, string? MotivoEstorno);

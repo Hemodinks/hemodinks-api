@@ -13,12 +13,16 @@ public partial class PacienteCommandHandlerTests
     public async Task PasswordPolicy_PatientCreationFailsClosedBeforeSavingGeneratedCredential()
     {
         await using var context = TestDbContextFactory.Create();
+        var doctor = new User { Nome = "Synthetic doctor", Email = "policy-doctor179@example.com",
+            Telefone = string.Empty, Senha = "test-hash", PerfilId = Perfil.MedicosId };
+        context.Users.Add(doctor);
+        await context.SaveChangesAsync();
         var lookup = new UnavailablePatientPasswordLookup();
         var handler = new CreatePacienteCommandHandler(new NewPasswordPolicy(lookup), context,
             CreateCbhpmCache(context), new PasswordHasher(), new FakeProfilePhotoStorage(),
             NullLogger<CreatePacienteCommandHandler>.Instance);
         await Assert.ThrowsAsync<PasswordPolicyUnavailableException>(() => handler.Handle(new CreatePacienteCommand {
-            NomePaciente = "Paciente teste", Email = "policy-patient@example.com",
+            MedicoUserId = doctor.Id, NomePaciente = "Paciente teste", Email = "policy-patient@example.com",
             CurrentPerfilId = Perfil.AdministradorId
         }, default));
         Assert.Equal(1, lookup.Calls);

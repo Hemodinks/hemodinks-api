@@ -10,6 +10,12 @@ public sealed class ObterFinanceiroResumoQueryHandler(IFinanceFeatureDbContext d
     public async Task<FinanceiroResumoDto> Handle(ObterFinanceiroResumoQuery request, CancellationToken ct)
     {
         var faturamentos = db.Faturamentos.AsNoTracking().AsQueryable(); var contas = db.ContasReceber.AsNoTracking().AsQueryable();
+        TipoCirurgiaRules.Validate(request.TipoCirurgia);
+        if (request.TipoCirurgia.HasValue)
+        {
+            faturamentos = faturamentos.Where(x => x.AtendimentoCirurgico.TipoCirurgia == request.TipoCirurgia);
+            contas = contas.Where(x => x.Faturamento.AtendimentoCirurgico.TipoCirurgia == request.TipoCirurgia);
+        }
         if (request.Inicio.HasValue) { faturamentos = faturamentos.Where(x => x.Competencia >= request.Inicio); contas = contas.Where(x => x.Competencia >= request.Inicio); }
         if (request.Fim.HasValue) { faturamentos = faturamentos.Where(x => x.Competencia <= request.Fim); contas = contas.Where(x => x.Competencia <= request.Fim); }
         if (request.ConvenioId.HasValue) { faturamentos = faturamentos.Where(x => x.ConvenioId == request.ConvenioId); contas = contas.Where(x => x.ConvenioId == request.ConvenioId); }
@@ -19,20 +25,32 @@ public sealed class ObterFinanceiroResumoQueryHandler(IFinanceFeatureDbContext d
             contas = contas.Where(x => x.Faturamento.AtendimentoCirurgico.MedicoResponsavelId == request.MedicoId || x.Faturamento.AtendimentoCirurgico.MedicoAuxiliar1Id == request.MedicoId || x.Faturamento.AtendimentoCirurgico.MedicoAuxiliar2Id == request.MedicoId);
         }
         if (request.PacienteId.HasValue) { faturamentos = faturamentos.Where(x => x.AtendimentoCirurgico.PacienteId == request.PacienteId); contas = contas.Where(x => x.PacienteId == request.PacienteId); }
-        var f = await faturamentos.GroupBy(x => 1).Select(g => new { Apresentado = g.Sum(x => x.ValorApresentado), Glosado = g.Sum(x => x.ValorGlosado), Recuperado = g.Sum(x => x.ValorGlosaRecuperada), Reconhecido = g.Sum(x => x.ValorReconhecido) }).SingleOrDefaultAsync(ct);
-        var c = await contas.Where(x => x.Status != ContaReceberStatus.Cancelado).GroupBy(x => 1).Select(g => new { Recebido = g.Sum(x => x.ValorRecebido), Saldo = g.Sum(x => x.SaldoAberto), ValorVencido = g.Sum(x => x.Status == ContaReceberStatus.Vencido ? x.SaldoAberto : 0), Vencidos = g.Count(x => x.Status == ContaReceberStatus.Vencido) }).SingleOrDefaultAsync(ct);
+        var f = await faturamentos.GroupBy(x => x.AtendimentoCirurgico.TipoCirurgia).Select(g => new { Tipo = g.Key,
+            Cirurgias = g.Select(x => x.AtendimentoCirurgicoId).Distinct().Count(),
+            Apresentado = g.Sum(x => x.ValorApresentado), Glosado = g.Sum(x => x.ValorGlosado), Recuperado = g.Sum(x => x.ValorGlosaRecuperada), Reconhecido = g.Sum(x => x.ValorReconhecido) }).ToListAsync(ct);
+        var c = await contas.Where(x => x.Status != ContaReceberStatus.Cancelado).GroupBy(x => x.Faturamento.AtendimentoCirurgico.TipoCirurgia).Select(g => new { Tipo = g.Key,
+            Recebido = g.Sum(x => x.ValorRecebido), Saldo = g.Sum(x => x.SaldoAberto), ValorVencido = g.Sum(x => x.Status == ContaReceberStatus.Vencido ? x.SaldoAberto : 0), Vencidos = g.Count(x => x.Status == ContaReceberStatus.Vencido) }).ToListAsync(ct);
         var recebimentos = db.Recebimentos.AsNoTracking().Where(x => !x.Estornado);
+        if (request.TipoCirurgia.HasValue) recebimentos = recebimentos.Where(x => x.ContaReceber.Faturamento.AtendimentoCirurgico.TipoCirurgia == request.TipoCirurgia);
         if (request.Inicio.HasValue) recebimentos = recebimentos.Where(x => x.DataRecebimento >= request.Inicio);
         if (request.Fim.HasValue) recebimentos = recebimentos.Where(x => x.DataRecebimento <= request.Fim.Value.AddDays(1).AddTicks(-1));
         if (request.ConvenioId.HasValue) recebimentos = recebimentos.Where(x => x.ContaReceber.ConvenioId == request.ConvenioId);
         if (request.PacienteId.HasValue) recebimentos = recebimentos.Where(x => x.ContaReceber.PacienteId == request.PacienteId);
         if (request.MedicoId.HasValue) recebimentos = recebimentos.Where(x => x.ContaReceber.Faturamento.AtendimentoCirurgico.MedicoResponsavelId == request.MedicoId || x.ContaReceber.Faturamento.AtendimentoCirurgico.MedicoAuxiliar1Id == request.MedicoId || x.ContaReceber.Faturamento.AtendimentoCirurgico.MedicoAuxiliar2Id == request.MedicoId);
-        var recebidoPeriodo = await recebimentos.SumAsync(x => (decimal?)x.ValorRecebido, ct) ?? 0;
+        var recebidoPorTipo = await recebimentos.GroupBy(x => x.ContaReceber.Faturamento.AtendimentoCirurgico.TipoCirurgia)
+            .Select(g => new { Tipo = g.Key, Valor = g.Sum(x => x.ValorRecebido) }).ToListAsync(ct);
         var monthlyRows = await contas.Where(x => x.Status != ContaReceberStatus.Cancelado).GroupBy(x => x.Competencia)
             .Select(g => new { Competencia = g.Key, Apresentado = g.Sum(x => x.ValorOriginal), Reconhecido = g.Sum(x => x.ValorAjustado), Recebido = g.Sum(x => x.ValorRecebido), Saldo = g.Sum(x => x.SaldoAberto) })
             .OrderBy(x => x.Competencia).ToListAsync(ct);
         var monthly = monthlyRows.Select(x => new FinanceiroResumoMensalDto(x.Competencia, x.Apresentado, x.Reconhecido, x.Recebido, x.Saldo)).ToList();
-        return new(f?.Apresentado ?? 0, f?.Glosado ?? 0, f?.Recuperado ?? 0, f?.Reconhecido ?? 0, c?.Recebido ?? 0, c?.Saldo ?? 0, c?.ValorVencido ?? 0, recebidoPeriodo, c?.Vencidos ?? 0, monthly);
+        var porTipo = f.Select(x => x.Tipo).Concat(c.Select(x => x.Tipo)).Concat(recebidoPorTipo.Select(x => x.Tipo)).Distinct().Order()
+            .Select(tipo => new FinanceiroResumoTipoDto(tipo, f.Where(x => x.Tipo == tipo).Sum(x => x.Cirurgias),
+                f.Where(x => x.Tipo == tipo).Sum(x => x.Apresentado), f.Where(x => x.Tipo == tipo).Sum(x => x.Reconhecido),
+                c.Where(x => x.Tipo == tipo).Sum(x => x.Recebido), c.Where(x => x.Tipo == tipo).Sum(x => x.Saldo),
+                recebidoPorTipo.Where(x => x.Tipo == tipo).Sum(x => x.Valor))).ToList();
+        return new(f.Sum(x => x.Apresentado), f.Sum(x => x.Glosado), f.Sum(x => x.Recuperado), f.Sum(x => x.Reconhecido),
+            c.Sum(x => x.Recebido), c.Sum(x => x.Saldo), c.Sum(x => x.ValorVencido), recebidoPorTipo.Sum(x => x.Valor), c.Sum(x => x.Vencidos), monthly)
+            { PorTipoCirurgia = porTipo };
     }
 }
 

@@ -6,10 +6,11 @@ namespace HemodinksAPI.Application.Features.Financeiro;
 
 public record ObterAtendimentoQuery(int Id, int CurrentUserId, int CurrentPerfilId) : IRequest<AtendimentoDto>;
 public record AtualizarAtendimentoCommand(int Id, DateTime DataProcedimento, int? HospitalId, int? ConvenioId,
-    int? OpmeFornecedorId, int MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id, string? Diagnostico,
+    int? OpmeFornecedorId, int? MedicoResponsavelId, int? MedicoAuxiliar1Id, int? MedicoAuxiliar2Id, string? Diagnostico,
     string? TratamentoMedico, string? NumeroAutorizacao, AtendimentoCirurgicoStatus Status,
     decimal? ValorGlosa, string? MotivoGlosa, string? Observacao, List<AtendimentoProcedimentoInput> Procedimentos,
-    int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<AtendimentoDto>;
+    int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<AtendimentoDto>
+{ public TipoCirurgia? TipoCirurgia { get; init; } }
 public record ExcluirAtendimentoCommand(int Id, int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest;
 public record ObterFaturamentoQuery(int Id, int CurrentUserId, int CurrentPerfilId) : IRequest<FaturamentoDto>;
 public record AtualizarFaturamentoCommand(int Id, string? NumeroGuia, string? NumeroLote, DateTime Competencia,
@@ -32,18 +33,24 @@ public record CancelarContaReceberCommand(int Id, string Motivo, byte[] RowVersi
 public record ExcluirConvenioProcedimentoPrecoCommand(int Id) : IRequest;
 public record PesquisarContasReceberQuery(int Page = 1, int PageSize = 25, string? Termo = null,
     ContaReceberStatus? Status = null, DateTime? VencimentoInicio = null, DateTime? VencimentoFim = null,
-    int? ConvenioId = null, int? MedicoId = null, int? PacienteId = null) : IRequest<PagedResult<ContaReceberDto>>;
+    int? ConvenioId = null, int? MedicoId = null, int? PacienteId = null) : IRequest<PagedResult<ContaReceberDto>>
+{ public TipoCirurgia? TipoCirurgia { get; init; } }
 public record PesquisarFaturamentosQuery(int Page, int PageSize, string? Termo, FaturamentoStatus? Status,
     DateTime? CompetenciaInicio, DateTime? CompetenciaFim, int? ConvenioId, int CurrentUserId,
-    int CurrentPerfilId) : IRequest<PagedResult<FaturamentoDto>>;
+    int CurrentPerfilId) : IRequest<PagedResult<FaturamentoDto>>
+{ public TipoCirurgia? TipoCirurgia { get; init; } }
 public record FinanceiroResumoDto(decimal ValorApresentado, decimal ValorGlosado, decimal ValorRecuperado,
     decimal ValorReconhecido, decimal ValorRecebido, decimal SaldoAberto, decimal ValorVencido,
     decimal RecebimentosPeriodo, int TitulosVencidos,
-    IReadOnlyList<FinanceiroResumoMensalDto> PorCompetencia);
+    IReadOnlyList<FinanceiroResumoMensalDto> PorCompetencia)
+{ public IReadOnlyList<FinanceiroResumoTipoDto> PorTipoCirurgia { get; init; } = []; }
+public record FinanceiroResumoTipoDto(TipoCirurgia TipoCirurgia, int QuantidadeCirurgiasFaturadas,
+    decimal ValorApresentado, decimal ValorReconhecido, decimal ValorRecebido, decimal SaldoAberto, decimal RecebimentosPeriodo);
 public record FinanceiroResumoMensalDto(DateTime Competencia, decimal Apresentado, decimal Reconhecido,
     decimal Recebido, decimal SaldoAberto);
 public record ObterFinanceiroResumoQuery(DateTime? Inicio, DateTime? Fim, int? ConvenioId, int? MedicoId,
-    int? PacienteId) : IRequest<FinanceiroResumoDto>;
+    int? PacienteId) : IRequest<FinanceiroResumoDto>
+{ public TipoCirurgia? TipoCirurgia { get; init; } }
 public record PacienteFinanceiroResumoDto(decimal ValorApresentado, decimal ValorGlosado, decimal ValorReconhecido,
     decimal ValorRecebido, decimal SaldoAberto, string StatusFinanceiro, string OrigemDados,
     IReadOnlyList<string> Avisos);

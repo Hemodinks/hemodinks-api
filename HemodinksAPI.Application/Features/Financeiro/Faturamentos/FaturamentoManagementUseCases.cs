@@ -10,7 +10,7 @@ public sealed class ObterFaturamentoQueryHandler(IFinanceFeatureDbContext db) : 
 {
     public async Task<FaturamentoDto> Handle(ObterFaturamentoQuery request, CancellationToken ct)
     {
-        var query = ListarFaturamentosQueryHandler.Full(db.Faturamentos.AsNoTracking());
+        var query = ListarFaturamentosQueryHandler.ForResponse(db.Faturamentos.AsNoTracking());
         if (request.CurrentPerfilId == Perfil.MedicosId)
             query = query.Where(x => x.AtendimentoCirurgico.MedicoResponsavelId == request.CurrentUserId || x.AtendimentoCirurgico.MedicoAuxiliar1Id == request.CurrentUserId || x.AtendimentoCirurgico.MedicoAuxiliar2Id == request.CurrentUserId);
         return FinanceiroMapper.ToDto(await query.SingleOrDefaultAsync(x => x.Id == request.Id, ct)

@@ -1,11 +1,13 @@
 using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Application.Storage;
 using MediatR;
+using HemodinksAPI.Domain.Models;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
 public class CreatePacienteCommand : IRequest<PacienteDto>
 {
+    public TipoCirurgia TipoCirurgia { get; set; } = TipoCirurgia.Eletiva;
     public DateTime? Data { get; set; }
     public DateTime? DataAtendimento { get; set; }
     public string NomePaciente { get; set; } = null!;
@@ -46,6 +48,7 @@ public class CreatePacienteCommand : IRequest<PacienteDto>
 
 public class UpdatePacienteCommand : IRequest<PacienteDto>
 {
+    public TipoCirurgia? TipoCirurgia { get; set; }
     public int Id { get; set; }
     public DateTime? Data { get; set; }
     public DateTime? DataAtendimento { get; set; }
@@ -88,6 +91,7 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
 public class DeletePacienteCommand : IRequest
 {
     public int Id { get; set; }
+    public int CurrentUserId { get; set; }
     public int CurrentPerfilId { get; set; }
 }
 

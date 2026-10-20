@@ -157,7 +157,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Property<int?>("MedicoAuxiliar2Id")
                         .HasColumnType("int");
 
-                    b.Property<int>("MedicoResponsavelId")
+                    b.Property<int?>("MedicoResponsavelId")
                         .HasColumnType("int");
 
                     b.Property<string>("MotivoGlosa")
@@ -181,6 +181,13 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .IsRequired()
                         .HasMaxLength(30)
                         .HasColumnType("nvarchar(30)");
+
+                    b.Property<string>("TipoCirurgia")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Eletiva");
 
                     b.Property<string>("TratamentoMedico")
                         .HasMaxLength(1000)
@@ -207,7 +214,11 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.ToTable("AtendimentosCirurgicos", null, t =>
                         {
-                            t.HasCheckConstraint("CK_AtendimentosCirurgicos_MedicosDistintos", "([MedicoAuxiliar1Id] IS NULL OR [MedicoAuxiliar1Id] <> [MedicoResponsavelId]) AND ([MedicoAuxiliar2Id] IS NULL OR ([MedicoAuxiliar2Id] <> [MedicoResponsavelId] AND ([MedicoAuxiliar1Id] IS NULL OR [MedicoAuxiliar2Id] <> [MedicoAuxiliar1Id])))");
+                            t.HasCheckConstraint("CK_AtendimentosCirurgicos_AuxiliaresDistintos", "[MedicoAuxiliar1Id] IS NULL OR [MedicoAuxiliar2Id] IS NULL OR [MedicoAuxiliar1Id] <> [MedicoAuxiliar2Id]");
+
+                            t.HasCheckConstraint("CK_AtendimentosCirurgicos_EquipeObrigatoria", "[MedicoResponsavelId] IS NOT NULL OR [MedicoAuxiliar1Id] IS NOT NULL OR [MedicoAuxiliar2Id] IS NOT NULL");
+
+                            t.HasCheckConstraint("CK_AtendimentosCirurgicos_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia')");
                         });
                 });
 
@@ -1125,6 +1136,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
 
+                    b.Property<int?>("CreatedByUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Description")
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
@@ -1183,6 +1197,8 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ClinicaId", "CreatedByUserId");
 
                     b.HasIndex("ClinicaId", "MedicalUserId");
 
@@ -2169,6 +2185,13 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<string>("TipoCirurgia")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("Eletiva");
+
                     b.Property<string>("TratamentoMedico")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -2210,7 +2233,10 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.HasIndex("ClinicaId", "UserId")
                         .IsUnique();
 
-                    b.ToTable("Pacientes", (string)null);
+                    b.ToTable("Pacientes", null, t =>
+                        {
+                            t.HasCheckConstraint("CK_Pacientes_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia')");
+                        });
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.PacienteArquivo", b =>
@@ -3007,8 +3033,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .WithMany()
                         .HasForeignKey("ClinicaId", "MedicoResponsavelId")
                         .HasPrincipalKey("ClinicaId", "Id")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("HemodinksAPI.Domain.Models.Paciente", "Paciente")
                         .WithMany("AtendimentosCirurgicos")
@@ -3268,6 +3293,12 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasForeignKey("ClinicaId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("HemodinksAPI.Domain.Models.User", null)
+                        .WithMany()
+                        .HasForeignKey("ClinicaId", "CreatedByUserId")
+                        .HasPrincipalKey("ClinicaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict);
 
                     b.HasOne("HemodinksAPI.Domain.Models.User", "MedicalUser")
                         .WithMany("MedicalEvents")

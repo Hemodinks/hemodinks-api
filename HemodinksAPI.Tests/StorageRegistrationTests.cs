@@ -14,7 +14,7 @@ using Microsoft.Extensions.Hosting;
 
 namespace HemodinksAPI.Tests;
 
-public class StorageRegistrationTests
+public partial class StorageRegistrationTests
 {
     [Fact]
     public void AddStorage_WhenAzureConnectionStringIsMissingInDevelopment_RegistersLocalDiskStorage()

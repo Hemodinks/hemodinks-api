@@ -73,6 +73,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             var cpf = string.IsNullOrWhiteSpace(request.Cpf)
                 ? paciente.User.Cpf
                 : await PacienteRules.NormalizeAndValidateCpfAsync(_context, request.Cpf, paciente.UserId, cancellationToken);
+            TipoCirurgiaRules.Validate(request.TipoCirurgia);
             var email = string.IsNullOrWhiteSpace(request.Email)
                 ? paciente.User.Email
                 : await PacienteRules.ResolveEmailAsync(_context, request.Email, cpf, paciente.UserId, cancellationToken);
@@ -82,11 +83,10 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 ? paciente.User.Telefone
                 : PacienteRules.ResolveTelefone(request.Telefone);
             var fotoPerfil = await _profilePhotoStorage.SaveAsync(request.FotoPerfil, paciente.User.FotoPerfil, cancellationToken);
-            var medico = await PacienteRules.ResolveMedicoAsync(
+            var medico = await PacienteRules.ResolveOptionalMedicoAsync(
                 _context,
                 request.CurrentPerfilId,
                 request.CurrentUserId,
-                request.CurrentUserName,
                 request.CurrentEquipeId,
                 request.MedicoUserId,
                 request.Medico,
@@ -107,7 +107,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 request.MedicoAuxiliar2UserId,
                 request.MedicoAuxiliar2,
                 cancellationToken);
-            PacienteRules.ValidateDistinctMedicos(medico, medicoAuxiliar1, medicoAuxiliar2);
+            HemodinksAPI.Domain.Services.SurgicalTeamRules.Validate(medico.UserId, medicoAuxiliar1.UserId, medicoAuxiliar2.UserId);
             var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
                 ? await PacienteRules.ResolveHospitalAsync(_context, clinicaId, request.HospitalId, request.Hospital, cancellationToken)
                 : null;
@@ -128,6 +128,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
 
             paciente.Data = request.Data;
             paciente.DataAtendimento = request.DataAtendimento;
+            paciente.TipoCirurgia = request.TipoCirurgia ?? paciente.TipoCirurgia;
             paciente.NomePaciente = paciente.User.Nome;
             paciente.Diagnostico = PacienteRules.TrimAndValidateOptional(request.Diagnostico, 100, "Diagnostico excede 100 caracteres");
             paciente.TratamentoMedico = PacienteRules.TrimAndValidateOptional(request.TratamentoMedico, 100, "Tratamento medico excede 100 caracteres");

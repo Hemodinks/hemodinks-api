@@ -36,14 +36,16 @@ public sealed class AtualizarAtendimentoCommandHandler(IFinanceFeatureDbContext 
 
         var item = await query.SingleOrDefaultAsync(x => x.Id == request.Id, ct)
             ?? throw new KeyNotFoundException("Atendimento nao encontrado.");
-        var doctors = new[] { request.MedicoResponsavelId, request.MedicoAuxiliar1Id ?? 0, request.MedicoAuxiliar2Id ?? 0 }.Where(x => x > 0).ToArray();
-        if (doctors.Distinct().Count() != doctors.Length) throw new InvalidOperationException("Os medicos devem ser distintos.");
+        TipoCirurgiaRules.Validate(request.TipoCirurgia);
+        await AtendimentoMedicalTeamRules.ValidateAsync(db, request.MedicoResponsavelId, request.MedicoAuxiliar1Id,
+            request.MedicoAuxiliar2Id, request.CurrentPerfilId, request.CurrentUserId, ct);
         if (request.ValorGlosa < 0 || request.ValorGlosa > 0 && string.IsNullOrWhiteSpace(request.MotivoGlosa))
             throw new InvalidOperationException("Informe um valor de glosa valido e o respectivo motivo.");
         var previousGlosa = item.ValorGlosa;
         var previousMotivoGlosa = item.MotivoGlosa;
         var previousDataProcedimento = item.DataProcedimento;
         item.DataProcedimento = request.DataProcedimento; item.HospitalId = request.HospitalId; item.ConvenioId = request.ConvenioId;
+        item.TipoCirurgia = request.TipoCirurgia ?? item.TipoCirurgia;
         item.OpmeFornecedorId = request.OpmeFornecedorId;
         item.MedicoResponsavelId = request.MedicoResponsavelId; item.MedicoAuxiliar1Id = request.MedicoAuxiliar1Id;
         item.MedicoAuxiliar2Id = request.MedicoAuxiliar2Id; item.Diagnostico = request.Diagnostico?.Trim();

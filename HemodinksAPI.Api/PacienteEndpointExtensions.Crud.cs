@@ -22,6 +22,7 @@ public static partial class PacienteEndpointExtensions
         DateTime? dataSolicitacaoFinal,
         string? sortBy,
         string? sortDirection,
+        HemodinksAPI.Domain.Models.TipoCirurgia? tipoCirurgia,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
@@ -46,6 +47,7 @@ public static partial class PacienteEndpointExtensions
                 DataSolicitacaoFinal = dataSolicitacaoFinal,
                 SortBy = sortBy,
                 SortDirection = sortDirection,
+                TipoCirurgia = tipoCirurgia,
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId,
                 CurrentEquipeId = currentUser.EquipeId
@@ -117,6 +119,7 @@ public static partial class PacienteEndpointExtensions
             await mediator.Send(new DeletePacienteCommand
             {
                 Id = id,
+                CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId
             }, cancellationToken);
 

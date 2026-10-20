@@ -55,10 +55,20 @@ public static class FaturamentoMedicoSync
             .Trim()
             .Replace("R$", string.Empty, StringComparison.OrdinalIgnoreCase)
             .Replace(" ", string.Empty)
-            .Replace(".", string.Empty)
-            .Replace(",", ".", StringComparison.Ordinal)
-            .Where(character => char.IsDigit(character) || character is '.' or '-')
+            .Where(character => char.IsDigit(character) || character is '.' or ',' or '-')
             .Aggregate(string.Empty, (current, character) => current + character);
+
+        // Preserve Brazilian thousands (1.000), while accepting an unambiguous
+        // decimal point with one or two currency decimal places (100.50).
+        var point = normalized.IndexOf('.');
+        var hasDecimalPoint = !normalized.Contains(',') && point >= 0
+            && point == normalized.LastIndexOf('.')
+            && normalized.Length - point - 1 is 1 or 2;
+        if (!hasDecimalPoint)
+        {
+            normalized = normalized.Replace(".", string.Empty);
+        }
+        normalized = normalized.Replace(",", ".", StringComparison.Ordinal);
 
         return decimal.TryParse(normalized, NumberStyles.Number, CultureInfo.InvariantCulture, out var amount)
             ? amount

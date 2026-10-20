@@ -1,11 +1,13 @@
 using HemodinksAPI.Application.Features.Common;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
 using MediatR;
+using HemodinksAPI.Domain.Models;
 
 namespace HemodinksAPI.Application.Features.Faturamentos.Queries;
 
 public class GetAllFaturamentosMedicosQuery : IRequest<PagedResult<PacienteDto>>
 {
+    public TipoCirurgia? TipoCirurgia { get; set; }
     public int Page { get; set; } = 1;
 
     public int PageSize { get; set; } = 100;

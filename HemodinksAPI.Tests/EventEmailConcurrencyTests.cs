@@ -12,9 +12,11 @@ namespace HemodinksAPI.Tests;
 
 public sealed class EventEmailConcurrencyTests
 {
-    [Fact]
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
     [Trait("Category", "SqlServer")]
-    public async Task ConcurrentRequestsAndWorkers_QueueAndClaimEachRecipientOnlyOnce()
+    public async Task ConcurrentRequestsAndWorkers_QueueAndClaimEachRecipientOnlyOnce(bool copyToCreator)
     {
         if (Environment.GetEnvironmentVariable("HEMODINKS_TEST_LOCALDB") != "1"
             && string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable("HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING")))
@@ -29,7 +31,7 @@ public sealed class EventEmailConcurrencyTests
             await seed.Database.EnsureCreatedAsync();
             var actorUser = await AgendaSecurityTests.AddUser(seed, "actor", Perfil.AdministradorId);
             var recipient = await AgendaSecurityTests.AddUser(seed, "recipient", Perfil.ControllerId);
-            var ev = new Event { ClinicaId = 1, UserId = actorUser.Id, Title = "Concurrent event",
+            var ev = new Event { ClinicaId = 1, UserId = actorUser.Id, CreatedByUserId = actorUser.Id, Title = "Concurrent event",
                 Start = DateTime.UtcNow.AddDays(1), End = DateTime.UtcNow.AddDays(1).AddHours(1) };
             seed.Events.Add(ev); await seed.SaveChangesAsync();
             seed.AgendaNotifications.Add(new() { ClinicaId = 1, EventId = ev.Id, SenderUserId = actorUser.Id,
@@ -38,12 +40,13 @@ public sealed class EventEmailConcurrencyTests
             var actor = new CurrentUserContext(actorUser.Id, actorUser.PerfilId, actorUser.Nome);
             await using var queueFirst = new PlatformDbContext(options);
             await using var queueSecond = new PlatformDbContext(options);
-            var command = new QueueEventEmailNotificationCommand(ev.Id, actor);
+            var command = new QueueEventEmailNotificationCommand(ev.Id, actor, copyToCreator);
             var results = await Task.WhenAll(
                 new EventEmailRequestHandlers(queueFirst, ClinicaContextFactory.CreateDefaultResolved()).Handle(command, default),
                 new EventEmailRequestHandlers(queueSecond, ClinicaContextFactory.CreateDefaultResolved()).Handle(command, default));
-            Assert.Equal(1, results.Sum(item => item.QueuedCount));
-            Assert.Single(await seed.EventEmailDeliveries.AsNoTracking().ToListAsync());
+            var expectedCount = copyToCreator ? 2 : 1;
+            Assert.Equal(expectedCount, results.Sum(item => item.QueuedCount));
+            Assert.Equal(expectedCount, await seed.EventEmailDeliveries.AsNoTracking().CountAsync());
 
             await using var workerFirstDb = new PlatformDbContext(options);
             await using var workerSecondDb = new PlatformDbContext(options);
@@ -54,14 +57,17 @@ public sealed class EventEmailConcurrencyTests
             await blocking.Entered.Task.WaitAsync(TimeSpan.FromSeconds(30));
             try
             {
-                Assert.Equal(0, await new EventEmailDeliveryProcessor(workerSecondDb, secondSender,
+                Assert.Equal(copyToCreator ? 1 : 0, await new EventEmailDeliveryProcessor(workerSecondDb, secondSender,
                     NullLogger<EventEmailDeliveryProcessor>.Instance).ProcessAsync(default));
-                Assert.Equal(0, secondSender.Count);
+                Assert.Equal(copyToCreator ? 1 : 0, secondSender.Count);
             }
             finally { blocking.Release.TrySetResult(); }
             Assert.Equal(1, await firstRun);
-            var delivery = Assert.Single(await seed.EventEmailDeliveries.AsNoTracking().ToListAsync());
-            Assert.Equal("sent", delivery.Status); Assert.Equal(1, delivery.Attempts);
+            var deliveries = await seed.EventEmailDeliveries.AsNoTracking().ToListAsync();
+            Assert.Equal(expectedCount, deliveries.Count);
+            Assert.All(deliveries, delivery => { Assert.Equal("sent", delivery.Status); Assert.Equal(1, delivery.Attempts); });
+            Assert.Equal(expectedCount, deliveries.Select(x => x.RecipientEmail).Distinct().Count());
+            Assert.Equal(expectedCount, blocking.Count + secondSender.Count);
             Assert.Equal(1, blocking.Count);
         }
         finally

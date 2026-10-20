@@ -19,7 +19,9 @@ internal static class FaturamentoMedicoScope
 
         if (perfilId == Perfil.MedicosId)
         {
-            return query.Where(p => p.MedicoUserId == currentUserId);
+            return query.Where(p => p.MedicoUserId == currentUserId
+                || !p.MedicoUserId.HasValue
+                    && (p.MedicoAuxiliar1UserId == currentUserId || p.MedicoAuxiliar2UserId == currentUserId));
         }
 
         if (perfilId == Perfil.EquipeId && equipeId.HasValue)

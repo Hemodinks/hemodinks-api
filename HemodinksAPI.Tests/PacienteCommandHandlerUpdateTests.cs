@@ -184,6 +184,7 @@ public partial class PacienteCommandHandlerTests
         {
             Id = paciente.Id,
             NomePaciente = "Paciente Controller Atualizado",
+            MedicoUserId = doctor.Id,
             Email = user.Email,
             Telefone = user.Telefone,
             Cpf = user.Cpf!,
@@ -245,6 +246,7 @@ public partial class PacienteCommandHandlerTests
         {
             Id = paciente.Id,
             NomePaciente = "Paciente Atualizado",
+            MedicoUserId = doctor.Id,
             Email = user.Email,
             Telefone = user.Telefone,
             Cpf = user.Cpf!,

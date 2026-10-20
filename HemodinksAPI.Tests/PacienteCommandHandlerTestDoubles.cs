@@ -10,6 +10,7 @@ public partial class PacienteCommandHandlerTests
 {
     private sealed class FakeProfilePhotoStorage : IProfilePhotoStorage
     {
+        public int Deletions { get; private set; }
         public Task<string?> SaveAsync(string? fotoPerfil, string? currentFotoPerfil, CancellationToken cancellationToken)
         {
             return Task.FromResult(fotoPerfil);
@@ -22,6 +23,7 @@ public partial class PacienteCommandHandlerTests
 
         public Task DeleteAsync(string? fotoPerfil, CancellationToken cancellationToken)
         {
+            Deletions++;
             return Task.CompletedTask;
         }
     }
@@ -36,6 +38,7 @@ public partial class PacienteCommandHandlerTests
 
     private sealed class FakePatientFileStorage : IPatientFileStorage
     {
+        public int Deletions { get; private set; }
         public Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
         {
             return Task.FromResult(new StoredPatientFile(
@@ -47,6 +50,7 @@ public partial class PacienteCommandHandlerTests
 
         public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
         {
+            Deletions++;
             return Task.CompletedTask;
         }
 

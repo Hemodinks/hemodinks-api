@@ -103,12 +103,12 @@ public sealed class EventEmailDeliveryProcessor(
         if (ev.IsCompleted) return null;
         var users = await EventEmailRules.EligibleRecipientsAsync(db, ev.Id, actor, ct);
         var user = users.SingleOrDefault(item => item.Id == delivery.RecipientUserId);
+        if (user == null && delivery.RecipientUserId == ev.CreatedByUserId)
+            user = await EventEmailRules.EligibleCreatorAsync(db, ev, ct);
         if (user == null || EventEmailRules.NormalizeEmail(user.Email) != delivery.RecipientEmail) return null;
-        var dates = ev.IsAllDay && ev.AllDayStartDate.HasValue && ev.AllDayEndDate.HasValue
-            ? $"Datas: {ev.AllDayStartDate:dd/MM/yyyy} a {ev.AllDayEndDate:dd/MM/yyyy} (dia inteiro)."
-            : $"Inicio: {ev.Start:dd/MM/yyyy HH:mm} UTC\nFim: {ev.End:dd/MM/yyyy HH:mm} UTC";
-        // One individual, plain-text message; no recipient list or user-supplied mail headers.
-        return new(user.Email, $"Voce foi incluido em um evento da agenda HemoDinks.\n\nTitulo: {ev.Title}\n{dates}\n\n{ev.Description}");
+        // Sender/recipient/tenant revalidation above is unchanged. Build only from
+        // the persisted event: HTML is never accepted from notification recipients.
+        return EventEmailTemplateRenderer.Create(ev, user.Email);
     }
 }
 
