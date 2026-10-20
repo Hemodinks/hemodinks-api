@@ -21,6 +21,92 @@ namespace HemodinksAPI.Tests;
 
 public partial class ApiEndpointIntegrationTests
 {
+    [Theory]
+    [InlineData("pacientes", "xlsx")]
+    [InlineData("pacientes", "pdf")]
+    [InlineData("faturamentos-medicos", "xlsx")]
+    [InlineData("faturamentos-medicos", "pdf")]
+    public async Task SurgeryExport_SecondaryProcedureFilterRetainsAllOrderedProcedures(string resource, string format)
+    {
+        var queue = new CapturingFileExportQueue();
+        using var factory = SurgeryExportFactory(queue);
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+        using (var scope = factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var patient = ExportPatient("MULTI178", 1, TipoCirurgia.Urgencia);
+            patient.Procedimento = "PRIMARY178";
+            // Insert out of order to verify the same ordering used by the query projection.
+            patient.Procedimentos.Add(new PacienteProcedimento { Procedimento = "SECONDARY178", Ordem = 2 });
+            patient.Procedimentos.Add(new PacienteProcedimento { Procedimento = "PRIMARY178", Ordem = 1 });
+            db.Pacientes.Add(patient);
+            await db.SaveChangesAsync();
+        }
+
+        using var query = JsonDocument.Parse(await client.GetStringAsync(
+            $"/api/{resource}/?procedimento=SECONDARY178&tipoCirurgia=Urgencia"));
+        var item = Assert.Single(query.RootElement.GetProperty("items").EnumerateArray());
+        Assert.Equal(new[] { "PRIMARY178", "SECONDARY178" }, item.GetProperty("procedimentos")
+            .EnumerateArray().Select(p => p.GetProperty("procedimento").GetString()));
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/exports/", new
+        {
+            resource, format, reportType = "completo",
+            filters = new { procedimento = "SECONDARY178", tipoCirurgia = "Urgencia" }
+        })).StatusCode);
+        var message = Assert.Single(queue.Messages);
+        var snapshot = message.Snapshot!;
+        var procedureColumn = Array.IndexOf(snapshot.Columns.ToArray(), "Procedimento");
+        Assert.Equal("PRIMARY178; SECONDARY178", Assert.Single(snapshot.Rows)[procedureColumn]);
+        Assert.Equal(1, Assert.Single(snapshot.Totals).Count);
+        Assert.Equal(10m, Assert.Single(snapshot.Totals).HonorariosCirurgiao);
+
+        var bytes = await CaptureSurgeryExportBytesAsync(message);
+        string output;
+        if (format == "xlsx")
+        {
+            using var archive = new ZipArchive(new MemoryStream(bytes));
+            using var reader = new StreamReader(archive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+            output = await reader.ReadToEndAsync();
+        }
+        else output = Encoding.Latin1.GetString(bytes);
+        Assert.Contains("PRIMARY178; SECONDARY178", output);
+    }
+
+    [Theory]
+    [InlineData("pacientes", false)]
+    [InlineData("pacientes", true)]
+    [InlineData("faturamentos-medicos", false)]
+    [InlineData("faturamentos-medicos", true)]
+    public async Task SurgeryExport_SurgeryDateDoesNotFallBackToRequestDate(string resource, bool hasSurgeryDate)
+    {
+        var queue = new CapturingFileExportQueue();
+        using var factory = SurgeryExportFactory(queue);
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+        using (var scope = factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var patient = ExportPatient("DATE178", 1, TipoCirurgia.Eletiva);
+            patient.Data = new DateTime(2030, 1, 2);
+            patient.DataAtendimento = hasSurgeryDate ? new DateTime(2030, 2, 3) : null;
+            patient.Procedimento = "LEGACY178";
+            db.Pacientes.Add(patient);
+            await db.SaveChangesAsync();
+        }
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/exports/", new
+        {
+            resource, format = "xlsx", filters = new { search = "DATE178" }
+        })).StatusCode);
+        var snapshot = Assert.Single(queue.Messages).Snapshot!;
+        var row = Assert.Single(snapshot.Rows);
+        Assert.Equal(hasSurgeryDate ? "2030-02-03" : null,
+            row[Array.IndexOf(snapshot.Columns.ToArray(), "Data cirurgia")]);
+        Assert.Equal("LEGACY178", row[Array.IndexOf(snapshot.Columns.ToArray(), "Procedimento")]);
+    }
+
     [Fact]
     public async Task SurgeryExport_BillingUsesSameDoctorScopeAsQuery_WithoutBroadeningAssistantPermissions()
     {

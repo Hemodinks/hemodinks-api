@@ -97,9 +97,9 @@ internal static class FileExportSnapshotBuilder
 
     private static string?[] ToRow(PacienteDto p) =>
     [
-        p.Id.ToString(CultureInfo.InvariantCulture), p.NomePaciente, (p.DataAtendimento ?? p.Data)?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+        p.Id.ToString(CultureInfo.InvariantCulture), p.NomePaciente, p.DataAtendimento?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
         p.TipoCirurgia.ToString(), p.Medico, p.MedicoAuxiliar1, p.MedicoAuxiliar2, p.Convenio,
-        p.Procedimento ?? string.Join("; ", p.Procedimentos.Select(item => item.Procedimento)),
+        p.Procedimentos.Count > 0 ? string.Join("; ", p.Procedimentos.Select(item => item.Procedimento)) : p.Procedimento,
         Money(p.Faturamento?.HonorariosCirurgiao), Money(p.Faturamento?.HonorariosAuxiliares),
         Money(p.Faturamento?.RepasseMedico), Money(p.Faturamento?.ValorGlosa), p.StatusPago ? "Sim" : "Nao"
     ];

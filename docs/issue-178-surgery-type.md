@@ -65,3 +65,37 @@ O build também mantém os avisos NuGet existentes de vulnerabilidade em
 Não houve publicação nem alteração no frontend. A validação visual/E2E de
 navegador depende da implementação do frontend #173; carga e bloqueios em
 produção não foram medidos.
+
+## Retomada da issue
+
+A revisão independente de segurança encontrou duas divergências no relatório
+completo de pacientes e faturamentos médicos: procedimentos secundários eram
+omitidos quando havia procedimento principal legado e a data de solicitação
+substituía uma data cirúrgica ausente. O snapshot agora prioriza a coleção
+ordenada de procedimentos, mantendo o fallback para registros legados, e usa
+somente `DataAtendimento` na coluna `Data cirurgia`.
+
+Oito novos casos cobrem ambos os recursos, filtro por procedimento secundário,
+PDF/XLSX, totais sem duplicação, fallback legado e datas cirúrgicas preenchidas
+ou ausentes. Antes da correção, seis casos falharam pelas divergências e dois
+passaram. Após a correção, a bateria direcionada passou com 31 testes, nenhum
+ignorado, incluindo migration/rollback em LocalDB, isolamento e privacidade.
+Evidências: `issue178-resume-red.trx`, `issue178-resume-green.trx` e
+`issue178-resume-model.log` em `out/issue-validation/`. A verificação do
+`AppDbContext` confirmou que o modelo EF continua sem alterações pendentes.
+
+A regressão completa desta retomada (`issue178-resume-regression.trx`) terminou
+com 1.019 aprovados, três falhas e 12 testes de navegador ignorados:
+
+- `PatientUserTenantSqlServerTests.SqlServer_RejectsCrossClinicPatientAndUserRelationships`:
+  a preparação tenta remover `AK_Users_ClinicaId_Id`, referenciada por `Events`.
+- `LegacyFinancialBackfillMigrationTests.Migration_backfills_valid_legacy_values_and_audits_invalid_originals`:
+  Full-Text Search não instalado no LocalDB.
+- `EventReminderProcessorConcurrencyTests.ProcessDueReminders_ClaimsEventBeforeSendingAcrossReplicas`:
+  Full-Text Search não instalado no LocalDB.
+
+São as pendências já documentadas; nenhuma nova falha de regressão foi observada.
+Os 12 cenários `LoginBrowserTests.Browser_UsesRealApi` foram ignorados por falta
+de `HEMODINKS_E2E_FRONT_PATH`. O E2E responsivo do tipo de cirurgia com frontend
+e API integrados permanece pendente do frontend #173. Não houve commit, merge,
+deploy, nova dependência ou alteração de schema nesta retomada.
