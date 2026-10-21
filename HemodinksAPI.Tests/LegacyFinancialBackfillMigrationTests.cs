@@ -67,19 +67,31 @@ public sealed class LegacyFinancialBackfillMigrationTests
                 ALTER TABLE [Pacientes] DROP COLUMN [TipoCirurgia];
                 """);
 
-            await migrator.MigrateAsync();
+            // Exercise the backfill itself, not later migrations (including Full-Text).
+            // The full migration chain is covered by EventReminderProcessorConcurrencyTests.
+            const string backfillMigration = "20260722202127_AddLegacyPatientFinancialBackfillAudit";
+            await migrator.MigrateAsync(backfillMigration);
+            Assert.Equal(backfillMigration, (await db.Database.GetAppliedMigrationsAsync()).Last());
             db.ChangeTracker.Clear();
 
+            // Project only columns that existed at this historical schema version.
             var validBilling = await db.Faturamentos.IgnoreQueryFilters()
-                .Include(x => x.AtendimentoCirurgico)
-                .Include(x => x.ContasReceber).ThenInclude(x => x.Recebimentos)
-                .SingleAsync(x => x.AtendimentoCirurgico.PacienteId == patientIds[0] && x.Observacao!.Contains("LEG-PACIENTE-FINANCEIRO"));
+                .Where(x => x.AtendimentoCirurgico.PacienteId == patientIds[0] && x.Observacao!.Contains("LEG-PACIENTE-FINANCEIRO"))
+                .Select(x => new
+                {
+                    x.ValorApresentado, x.ValorGlosado, x.ValorReconhecido,
+                    ContasReceber = x.ContasReceber.Select(account => new
+                    {
+                        account.ValorAjustado,
+                        Recebimentos = account.Recebimentos.Select(receipt => receipt.ValorRecebido).ToList()
+                    }).ToList()
+                }).SingleAsync();
             Assert.Equal(1234.56m, validBilling.ValorApresentado);
             Assert.Equal(234.56m, validBilling.ValorGlosado);
             Assert.Equal(1000m, validBilling.ValorReconhecido);
             var account = Assert.Single(validBilling.ContasReceber);
             Assert.Equal(1000m, account.ValorAjustado);
-            Assert.Equal(1000m, Assert.Single(account.Recebimentos).ValorRecebido);
+            Assert.Equal(1000m, Assert.Single(account.Recebimentos));
 
             var inconsistencies = await db.FinanceiroMigracaoInconsistencias.IgnoreQueryFilters()
                 .Where(x => x.PacienteId == patientIds[1]).OrderBy(x => x.Campo).ToListAsync();
