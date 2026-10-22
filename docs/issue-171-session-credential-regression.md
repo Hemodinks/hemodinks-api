@@ -92,3 +92,41 @@ e `--logger "trx;LogFileName=issue171-browser.trx"`. O checkout precisa conter
   presumido pela existência dos arquivos de configuração.
 - Sem commit, push, PR, merge ou deploy; instruções e configurações de agentes
   preservadas. Não se declara CI verde a partir de testes locais direcionados.
+
+## Revalidação em 22/10/2026
+
+Execução novamente solicitada pelo usuário, na `developer`, base `b73b454`.
+AGENTS.md e `.codex/config.toml` relidos integralmente; risco crítico e
+complexidade alta mantidos. A #171 e seu pré-requisito #152 foram consultados
+no GitHub: #171 aberta, #152 fechada como concluída. A implementação e os testes
+descritos acima já estão presentes; não se duplicou a correção nem se alterou
+lógica, contratos, filtros de tenant, schema ou assertions.
+
+Conferidos os fluxos de recuperação, revogação global restrita à identidade,
+troca de senha, senha temporária, refresh, cookies, troca de clínica e conflitos
+de persistência. Resultados atuais, com build e bancos descartáveis LocalDB:
+
+| Execução | Resultado | Duração | TRX local em `logs/issue171/` |
+| --- | --- | --- | --- |
+| `ClinicSwitch_*`, `PasswordChange_RevokesBothClinicSessions*`, `SessionLifetimeConcurrencyTests` | 13 aprovados, zero falhas/ignorados | 49 s | `issue171-targeted-current.trx` |
+| Filtro ampliado documentado acima, sem `LoginBrowser` | 258 aprovados, zero falhas/ignorados | 4 min 47 s | `issue171-security-current.trx` |
+| `LoginBrowserTests`, com checkout local do frontend | 12 aprovados, zero falhas/ignorados | 5 min 11 s | `issue171-browser-current.trx` |
+
+São **270 cenários distintos aprovados**; os 13 direcionados já integram os
+258 da regressão. Os 12 cenários de navegador existentes cobrem login e sessão;
+recuperação com revogação/replay é coberta pelos testes HTTP reais em Kestrel,
+sem acrescentar um novo fluxo de recuperação no navegador. Frontend permaneceu
+sem alterações de fonte. TRX/logs são artefatos locais ignorados pelo Git.
+
+Security foi acionado novamente para revisão independente (high configurado),
+mas atingiu limite de uso antes de fornecer achados da #171. Não houve revisão
+independente concluída nesta rodada; modelo/esforço efetivos do principal não
+foram informados pelo ambiente. O principal concluiu conferência e testes.
+Build emitiu avisos preexistentes NU1902/NU1903 para
+`System.Security.Cryptography.Pkcs` 9.0.4 e IDE0005; dependências não alteradas.
+
+Status: implementação existente revalidada, sem regressão encontrada nos
+cenários executados; somente este relatório atualizado. Permanecem os limites
+de SuperAdmin e requisições já autorizadas descritos acima. Não se executou a
+suíte global de negócio nem se alterou produção ou estado da issue no GitHub.
+`git diff --check` aprovado; sem novos secrets, commit, PR, merge ou deploy.
