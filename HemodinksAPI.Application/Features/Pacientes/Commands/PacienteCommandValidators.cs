@@ -28,11 +28,22 @@ internal static class PacienteCommandValidator
     public static void Validate(CreatePacienteCommand request)
     {
         ValidateProfile(request.NomePaciente, request.Diagnostico, request.TratamentoMedico, request.OpmeFornecedor);
+        ValidateDates(request.Data, request.DataAtendimento);
     }
 
     public static void Validate(UpdatePacienteCommand request)
     {
         ValidateProfile(request.NomePaciente, request.Diagnostico, request.TratamentoMedico, request.OpmeFornecedor);
+        ValidateDates(request.Data, request.DataAtendimento);
+    }
+
+    private static void ValidateDates(DateTime? dataSolicitacao, DateTime? dataConsolidacao)
+    {
+        if (dataSolicitacao.HasValue && dataConsolidacao.HasValue
+            && dataSolicitacao.Value.Date > dataConsolidacao.Value.Date)
+        {
+            throw new InvalidOperationException("A data da consolidação não pode ser anterior à data da solicitação.");
+        }
     }
 
     private static void ValidateProfile(string? nomePaciente, string? diagnostico, string? tratamentoMedico, string? opmeFornecedor)
