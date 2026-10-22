@@ -5,11 +5,14 @@ Este runbook cobre somente `hemodinks-api-prod`, no Resource Group
 
 ## Modelo operacional
 
-O workflow valida, testa, audita migrations, publica imagens imutaveis
-`sha-<commit>`, gera um EF migration bundle e SQL idempotente, aplica a migration
-uma vez e somente entao cria uma revisao candidata com 0% de trafego. A URL do
+O workflow valida, testa, audita migrations, publica imagens com tag
+`sha-<commit>`, gera um EF migration bundle e SQL idempotente, executa o bundle
+em um unico job com retries limitados e somente entao cria uma revisao candidata
+com 0% de trafego. A URL do
 label da candidata passa por warm-up, liveness e readiness (incluindo acesso ao
-banco e ausencia de migrations pendentes). Apenas depois disso o trafego muda de
+banco). Com `Database__SchemaManagedByDeployment=true`, o schema depende do gate
+de migrations do pipeline; readiness nao consulta migrations pendentes.
+Apenas depois disso o trafego muda de
 100/0 para 0/100.
 
 A revisao anterior continua ativa, com label e 0% de trafego, para um rollback
@@ -94,9 +97,10 @@ implicitamente uma troca de trafego feita muito tempo depois. Jobs de workers
 continuam usando `production` e podem gerar aprovacoes adicionais conforme a
 regra configurada.
 
-O workflow nao recebe nem regrava o segredo do New Relic: a candidata copia a
-configuracao existente, incluindo `secretref`, da revisao atual. Rotacione esse
-segredo por um procedimento operacional separado, sem coloca-lo em argumentos.
+Se `NEW_RELIC_LICENSE_KEY` estiver configurado, o workflow atualiza o secret
+`new-relic-license-key` e habilita o profiler na candidata. Se estiver ausente,
+preserva a configuracao existente, incluindo `secretref`, da revisao atual.
+Nao imprima o valor nem habilite tracing de argumentos durante essa operacao.
 
 O identity OIDC precisa, no minimo, ler o Resource Group e atualizar o Container
 App. Restrinja o RBAC ao menor escopo possivel. O runner que aplica migrations
@@ -144,8 +148,8 @@ Ordem esperada:
 1. `validate`;
 2. `publish` e `prepare-migrations`;
 3. aprovacao de `migrate-production`;
-4. preflight do ingress HTTP e execucao unica do bundle;
-5. `deploy-api` depois da aprovacao unica de `migrate-production`;
+4. preflight do ingress HTTP e execucao do bundle, com retries limitados;
+5. nova aprovacao do Environment `production` para `deploy-api`;
 6. candidata a 0% e warm-up/smoke pela URL do label;
 7. troca de trafego, confirmacao de `CURRENT=100%` e restauracao automatica da
    revisao anterior se a promocao nao puder ser confirmada;
@@ -201,7 +205,7 @@ workflow.
 Em Actions, abra **Roll back Production API**:
 
 1. informe `ROLLBACK-PRODUCTION`;
-2. deixe `target_revision` vazio para usar a revisao pronta anterior mais recente,
+2. deixe `target_revision` vazio para usar a revisao do label blue/green com 0%,
    ou copie exatamente uma revisao listada no Azure;
 3. aprove o Environment `production`.
 
