@@ -6,6 +6,13 @@ internal static class SqlServerTestConnection
 {
     private const string ConnectionStringEnvironmentVariable = "HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING";
 
+    public static void RequireConfigured()
+    {
+        if (string.IsNullOrWhiteSpace(Environment.GetEnvironmentVariable(ConnectionStringEnvironmentVariable))
+            && Environment.GetEnvironmentVariable("HEMODINKS_TEST_LOCALDB") != "1")
+            Assert.Skip("Configure an isolated SQL Server with HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING or opt in to disposable LocalDB with HEMODINKS_TEST_LOCALDB=1.");
+    }
+
     public static string Create(string databaseName)
     {
         var configuredConnectionString = Environment.GetEnvironmentVariable(ConnectionStringEnvironmentVariable);

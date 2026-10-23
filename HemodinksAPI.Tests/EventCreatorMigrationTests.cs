@@ -15,8 +15,7 @@ public sealed class EventCreatorMigrationTests
     [Trait("Category", "SqlServer")]
     public async Task CreatorMigration_PreservesLegacyUnknownCreatorAndRejectsCrossClinicAtDatabaseBoundary()
     {
-        if (Environment.GetEnvironmentVariable("HEMODINKS_TEST_LOCALDB") != "1")
-            Assert.Skip("Set HEMODINKS_TEST_LOCALDB=1 to test the additive creator migration in a disposable SQL Server database.");
+        SqlServerTestConnection.RequireConfigured();
         var name = $"HemodinksEventCreatorAudit_{Guid.NewGuid():N}";
         var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(SqlServerTestConnection.Create(name)).Options;
         await using var db = new PlatformDbContext(options);

@@ -31,6 +31,12 @@ env:
   API_IMAGE: ghcr.io/hemodinks/hemodinks-api:sha-${{ github.sha }}
 
 jobs:
+  login-e2e:
+    name: Login integration E2E
+    permissions:
+      contents: read
+    uses: ./.github/workflows/login-e2e.yml
+
   validate:
     name: Restore, build, test and audit
     runs-on: ubuntu-latest
@@ -98,7 +104,11 @@ jobs:
         run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
 
       - name: Run automated tests
-        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
+        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --filter "FullyQualifiedName!~LoginBrowserTests" --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
+
+      - name: Require critical SQL tests and zero silent skips
+        if: always()
+        run: python3 -B scripts/check-test-results.py --suite api TestResults/test-results.trx
 
       - name: Audit migrations and pending model changes
         shell: pwsh
@@ -114,7 +124,7 @@ jobs:
 
   publish:
     name: Build and publish ${{ matrix.service }} SHA image
-    needs: validate
+    needs: [validate, login-e2e]
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false

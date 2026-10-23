@@ -19,7 +19,7 @@ public sealed class SurgeryTypeSqlServerTests
     [Trait("Category", "SqlServer")]
     public async Task SurgeryType_MigrationBackfillsLegacyRowsAndAllowsOldWritersWithoutChangingExistingData()
     {
-        RequireLocalDb();
+        SqlServerTestConnection.RequireConfigured();
         await using var db = CreateContext();
         try
         {
@@ -105,7 +105,7 @@ public sealed class SurgeryTypeSqlServerTests
     [Trait("Category", "SqlServer")]
     public async Task SurgeryType_RollbackRefusesUrgencyInEitherTableBeforeChangingSchemaOrData()
     {
-        RequireLocalDb();
+        SqlServerTestConnection.RequireConfigured();
         await using var db = CreateContext();
         try
         {
@@ -149,18 +149,12 @@ public sealed class SurgeryTypeSqlServerTests
         }
     }
 
-    private static void RequireLocalDb()
-    {
-        if (Environment.GetEnvironmentVariable("HEMODINKS_TEST_LOCALDB") != "1")
-            Assert.Skip("Set HEMODINKS_TEST_LOCALDB=1 to run surgery type tests in disposable LocalDB databases.");
-    }
-
     private static PlatformDbContext CreateContext()
     {
-        // Never read an application's connection string or connect to an externally configured server.
+        // Only the dedicated test connection is used; this fixture owns a new database.
         var name = $"HemodinksSurgeryTypeTest_{Guid.NewGuid():N}";
         var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(
-            $"Server=(localdb)\\MSSQLLocalDB;Database={name};Trusted_Connection=True;MultipleActiveResultSets=true;TrustServerCertificate=True").Options;
+            SqlServerTestConnection.Create(name)).Options;
         return new PlatformDbContext(options);
     }
 
