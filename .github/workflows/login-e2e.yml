@@ -22,8 +22,9 @@ jobs:
         uses: actions/checkout@v7.0.1
         with:
           repository: Hemodinks/hemodinks-front
-          # Includes Front #162. Keep the integration pair reviewable and reproducible.
-          ref: 81d0b4afc2f4ae4f49f2900dc454b6410aa01efb
+          # Includes Front #162 and the legal-bootstrap readiness fix (Front #189).
+          # Keep the integration pair reviewable and reproducible.
+          ref: 56208ef06209143027ab6c73715179821581cff5
           path: .integration/frontend
           persist-credentials: false
 
