@@ -12,17 +12,15 @@ namespace HemodinksAPI.Tests;
 public sealed class PatientUserTenantSqlServerTests
 {
     [Fact]
+    [Trait("Category", "SqlServer")]
     public async Task SqlServer_RejectsCrossClinicPatientAndUserRelationships()
     {
-        if (Environment.GetEnvironmentVariable("HEMODINKS_TEST_LOCALDB") != "1")
-        {
-            Assert.Skip("Set HEMODINKS_TEST_LOCALDB=1 to run against a disposable SQL Server LocalDB database.");
-        }
+        SqlServerTestConnection.RequireConfigured();
 
         // The test owns only this newly generated database; never use application configuration.
         var databaseName = $"HemodinksTenantTest_{Guid.NewGuid():N}";
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseSqlServer($"Server=(localdb)\\MSSQLLocalDB;Database={databaseName};Integrated Security=True;TrustServerCertificate=True")
+            .UseSqlServer(SqlServerTestConnection.Create(databaseName))
             .Options;
         await using var context = new PlatformDbContext(options);
         try
@@ -56,6 +54,12 @@ public sealed class PatientUserTenantSqlServerTests
             await context.SaveChangesAsync();
 
             var migration = new Schema_EnforcePatientUserClinicRelationships();
+            // EnsureCreated uses today's schema. Undo later dependants before the historical
+            // migration removes the composite Users key, then restore them after its Up.
+            var creatorMigration = new AddEventAuthenticatedCreator();
+            var emailMigration = new AddEventEmailDeliveries();
+            await ExecuteOperations(context, creatorMigration.DownOperations);
+            await ExecuteOperations(context, emailMigration.DownOperations);
             await ExecuteOperations(context, migration.DownOperations);
             await context.Database.ExecuteSqlInterpolatedAsync(
                 $"UPDATE Pacientes SET MedicoUserId = {second.UserId} WHERE Id = {first.Id}");
@@ -69,6 +73,8 @@ public sealed class PatientUserTenantSqlServerTests
             await context.Database.ExecuteSqlInterpolatedAsync(
                 $"UPDATE Pacientes SET MedicoUserId = NULL WHERE Id = {first.Id}");
             await ExecuteOperations(context, migration.UpOperations);
+            await ExecuteOperations(context, emailMigration.UpOperations);
+            await ExecuteOperations(context, creatorMigration.UpOperations);
 
             // Raw SQL bypasses SaveChanges validation and exercises actual database constraints.
             await AssertForeignKeyViolation(() => context.Database.ExecuteSqlInterpolatedAsync(

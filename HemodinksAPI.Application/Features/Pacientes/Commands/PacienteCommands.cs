@@ -2,13 +2,16 @@ using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Application.Storage;
 using MediatR;
 using HemodinksAPI.Domain.Models;
+using System.Text.Json.Serialization;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
 public class CreatePacienteCommand : IRequest<PacienteDto>
 {
     public TipoCirurgia TipoCirurgia { get; set; } = TipoCirurgia.Eletiva;
+    [JsonConverter(typeof(PacienteCivilDateJsonConverter))]
     public DateTime? Data { get; set; }
+    [JsonConverter(typeof(PacienteCivilDateJsonConverter))]
     public DateTime? DataAtendimento { get; set; }
     public string NomePaciente { get; set; } = null!;
     public string? Diagnostico { get; set; }
@@ -50,7 +53,9 @@ public class UpdatePacienteCommand : IRequest<PacienteDto>
 {
     public TipoCirurgia? TipoCirurgia { get; set; }
     public int Id { get; set; }
+    [JsonConverter(typeof(PacienteCivilDateJsonConverter))]
     public DateTime? Data { get; set; }
+    [JsonConverter(typeof(PacienteCivilDateJsonConverter))]
     public DateTime? DataAtendimento { get; set; }
     public string NomePaciente { get; set; } = null!;
     public string? Diagnostico { get; set; }

@@ -45,7 +45,7 @@ public sealed class LoginBrowserTests
             RedirectStandardOutput = true,
             RedirectStandardError = true
         };
-        foreach (var argument in new[] { "node_modules/@playwright/test/cli.js", "test", "--config=playwright.login.config.ts", "--grep", $"case:{scenario}$" })
+        foreach (var argument in new[] { "node_modules/@playwright/test/cli.js", "test", "--config=playwright.login.config.ts", "--reporter=json", "--grep", $"case:{scenario}$" })
             start.ArgumentList.Add(argument);
         start.Environment["VITE_API_URL"] = address;
         start.Environment["HEMODINKS_E2E_SCENARIO"] = scenario;
@@ -62,6 +62,13 @@ public sealed class LoginBrowserTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
         try { await process.WaitForExitAsync(timeout.Token); }
         catch { process.Kill(entireProcessTree: true); throw; }
-        Assert.True(process.ExitCode == 0, (await output) + (await error));
+        var report = await output;
+        Assert.True(process.ExitCode == 0, report + (await error));
+        using var document = JsonDocument.Parse(report);
+        var stats = document.RootElement.GetProperty("stats");
+        Assert.True(stats.GetProperty("expected").GetInt32() > 0, "Playwright must execute at least one passing test per scenario.");
+        Assert.Equal(0, stats.GetProperty("skipped").GetInt32());
+        Assert.Equal(0, stats.GetProperty("unexpected").GetInt32());
+        Assert.Equal(0, stats.GetProperty("flaky").GetInt32());
     }
 }

@@ -13,8 +13,7 @@ public partial class PacienteCommandHandlerTests
     [Trait("Category", "SqlServer")]
     public async Task DeletePaciente_SqlServer_EnforcesScopeAndCascadesOnlyAuthorizedPatient()
     {
-        if (Environment.GetEnvironmentVariable("HEMODINKS_TEST_LOCALDB") != "1")
-            Assert.Skip("Set HEMODINKS_TEST_LOCALDB=1 to run against a disposable SQL Server LocalDB database.");
+        SqlServerTestConnection.RequireConfigured();
 
         var databaseName = $"HemodinksDeletionAudit_{Guid.NewGuid():N}";
         var options = new DbContextOptionsBuilder<AppDbContext>()

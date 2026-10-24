@@ -1,0 +1,64 @@
+name: Login integration E2E
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  login-e2e:
+    name: Login browser scenarios (12 required)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout API
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Checkout compatible frontend
+        uses: actions/checkout@v7.0.1
+        with:
+          repository: Hemodinks/hemodinks-front
+          # Includes Front #162. Keep the integration pair reviewable and reproducible.
+          ref: 81d0b4afc2f4ae4f49f2900dc454b6410aa01efb
+          path: .integration/frontend
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6.0.0
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Setup Node
+        uses: actions/setup-node@v6
+        with:
+          node-version: 22
+
+      - name: Install frontend and Chromium
+        working-directory: .integration/frontend
+        run: |
+          npm ci
+          npx --no-install playwright install --with-deps chromium
+
+      - name: Build isolated API test host
+        run: dotnet build HemodinksAPI.Tests/HemodinksAPI.Tests.csproj --configuration Release
+
+      - name: Run login browser scenarios
+        env:
+          HEMODINKS_E2E_FRONT_PATH: ${{ github.workspace }}/.integration/frontend
+        run: dotnet test HemodinksAPI.Tests/HemodinksAPI.Tests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~LoginBrowserTests" --logger "trx;LogFileName=login-e2e.trx" --results-directory TestResults/login-e2e
+
+      - name: Require all browser scenarios without skips
+        if: always()
+        run: python3 -B scripts/check-test-results.py --suite login-e2e TestResults/login-e2e/login-e2e.trx
+
+      - name: Upload login test results
+        if: always()
+        uses: actions/upload-artifact@v7.0.1
+        with:
+          name: login-e2e-results
+          path: TestResults/login-e2e/*.trx
+          if-no-files-found: error
