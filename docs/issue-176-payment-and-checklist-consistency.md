@@ -83,8 +83,9 @@ as páginas de `GET /api/faturamentos-medicos/` e constroem os registros no fron
 O PDF observado não é produzido pelo worker de exportações da API.
 
 - A lista médica, a lista de pacientes e o detalhe compartilham os campos de
-  pagamento, mas não todos os escopos de acesso: médico vê faturamento apenas como
-  cirurgião principal; pacientes também admitem vínculos auxiliares/grupo existentes.
+  pagamento, mas não todos os escopos de acesso: médico vê faturamento como
+  cirurgião principal ou como auxiliar quando não há `MedicoUserId` principal.
+  Pacientes também admitem os vínculos auxiliares/grupo existentes.
 - Admin/super/controller continuam limitados à clínica autenticada. Equipe depende
   dos membros ativos nos três vínculos médicos. Não aceitar `ClinicaId` como
   autoridade enviado pelo cliente nem usar nome do médico como autorização.
@@ -206,3 +207,50 @@ Complexidade e risco altos; principal e Security participaram desta revalidaçã
 A entrega técnica da API foi revalidada, mantendo as pendências de frontend,
 conciliação real e infraestrutura já explicitadas. Sem nova mudança de produção,
 dependência, migration, commit, merge ou deploy.
+
+## Revalidação em 26/10/2026
+
+A issue foi relida com os critérios e dependências atualizados em 21/10.
+Entrega de API já existente: parser monetário, contrato e regressões no commit
+`03f658b`. Plano desta rodada: conferir escrita/sync, lista/detalhe e filtros;
+revisar isolamento com Security; executar regressão direcionada e atualizar
+evidências. Complexidade alta, risco alto; dependências de frontend #171 e
+prontidão operacional #184 preservadas, sem ação em produção.
+
+A inspeção direcionada do frontend local confirmou novamente que `statusPago`
+define `paid`, enquanto `pendingChecklistItems` conta itens diferentes de `ok`.
+`reportData.ts` usa `buildBillingRecords` sobre `loadBillingPatients`, que percorre
+as páginas de faturamento. Os conceitos do contrato acima continuam válidos;
+nenhum campo novo ou endpoint é necessário para alimentar o popup com o DTO
+já autorizado. Não foram feitas alterações no frontend.
+
+Security (esforço high; modelo efetivo não informado) revisou independentemente
+sync, projeção, mapper, escopo, endpoint e testes, sem encontrar lacuna adicional
+da #176 que exigisse código. Foi corrigida apenas a descrição do escopo médico:
+o auxiliar pode acessar faturamento quando não há principal vinculado, conforme
+`FaturamentoMedicoScope` e teste existente. Nenhuma regra de acesso foi alterada.
+
+Regressão direcionada: **99 aprovados, zero falhas e zero ignorados**, duração
+dos testes 34 s. Comando da rodada direcionada acima, com `--configuration Debug`,
+`--verbosity minimal`, arquivo `issue176-revalidation-20261026.trx` e diretório
+`out/issue176-revalidation`. Processo com `HEMODINKS_TEST_LOCALDB=1` e
+`HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING` removida do ambiente, usando apenas
+bancos locais descartáveis para os casos SQL. Inclui HTTP via
+WebApplicationFactory, contrato de pagamento, parser, escrita, ordenação,
+isolamento e exclusão com SQL Server. A suíte completa não foi repetida;
+seus resultados históricos não representam o resultado desta rodada.
+Compilação com avisos IDE0005 existentes, sem erros. TRX conferido e
+`git diff --check` sem erros; diff restrito a este documento, sem secrets ou
+dados clínicos introduzidos.
+
+Limitações mantidas: sem IDs/filtros completos dos registros observados, não há
+conciliação real nem confirmação de quitação desses atendimentos. Popup,
+nomenclatura e exportações são responsabilidade da Frontend #171; não foi
+executado E2E de navegador no frontend. O achado separado de autorização de
+Equipe no resumo financeiro permanece e essa rota não deve ser reutilizada
+para o popup sem correção específica. A validação offline não remove o
+impedimento operacional de recuperação registrado na #184.
+
+Status: implementação existente da API auditada; somente este relatório foi
+alterado nesta rodada. Sem nova dependência, migration, edição de dados reais,
+commit, push, merge, deploy ou alteração de regras fora do escopo.
