@@ -1,5 +1,90 @@
 # Issue #172 — consultas críticas e migrations
 
+## Revalidação em 26/10/2026
+
+Complexidade alta e risco alto. Escopo desta rodada: reexecutar o benchmark
+relacional existente, revisar as três leituras `ForResponse`, conferir migrations
+e complementar negativos de autorização. Database e Security (ambos high;
+modelos efetivos não expostos) concluíram revisões independentes somente leitura.
+Não identificaram necessidade de nova otimização, índice ou alteração de produção.
+A API #176 foi revalidada nesta sessão; Front #171 continua dependência de UI.
+Esta medição local não depende da mudança visual nem autoriza rollout.
+
+### Benchmark atual
+
+LocalDB **17.0.4025.3**, SDK **10.0.403**, EF **10.0.10**, Debug. Mesma fixture,
+um aquecimento e 20 amostras por cenário, p95 na 19ª amostra ordenada. Apenas
+dados sintéticos, `HEMODINKS_TEST_LOCALDB=1`, variável de conexão SQL externa
+removida do processo. Tempos absolutos dependem da máquina/carga local; não são
+SLA nem estimativa de Azure. A auditoria offline de migrations também foi
+executada nesta rodada, com sobreposição ao processo do benchmark.
+
+| Cenário | Comandos (6 / 24) | Linhas SQL (6 / 24) | p95 ms (6 / 24) |
+| --- | --- | --- | --- |
+| Pacientes, página 2 | 2 / 2 | 4 / 16 | 2,11 / 5,70 |
+| Faturamento médico | 2 / 2 | 16 / 16 | 2,55 / 4,21 |
+| Agenda, somente leitura | 1 / 1 | 6 / 24 | 0,62 / 2,19 |
+| Resumo financeiro | 4 / 4 | 4 / 4 | 2,75 / 4,90 |
+| Clínicas, plataforma | 2 / 2 | 4 / 4 | 0,76 / 2,17 |
+| Faturamento, grafo anterior | 1 / 1 | 1.458 / 5.832 | 52,51 / 493,12 |
+| Faturamento, resposta otimizada | 1 / 1 | 162 / 648 | 5,33 / 20,83 |
+| Pesquisa de faturamento, página 2 | 2 / 2 | 28 / 136 | 1,94 / 6,12 |
+| Agenda real, sem vencidos | 2 / 2 | 6 / 24 | 1,17 / 1,86 |
+
+Mantida redução de **88,9% das linhas SQL**, DTOs equivalentes e comandos
+limitados nas leituras medidas. Lembretes vencidos continuam crescendo por
+evento: **14/50 leituras, 7/25 escritas**, p95 **10,36/47,57 ms**. Nenhuma
+alegação de ausência universal de N+1 ou otimização desse processamento.
+Os planos reais continuam mostrando que a resposta otimizada não lê contas nem
+recebimentos; o TRX preserva somente nomes de índices e métricas da fixture.
+
+### Testes e migrations
+
+- Benchmark: **2 aprovados, zero falhas/ignorados**, 28 s;
+  `out/issue172-revalidation/issue172-benchmark-20261026.trx`.
+- Acrescentado `OptimizedBillingReads_RequireDoctorRelationshipWithinTheSameClinic`
+  em `CriticalQuerySqlServerTests.cs`: principal e dois auxiliares acessam lista,
+  detalhe e pesquisa; médico sem vínculo na mesma clínica recebe listas/counts
+  vazios e detalhe não encontrado. SQL Server real, contexto sem tracking e
+  banco descartado no `finally`, sem mudar autorização. Esse teste, cálculos e
+  consultas de agenda: **17 aprovados, zero falhas/ignorados**, 5 s;
+  `out/issue172-revalidation/issue172-security-regression-20261026.trx`.
+- Regressão HTTP financeira: **8 aprovados, zero falhas/ignorados**, 25 s;
+  `out/issue172-revalidation/issue172-http-regression-20261026.trx`. Inclui CRUD,
+  filtros, relatórios, glosa, auditoria por clínica e recusa de alterações por
+  médico sem vínculo. Execução `--no-build --no-restore`, filtros
+  `FinanceiroEndpoints_`, `FinanceiroAudit_ReturnsOnlyCurrentClinicHistory`,
+  `GlosaDoAtendimento_PropagaParaFaturamentoPopupEFinanceiro` e
+  `Medico_CannotUpdateOrDeleteAtendimentoAssignedToAnotherDoctor`.
+- `scripts/Test-Migrations.ps1 -NoBuild`: **73 migrations**, sem diferença entre
+  modelo e snapshot. Lista com `--no-connect`; não inspeciona histórico aplicado
+  em produção. Log: `out/issue172-migrations-20261026.log`.
+- `scripts/Export-MigrationScripts.ps1 -NoBuild -OutputDir
+  out/issue172-revalidation/migrations`: script idempotente gerado,
+  `20261026-154033-migrations-idempotent.sql`, SHA256
+  `3948A45B48A790976A143ECBF84C77627D7371FB74645046EE87D40576E99EC4`.
+- Replay em banco vazio exclusivo `HemodinksMigrationAudit_<guid>` com
+  `sqlcmd -b`: **exit 1, erro 207, Invalid column name 'PerfilId'**; o bloqueio
+  histórico permanece. Log: `out/issue172-idempotent-apply-20261026.log`.
+  `FULLTEXTSERVICEPROPERTY('IsFullTextInstalled')=0` confirmado. Replay integral
+  duas vezes e rollback continuam pendentes; nenhuma migration foi reescrita.
+  Catálogo LocalDB confirmou **zero bancos remanescentes** dos dois prefixos
+  exclusivos da auditoria após os testes/replay.
+
+Comando do benchmark: comando histórico abaixo com `--configuration Debug`,
+filtro `FullyQualifiedName~CriticalQuerySqlServerTests`, antes de acrescentar o
+novo teste, e diretório/TRX atuais. A regressão adicional usa os filtros do novo teste,
+`FinanceiroCalculationsTests` e `AgendaEventQueryTests`. A suíte completa não foi
+repetida. Avisos IDE0005 existentes na compilação, sem erros. Security revisou
+o diff do teste adicional e aprovou sua cobertura; `git diff --check` sem erros.
+
+Status: otimização existente revalidada e negativo relacional acrescentado.
+Permanecem os bloqueios de migrations/Full-Text, validação em volume real e
+custo por lembrete vencido. Não houve consulta a produção, nova dependência,
+migration, alteração de contrato, commit, PR, merge ou deploy.
+
+## Registro histórico — 16/10/2026
+
 Auditoria local em 16/10/2026, base `6bc78c5`. Complexidade alta e risco alto:
 leitura de dados clínicos/financeiros com filtros de tenant. Escopo: pacientes,
 agenda, faturamento médico/normalizado, resumo financeiro e listagem de clínicas.

@@ -1,5 +1,89 @@
 # API #184 — auditoria e runbook de recuperação Azure SQL
 
+## Revalidação em 26/10/2026
+
+Esta seção atualiza o status; as seções seguintes preservam a evidência histórica
+de 23/24 de outubro. Complexidade alta e risco alto. Escopo desta rodada:
+metadados ARM somente leitura, revisão do SQL/testes existentes e atualização
+deste runbook. Dependências: Azure SQL, identidade runtime, quarentena de rede,
+SchemaGuard e recuperação Blue/Green (#173); sem dependência de frontend.
+Plano: revalidar políticas e topologia; executar testes locais direcionados;
+registrar critérios e impedimentos sem criar recursos nem alterar produção.
+Agentes DevOps (medium) e Security (high), em investigações independentes sem
+edição; modelo efetivo dos agentes não exposto.
+
+### Evidência ARM atual
+
+Consultas concluídas entre **2026-10-26 17:19:42 e 17:20:25 UTC** no servidor
+`gm-tech-solution`, banco `HemodinksDB`, RG `rg-hemodinks-prod`:
+
+| Verificação | Resultado |
+| --- | --- |
+| Estado e capacidade | `Paused`, General Purpose Gen5 serverless, mínimo 0,5 e máximo 2 vCores, autopause 30 min, máximo 32 GiB. |
+| STR/PITR | `retentionDays=7`, `diffBackupIntervalInHours=12`. |
+| Limite inferior publicado | `earliestRestoreDate=2026-10-19T17:19:44.232996+00:00`; fotografia móvel, reler antes do ensaio. |
+| Redundância/LTR | Current/requested `Local`; `zoneRedundant=false`; retenções LTR `PT0S`, `weekOfYear=0`. |
+| Servidor/rede | `Ready`, `brazilsouth`, `publicNetworkAccess=Enabled`; 14 regras de firewall, uma Azure Services; listas VNet rules e private endpoint connections vazias. |
+
+Não se abriu conexão SQL nem se consultaram secrets ou conteúdo do banco.
+A configuração de conexão da API, os privilégios SQL, alertas, auditoria e
+demais escritores **não foram revalidados nesta rodada**; suas evidências abaixo
+continuam históricas. Não foram medidos último log backup, limite superior
+restaurável ou integridade da cadeia. O banco permaneceu pausado.
+
+Reconsulta da documentação oficial confirmou que PITR cria banco no mesmo
+servidor e cobra o destino após o restore; Local não oferece geo-restore:
+[restauração](https://learn.microsoft.com/en-us/azure/azure-sql/database/recovery-using-backups?view=azuresql),
+[redundância](https://learn.microsoft.com/en-us/azure/azure-sql/database/automated-backups-overview?view=azuresql).
+A estimativa de preço abaixo é histórica, não foi recotada e não autoriza despesa.
+
+### Critérios de aceite e impedimentos
+
+| Critério da #184 | Evidência e situação |
+| --- | --- |
+| Política e retenção confirmadas | Metadados ARM revalidados acima; não equivalem a restore bem-sucedido. |
+| Restore isolado ou bloqueio justificado | Alternativa de bloqueio documentada: PITR no mesmo servidor, rede pública e evidência histórica de runtime administrador impedem comprovar quarentena pré-Online. Nenhum restore executado. |
+| RPO/RTO e plano operacional | Metas propostas de 15 min/4 h, matriz, responsáveis por papel, checklist e periodicidade abaixo. RPO/RTO reais continuam não medidos (`n=0`); aprovação das metas e titulares pendentes. |
+| Integridade multiclínica | Verificador e testes sintéticos existentes; validação no destino e negativos HTTP/E2E dependem do ensaio isolado. |
+| Produção, privacidade e custo | Somente leituras ARM nesta rodada; nenhum deploy, cutover, recurso pago, alteração de produção ou exposição de dados clínicos. |
+
+Próximas ações objetivas: DevOps e Security devem validar, em mudança operacional
+separada, identidade runtime de menor privilégio e controles que impeçam acesso
+produtivo à cópia antes de Online. Database deve então confirmar origem/ponto,
+destino, identidade de validação e compatibilidade de schema; responsável do
+incidente e FinOps devem registrar titulares, metas e condições de custo/descarte.
+Somente com esses pré-requisitos comprovados executar os oito passos do ensaio
+abaixo, medir recuperação e anexar apenas evidências técnicas minimizadas.
+O relato histórico de autorização abaixo não comprova esses pré-requisitos.
+
+**Status desta rodada:** auditoria revalidada e runbook revisado. Recuperação
+real permanece pendente do impedimento operacional; manter a issue aberta até
+a decisão dos responsáveis sobre o bloqueio e a conclusão do ensaio.
+
+### Verificação local desta rodada
+
+- `python -B -m unittest scripts.tests.test_production_deployment_gates -v`:
+  **6 aprovados**, sem Azure.
+- `dotnet test HemodinksAPI.Tests/HemodinksAPI.Tests.csproj --configuration Debug
+  --no-restore --filter 'FullyQualifiedName~RestoreDatabaseIntegrityTests|FullyQualifiedName~PatientUserTenantSqlServerTests|FullyQualifiedName~AppDbContextTenancyTests|FullyQualifiedName~PlatformDbContextIsolationTests'
+  --verbosity minimal --logger 'trx;LogFileName=restore184-revalidation.trx'
+  --results-directory out/issue184-revalidation`: **14 aprovados, zero falhas ou
+  ignorados**, duração dos testes 12 s. Processo com `HEMODINKS_TEST_LOCALDB=1`
+  e conexão SQL externa removida do ambiente; bancos sintéticos descartáveis.
+  TRX em `out/issue184-revalidation/restore184-revalidation.trx` (ignorado pelo Git).
+  A tentativa inicial sem restore não executou testes; o build explícito revelou
+  dependências ausentes no cache (CS0006/MSB3106). `dotnet restore` concluiu com
+  sucesso antes desta execução, sem alteração de versões. O build final emitiu
+  avisos IDE0005 existentes, sem erros.
+- Diff revisado e `git diff --check` sem erros; nenhuma credencial ou conteúdo
+  clínico adicionado. Somente este runbook foi alterado pela tarefa.
+- Security revisou estaticamente SQL, testes e runbook sem identificar novo
+  bypass de tenant. Limitação de cobertura: sanitização do erro `51843` não tem
+  negativo explícito; cenários de recusa e violações existentes não substituem
+  essa verificação nem o E2E no destino.
+
+## Registro histórico — 23/24 de outubro de 2026
+
 Auditoria em 23/10/2026 (consultas estenderam-se até 24/10 UTC), checkout
 `aed454a`, branch `developer`. Complexidade alta, risco alto. Retomada após
 `usage_limit_exceeded` na conversa “Executar issue Front #181”, já na tarefa
@@ -240,9 +324,11 @@ baseline de linhas, CHECKDB, teste de autorização nem prova de revogações.
 | Migration falhou ou schema incompatível | Interromper rollout; avaliar estado parcial e escritores. Preferir forward fix revisado. `Down()` ou retry não comprovam reversibilidade de dados. |
 | Exclusão/corrupção lógica | PITR em novo destino antes do primeiro evento ruim, validar e reconciliar escritas válidas. Restore de banco compartilhado afeta todas as clínicas; não há PITR nativo por ClinicaId. |
 | Banco removido ou indisponibilidade regional | Verificar backup efetivamente disponível e janela correspondente. Não presumir LTR/geo-restore com Local e LTR desativado; acionar responsável/Azure e registrar indisponibilidade da opção. |
+| Servidor lógico removido | A exclusão elimina os bancos e seus backups PITR; a política LTR observada está desativada. Não prometer recuperação pela janela STR. Escalar ao responsável/Azure e verificar opções efetivamente disponíveis, sem excluir servidor para ensaiar. |
 | Comprometimento de acesso | Conter e revogar primeiro; restaurar dados não elimina a credencial comprometida. Exigir revisão de Security antes da liberação. |
 
-Ensaio de mesa realizado sobre esses cinco cenários e workflows existentes;
+Ensaio de mesa histórico realizado sobre os cinco cenários originais e workflows existentes;
+o cenário de exclusão do servidor foi acrescentado na revisão de 26/10.
 nenhuma troca real de tráfego foi ensaiada. Para cutover real, aprovação
 operacional adicional é obrigatória: congelar **todos** os escritores, incluindo
 API em todas as revisões/labels, workers, integrações e operadores. O lock

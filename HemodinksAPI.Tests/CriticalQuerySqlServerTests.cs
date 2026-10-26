@@ -255,6 +255,59 @@ public sealed class CriticalQuerySqlServerTests(ITestOutputHelper output)
         finally { await setup.Database.EnsureDeletedAsync(); }
     }
 
+    [Fact]
+    [Trait("Category", "SqlServer")]
+    public async Task OptimizedBillingReads_RequireDoctorRelationshipWithinTheSameClinic()
+    {
+        SqlServerTestConnection.RequireConfigured();
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseSqlServer(SqlServerTestConnection.Create($"HemodinksQueryAudit_{Guid.NewGuid():N}")).Options;
+        await using var setup = new PlatformDbContext(options);
+        try
+        {
+            await setup.Database.EnsureCreatedAsync();
+            await Seed(setup, 1);
+            var principal = setup.Users.Local.Single(x => x.ClinicaId == 1 && x.PerfilId == Perfil.MedicosId);
+            var firstAssistant = User(1, "FirstAssistant", Perfil.MedicosId);
+            var secondAssistant = User(1, "SecondAssistant", Perfil.MedicosId);
+            var unrelated = User(1, "UnrelatedDoctor", Perfil.MedicosId);
+            setup.Users.AddRange(firstAssistant, secondAssistant, unrelated);
+            var bill = setup.Faturamentos.Local.Single(x => x.ClinicaId == 1);
+            bill.AtendimentoCirurgico.MedicoAuxiliar1 = firstAssistant;
+            bill.AtendimentoCirurgico.MedicoAuxiliar2 = secondAssistant;
+            await setup.SaveChangesAsync();
+
+            var tenant = new ClinicaContext();
+            tenant.SetCurrent(1, Clinica.DefaultSlug);
+            await using var db = new AppDbContext(options, tenant);
+            var list = new ListarFaturamentosQueryHandler(db);
+            var search = new PesquisarFaturamentosQueryHandler(db);
+            var detail = new ObterFaturamentoQueryHandler(db);
+            foreach (var doctor in new[] { principal, firstAssistant, secondAssistant })
+            {
+                var listed = Assert.Single(await list.Handle(new(doctor.Id, Perfil.MedicosId), default));
+                Assert.Equal(bill.Id, listed.Id);
+                var page = await search.Handle(new(1, 5, null, null, null, null, null, doctor.Id, Perfil.MedicosId), default);
+                Assert.Equal(1, page.TotalItems);
+                Assert.Equal(bill.Id, Assert.Single(page.Items).Id);
+                var found = await detail.Handle(new(bill.Id, doctor.Id, Perfil.MedicosId), default);
+                Assert.Equal(JsonSerializer.Serialize(listed), JsonSerializer.Serialize(found));
+            }
+
+            Assert.Empty(await list.Handle(new(unrelated.Id, Perfil.MedicosId), default));
+            var hidden = await search.Handle(new(1, 5, null, null, null, null, null, unrelated.Id, Perfil.MedicosId), default);
+            Assert.Equal(0, hidden.TotalItems);
+            Assert.Empty(hidden.Items);
+            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+                detail.Handle(new(bill.Id, unrelated.Id, Perfil.MedicosId), default));
+            Assert.Empty(db.ChangeTracker.Entries());
+        }
+        finally
+        {
+            await setup.Database.EnsureDeletedAsync();
+        }
+    }
+
     private static async Task<(long Rows, string Indexes)> Analyze(AppDbContext db, List<SqlCommand> statements)
     {
         // Re-execute synthetic SELECTs outside timing to measure actual wire rows before EF de-duplication.
