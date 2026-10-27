@@ -384,18 +384,6 @@ jobs:
           az containerapp show --name "$API_NAME" --resource-group "$API_RESOURCE_GROUP" \
             --query '{name:name,resourceGroup:resourceGroup,properties:{configuration:{ingress:properties.configuration.ingress}}}' -o json \
             | python3 -B scripts/forwarded_headers.py --validate-azure-app-config
-          new_relic_enabled=false
-          if [ -n "$NEW_RELIC_LICENSE_KEY" ]; then
-            az containerapp secret set \
-              --name "$API_NAME" \
-              --resource-group "$API_RESOURCE_GROUP" \
-              --secrets "new-relic-license-key=$NEW_RELIC_LICENSE_KEY" \
-              --output none
-            new_relic_enabled=true
-          else
-            echo "::notice::New Relic APM configuration was not changed because NEW_RELIC_LICENSE_KEY is not configured."
-          fi
-
           traffic_json="$(az containerapp show \
             --name "$API_NAME" \
             --resource-group "$API_RESOURCE_GROUP" \
@@ -419,6 +407,46 @@ jobs:
             --resource-group "$API_RESOURCE_GROUP" \
             --revision "$previous_revision" \
             --output json)"
+          if [ "$candidate_revision" = "$previous_revision" ]; then
+            if ! jq -e --arg image "$API_IMAGE" --arg commit "$GITHUB_SHA" '
+              .properties.template.containers[0].image == $image and
+              ([.properties.template.containers[0].env[]? | select(.name == "Deployment__CommitSha") | .value] == [$commit])
+            ' <<<"$active_revision_json" >/dev/null; then
+              echo "::error::CURRENT revision does not match the requested image and full commit. Reuse is blocked."
+              exit 8
+            fi
+            if ! jq -c '.properties.template.containers[0].env // []' <<<"$active_revision_json" \
+              | python3 -B scripts/forwarded_headers.py --merge "$FORWARDED_HEADERS_ENV" --verify-existing; then
+              echo "::error::CURRENT revision proxy policy differs from the approved preflight. Reuse is blocked."
+              exit 8
+            fi
+            app_fqdn="$(az containerapp show \
+              --name "$API_NAME" --resource-group "$API_RESOURCE_GROUP" \
+              --query properties.configuration.ingress.fqdn -o tsv)"
+            {
+              echo "already_current=true"
+              echo "active_label=$active_label"
+              echo "candidate_label=$active_label"
+              echo "previous_revision=$previous_revision"
+              echo "candidate_revision=$candidate_revision"
+              echo "candidate_fqdn=$app_fqdn"
+            } >> "$GITHUB_OUTPUT"
+            echo "::notice::Requested API revision is already CURRENT. Labels, secrets and revisions are preserved; smoke and traffic validation are still required."
+            exit 0
+          fi
+
+          new_relic_enabled=false
+          if [ -n "$NEW_RELIC_LICENSE_KEY" ]; then
+            az containerapp secret set \
+              --name "$API_NAME" \
+              --resource-group "$API_RESOURCE_GROUP" \
+              --secrets "new-relic-license-key=$NEW_RELIC_LICENSE_KEY" \
+              --output none
+            new_relic_enabled=true
+          else
+            echo "::notice::New Relic APM configuration was not changed because NEW_RELIC_LICENSE_KEY is not configured."
+          fi
+
           target_port="$(az containerapp show \
             --name "$API_NAME" \
             --resource-group "$API_RESOURCE_GROUP" \
@@ -576,6 +604,7 @@ jobs:
           candidate_fqdn="${API_NAME}---${candidate_label}.${domain}"
 
           {
+            echo "already_current=false"
             echo "active_label=$active_label"
             echo "candidate_label=$candidate_label"
             echo "previous_revision=$previous_revision"
@@ -627,6 +656,7 @@ jobs:
       - name: Promote candidate and verify Production traffic
         id: promotion
         env:
+          ALREADY_CURRENT: ${{ steps.candidate.outputs.already_current }}
           ACTIVE_LABEL: ${{ steps.candidate.outputs.active_label }}
           CANDIDATE_LABEL: ${{ steps.candidate.outputs.candidate_label }}
           PREVIOUS_REVISION: ${{ steps.candidate.outputs.previous_revision }}
@@ -651,6 +681,18 @@ jobs:
               any(.[]; .label == $label and .revisionName == $revision and (.weight // 0) == 100)
             ' <<<"$traffic" >/dev/null
           }
+
+          if [ "$ALREADY_CURRENT" = "true" ] || [ "$CANDIDATE_REVISION" = "$PREVIOUS_REVISION" ]; then
+            if [ "$ALREADY_CURRENT" != "true" ] || [ "$CANDIDATE_REVISION" != "$PREVIOUS_REVISION" ] \
+              || [ "$CANDIDATE_LABEL" != "$ACTIVE_LABEL" ] \
+              || ! traffic_matches "$ACTIVE_LABEL" "$PREVIOUS_REVISION"; then
+              echo "::error::Already-current API traffic could not be confirmed. No labels or traffic were changed."
+              exit 8
+            fi
+            echo "result=already-current" >> "$GITHUB_OUTPUT"
+            echo "rollback_result=not-needed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
 
           if ! az containerapp ingress traffic set \
             --name "$API_NAME" \
@@ -706,6 +748,7 @@ jobs:
           exit 9
 
       - name: Enforce CURRENT/PREVIOUS revision policy
+        if: steps.candidate.outputs.already_current != 'true'
         id: cleanup
         env:
           CURRENT_REVISION: ${{ steps.candidate.outputs.candidate_revision }}
@@ -724,7 +767,7 @@ jobs:
           SMOKE_RESULT: ${{ steps.smoke.outputs.result || 'failed/not-run' }}
           PROMOTION_RESULT: ${{ steps.promotion.outputs.result || 'failed/not-run' }}
           ROLLBACK_RESULT: ${{ steps.promotion.outputs.rollback_result || 'not-run' }}
-          REVISION_POLICY: ${{ steps.cleanup.outputs.status || 'not-run' }}
+          REVISION_POLICY: ${{ steps.candidate.outputs.already_current == 'true' && 'unchanged/already-current' || steps.cleanup.outputs.status || 'not-run' }}
           ACTIVE_REVISION_COUNT: ${{ steps.cleanup.outputs.active_count || 'unknown' }}
           OLD_REVISIONS_DEACTIVATED: ${{ steps.cleanup.outputs.old_revisions_deactivated || '0' }}
           DEPLOYMENT_RESULT: ${{ job.status }}
@@ -738,8 +781,8 @@ jobs:
             echo ""
             echo "- Commit: \`${GITHUB_SHA}\`"
             echo "- Image: \`${API_IMAGE}\`"
-            echo "- Previous revision: \`${PREVIOUS_REVISION:-unavailable}\`"
-            echo "- New revision: \`${CANDIDATE_REVISION:-unavailable}\`"
+            echo "- Revision active before this run: \`${PREVIOUS_REVISION:-unavailable}\`"
+            echo "- Requested revision: \`${CANDIDATE_REVISION:-unavailable}\`"
             echo "- Active label after success: \`${ACTIVE_LABEL:-unchanged}\`"
             echo "- Migration: **passed**"
             echo "- Smoke test: **${SMOKE_RESULT}**"
