@@ -178,6 +178,16 @@ unica revisao com 100%, o workflow tenta restaurar e confirmar 100% na anterior.
 Qualquer um desses erros impede o cleanup. Uma migration concluida nao e
 revertida automaticamente quando o deploy posterior falha.
 
+### Republicar o commit ja ativo
+
+Se a revisao `sha-<prefixo>` solicitada ja recebe 100% do trafego, o deploy da
+API verifica imagem, SHA completo e politica de proxy antes de qualquer alteracao
+de secrets ou labels. Executa o smoke no FQDN principal e confirma novamente o
+label/revisao com 100% do trafego. O resultado e `already-current`; promocao e
+cleanup nao alteram o estado nem removem a revisao anterior de rollback.
+Divergencias bloqueiam a execucao. Migrations e workers mantem suas etapas
+proprias: esse caminho nao significa que o workflow inteiro deixou de executar.
+
 ## Migrations expand/contract
 
 Como as duas revisoes compartilham o Azure SQL, toda mudanca deve ser compativel:

@@ -1,5 +1,72 @@
 # Issue #174 — cópia opcional ao criador do evento
 
+## Execução em 27/10/2026
+
+Complexidade alta, risco crítico. AGENTS.md, `.codex/config.toml`, contrato e
+pipeline revistos; Database e Security (high; modelos efetivos não expostos)
+realizaram investigações independentes somente leitura. Plano executado:
+avaliar implementação/PR #177, reproduzir lacunas, corrigir apenas elegibilidade
+da cópia e validar negativos, concorrência e regressão em ambiente local.
+
+O [PR #177](https://github.com/Hemodinks/hemodinks-api/pull/177) está integrado
+em `developer` desde 14/10; merge `0ad21e3` é ancestral do HEAD local. Seus seis
+arquivos acrescentam template estruturado, HTML escapado e alternativa textual,
+sem mudar autoria, destinatários ou opt-in. Contrato antigo sem template e
+fallback textual continuam cobertos; orientação Workers antes da API em
+`EVENT_EMAIL_HTML_ROLLOUT.md` permanece aplicável, sem publicação nesta rodada.
+
+**Falha reproduzida e corrigida:** desativar uma equipe por `Equipe.Ativa=false`
+não desativa necessariamente seu usuário, vínculo ou identidade global.
+`EligibleCreatorAsync` verificava estes últimos e visibilidade, mas não a equipe
+criadora. Agora, quando o criador tem perfil Equipe, exige equipe ativa na mesma
+clínica vinculada ao seu usuário de login. A verificação compartilhada protege
+prévia, enqueue e worker; retorna `creator_not_authorized` e suprime cópia
+pendente quando a equipe foi desativada. Não altera elegibilidade dos
+participantes originais, autoria, lembretes, sessão ou regras de operadores/PIN.
+
+`CreatorCopy_DeactivatedCreatorTeamCannotReceiveCopy` cobre equipe ativa elegível,
+desativação antes/depois do enqueue, cópia indisponível/suprimida, envio ao
+participante autorizado e histórico de notificações preservado. Antes da
+correção: **2 falhas, zero aprovados**, `issue174-team-red.trx`; a falha é
+elegibilidade indevida, não problema de fixture. Security revisou e aprovou
+teste e correção localizada. Após a correção: **2 aprovados, zero falhas/ignorados**,
+`issue174-team-green.trx`. A regressão anterior à mudança teve 95 aprovados;
+a regressão final ampliada teve **118 aprovados, zero falhas/ignorados**, 22 s,
+incluindo HTTP, cópia, revogações, agenda, HTML/transporte, configuração,
+concorrência de requests/workers e migration de autoria em SQL Server LocalDB.
+Resultados em `out/issue174-revalidation/issue174-final-20261027.trx`.
+
+Comando final: `dotnet test HemodinksAPI.Tests/HemodinksAPI.Tests.csproj
+--configuration Debug --no-build --no-restore --filter
+'FullyQualifiedName~EventEmailNotificationTests|FullyQualifiedName~EventEmailCopy_|FullyQualifiedName~EventEmailConcurrencyTests|FullyQualifiedName~EventCreatorMigrationTests|FullyQualifiedName~EventEmailTransportTests|FullyQualifiedName~EventEmailRegistrationTests|FullyQualifiedName~StorageRegistrationTests|FullyQualifiedName~EventEmailTemplateTests|FullyQualifiedName~AgendaSecurityTests|FullyQualifiedName~AgendaEventQueryTests'
+--logger 'trx;LogFileName=issue174-final-20261027.trx'
+--results-directory out/issue174-revalidation --verbosity minimal`.
+Processo com `HEMODINKS_TEST_LOCALDB=1` e conexão SQL externa removida do
+ambiente. Novo negativo usa EF InMemory e sender simulado; concorrência/migration
+usam LocalDB descartável. Build anterior ao comando final passou com avisos
+IDE0005 existentes. TRXs e diff conferidos; `git diff --check` sem erros.
+A suíte completa não foi repetida e seus resultados históricos não representam
+a validação desta rodada.
+
+Limitações da auditoria Database registradas separadamente: concorrência atual
+não força por barreira uma colisão SQL `2601/2627`; dedup por email compartilhado
+é exercitada em memória, enquanto a concorrência SQL usa emails distintos.
+A FK da outbox para evento usa `EventId`, sem chave composta de clínica;
+guard de gravação e revalidação explícita do worker são os controles existentes.
+O teste cruzado da outbox exercita o guard de aplicação. Nenhuma dessas
+limitações foi apresentada como garantia de integridade SQL mais ampla nem
+motivou alteração oportunista de schema.
+
+Nesta rodada não se consultaram ambientes remotos, caixas postais ou secrets,
+nem se enviaram emails reais. As evidências de homologação em 13/14 de outubro
+abaixo são históricas, não revalidação da configuração atualmente implantada.
+Mantidos o contrato `copyToCreator` e as dependências Front #166/#169; não houve
+nova execução E2E de navegador. Sem migration, nova dependência, commit, PR,
+merge ou deploy. A janela preexistente de duplicação após SMTP e antes da
+gravação de status continua impedindo promessa de exactly-once externo.
+
+## Registro histórico — implementação e validações anteriores
+
 Integração da API com [frontend #166](https://github.com/Hemodinks/hemodinks-front/issues/166), conforme [API #174](https://github.com/Hemodinks/hemodinks-api/issues/174).
 Complexidade alta, risco crítico por autorização, isolamento, concorrência e migration.
 Implementação pelo agente principal; investigação/revisão independente por `database` (GPT-6.1-sol, high).
@@ -65,7 +132,7 @@ Os dados `AgendaNotifications`, flags, horários, responsáveis e agendamentos d
 - União de participantes e cópia deduplicada antes de construir o lote, por email normalizado; a fila também verifica usuário/email já persistidos.
 - Índices únicos por evento/clínica/usuário e evento/clínica/email e leases existentes preservam idempotência entre réplicas. Sem mudança na tabela de entregas.
 - Worker preserva o solicitante original da entrega e revalida seu acesso. Cópia só usa fallback quando `RecipientUserId == Event.CreatedByUserId`, com vínculo/email do criador ainda válidos e iguais ao snapshot do email solicitado.
-- Mensagens individuais em texto simples: sem lista de destinatários ou exposição dos outros endereços. Falha parcial mantém status/retry individual.
+- Mensagens individuais, sem lista de destinatários ou exposição dos outros endereços. Após o PR #177, o SMTP usa HTML escapado e alternativa textual quando há template válido; payload legado e fallback continuam em texto simples. Falha parcial mantém status/retry individual.
 - Limitação já existente: crash após sucesso SMTP e antes da gravação de status pode duplicar entrega; lease/idempotência de enfileiramento não prometem exactly-once externo.
 
 ## Verificações e pendências

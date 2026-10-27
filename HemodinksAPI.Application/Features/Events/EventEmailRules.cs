@@ -69,6 +69,10 @@ public static class EventEmailRules
         var creator = await EventRecipientScope.ActiveUsers(db, ev.ClinicaId)
             .SingleOrDefaultAsync(user => user.Id == ev.CreatedByUserId && user.PerfilId != Perfil.PacientesId, ct);
         if (creator == null) return null;
+        if (creator.PerfilId == Perfil.EquipeId
+            && !await db.Equipes.AsNoTracking().AnyAsync(team => team.ClinicaId == ev.ClinicaId
+                && team.UsuarioLoginId == creator.Id && team.Ativa, ct))
+            return null;
         var currentCreator = new CurrentUserContext(creator.Id, creator.PerfilId, creator.Nome, ev.ClinicaId);
         // Authorship does not override a later loss of event visibility (including private teams).
         return await EventFeatureRules.ApplyScope(db, db.Events.AsNoTracking(), currentCreator)
