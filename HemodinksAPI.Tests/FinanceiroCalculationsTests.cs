@@ -32,7 +32,7 @@ public class FinanceiroCalculationsTests
         var valid = new Paciente { UserId = validUser.Id, NomePaciente = validUser.Nome, Pagamento = "R$ 1.234,56", RepasseGlosa = "R$ 234,56", StatusPago = true };
         var invalid = new Paciente { UserId = invalidUser.Id, NomePaciente = invalidUser.Nome, Pagamento = "pago via permuta", RepasseGlosa = "sem informação" };
         db.Pacientes.AddRange(valid, invalid); await db.SaveChangesAsync();
-        var handler = new ObterPacienteFinanceiroResumoQueryHandler(db);
+        var handler = new ObterPacienteFinanceiroResumoQueryHandler(db, db);
 
         var validSummary = await handler.Handle(new ObterPacienteFinanceiroResumoQuery(valid.Id, 1, Perfil.AdministradorId), default);
         Assert.Equal("Legado", validSummary.OrigemDados); Assert.Equal(1234.56m, validSummary.ValorApresentado);

@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -54,13 +55,22 @@ public sealed class ObterFinanceiroResumoQueryHandler(IFinanceFeatureDbContext d
     }
 }
 
-public sealed class ObterPacienteFinanceiroResumoQueryHandler(IFinanceFeatureDbContext db)
+public sealed class ObterPacienteFinanceiroResumoQueryHandler(IFinanceFeatureDbContext db, IPatientFeatureDbContext patientScope)
     : IRequestHandler<ObterPacienteFinanceiroResumoQuery, PacienteFinanceiroResumoDto>
 {
     public async Task<PacienteFinanceiroResumoDto> Handle(ObterPacienteFinanceiroResumoQuery request, CancellationToken ct)
     {
         var paciente = await db.Pacientes.AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.PacienteId, ct)
             ?? throw new KeyNotFoundException("Paciente nao encontrado.");
+        if (request.CurrentPerfilId == Perfil.EquipeId)
+        {
+            var equipeValida = request.CurrentEquipeId.HasValue && await patientScope.Equipes.AsNoTracking()
+                .AnyAsync(x => x.Id == request.CurrentEquipeId.Value && x.UsuarioLoginId == request.CurrentUserId && x.Ativa, ct);
+            if (!equipeValida || !await PacienteAccess.ApplyScope(patientScope, db.Pacientes.AsNoTracking(),
+                    request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId)
+                .AnyAsync(x => x.Id == request.PacienteId, ct))
+                throw new UnauthorizedAccessException("Equipe sem acesso a este resumo.");
+        }
         if (request.CurrentPerfilId == Perfil.PacientesId && paciente.UserId != request.CurrentUserId)
             throw new UnauthorizedAccessException("Paciente sem acesso a este resumo.");
         if (request.CurrentPerfilId == Perfil.MedicosId && !await db.AtendimentosCirurgicos.AnyAsync(x => x.PacienteId == request.PacienteId

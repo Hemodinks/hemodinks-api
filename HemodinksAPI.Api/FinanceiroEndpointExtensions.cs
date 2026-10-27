@@ -187,7 +187,8 @@ public static class FinanceiroEndpointExtensions
             IMediator mediator, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
-            return Results.Ok(await mediator.Send(new ObterPacienteFinanceiroResumoQuery(id, user.Id, user.PerfilId), ct));
+            return Results.Ok(await mediator.Send(new ObterPacienteFinanceiroResumoQuery(id, user.Id, user.PerfilId)
+                { CurrentEquipeId = user.EquipeId }, ct));
         }).WithTags("Pacientes").RequireAuthorization(LicencaPolicies.PacientesVisualizar);
     }
 }

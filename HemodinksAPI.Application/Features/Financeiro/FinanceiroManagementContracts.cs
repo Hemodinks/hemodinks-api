@@ -55,4 +55,7 @@ public record PacienteFinanceiroResumoDto(decimal ValorApresentado, decimal Valo
     decimal ValorRecebido, decimal SaldoAberto, string StatusFinanceiro, string OrigemDados,
     IReadOnlyList<string> Avisos);
 public record ObterPacienteFinanceiroResumoQuery(int PacienteId, int CurrentUserId, int CurrentPerfilId)
-    : IRequest<PacienteFinanceiroResumoDto>;
+    : IRequest<PacienteFinanceiroResumoDto>
+{
+    public int? CurrentEquipeId { get; init; }
+}
