@@ -43,6 +43,9 @@ jobs:
       - name: Test Production approval and rollback gates without Azure
         run: python3 -B -m unittest discover -s scripts/tests -p test_production_deployment_gates.py -v
 
+      - name: Test SQL identity separation without database access
+        run: python3 -B -m unittest discover -s scripts/tests -p test_sql_identity_separation.py -v
+
       - name: Start SQL Server for relational tests
         shell: bash
         run: |

@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="../../HemodinksAPI.Infrastructure/HemodinksAPI.Infrastructure.csproj" />
+    <EmbeddedResource Include="../../scripts/AuditSqlRuntimePermissions.sql" LogicalName="SqlRuntimePermissionAudit.sql" />
   </ItemGroup>
 </Project>

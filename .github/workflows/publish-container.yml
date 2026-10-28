@@ -207,6 +207,9 @@ jobs:
             --output ./artifacts/hemodinks-production-migrations.sql
           chmod +x ./artifacts/hemodinks-efbundle
 
+      - name: Package read-only SQL verifier
+        run: dotnet publish tools/Hemodinks.SchemaGuard/Hemodinks.SchemaGuard.csproj --configuration Release --runtime linux-x64 --self-contained true --output artifacts/schema-guard
+
       - name: Upload migration artifacts
         uses: actions/upload-artifact@v7.0.1
         with:
@@ -214,6 +217,7 @@ jobs:
           path: |
             artifacts/hemodinks-efbundle
             artifacts/hemodinks-production-migrations.sql
+            artifacts/schema-guard/
           if-no-files-found: error
           retention-days: 30
 
@@ -262,16 +266,37 @@ jobs:
 
       - name: Verify migration secret
         env:
-          CONNECTION_CONFIGURED: ${{ secrets.AZURE_SQL_CONNECTION_STRING != '' }}
+          CONNECTION_CONFIGURED: ${{ secrets.AZURE_SQL_MIGRATION_CONNECTION_STRING != '' }}
         run: |
           if [ "$CONNECTION_CONFIGURED" != "true" ]; then
-            echo "::error::Configure AZURE_SQL_CONNECTION_STRING in the production Environment."
+            echo "::error::Configure AZURE_SQL_MIGRATION_CONNECTION_STRING in the production Environment."
             exit 2
           fi
 
+      - name: Validate SQL deployment identities without connecting
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_RUNTIME_CONNECTION_STRING }}
+          HEMODINKS_SQL_MIGRATION_CONNECTION_STRING: ${{ secrets.AZURE_SQL_MIGRATION_CONNECTION_STRING }}
+        run: |
+          chmod +x artifacts/schema-guard/Hemodinks.SchemaGuard
+          ./artifacts/schema-guard/Hemodinks.SchemaGuard --validate-connections
+
+      - name: Verify SQL runtime privileges and history
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_RUNTIME_CONNECTION_STRING }}
+        run: |
+          set +e
+          ./artifacts/schema-guard/Hemodinks.SchemaGuard
+          schema_status=$?
+          set -e
+          case "$schema_status" in
+            0|10) ;;
+            *) echo "::error::Runtime privilege or schema verification failed; migration blocked."; exit "$schema_status" ;;
+          esac
+
       - name: Apply migration bundle
         env:
-          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_CONNECTION_STRING }}
+          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_MIGRATION_CONNECTION_STRING }}
         run: |
           chmod +x ./artifacts/hemodinks-efbundle
           for attempt in $(seq 1 5); do
@@ -286,6 +311,11 @@ jobs:
             echo "::warning::Migration attempt ${attempt}/5 failed; retrying in ${delay}s."
             sleep "$delay"
           done
+
+      - name: Verify SQL runtime after migration
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_RUNTIME_CONNECTION_STRING }}
+        run: ./artifacts/schema-guard/Hemodinks.SchemaGuard
 
       - name: Migration summary
         if: always()
