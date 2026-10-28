@@ -1,5 +1,12 @@
 # API #184 — auditoria e runbook de recuperação Azure SQL
 
+> **Restricao vigente da #198 (28/10/2026): orcamento R$ 0,00, sem excecoes.**
+> Restore/PITR real, novo banco Azure, provisionamento, ativacao/aumento de
+> capacidade e operacoes com despesa adicional estao proibidos. Somente analise
+> de leitura sem despesa adicional, testes sinteticos locais e planejamento.
+> Esta restricao substitui as autorizacoes historicas descritas neste runbook;
+> #198 permanece aberta com restore e RPO/RTO reais bloqueados por orcamento.
+
 ## Revalidação em 26/10/2026
 
 Esta seção atualiza o status; as seções seguintes preservam a evidência histórica
@@ -209,10 +216,10 @@ Não ampliar permanentemente o OIDC de deploy para administrar/restaurar SQL.
    exato com autorização e dupla conferência de resource ID; revogar acesso
    temporário e confirmar fim da cobrança. Não apagar evidência mínima aprovada.
 
-O usuário autorizou nesta conversa a criação e posterior exclusão do banco
-temporário. Não informou teto numérico de custo; a estimativa acima não é teto
-contratual. Essa autorização está registrada e não precisa ser solicitada de novo
-para a mesma operação, dentro de um desenho comprovadamente isolado.
+Registro historico: houve autorizacao de criacao e posterior exclusao do banco
+temporario, sem teto numerico. **Essa autorizacao foi substituida pela restricao
+financeira expressa da #198: R$ 0,00, sem restore real ou novo banco Azure e sem
+excecoes.** O procedimento abaixo/acima e somente planejamento; nao executar.
 
 Bloqueios atuais: destino/quarentena e identidade temporária de validação não validados; inventário
 operacional e responsáveis ainda incompletos. Origem configurada da API confirmada;

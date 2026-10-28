@@ -1,5 +1,141 @@
 # API #198 - revalidacao do ensaio PITR em 28/10/2026
 
+## Restricao financeira obrigatoria - escopo vigente
+
+**Orcamento autorizado para novos recursos Azure: R$ 0,00. Sem excecoes.**
+Esta instrucao expressa do usuario substitui qualquer autorizacao historica de
+restore, criacao/descarte de destino ou mudanca operacional registrada abaixo
+ou no runbook #184. A issue #198 deve permanecer **aberta**.
+
+Proibido criar outro banco Azure, executar PITR/restore real, provisionar
+infraestrutura, ativar servicos pagos, aumentar capacidade ou executar operacao
+que gere despesa adicional. Mesmo isolamento tecnicamente comprovado nao
+autoriza restore. Nao promover trafego, reiniciar revisoes, alterar secrets,
+rotacionar credenciais ou modificar a infraestrutura sob esta issue.
+
+Permitido somente: consultas sem mutacao ou despesa adicional, analise dos
+backups existentes, testes sinteticos locais e documentacao/planejamento.
+Nao abrir novas conexoes SQL Azure nem chamar endpoints que possam acordar
+compute/replicas. Nenhuma nova verificacao Azure foi executada nesta rodada;
+as fotografias anteriores abaixo sao evidencias historicas, nao estado atual.
+
+| Pendencia | Status obrigatorio |
+| --- | --- |
+| Restore PITR real em destino temporario | BLOQUEADO POR RESTRICAO FINANCEIRA; nao iniciado. |
+| Medicao real de RPO/RTO | BLOQUEADA POR RESTRICAO FINANCEIRA; nao medida, n=0. |
+| Criacao, validacao Azure e descarte de destino | Nao executados; nenhum destino criado por esta issue. |
+| Isolamento operacional | Planejamento apenas; planos anteriores nao autorizam execucao. |
+
+Uma duracao de teste local, meta de 15 min/4 h ou timestamp solicitado nao sera
+apresentado como medicao real de RPO/RTO. O plano tecnico e as consultas ja
+registradas sao preservados para rastreabilidade, sem autorizar sua execucao.
+
+Validacao local desta restricao: `dotnet test` com `--configuration Release
+--no-build --no-restore` e filtro de AppDbContextTenancyTests,
+PlatformDbContextIsolationTests e
+RestoreDatabaseIntegrityTests.CheckerManifest_CoversCurrentForeignKeysAndChecks:
+**10 aprovados, zero falhas/ignorados**, 2 s. Testes de tenant em memoria e
+inspecao local do modelo/manifesto, sem SQL Azure ou novo banco persistente.
+Variaveis de conexao SQL externa/LocalDB foram removidas do processo.
+TRX: out/issue198/pitr198-zero-budget.trx (ignorado pelo Git).
+`git diff --check` sem erros. Escopo desta alteracao e documental, risco baixo;
+nenhum novo subagente foi acionado e nenhuma regra de negocio foi alterada.
+
+## Atualizacao operacional - consultas de 20:27 a 20:31 UTC
+
+### Esclarecimento e proposta delimitada para aprovacao
+
+O usuario identificou o outro sistema como ESCOLA, informando que esta pausado
+no Render e na Azure. O inventario nominal Azure encontrou somente o recurso
+SQL gm-tech-solution/ESCOLA_API, em estado Paused; nao encontrou Web App ou
+Container App com nome ESCOLA. Isso nao prova ausencia de compute com outro
+nome. Pausa SQL nao e suspensao da aplicacao: Azure SQL serverless pode retomar
+ao receber conexao. Nao foi aberta sessao no banco ESCOLA.
+
+A suspensao Render ainda precisa ser confirmada. O conector lista somente o
+workspace GMARCONE TECH SOLUTIONS, mas nao tem workspace selecionado; aguardando
+confirmacao explicita do usuario antes de ler o servico, conforme seu contrato.
+Nao foram lidos env vars ou logs do ESCOLA nem alterado seu estado.
+
+Plano historico, **nao autorizado sob o escopo financeiro vigente**, limitado a ACA hemodinks-api-prod,
+RG rg-hemodinks-prod, mantendo a imagem atual:
+
+1. Copiar somente em memoria o valor restrito ja validado de
+   connectionstrings-runtime-prod-v2 para o secret local legado
+   connectionstrings-defaultconnection. Isso impede que as revisoes antigas
+   voltem a receber administrador ao iniciar; nenhum login/senha SQL e alterado.
+2. Promover hemodinks-api-prod--p197sqlruntimev2 para 100% do trafego e mover a
+   label green para ela, apos revalidar imagem, flags, health e auditoria SQL.
+3. Desativar hemodinks-api-prod--sha-96d25dd53c; aguardar estado inativo e zero
+   replicas/processos. Confirmar que as outras revisoes administrativas seguem
+   inativas e que todas as referencias SQL do app resolvem para runtime restrito.
+4. Validar /livez e /healthz no endpoint publico e da candidata; conferir trafego,
+   labels e identidade efetiva. Login/CRUD produtivo nao integra esta autorizacao.
+
+Rollback de trafego somente para 96d25dd53c apos o secret legado estar restrito,
+reinicializacao/ativacao controlada e health aprovados; nao restaurar conexao
+administrativa automaticamente. Se os checks falharem, interromper e registrar
+o estado para decisao do operador. Os smokes atuais e auditoria SQL nao substituem
+CRUD/E2E de negocio; testes com escrita exigem autorizacao especifica.
+
+Fora desse escopo: administrador SQL compartilhado, ESCOLA, firewall, rede,
+rotacao de senhas, migrations, novo deploy de codigo e restore PITR. A proposta
+deve receber autorizacao explicita por ser mudanca de producao, mesmo sem merge
+na main. A execucao da #198 permanece condicionada a comprovar a suspensao de
+outros consumidores durante todo o ensaio e sua impossibilidade de retomar
+acesso administrativo antes de o destino ser excluido.
+
+Esta secao substitui a conclusao anterior de que a configuracao desejada da API
+representava necessariamente o runtime em uso. A verificacao foi ampliada para
+as referencias SQL de **todas as revisoes e da rota com 100% do trafego**.
+
+| Revisao | Trafego/estado | Referencia SQL | Auditoria |
+| --- | --- | --- | --- |
+| hemodinks-api-prod--sha-96d25dd53c | Ativa, 100% | connectionstrings-defaultconnection | Usuario coincide com administrador; auditoria SQL efetiva recusou com 51972. |
+| hemodinks-api-prod--p197sqlruntimev2 | Ativa, sem peso de trafego | connectionstrings-runtime-prod-v2 | Usuario nao administrador; auditoria efetiva aprovada em 20:30:40Z. |
+| Tres revisoes anteriores | Inativas; uma ainda com label blue/peso zero | connectionstrings-defaultconnection | Referencia ainda resolve para administrador. |
+
+A revisao candidata esta Healthy no ARM e usa a mesma referencia de imagem da
+revisao com 100% do trafego; isso nao e uma verificacao independente de digest.
+Flags de migrations, manutencao, seeds e processador de lembretes no startup
+estao false; SchemaManagedByDeployment=true. Nenhum trafego, label, secret ou
+estado de revisao foi alterado nesta rodada.
+Smoke somente leitura da revisao candidata: /healthz=200 em 20:31:45Z e
+/livez=200 em 20:32:00Z. A primeira tentativa de /livez expirou; uma nova
+tentativa apos /healthz responder concluiu com 200, sem atribuir causa ao timeout.
+
+SQL de metadata, usando exclusivamente as conexoes existentes e sem ler dados
+clinicos, confirmou para o candidato authentication_type=DATABASE,
+create_date=2026-10-28T18:36:23.363 e modify_date=2026-10-28T18:44:45.960.
+O verificador embarcado AuditSqlRuntimePermissions passou para o candidato e
+falhou para a conexao realmente usada pelo trafego. Uma ferramenta transitoria
+em out/issue198/readiness foi compilada com sucesso (avisos IDE0005 existentes)
+para executar essas leituras e emitir apenas booleanos, datas e codigo SQL.
+Nao ha conexoes ou credenciais gravadas nesse diretorio.
+
+O usuario confirmou nesta conversa que os usuarios/senhas produtivos sao novos,
+criados hoje sem reutilizacao. Tambem confirmou que **outra aplicacao ainda usa
+o administrador desse servidor**. Nome e hospedagem foram solicitados; nao se
+presumiu ESCOLA nem se alterou outro sistema. Essa confirmacao mantem o bloqueio
+pre-Online mesmo depois de uma eventual troca de trafego do HemoDinks.
+
+Os secrets GitHub production separados foram cadastrados em 19:32:12Z e
+19:33:21Z. O secret legado permanece cadastrado; sua mera existencia operacional
+nao equivale a uma aplicacao executando com administrador. O impedimento atual
+e concreto: a rota de 100% ainda o usa, assim como outro consumidor confirmado.
+
+Proxima mudanca a preparar: retirar o administrador de todas as revisoes
+executaveis do HemoDinks, validar a revisao restrita antes da troca e inventariar
+a outra aplicacao. Sem autorizacao especifica, nao promover trafego, substituir
+secrets legados, desativar revisoes, rotacionar o administrador compartilhado ou
+alterar o outro sistema. Os testes de login/CRUD produtivos tambem escrevem e
+nao foram executados nesta auditoria de leitura.
+
+Restore permanece n=0; RPO/RTO reais nao medidos. Nao se criou destino nem se
+executou descarte. A revisao Security (high) confirmou esses dois bloqueios.
+
+## Registro anterior - 17:34 UTC
+
 **Status: homologacao validada; PITR de producao bloqueado antes do restore.**
 Complexidade alta, risco critico. Origem prevista pela referencia #184:
 `HemodinksDB`, servidor `gm-tech-solution`, RG `rg-hemodinks-prod`.
