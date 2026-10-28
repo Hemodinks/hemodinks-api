@@ -27,7 +27,7 @@ env:
 jobs:
   rollback:
     name: Approve and roll back Production traffic
-    if: ${{ inputs.confirmation == 'ROLLBACK-PRODUCTION' }}
+    if: ${{ github.ref == 'refs/heads/main' && inputs.confirmation == 'ROLLBACK-PRODUCTION' }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     environment: production
