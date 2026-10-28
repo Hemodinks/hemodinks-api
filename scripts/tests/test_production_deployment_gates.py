@@ -16,6 +16,7 @@ from scripts import forwarded_headers
 ROOT = Path(__file__).resolve().parents[2]
 PUBLISH = ROOT / ".github/workflows/publish-container.yml"
 ROLLBACK = ROOT / ".github/workflows/rollback-production.yml"
+APPLY_MIGRATIONS = ROOT / ".github/workflows/apply-production-migrations.yml"
 
 
 def job_body(path, name):
@@ -37,6 +38,26 @@ class ProductionApprovalTests(unittest.TestCase):
                                     f"{name} must use production approval and OIDC context")
 
 
+    def test_production_mutating_jobs_require_main_branch(self):
+        cases = (
+            (PUBLISH, ("migrate-production", "deploy-api", "deploy-functions", "deploy-function-app")),
+            (APPLY_MIGRATIONS, ("migrate",)),
+            (ROLLBACK, ("rollback",)),
+        )
+        for path, jobs in cases:
+            for name in jobs:
+                with self.subTest(workflow=path.name, job=name):
+                    conditions = re.findall(r"(?m)^    if: (.+)$", job_body(path, name))
+                    self.assertEqual(1, len(conditions), f"{name} must have a job-level guard")
+                    self.assertIn("github.ref == 'refs/heads/main'", conditions[0])
+
+    def test_manual_image_and_migration_artifact_publication_requires_main(self):
+        for name in ("publish", "prepare-migrations"):
+            with self.subTest(job=name):
+                conditions = re.findall(r"(?m)^    if: (.+)$", job_body(PUBLISH, name))
+                self.assertEqual(1, len(conditions))
+                self.assertIn("github.event_name != 'workflow_dispatch'", conditions[0])
+                self.assertIn("github.ref == 'refs/heads/main'", conditions[0])
 class RollbackSmokeTests(unittest.TestCase):
     def run_smoke(self, scenario):
         source = ROLLBACK.read_text(encoding="utf-8")
