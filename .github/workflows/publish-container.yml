@@ -125,6 +125,7 @@ jobs:
   publish:
     name: Build and publish ${{ matrix.service }} SHA image
     needs: [validate, login-e2e]
+    if: ${{ github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -165,6 +166,7 @@ jobs:
   prepare-migrations:
     name: Build migration bundle and audited SQL
     needs: validate
+    if: ${{ github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -226,7 +228,7 @@ jobs:
     needs:
       - publish
       - prepare-migrations
-    if: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
@@ -334,6 +336,7 @@ jobs:
   deploy-api:
     name: Switch API Blue/Green
     needs: migrate-production
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
@@ -832,7 +835,7 @@ jobs:
       - migrate-production
     runs-on: ubuntu-latest
     environment: production
-    if: ${{ vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME != '' && (vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
+    if: ${{ github.ref == 'refs/heads/main' && vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME != '' && (vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
 
     steps:
       - name: Log in to Azure
@@ -864,7 +867,7 @@ jobs:
     needs: migrate-production
     runs-on: ubuntu-latest
     environment: production
-    if: ${{ vars.AZURE_FUNCTION_APP_WORKERS_NAME != '' && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
+    if: ${{ github.ref == 'refs/heads/main' && vars.AZURE_FUNCTION_APP_WORKERS_NAME != '' && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
 
     steps:
       - name: Checkout
