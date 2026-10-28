@@ -33,7 +33,9 @@ Falha no gate impede alteracao de configuracao e deploy. Falha posterior de depl
 
 Environment GitHub homologation restrito a developer:
 - Secret HOMOLOGATION_RENDER_API_KEY.
-- Secret HOMOLOGATION_SQL_CONNECTION_STRING.
+- Secret HOMOLOGATION_SQL_RUNTIME_CONNECTION_STRING (mesmo valor instalado no Render, DML restrito).
+- Secret HOMOLOGATION_SQL_MIGRATION_CONNECTION_STRING (identidade separada, somente bundle).
+- Provisionamento, verificacao efetiva, rede e rollback: [runbook SQL](issue-197-sql-runtime-network.md).
 - Variavel HOMOLOGATION_RENDER_SERVICE_ID=srv-d8hmtje47okc738ldllg.
 
 Servico: hemodinks-api-1, https://hemodinks-api-1-90nb.onrender.com, developer, Virginia, ASP.NET Confirmation. Auto-Deploy precisa permanecer Off. Seeds e manutencao permanecem desabilitados. Os secrets foram cadastrados e a preparacao anterior concluiu na execucao 36633800221; esse resultado nao valida os novos modos deste incremento.

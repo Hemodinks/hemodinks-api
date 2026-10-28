@@ -74,7 +74,13 @@ Secrets:
 - `AZURE_CLIENT_ID`
 - `AZURE_TENANT_ID`
 - `AZURE_SUBSCRIPTION_ID`
-- `AZURE_SQL_CONNECTION_STRING`
+- `AZURE_SQL_RUNTIME_CONNECTION_STRING` (SchemaGuard, identidade restrita)
+- `AZURE_SQL_MIGRATION_CONNECTION_STRING` (somente bundle, identidade separada)
+
+O runtime no Container App continua usando `ConnectionStrings__DefaultConnection`.
+A troca operacional dessa conexao, a rede e o rollback seguem o
+[runbook SQL](issue-197-sql-runtime-network.md); cadastrar secrets nao troca
+automaticamente a conexao da API.
 
 Variables preservadas para os workers:
 

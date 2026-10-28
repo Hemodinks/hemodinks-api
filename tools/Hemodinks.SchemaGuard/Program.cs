@@ -14,7 +14,7 @@ internal enum SchemaState
 
 internal static class SchemaGuardProgram
 {
-    public static async Task<int> Main()
+    public static async Task<int> Main(string[] args)
     {
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
@@ -27,6 +27,17 @@ internal static class SchemaGuardProgram
         var stage = "Configuration";
         try
         {
+            if (args.Length == 1 && args[0] == "--validate-connections")
+            {
+                SqlDeploymentPolicy.Validate(connectionString, Environment.GetEnvironmentVariable("HEMODINKS_SQL_MIGRATION_CONNECTION_STRING"));
+                Console.WriteLine("SQL identity preflight passed without database access.");
+                return 0;
+            }
+            if (args.Length != 0)
+            {
+                Console.Error.WriteLine("Schema check blocked: unsupported arguments.");
+                return 2;
+            }
             using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(4));
             var options = new DbContextOptionsBuilder<AppDbContext>()
                 .UseSqlServer(connectionString, sql => sql.CommandTimeout(30)).Options;
@@ -35,12 +46,15 @@ internal static class SchemaGuardProgram
 
             await SqlReadRetry.ExecuteAsync(async cancellationToken =>
             {
-                // Each attempt owns a fresh context/connection. This operation only reads migration metadata.
+                // Each attempt owns a fresh context/connection and only reads permissions and migration metadata.
                 await using var context = new AppDbContext(options, new ClinicaContext());
 
                 stage = "OpeningSqlConnection";
                 Console.WriteLine($"Schema check stage={stage} elapsedMs={elapsed.ElapsedMilliseconds}");
                 await context.Database.OpenConnectionAsync(cancellationToken);
+
+                stage = "AuditingRuntimePermissions";
+                await SqlRuntimePrivilegeAudit.VerifyAsync(context.Database.GetDbConnection(), cancellationToken);
 
                 stage = "ReadingMigrationHistory";
                 Console.WriteLine($"Schema check stage={stage} elapsedMs={elapsed.ElapsedMilliseconds}");

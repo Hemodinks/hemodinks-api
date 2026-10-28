@@ -26,13 +26,13 @@ def validate(service, variables, expected_host, connection):
     if "ConnectionStrings__DefaultConnection" not in values:
         raise PreflightError("ConnectionStrings__DefaultConnection nao encontrada diretamente no servico Render.")
     if values["ConnectionStrings__DefaultConnection"] != connection:
-        raise PreflightError("HOMOLOGATION_SQL_CONNECTION_STRING difere da conexao configurada no Render. Copie o valor exato, sem espacos ou quebras extras.")
+        raise PreflightError("HOMOLOGATION_SQL_RUNTIME_CONNECTION_STRING difere da conexao configurada no Render. Copie o valor exato, sem espacos ou quebras extras.")
 
 
 def main():
     names = {"RENDER_API_KEY": "HOMOLOGATION_RENDER_API_KEY",
              "RENDER_SERVICE_ID": "HOMOLOGATION_RENDER_SERVICE_ID",
-             "ConnectionStrings__DefaultConnection": "HOMOLOGATION_SQL_CONNECTION_STRING"}
+             "ConnectionStrings__DefaultConnection": "HOMOLOGATION_SQL_RUNTIME_CONNECTION_STRING"}
     for key, setting in names.items():
         if not os.environ.get(key):
             raise PreflightError(f"Configure {setting} no environment GitHub homologation.")
