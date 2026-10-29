@@ -21,7 +21,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 type: "int",
                 nullable: true);
 
-            migrationBuilder.Sql(
+            migrationBuilder.Sql("EXEC(N'" +
                 """
                 UPDATE [IdempotencyRequests]
                 SET [ClinicaId] = COALESCE(
@@ -30,7 +30,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         THEN SUBSTRING([Scope], 8, CHARINDEX(':', [Scope], 8) - 8)
                     END),
                     1);
-                """);
+                """.Replace("'", "''") + "');");
 
             migrationBuilder.AlterColumn<int>(
                 name: "ClinicaId",
@@ -83,7 +83,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 values: new object[] { "Trial", null, null, "Trial", null });
 
             migrationBuilder.Sql(
-                "UPDATE [Clinicas] SET [TrialAte] = DATEADD(day, 14, SYSUTCDATETIME()) WHERE [TrialAte] IS NULL;");
+                "EXEC(N'UPDATE [Clinicas] SET [TrialAte] = DATEADD(day, 14, SYSUTCDATETIME()) WHERE [TrialAte] IS NULL;');");
 
             migrationBuilder.InsertData(
                 table: "Perfis",

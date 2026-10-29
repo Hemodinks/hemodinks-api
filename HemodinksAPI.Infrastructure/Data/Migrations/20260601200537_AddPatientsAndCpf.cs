@@ -70,7 +70,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         onDelete: ReferentialAction.Cascade);
                 });
 
-            migrationBuilder.Sql("""
+            // Defer backfill compilation until the preceding schema changes have run.
+            migrationBuilder.Sql("EXEC(N'" +
+                """
                 IF EXISTS (SELECT 1 FROM [Users])
                 BEGIN
                     ;WITH DoctorsToDelete AS
@@ -127,7 +129,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     WHERE u.[PerfilId] = 3
                         AND NOT EXISTS (SELECT 1 FROM [Pacientes] p WHERE p.[UserId] = u.[Id]);
                 END
-                """);
+                """.Replace("'", "''") + "');");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Users_Cpf",
