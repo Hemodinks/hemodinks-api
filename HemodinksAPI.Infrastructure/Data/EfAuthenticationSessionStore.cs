@@ -86,10 +86,58 @@ public sealed class EfAuthenticationSessionStore(PlatformDbContext context) : IA
         }
         catch (DbUpdateConcurrencyException)
         {
-            // Remove pending stale writes and ensure a later lookup reads committed security state.
-            context.ChangeTracker.Clear();
+            try
+            {
+                await MergeActivityConflictAsync(cancellationToken);
+            }
+            finally
+            {
+                // Even a successful activity merge does not authorize the stale aggregate.
+                // The caller must read and validate committed security state again.
+                context.ChangeTracker.Clear();
+            }
             return false;
         }
+    }
+
+    private async Task MergeActivityConflictAsync(CancellationToken cancellationToken)
+    {
+        if (!context.Database.IsSqlServer()) return;
+        var pending = context.ChangeTracker.Entries()
+            .Where(entry => entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)
+            .ToArray();
+        if (pending.Length != 1 || pending[0].State != EntityState.Modified
+            || pending[0].Entity is not AuthenticationSession session
+            || pending[0].Properties.Count(property => property.IsModified) != 1
+            || !pending[0].Property(nameof(AuthenticationSession.LastActivityAt)).IsModified) return;
+
+        var entry = context.Entry(session);
+        var contextVersion = entry.Property(s => s.ContextVersion).OriginalValue;
+        var securityVersion = entry.Property(s => s.SecurityVersion).OriginalValue;
+        var membershipId = entry.Property(s => s.UsuarioClinicaId).OriginalValue;
+        var globalId = entry.Property(s => s.UsuarioGlobalId).OriginalValue;
+        var refreshHash = entry.Property(s => s.RefreshTokenHash).OriginalValue;
+        var clinicId = session.UsuarioClinica.ClinicaId;
+        var userId = session.UsuarioClinica.UserId;
+        var profileId = session.UsuarioClinica.User.PerfilId;
+        var observedAt = session.LastActivityAt;
+
+        // Merge only activity, monotonically, while the security/context snapshot still
+        // matches. Never overwrite a refresh, revocation, membership or credential change.
+        // UPDATE 0 is also safe: the normal retry rereads and revalidates every condition.
+        await context.AuthenticationSessions.Where(s => s.Id == session.Id
+            && s.ContextVersion == contextVersion && s.SecurityVersion == securityVersion
+            && s.UsuarioClinicaId == membershipId && s.UsuarioGlobalId == globalId
+            && s.RefreshTokenHash == refreshHash && s.RevokedAt == null
+            && s.UsuarioClinica.Ativo && s.UsuarioClinica.ClinicaId == clinicId
+            && s.UsuarioClinica.UserId == userId && s.UsuarioClinica.UsuarioGlobalId == globalId
+            && s.UsuarioClinica.UsuarioGlobal.Ativo
+            && s.UsuarioClinica.UsuarioGlobal.SecurityVersion == securityVersion
+            && s.UsuarioClinica.User.Ativo && s.UsuarioClinica.User.ClinicaId == clinicId
+            && s.UsuarioClinica.Clinica.Ativa
+            && s.UsuarioClinica.PerfilId == profileId && s.UsuarioClinica.User.PerfilId == profileId
+            && s.LastActivityAt < observedAt)
+            .ExecuteUpdateAsync(setters => setters.SetProperty(s => s.LastActivityAt, observedAt), cancellationToken);
     }
 
     private IQueryable<UsuarioClinica> ActiveMemberships()
