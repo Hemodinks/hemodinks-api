@@ -16,7 +16,8 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 type: "nvarchar(max)",
                 nullable: true);
 
-            migrationBuilder.Sql(
+            // Defer backfill compilation until the preceding schema changes have run.
+            migrationBuilder.Sql("EXEC(N'" +
                 """
                 UPDATE clinica
                 SET
@@ -35,7 +36,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 FROM Clinicas clinica
                 INNER JOIN ConfiguracoesSistema configuracao
                     ON configuracao.ClinicaId = clinica.Id;
-                """);
+                """.Replace("'", "''") + "');");
 
         }
 

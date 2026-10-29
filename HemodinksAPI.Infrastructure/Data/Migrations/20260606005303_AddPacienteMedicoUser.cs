@@ -16,7 +16,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 type: "int",
                 nullable: true);
 
-            migrationBuilder.Sql("""
+            // Defer backfill compilation until the preceding schema changes have run.
+            migrationBuilder.Sql("EXEC(N'" +
+                """
                 UPDATE p
                 SET MedicoUserId = u.Id
                 FROM [Pacientes] p
@@ -27,7 +29,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     ORDER BY [Id]
                 ) u
                 WHERE p.[Medico] IS NOT NULL AND p.[MedicoUserId] IS NULL
-                """);
+                """.Replace("'", "''") + "');");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Pacientes_MedicoUserId",
