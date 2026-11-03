@@ -47,6 +47,10 @@ public sealed class LoginBrowserTests
         };
         foreach (var argument in new[] { "node_modules/@playwright/test/cli.js", "test", "--config=playwright.login.config.ts", "--reporter=json", "--grep", $"case:{scenario}$" })
             start.ArgumentList.Add(argument);
+        // The JSON report goes to a file: runner images or tools may print to stdout, which must not
+        // corrupt the result. stdout/stderr remain only as failure diagnostics.
+        var reportFile = Path.Combine(Path.GetTempPath(), $"hemodinks-login-{scenario}-{Guid.NewGuid():N}.json");
+        start.Environment["PLAYWRIGHT_JSON_OUTPUT_FILE"] = reportFile;
         start.Environment["VITE_API_URL"] = address;
         start.Environment["HEMODINKS_E2E_SCENARIO"] = scenario;
         start.Environment["HEMODINKS_LOGIN_FIXTURE"] = JsonSerializer.Serialize(new
@@ -62,8 +66,12 @@ public sealed class LoginBrowserTests
         using var timeout = new CancellationTokenSource(TimeSpan.FromMinutes(3));
         try { await process.WaitForExitAsync(timeout.Token); }
         catch { process.Kill(entireProcessTree: true); throw; }
-        var report = await output;
-        Assert.True(process.ExitCode == 0, report + (await error));
+        var diagnostics = await output + await error;
+        Assert.True(process.ExitCode == 0, diagnostics);
+        Assert.True(File.Exists(reportFile), "Playwright did not write the JSON report. " + diagnostics);
+        string report;
+        try { report = await File.ReadAllTextAsync(reportFile); }
+        finally { File.Delete(reportFile); }
         using var document = JsonDocument.Parse(report);
         var stats = document.RootElement.GetProperty("stats");
         Assert.True(stats.GetProperty("expected").GetInt32() > 0, "Playwright must execute at least one passing test per scenario.");
