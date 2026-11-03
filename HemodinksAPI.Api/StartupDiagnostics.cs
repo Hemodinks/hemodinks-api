@@ -6,6 +6,13 @@ internal sealed class StartupDiagnostics
 {
     private readonly Stopwatch _elapsed = Stopwatch.StartNew();
     private int _ready;
+    private int _firstApplicationRequest;
+
+    // Process age, so request logs can separate a Container Apps cold start from warm traffic (#201).
+    public double ElapsedMs => _elapsed.Elapsed.TotalMilliseconds;
+
+    // True once: the first non-probe request completed by this process.
+    public bool TryMarkFirstApplicationRequest() => Interlocked.Exchange(ref _firstApplicationRequest, 1) == 0;
 
     public void Record(ILogger logger, string stage, double durationMs) =>
         logger.LogInformation(

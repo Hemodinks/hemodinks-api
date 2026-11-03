@@ -16,12 +16,13 @@ public static partial class ApiServiceCollectionExtensions
             throw new InvalidOperationException("ConnectionStrings:DefaultConnection must be configured.");
         }
 
-        services.AddDbContext<AppDbContext>(options =>
+        services.AddSingleton<DatabaseConnectionTimingInterceptor>();
+        services.AddDbContext<AppDbContext>((provider, options) =>
             options.UseSqlServer(defaultConnection, sqlOptions =>
             {
                 sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name);
                 sqlOptions.EnableRetryOnFailure();
-            }));
+            }).AddInterceptors(provider.GetRequiredService<DatabaseConnectionTimingInterceptor>()));
         services.AddScoped<PlatformDbContext>();
         services.AddSingleton<ISqlConnectionFactory>(new SqlConnectionFactory(defaultConnection));
         services.AddScoped<HemodinksAPI.Application.Features.Clinics.IPublicClinicDirectory, SqlPublicClinicDirectory>();

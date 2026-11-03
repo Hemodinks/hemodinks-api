@@ -41,7 +41,9 @@ builder.Services
 builder.Services.AddOptions<SecurityObservationOptions>()
     .Bind(builder.Configuration.GetSection(SecurityObservationOptions.SectionName))
     .Validate(options => options.IsValid(), "Invalid security observation thresholds").ValidateOnStart();
-builder.Services.AddOpenTelemetry().WithMetrics(metrics => metrics.AddMeter("Hemodinks.Security"));
+builder.Services.AddOpenTelemetry().WithMetrics(metrics => metrics
+    .AddMeter("Hemodinks.Security")
+    .AddMeter(HemodinksAPI.Infrastructure.Data.DatabaseConnectionTimingInterceptor.MeterName));
 builder.Services.AddSingleton<ISecurityObservationReader, SecurityObservationReader>();
 builder.Services.AddSingleton<SecurityObservationWorker>();
 builder.Services.AddSingleton<ISecurityObservationWriter>(sp => sp.GetRequiredService<SecurityObservationWorker>());
@@ -141,6 +143,11 @@ app.UseSerilogRequestLogging(options =>
         diagnosticContext.Set("RequestHost", httpContext.Request.Host.Value);
         diagnosticContext.Set("RequestScheme", httpContext.Request.Scheme);
         diagnosticContext.Set("TraceIdentifier", httpContext.TraceIdentifier);
+        // Cold start separation (#201): process age on every request, and a one-time marker on the
+        // first non-probe request this process completed (typically the one that scaled it from zero).
+        diagnosticContext.Set("ProcessUptimeMs", Math.Round(startupDiagnostics.ElapsedMs));
+        if (!IsProbeRequest(httpContext.Request.Path) && startupDiagnostics.TryMarkFirstApplicationRequest())
+            diagnosticContext.Set("FirstApplicationRequest", true);
 
         if (activity is not null)
         {
@@ -223,6 +230,12 @@ public partial class Program
             || path.Value?.Contains("/comprovante", StringComparison.OrdinalIgnoreCase) == true
             || path.Value?.Contains("/foto-perfil", StringComparison.OrdinalIgnoreCase) == true;
     }
+
+    internal static bool IsProbeRequest(PathString path) =>
+        path.Value is "/" or ""
+        || path.StartsWithSegments("/healthz")
+        || path.StartsWithSegments("/readyz")
+        || path.StartsWithSegments("/livez");
 
     public static void ConfigureSerilog(LoggerConfiguration loggerConfiguration, string contentRootPath)
     {
