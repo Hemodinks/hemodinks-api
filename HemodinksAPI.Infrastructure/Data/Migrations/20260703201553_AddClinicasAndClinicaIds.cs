@@ -314,7 +314,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 column: "ClinicaId",
                 value: 1);
 
+            // Defer ClinicaId binding until all tenant columns exist.
             migrationBuilder.Sql(@"
+EXEC(N'
 UPDATE [Users] SET [ClinicaId] = 1 WHERE [ClinicaId] IS NULL;
 UPDATE [UserArquivos] SET [ClinicaId] = 1 WHERE [ClinicaId] IS NULL;
 UPDATE [PasswordResetTokens] SET [ClinicaId] = 1 WHERE [ClinicaId] IS NULL;
@@ -332,6 +334,7 @@ UPDATE [Events] SET [ClinicaId] = 1 WHERE [ClinicaId] IS NULL;
 UPDATE [Convenios] SET [ClinicaId] = 1 WHERE [ClinicaId] IS NULL;
 UPDATE [ConfiguracoesSistema] SET [ClinicaId] = 1 WHERE [ClinicaId] IS NULL;
 UPDATE [AgendaNotifications] SET [ClinicaId] = 1 WHERE [ClinicaId] IS NULL;
+');
 ");
 
             migrationBuilder.AlterColumn<int>(

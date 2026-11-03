@@ -39,7 +39,7 @@ jobs:
           RENDER_API_KEY: ${{ secrets.HOMOLOGATION_RENDER_API_KEY }}
           RENDER_SERVICE_ID: ${{ vars.HOMOLOGATION_RENDER_SERVICE_ID }}
           EXPECTED_RENDER_HOST: hemodinks-api-1-90nb.onrender.com
-          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_CONNECTION_STRING }}
+          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_RUNTIME_CONNECTION_STRING }}
         run: python scripts/check_homologation.py
       - uses: actions/setup-dotnet@v6.0.0
         if: inputs.mode == 'diagnose-sql'
@@ -51,7 +51,7 @@ jobs:
       - name: Diagnose SQL connection and history without deploying
         if: inputs.mode == 'diagnose-sql'
         env:
-          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_CONNECTION_STRING }}
+          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_RUNTIME_CONNECTION_STRING }}
         run: dotnet tools/Hemodinks.SchemaGuard/bin/Release/net10.0/Hemodinks.SchemaGuard.dll
   prepare:
     name: Prepare audited migration artifacts (no database access)
@@ -119,14 +119,21 @@ jobs:
           path: artifacts
       - name: Validate homologation destination and deployment configuration
         env:
-          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_CONNECTION_STRING }}
+          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_RUNTIME_CONNECTION_STRING }}
         shell: bash
         run: |
           python scripts/check_homologation.py
+      - name: Validate SQL deployment identities without connecting
+        env:
+          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_RUNTIME_CONNECTION_STRING }}
+          HEMODINKS_SQL_MIGRATION_CONNECTION_STRING: ${{ secrets.HOMOLOGATION_SQL_MIGRATION_CONNECTION_STRING }}
+        run: |
+          chmod +x artifacts/schema-guard/Hemodinks.SchemaGuard
+          ./artifacts/schema-guard/Hemodinks.SchemaGuard --validate-connections
       - name: Select deployment mode from schema state
         id: schema_mode
         env:
-          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_CONNECTION_STRING }}
+          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_RUNTIME_CONNECTION_STRING }}
         shell: bash
         run: |
           chmod +x artifacts/schema-guard/Hemodinks.SchemaGuard
@@ -160,11 +167,11 @@ jobs:
       - name: Apply only known pending homologation migrations
         if: steps.schema_mode.outputs.mode == 'migrate-and-deploy'
         env:
-          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_CONNECTION_STRING }}
+          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_MIGRATION_CONNECTION_STRING }}
         shell: bash
         run: |
           if [ -z "$ConnectionStrings__DefaultConnection" ]; then
-            echo "::error::Configure HOMOLOGATION_SQL_CONNECTION_STRING in the homologation environment."
+            echo "::error::Configure HOMOLOGATION_SQL_MIGRATION_CONNECTION_STRING in the homologation environment."
             exit 2
           fi
           chmod +x artifacts/hemodinks-efbundle
@@ -172,7 +179,7 @@ jobs:
       - name: Verify schema after automatic migration
         if: steps.schema_mode.outputs.mode == 'migrate-and-deploy'
         env:
-          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_CONNECTION_STRING }}
+          ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_RUNTIME_CONNECTION_STRING }}
         shell: bash
         run: |
           ./artifacts/schema-guard/Hemodinks.SchemaGuard

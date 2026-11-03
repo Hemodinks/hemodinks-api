@@ -195,6 +195,9 @@ public sealed partial class AuthenticationSessionService
         Guid sessionId,
         CancellationToken cancellationToken)
     {
+        // Retries belong to the same observed activity. Advancing this timestamp on every
+        // retry makes overlapping requests continually compete for a newer rowversion.
+        var activityObservedAt = UtcNow();
         // Each attempt reads security state again. No state survives the request.
         for (var attempt = 0; attempt < 3; attempt++)
         {
@@ -223,9 +226,9 @@ public sealed partial class AuthenticationSessionService
                 session.UsuarioClinica.DataAtualizacao = now;
             }
 
-            var activityDue = now > session.LastActivityAt
-                && now - session.LastActivityAt >= TimeSpan.FromSeconds(_options.ActivityPersistenceIntervalSeconds);
-            if (activityDue) session.LastActivityAt = now;
+            var activityDue = activityObservedAt > session.LastActivityAt
+                && activityObservedAt - session.LastActivityAt >= TimeSpan.FromSeconds(_options.ActivityPersistenceIntervalSeconds);
+            if (activityDue) session.LastActivityAt = activityObservedAt;
             if (!await _store.TrySaveChangesAsync(cancellationToken))
             {
                 // The competing operation may revoke or change context. Never authorize from

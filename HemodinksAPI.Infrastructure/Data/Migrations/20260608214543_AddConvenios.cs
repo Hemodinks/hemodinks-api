@@ -47,7 +47,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     { 9, "Unimed Uberlândia - Plano  Unimed Intercâmbio" }
                 });
 
-            migrationBuilder.Sql("""
+            // Defer backfill compilation until the preceding schema changes have run.
+            migrationBuilder.Sql("EXEC(N'" +
+                """
                 UPDATE p
                 SET p.ConvenioId = c.IdConvenio,
                     p.Convenio = c.DescricaoConvenio
@@ -56,7 +58,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     ON LTRIM(RTRIM(p.Convenio)) = c.DescricaoConvenio
                 WHERE p.ConvenioId IS NULL
                     AND p.Convenio IS NOT NULL;
-                """);
+                """.Replace("'", "''") + "');");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Pacientes_ConvenioId",

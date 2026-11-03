@@ -242,8 +242,8 @@ public sealed class CriticalQuerySqlServerTests(ITestOutputHelper output)
                 var elapsed = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
                 Assert.Equal(size, notifications.Recipients.Count);
                 Assert.All(notifications.Recipients, x => Assert.Equal(doctor.Id, x));
-                Assert.Equal(2 + 2 * size, commands.Statements.Count); // candidates + per-event load/eligibility + GET
-                Assert.Equal(size + 1, commands.Writes); // per-event lease + one SaveChanges batch
+                Assert.Equal(size + 3, commands.Statements.Count); // candidates + batch load + fresh eligibility per event + GET
+                Assert.Equal(2, commands.Writes); // batch lease + one SaveChanges batch (size <= 24)
                 if (attempt >= 0) reminderSamples.Add(elapsed);
             }
             reminderSamples.Sort();

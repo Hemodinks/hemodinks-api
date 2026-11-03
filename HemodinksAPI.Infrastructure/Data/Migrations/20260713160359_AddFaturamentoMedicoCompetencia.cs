@@ -23,7 +23,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 type: "datetime2",
                 nullable: true);
 
-            migrationBuilder.Sql("""
+            // Defer backfill compilation until the preceding schema changes have run.
+            migrationBuilder.Sql("EXEC(N'" +
+                """
                 UPDATE f
                 SET
                     [CompetenciaInicio] = DATEFROMPARTS(YEAR(p.[Data]), MONTH(p.[Data]), 1),
@@ -34,7 +36,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 WHERE p.[Data] IS NOT NULL
                     AND f.[CompetenciaInicio] IS NULL
                     AND f.[CompetenciaFinal] IS NULL;
-                """);
+                """.Replace("'", "''") + "');");
 
             migrationBuilder.CreateIndex(
                 name: "IX_FaturamentosMedicos_CompetenciaInicio_CompetenciaFinal",

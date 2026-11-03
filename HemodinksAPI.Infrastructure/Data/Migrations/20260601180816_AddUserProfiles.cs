@@ -43,7 +43,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 });
 
             migrationBuilder.Sql(
-                "UPDATE [Users] SET [PerfilId] = 1 WHERE [Email] = N'gmarcone@gmail.com' OR [Nome] = N'George Marcone Morais dos Santos';");
+                "EXEC(N'UPDATE [Users] SET [PerfilId] = 1 WHERE [Email] = N''gmarcone@gmail.com'' OR [Nome] = N''George Marcone Morais dos Santos'';');");
 
             migrationBuilder.CreateIndex(
                 name: "IX_Users_PerfilId",

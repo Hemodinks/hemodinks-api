@@ -9,6 +9,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class SqlIdentitySeparationTests(unittest.TestCase):
     def test_only_bundle_steps_receive_migration_identity(self):
         cases = {
+            "publish-homologation.yml": ("HOMOLOGATION", {"Apply only known pending homologation migrations"}),
             "apply-production-migrations.yml": ("AZURE", {"Apply only known pending migrations to Azure SQL"}),
             "publish-container.yml": ("AZURE", {"Apply migration bundle"}),
         }
