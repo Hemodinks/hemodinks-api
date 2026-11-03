@@ -19,7 +19,10 @@ plano.
 | `HemodinksDBConfirmation` | HOMOL | GP_S_Gen5 | 0,5 / 1 | API reporta `-1`; observado ~30 min | gratuita | `BillOverUsage` |
 
 `hemodinks-api-prod` (Container Apps): `minReplicas = 0`, `maxReplicas = 1`.
-HOMOL API: Render Free (`render.yaml`), `healthCheckPath: /healthz`.
+HOMOL API: Render Free (serviço `hemodinks-api-1`). O blueprint
+`render.confirmation.yaml` declarava `healthCheckPath: /healthz`, mas o painel
+do Render (conferido pelo responsável em 03/11/2026) estava **sem Health Check
+Path**: o blueprint não é sincronizado automaticamente.
 
 ### Custos de outubro (exportação citada na issue)
 
@@ -103,7 +106,8 @@ SQL. As mudanças implementadas abaixo atacam esse ponto.
 Qualquer réplica viva contata o SQL a cada 5 s (probe) e a cada 30 s (worker
 de e-mail). As rotas `/`, `/healthz` e `/readyz` executam o mesmo health check
 com banco; qualquer requisição anônima à raiz da API também consulta o SQL.
-Em HOMOL, o Render usa `/healthz` como health check.
+Em HOMOL, o Render **não** fazia health check (campo vazio no painel), então
+não era fonte de despertares.
 
 Efeito: a janela Online é, no mínimo, a vida da réplica (tráfego + cooldown
 do Container Apps) mais o atraso do auto-pause. O ganho de reduzir esses
@@ -201,7 +205,7 @@ Rollback: reverter o commit. Ou, sem deploy de código, definir
 | --- | --- | --- | --- | --- | --- |
 | R5 | Revisar o auto-pause PROD | Incerto | Mais retomadas a frio | Ver abaixo | Restaurar valor |
 | R6 | Uptime Kuma: apontar o monitor da API para `/livez` | Remove despertares por monitoramento (provável origem dos de 08:35/14:40 UTC em HOMOL) | Baixo: o monitor deixa de indicar falha de banco | Alteração no Kuma (máquina local do responsável) | Voltar a URL anterior |
-| R7 | HOMOL (Render): `healthCheckPath` para `/livez` | Probes do Render deixam de tocar o SQL | Deploy no Render deixa de validar o banco; o `Publish Homologation` já valida antes | `render.confirmation.yaml` alterado; **aplicar também no painel do Render** (Settings → Health Check Path), pois o blueprint não é sincronizado automaticamente | Voltar para `/healthz` |
+| R7 | HOMOL (Render): opcionalmente preencher Health Check Path com `/livez` | Sem efeito em custo (hoje está vazio); melhora a detecção de deploy pronto sem tocar o SQL | Baixo | `render.confirmation.yaml` já declara `/livez`; aplicar no painel do Render (serviço → Settings → Health Checks) | Deixar vazio |
 
 **R5, auto-pause PROD.** O responsável informou ter configurado 1 h em
 produção e 30 min em homologação. A API do Azure reporta **30 min** para
