@@ -98,6 +98,10 @@ public static partial class ApiServiceCollectionExtensions
                 : provider.GetRequiredService<SmtpEventEmailSender>();
         });
         services.AddScoped<EventEmailDeliveryProcessor>();
+        services.AddSingleton<RequestActivitySignal>();
+        services.AddSingleton(new EventEmailPollingOptions(
+            configuration.GetValue<bool?>("EventEmails:PollOnlyAfterAuthenticatedRequest") ?? true,
+            TimeSpan.FromMinutes(Math.Max(1, configuration.GetValue<int?>("EventEmails:ActivityWindowMinutes") ?? 15))));
         if (configuration.GetValue<bool?>("EventEmails:RunHostedProcessor") ?? true)
             services.AddHostedService<EventEmailDeliveryHostedService>();
         services.AddScoped<SessionUseCases>();

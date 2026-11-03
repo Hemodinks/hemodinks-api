@@ -22,10 +22,32 @@ public partial class ApiEndpointIntegrationTests
         Assert.Equal("Unhealthy", json.RootElement.GetProperty("status").GetString());
     }
 
+    [Fact]
+    public async Task RootAndLiveness_DoNotTouchDatabase_WhileReadinessStillDoes()
+    {
+        FailingDatabaseProbe.Calls = 0;
+        using var factory = new HemodinksApiFactory(services =>
+            services.AddScoped<HemodinksAPI.Application.Data.IDatabaseReadinessProbe, FailingDatabaseProbe>());
+        using var client = factory.CreateClient();
+
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.SendAsync(new HttpRequestMessage(HttpMethod.Head, "/"))).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync("/livez")).StatusCode);
+        Assert.Equal(0, FailingDatabaseProbe.Calls);
+
+        // The deploy smoke gate depends on /healthz validating the database.
+        Assert.Equal(HttpStatusCode.ServiceUnavailable, (await client.GetAsync("/healthz")).StatusCode);
+        Assert.True(FailingDatabaseProbe.Calls > 0);
+    }
+
     private sealed class FailingDatabaseProbe : HemodinksAPI.Application.Data.IDatabaseReadinessProbe
     {
-        public Task<HemodinksAPI.Application.Data.DatabaseReadinessResult> CheckAsync(bool validateSchema, CancellationToken cancellationToken) =>
+        public static int Calls;
+        public Task<HemodinksAPI.Application.Data.DatabaseReadinessResult> CheckAsync(bool validateSchema, CancellationToken cancellationToken)
+        {
+            Interlocked.Increment(ref Calls);
             throw new InvalidOperationException("Server=private-host;Password=must-not-leak");
+        }
     }
 
     [Fact]

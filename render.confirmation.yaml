@@ -8,7 +8,9 @@ services:
     autoDeployTrigger: 'off'
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    healthCheckPath: /healthz
+    # Database-free (#209): /healthz runs SELECT 1 and kept homologation SQL awake.
+    # Publish Homologation validates database/migrations before deploying.
+    healthCheckPath: /livez
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Confirmation
