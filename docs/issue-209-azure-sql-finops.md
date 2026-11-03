@@ -127,13 +127,18 @@ Não alterei a configuração.
 
 Desde 01/11 (inclusive no domingo) há despertares em HOMOL às ~08:35 e ~14:40
 UTC. Eles não coincidem com workflows agendados do repositório (só limpeza do
-GHCR), e o E2E de login usa host isolado no runner. **Origem provável,
-segundo o responsável: Uptime Kuma.** Pelo plano de monitoramento, o monitor
-HTTP da API roda a cada 3 h numa máquina Windows local, o que explica poucas
-verificações por dia. A rota prevista no plano (`/health/live`) **não existe**:
-`/health` e `/alive` só são mapeados em Development. Um monitor que responda
-200 está, portanto, em `/`, `/healthz` ou `/readyz`, e todas executam
-`SELECT 1`. Não confirmado: a configuração do Kuma não está no repositório.
+GHCR), e o E2E de login usa host isolado no runner. **Uptime Kuma foi
+descartado para esse período.** Ele roda nativo via PM2
+(`hemodinks-kuma-nativo`, máquina local do responsável), mas está parado
+desde 30/10/2026: os logs da tarefa agendada "Kuma-Passivo" terminam em
+30/10 16:54 BRT, e a porta 3001 não responde. As tarefas agendadas dos agentes
+Push de PROD/HOMOL apontam para scripts ausentes e falham sem executar nada.
+**A origem dos despertares de novembro continua indeterminada.**
+
+Quando o Kuma for religado, o monitor HTTP da API (a cada 3 h, pelo plano)
+deve usar `/livez`. A rota prevista no plano (`/health/live`) **não existe**:
+`/health` e `/alive` só são mapeados em Development, e `/`, `/healthz` e
+`/readyz` executavam `SELECT 1`.
 
 ### Abrir as URLs da aplicação acorda o banco (por desenho)
 
