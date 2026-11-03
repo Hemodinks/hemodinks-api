@@ -2,7 +2,8 @@ using HemodinksAPI.Infrastructure.Services;
 
 namespace HemodinksAPI.Infrastructure.HostedServices;
 
-public sealed class EventEmailDeliveryHostedService(IServiceProvider services, ILogger<EventEmailDeliveryHostedService> logger)
+public sealed class EventEmailDeliveryHostedService(IServiceProvider services, RequestActivitySignal activity,
+    EventEmailPollingOptions options, ILogger<EventEmailDeliveryHostedService> logger)
     : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -11,8 +12,7 @@ public sealed class EventEmailDeliveryHostedService(IServiceProvider services, I
         {
             try
             {
-                using var scope = services.CreateScope();
-                await scope.ServiceProvider.GetRequiredService<EventEmailDeliveryProcessor>().ProcessAsync(stoppingToken);
+                await TryProcessOnceAsync(stoppingToken);
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
             catch (Exception exception)
@@ -23,5 +23,16 @@ public sealed class EventEmailDeliveryHostedService(IServiceProvider services, I
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested) { break; }
         }
     }
-}
 
+    // Deliveries are only enqueued by authenticated requests and retries are due within minutes,
+    // so an idle replica skips the poll instead of touching (and resuming) the database.
+    public async Task<bool> TryProcessOnceAsync(CancellationToken cancellationToken)
+    {
+        if (options.RequireRecentAuthenticatedRequest && !activity.IsActiveWithin(options.RecentRequestWindow))
+            return false;
+
+        using var scope = services.CreateScope();
+        await scope.ServiceProvider.GetRequiredService<EventEmailDeliveryProcessor>().ProcessAsync(cancellationToken);
+        return true;
+    }
+}

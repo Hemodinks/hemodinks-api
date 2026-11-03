@@ -4,7 +4,9 @@ public static partial class ApiApplicationExtensions
 {
     public static void MapApiEndpoints(this WebApplication app)
     {
-        app.MapMethods("/", ["GET", "HEAD"], ReadinessCheckAsync)
+        // Database-free (#209): anonymous hits on the API root (bots, monitors) must not resume
+        // serverless SQL. Database readiness stays on /healthz and /readyz.
+        app.MapMethods("/", ["GET", "HEAD"], LivenessCheckAsync)
             .WithName("RootHealthCheck")
             .AllowAnonymous();
 

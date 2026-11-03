@@ -180,6 +180,13 @@ app.Use(async (context, next) =>
     await next();
 });
 app.UseMiddleware<AuthenticationSessionMiddleware>();
+// After session validation: only real authenticated use lets background email polling touch the database.
+app.Use((context, next) =>
+{
+    if (context.User.Identity?.IsAuthenticated == true)
+        context.RequestServices.GetRequiredService<HemodinksAPI.Infrastructure.HostedServices.RequestActivitySignal>().MarkActive();
+    return next();
+});
 app.UseMiddleware<PasswordRecoveryMiddleware>();
 app.UseMiddleware<ClinicaResolutionMiddleware>();
 app.Use(async (context, next) =>
