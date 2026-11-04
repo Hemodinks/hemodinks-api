@@ -5,7 +5,7 @@ namespace HemodinksAPI.Application.Features.Privacy;
 
 public static class PrivacyPolicyVersions
 {
-    public const string Current = "1.1";
+    public const string Current = "1.2";
 }
 
 public sealed record PrivacyPreferenceResponse(
