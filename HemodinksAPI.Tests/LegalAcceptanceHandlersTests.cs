@@ -27,7 +27,7 @@ public sealed class LegalAcceptanceHandlersTests
         Assert.False(status.TermsOfUse.IsCurrent);
         Assert.False(status.PrivacyNotice.IsCurrent);
         Assert.Equal("1.1", status.TermsOfUse.CurrentVersion);
-        Assert.Equal("1.1", status.PrivacyNotice.CurrentVersion);
+        Assert.Equal("1.2", status.PrivacyNotice.CurrentVersion);
     }
 
     [Fact]
@@ -40,7 +40,7 @@ public sealed class LegalAcceptanceHandlersTests
             context,
             tenant,
             new FixedTimeProvider(AcceptanceInstant));
-        var command = new AcceptCurrentLegalDocumentsCommand(CurrentUser(user), "1.1", "1.1");
+        var command = new AcceptCurrentLegalDocumentsCommand(CurrentUser(user), "1.1", "1.2");
 
         var first = await handler.Handle(command, CancellationToken.None);
         var second = await handler.Handle(command, CancellationToken.None);
@@ -55,7 +55,7 @@ public sealed class LegalAcceptanceHandlersTests
         Assert.Equal(2, records.Count);
         Assert.All(records, item =>
         {
-            Assert.Equal("1.1", item.DocumentVersion);
+            Assert.Equal(item.DocumentType == LegalDocumentType.TermsOfUse ? "1.1" : "1.2", item.DocumentVersion);
             Assert.Equal(AcceptanceInstant.UtcDateTime, item.AcceptedAtUtc);
             Assert.Equal(DateTimeKind.Utc, item.AcceptedAtUtc.Kind);
             Assert.Equal(Clinica.DefaultId, item.ClinicaId);
@@ -82,7 +82,7 @@ public sealed class LegalAcceptanceHandlersTests
             new GetLegalAcceptanceStatusQuery(CurrentUser(user)),
             CancellationToken.None);
         await new AcceptCurrentLegalDocumentsCommandHandler(context, tenant, new FixedTimeProvider(AcceptanceInstant)).Handle(
-            new AcceptCurrentLegalDocumentsCommand(CurrentUser(user), "1.1", "1.1"),
+            new AcceptCurrentLegalDocumentsCommand(CurrentUser(user), "1.1", "1.2"),
             CancellationToken.None);
 
         Assert.True(before.RequiresAcceptance);
@@ -100,7 +100,7 @@ public sealed class LegalAcceptanceHandlersTests
         var otherUser = await AddUserAsync(context, "usuario-b@example.com");
         var tenant = ClinicaContextFactory.CreateDefaultResolved();
         await new AcceptCurrentLegalDocumentsCommandHandler(context, tenant, new FixedTimeProvider(AcceptanceInstant)).Handle(
-            new AcceptCurrentLegalDocumentsCommand(CurrentUser(acceptedUser), "1.1", "1.1"),
+            new AcceptCurrentLegalDocumentsCommand(CurrentUser(acceptedUser), "1.1", "1.2"),
             CancellationToken.None);
 
         var otherStatus = await new GetLegalAcceptanceStatusQueryHandler(context, tenant).Handle(
@@ -127,7 +127,7 @@ public sealed class LegalAcceptanceHandlersTests
             new FixedTimeProvider(AcceptanceInstant));
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(
-            new AcceptCurrentLegalDocumentsCommand(mismatchedUser, "1.1", "1.1"),
+            new AcceptCurrentLegalDocumentsCommand(mismatchedUser, "1.1", "1.2"),
             CancellationToken.None));
         Assert.Empty(context.UserLegalAcceptances);
     }
@@ -143,7 +143,66 @@ public sealed class LegalAcceptanceHandlersTests
             new FixedTimeProvider(AcceptanceInstant));
 
         await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(
-            new AcceptCurrentLegalDocumentsCommand(CurrentUser(user), "1.0", "1.1"),
+            new AcceptCurrentLegalDocumentsCommand(CurrentUser(user), "1.0", "1.2"),
+            CancellationToken.None));
+        Assert.Empty(context.UserLegalAcceptances);
+    }
+
+    [Fact]
+    public async Task PreviousPrivacyNoticeVersion_RequiresNewAcceptance_AndPreservesHistory()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var user = await AddUserAsync(context, "aviso-anterior@example.com");
+        var tenant = ClinicaContextFactory.CreateDefaultResolved();
+        context.UserLegalAcceptances.AddRange(
+            new UserLegalAcceptance
+            {
+                UserId = user.Id,
+                ClinicaId = Clinica.DefaultId,
+                DocumentType = LegalDocumentType.TermsOfUse,
+                DocumentVersion = "1.1",
+                AcceptedAtUtc = AcceptanceInstant.AddDays(-1).UtcDateTime
+            },
+            new UserLegalAcceptance
+            {
+                UserId = user.Id,
+                ClinicaId = Clinica.DefaultId,
+                DocumentType = LegalDocumentType.PrivacyNoticeAcknowledgement,
+                DocumentVersion = "1.1",
+                AcceptedAtUtc = AcceptanceInstant.AddDays(-1).UtcDateTime
+            });
+        await context.SaveChangesAsync();
+
+        var before = await new GetLegalAcceptanceStatusQueryHandler(context, tenant).Handle(
+            new GetLegalAcceptanceStatusQuery(CurrentUser(user)),
+            CancellationToken.None);
+        var after = await new AcceptCurrentLegalDocumentsCommandHandler(context, tenant, new FixedTimeProvider(AcceptanceInstant)).Handle(
+            new AcceptCurrentLegalDocumentsCommand(CurrentUser(user), "1.1", "1.2"),
+            CancellationToken.None);
+        var records = await context.UserLegalAcceptances.Where(item => item.UserId == user.Id).ToListAsync();
+
+        Assert.True(before.RequiresAcceptance);
+        Assert.True(before.TermsOfUse.IsCurrent);
+        Assert.False(before.PrivacyNotice.IsCurrent);
+        Assert.Equal("1.1", before.PrivacyNotice.AcceptedVersion);
+        Assert.False(after.RequiresAcceptance);
+        Assert.Equal(3, records.Count);
+        Assert.Contains(records, item => item.DocumentType == LegalDocumentType.PrivacyNoticeAcknowledgement && item.DocumentVersion == "1.1");
+        Assert.Contains(records, item => item.DocumentType == LegalDocumentType.PrivacyNoticeAcknowledgement && item.DocumentVersion == "1.2");
+    }
+
+    [Fact]
+    public async Task AcceptCurrent_RejectsPreviousPrivacyNoticeVersion()
+    {
+        await using var context = TestDbContextFactory.Create();
+        var user = await AddUserAsync(context, "aviso-recusado@example.com");
+        var handler = new AcceptCurrentLegalDocumentsCommandHandler(
+            context,
+            ClinicaContextFactory.CreateDefaultResolved(),
+            new FixedTimeProvider(AcceptanceInstant));
+
+        await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(
+            new AcceptCurrentLegalDocumentsCommand(CurrentUser(user), "1.1", "1.1"),
             CancellationToken.None));
         Assert.Empty(context.UserLegalAcceptances);
     }

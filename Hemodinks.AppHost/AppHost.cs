@@ -177,9 +177,6 @@ IResourceBuilder<ContainerResource> AddContainerizedApi(IDistributedApplicationB
     ConfigureOptionalEnvironment(api, builder.Configuration, "CORECLR_ENABLE_PROFILING");
     ConfigureOptionalEnvironment(api, builder.Configuration, "NEW_RELIC_LICENSE_KEY");
     ConfigureOptionalEnvironment(api, builder.Configuration, "NEW_RELIC_APP_NAME");
-    ConfigureOptionalEnvironment(api, builder.Configuration, "OTEL_EXPORTER_OTLP_EXTERNAL_ENDPOINT");
-    ConfigureOptionalEnvironment(api, builder.Configuration, "OTEL_EXPORTER_OTLP_EXTERNAL_PROTOCOL");
-    ConfigureOptionalEnvironment(api, builder.Configuration, "OTEL_EXPORTER_OTLP_EXTERNAL_HEADERS");
 
     return api;
 }
@@ -193,12 +190,6 @@ void ConfigureFront<TResource>(
     var front = builder.AddJavaScriptApp("front", frontPath, "dev")
         .WithHttpEndpoint(targetPort: 5173, port: 5173, isProxied: false)
         .WithEnvironment("VITE_API_URL", api.GetEndpoint("http"));
-
-    ConfigureOptionalEnvironment(front, builder.Configuration, "ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL");
-    ConfigureOptionalEnvironment(front, builder.Configuration, "VITE_OTEL_EXPORTER_OTLP_ENDPOINT");
-    ConfigureOptionalEnvironment(front, builder.Configuration, "VITE_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT");
-    ConfigureOptionalEnvironment(front, builder.Configuration, "VITE_OTEL_EXPORTER_OTLP_HEADERS");
-    ConfigureOptionalEnvironment(front, builder.Configuration, "VITE_OTEL_EXPORTER_OTLP_TRACES_HEADERS");
 }
 
 void ConfigureOptionalEnvironment<TResource>(

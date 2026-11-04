@@ -42,3 +42,7 @@ local.settings.json
 
 # Docker
 docker-compose.override.yml
+
+# Saidas geradas por build, testes e workflows
+artifacts/
+TestResults/

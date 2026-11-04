@@ -36,7 +36,7 @@ public partial class ApiEndpointIntegrationTests
 
         var updated = await client.PutAsJsonAsync("/api/privacy-preferences/current", new
         {
-            DocumentVersion = "1.1",
+            DocumentVersion = "1.2",
             PreferencesEnabled = true,
             AnalyticsEnabled = false
         });
@@ -47,7 +47,7 @@ public partial class ApiEndpointIntegrationTests
         using (var json = await ReadJsonAsync(reloaded))
         {
             Assert.True(json.RootElement.GetProperty("hasPreference").GetBoolean());
-            Assert.Equal("1.1", json.RootElement.GetProperty("documentVersion").GetString());
+            Assert.Equal("1.2", json.RootElement.GetProperty("documentVersion").GetString());
             Assert.True(json.RootElement.GetProperty("preferencesEnabled").GetBoolean());
             Assert.False(json.RootElement.GetProperty("analyticsEnabled").GetBoolean());
         }
@@ -67,7 +67,7 @@ public partial class ApiEndpointIntegrationTests
 
         var response = await client.PutAsJsonAsync("/api/privacy-preferences/current", new
         {
-            DocumentVersion = "1.0",
+            DocumentVersion = "1.1",
             PreferencesEnabled = true,
             AnalyticsEnabled = true
         });
@@ -87,13 +87,13 @@ public partial class ApiEndpointIntegrationTests
 
         var defaultUpdate = await defaultClient.PutAsJsonAsync("/api/privacy-preferences/current", new
         {
-            DocumentVersion = "1.1",
+            DocumentVersion = "1.2",
             PreferencesEnabled = true,
             AnalyticsEnabled = false
         });
         var betaUpdate = await betaClient.PutAsJsonAsync("/api/privacy-preferences/current", new
         {
-            DocumentVersion = "1.1",
+            DocumentVersion = "1.2",
             PreferencesEnabled = false,
             AnalyticsEnabled = true
         });

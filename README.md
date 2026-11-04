@@ -93,22 +93,6 @@ docker compose -f sqlserver/docker-compose.yml stop
 docker update --restart=no hemodinks-sqlserver-dev
 ```
 
-### Docker Compose com observabilidade
-
-```powershell
-Copy-Item .env.example .env
-docker compose -f docker-compose.observability.yml up -d
-```
-
-Endpoints locais do compose observavel:
-
-| Recurso | URL |
-| --- | --- |
-| API | `http://localhost:5000` |
-| Dashboard Aspire | `http://localhost:18888` |
-| Collector OTLP gRPC | `http://localhost:4317` |
-| Collector OTLP HTTP | `http://localhost:4318` |
-
 ### Desenvolvimento local
 
 ```powershell

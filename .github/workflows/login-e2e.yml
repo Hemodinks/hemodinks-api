@@ -24,7 +24,7 @@ jobs:
           repository: Hemodinks/hemodinks-front
           # Includes Front #162 and the legal-bootstrap readiness fix (Front #189).
           # Keep the integration pair reviewable and reproducible.
-          ref: 56208ef06209143027ab6c73715179821581cff5
+          ref: e697dae7ef03f697d15fdc0ad8dbbaaf76b981f7
           path: .integration/frontend
           persist-credentials: false
 
