@@ -24,7 +24,7 @@ public sealed class PrivacyPreferenceHandlersTests
         Assert.False(result.HasPreference);
         Assert.False(result.PreferencesEnabled);
         Assert.False(result.AnalyticsEnabled);
-        Assert.Equal("1.1", result.CurrentDocumentVersion);
+        Assert.Equal("1.2", result.CurrentDocumentVersion);
         Assert.Null(result.DocumentVersion);
     }
 
@@ -41,11 +41,11 @@ public sealed class PrivacyPreferenceHandlersTests
             time);
 
         await handler.Handle(
-            new UpdateCurrentPrivacyPreferenceCommand(CurrentUser(user), "1.1", true, false),
+            new UpdateCurrentPrivacyPreferenceCommand(CurrentUser(user), "1.2", true, false),
             CancellationToken.None);
         time.Instant = firstInstant.AddHours(1);
         var result = await handler.Handle(
-            new UpdateCurrentPrivacyPreferenceCommand(CurrentUser(user), "1.1", false, true),
+            new UpdateCurrentPrivacyPreferenceCommand(CurrentUser(user), "1.2", false, true),
             CancellationToken.None);
         var record = await context.UserPrivacyPreferences.SingleAsync();
 
@@ -69,7 +69,7 @@ public sealed class PrivacyPreferenceHandlersTests
             new MutableTimeProvider(DateTimeOffset.UtcNow));
 
         await Assert.ThrowsAsync<ArgumentException>(() => handler.Handle(
-            new UpdateCurrentPrivacyPreferenceCommand(CurrentUser(user), "1.0", true, true),
+            new UpdateCurrentPrivacyPreferenceCommand(CurrentUser(user), "1.1", true, true),
             CancellationToken.None));
         Assert.Empty(context.UserPrivacyPreferences);
     }
@@ -85,7 +85,7 @@ public sealed class PrivacyPreferenceHandlersTests
             context,
             tenant,
             new MutableTimeProvider(DateTimeOffset.UtcNow)).Handle(
-                new UpdateCurrentPrivacyPreferenceCommand(CurrentUser(firstUser), "1.1", true, true),
+                new UpdateCurrentPrivacyPreferenceCommand(CurrentUser(firstUser), "1.2", true, true),
                 CancellationToken.None);
 
         var secondResult = await new GetCurrentPrivacyPreferenceQueryHandler(context, tenant).Handle(

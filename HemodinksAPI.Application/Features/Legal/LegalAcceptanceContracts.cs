@@ -6,7 +6,7 @@ namespace HemodinksAPI.Application.Features.Legal;
 public static class LegalDocumentVersions
 {
     public const string TermsOfUse = "1.1";
-    public const string PrivacyNotice = "1.1";
+    public const string PrivacyNotice = "1.2";
 }
 
 public sealed record LegalDocumentAcceptanceStatus(

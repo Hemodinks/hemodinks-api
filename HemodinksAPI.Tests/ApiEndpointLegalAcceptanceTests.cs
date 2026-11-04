@@ -34,7 +34,7 @@ public partial class ApiEndpointIntegrationTests
             Assert.True(initialJson.RootElement.GetProperty("requiresAcceptance").GetBoolean());
         }
 
-        var payload = new { TermsOfUseVersion = "1.1", PrivacyNoticeVersion = "1.1" };
+        var payload = new { TermsOfUseVersion = "1.1", PrivacyNoticeVersion = "1.2" };
         var firstResponse = await client.PostAsJsonAsync("/api/legal-acceptances/current", payload);
         var secondResponse = await client.PostAsJsonAsync("/api/legal-acceptances/current", payload);
         firstResponse.EnsureSuccessStatusCode();
@@ -55,7 +55,7 @@ public partial class ApiEndpointIntegrationTests
         Assert.All(records, item =>
         {
             Assert.Equal(Clinica.DefaultId, item.ClinicaId);
-            Assert.Equal("1.1", item.DocumentVersion);
+            Assert.Equal(item.DocumentType == LegalDocumentType.TermsOfUse ? "1.1" : "1.2", item.DocumentVersion);
             Assert.Equal(DateTimeKind.Utc, item.AcceptedAtUtc.Kind);
         });
     }
@@ -70,6 +70,22 @@ public partial class ApiEndpointIntegrationTests
         var response = await client.PostAsJsonAsync("/api/legal-acceptances/current", new
         {
             TermsOfUseVersion = "1.0",
+            PrivacyNoticeVersion = "1.2"
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task LegalAcceptances_RejectPreviousPrivacyNoticeVersion()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        var response = await client.PostAsJsonAsync("/api/legal-acceptances/current", new
+        {
+            TermsOfUseVersion = "1.1",
             PrivacyNoticeVersion = "1.1"
         });
 
@@ -86,7 +102,7 @@ public partial class ApiEndpointIntegrationTests
         var response = await client.PostAsJsonAsync("/api/legal-acceptances/current", new
         {
             TermsOfUseVersion = "1.1",
-            PrivacyNoticeVersion = "1.1",
+            PrivacyNoticeVersion = "1.2",
             UserId = int.MaxValue,
             TenantId = int.MaxValue,
             ClinicaId = int.MaxValue
@@ -119,7 +135,7 @@ public partial class ApiEndpointIntegrationTests
         var accepted = await defaultClient.PostAsJsonAsync("/api/legal-acceptances/current", new
         {
             TermsOfUseVersion = "1.1",
-            PrivacyNoticeVersion = "1.1"
+            PrivacyNoticeVersion = "1.2"
         });
         accepted.EnsureSuccessStatusCode();
 
@@ -134,7 +150,7 @@ public partial class ApiEndpointIntegrationTests
         var betaAccepted = await betaClient.PostAsJsonAsync("/api/legal-acceptances/current", new
         {
             TermsOfUseVersion = "1.1",
-            PrivacyNoticeVersion = "1.1"
+            PrivacyNoticeVersion = "1.2"
         });
         betaAccepted.EnsureSuccessStatusCode();
 
