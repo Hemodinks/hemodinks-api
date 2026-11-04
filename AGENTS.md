@@ -1,316 +1,64 @@
 # AGENTS.md — HemoDinks API
 
-## Objetivo
+.NET 10, Minimal APIs, MediatR (CQRS), FluentValidation, EF Core + SQL Server.
+Sistema de saúde multi-clínica: segurança e isolamento por clínica vêm antes de tudo.
 
-Trabalhe no HemoDinks API preservando segurança, isolamento multi-clínica,
-arquitetura existente e regras de negócio já funcionais.
+## Mapa
 
-Faça a menor alteração correta e segura necessária para atender à tarefa.
+- Entidades: `HemodinksAPI.Domain/Models` (`IClinicaOwnedEntity` = dado de uma clínica)
+- Casos de uso: `HemodinksAPI.Application/Features/<Módulo>/` (Commands, Queries, validators)
+- Endpoints: `HemodinksAPI.Api/*EndpointExtensions*.cs` — finos: mapeiam, validam e chamam MediatR
+- Middlewares de sessão, tenant e auditoria: `HemodinksAPI.Api/*Middleware.cs`
+- Dados: `HemodinksAPI.Infrastructure/Data/AppDbContext.cs` (filtro global de tenant e bloqueio de FK entre clínicas)
+- Schema: `HemodinksAPI.Infrastructure/Data/Configurations/` (leia aqui, não nas migrations)
+- Azure Functions: `HemodinksAPI.Workers/Functions/`
+- Testes: `HemodinksAPI.Tests/<Área>*Tests.cs` (SQLite/InMemory). `*SqlServerTests` exigem SQL Server configurado.
+- Codex: subagentes e política de esforço em `.codex/ORCHESTRATION.md`.
 
----
+## Comandos
 
-## Arquitetura
+```bash
+dotnet build HemodinksAPI.slnx
+dotnet test HemodinksAPI.slnx --filter "FullyQualifiedName~<ClasseDeTeste>"          # focado
+dotnet test HemodinksAPI.slnx --filter "FullyQualifiedName!~LoginBrowserTests"        # suíte do CI
+dotnet ef migrations add <Nome> -p HemodinksAPI.Infrastructure -s HemodinksAPI.Api
+```
 
-- Preserve a Clean Architecture e a organização atual do projeto.
-- Respeite as responsabilidades de Domain, Application, Infrastructure e API.
-- Mantenha Controllers/Endpoints finos.
-- Regras de negócio devem permanecer na camada apropriada.
-- Reutilize services, handlers, validators, abstrações e padrões existentes antes
-  de criar novos.
-- Não introduza abstrações, interfaces ou camadas sem necessidade concreta.
-- Preserve CQRS, FluentValidation, EF Core e demais padrões já utilizados pelo
-  projeto quando aplicáveis.
+## Não ler (gasta contexto e não ajuda)
 
----
+`Data/Migrations/*.Designer.cs`, `*ModelSnapshot.cs`, `bin/`, `obj/`, `TestResults/`, `artifacts/`, `logs/`, `out/`.
+Para entender o modelo, leia `Data/Configurations` e a entidade. Abra uma migration só se a tarefa for sobre ela.
+
+## Invariantes — nunca quebrar
+
+1. Isolamento por clínica: não remover nem contornar o filtro global. `ClinicaId` vem do contexto autenticado,
+   nunca do payload. Novo `IgnoreQueryFilters` só com justificativa explícita no PR.
+2. Perfis administrativos (Admin, SuperAdmin) não são bypass implícito de tenant. Autorização é sempre no backend.
+3. Nunca registrar senha, PIN, token completo, secret, connection string ou CPF. Erros não retornam dado sensível.
+4. Não reduzir o hash (PBKDF2-SHA256, 600 mil iterações) nem criar criptografia própria.
+5. Migration destrutiva só com pedido explícito.
+6. Sem commit, push, merge ou deploy sem autorização explícita. PRs vão para `developer`.
+7. Sem dependência nova ou serviço pago sem requisito explícito.
+
+## Alto risco: plano curto antes, testes negativos depois
+
+Autenticação, autorização, sessão/JWT/refresh, `SecurityVersion`, senha/PIN/recuperação/senha temporária, MFA,
+primeiro acesso, `ClinicaId`, middleware, migration, contrato consumido pelo `hemodinks-front`.
+
+- Investigue o fluxo completo antes de editar.
+- Teste obrigatório de tenant: recurso da Clínica A acessado pela Clínica B → negado ou 404, sem revelar existência.
+- Mudou contrato de endpoint → avise que o `hemodinks-front` precisa acompanhar.
 
 ## Escopo
 
-- Modifique somente o necessário para a tarefa.
-- Não faça refatorações oportunistas.
-- Não reorganize pastas ou renomeie arquivos sem necessidade.
-- Não troque bibliotecas ou padrões arquiteturais sem requisito explícito.
-- Não altere regras de negócio que não estejam relacionadas ao problema.
-- Se encontrar outro problema, reporte-o separadamente em vez de corrigi-lo
-  automaticamente.
+Menor mudança correta. Sem refatoração oportunista, renomeação ou troca de padrão sem pedido.
+Problema fora do escopo → reporte, não corrija. Não presuma classe, tabela, endpoint ou teste sem localizar no código.
 
----
+## Pronto quando
 
-## Segurança e multi-tenant
-
-O isolamento entre clínicas é requisito crítico.
-
-- Nenhuma clínica pode acessar, alterar, excluir ou inferir dados de outra clínica
-  sem autorização explícita.
-- Nunca remova filtros de tenant para facilitar uma implementação.
-- Não confie em ClinicaId enviado pelo cliente quando ele puder ser obtido do
-  contexto autenticado.
-- Ao existir mais de um ClinicaId no fluxo, identifique no domínio qual representa
-  corretamente a propriedade do dado.
-- Perfis administrativos não devem virar bypass implícito de isolamento.
-- Autorização efetiva deve ocorrer no backend.
-
-Mudanças envolvendo os itens abaixo são consideradas de alto risco:
-
-- autenticação;
-- autorização;
-- ClinicaId;
-- sessão;
-- JWT;
-- refresh token;
-- SecurityVersion;
-- senha;
-- recuperação de senha;
-- senha temporária;
-- MFA;
-- primeiro acesso;
-- provisionamento administrativo.
-
-Nesses casos, investigue o fluxo completo diretamente relacionado antes de editar.
-
----
-
-## Senhas, tokens e dados sensíveis
-
-Nunca:
-
-- registre senhas;
-- registre tokens completos;
-- registre secrets;
-- exponha connection strings;
-- armazene senha em texto puro;
-- implemente criptografia própria;
-- reduza a segurança do hash existente;
-- retorne informações sensíveis em erros.
-
-Preserve os mecanismos existentes de autenticação, hashing e configuração segura.
-
-Dados sensíveis devem ser minimizados em logs, métricas e telemetria.
-
----
-
-## EF Core e banco
-
-Ao alterar acesso a dados:
-
-- preserve filtros de tenant;
-- evite N+1;
-- evite carregar dados desnecessários;
-- use projeção quando apropriado;
-- considere tracking somente quando necessário;
-- avalie impacto de queries e migrations.
-
-Não crie migration destrutiva sem necessidade explícita.
-
----
-
-## Eficiência de execução
-
-Antes de editar:
-
-1. identifique o fluxo exato relacionado à tarefa;
-2. localize símbolos, arquivos e testes diretamente relacionados;
-3. leia apenas o necessário para compreender esse fluxo;
-4. faça a menor alteração segura possível.
-
-Não varra o repositório inteiro sem justificativa.
-
-Prefira busca direcionada por:
-
-- classe;
-- método;
-- endpoint;
-- handler;
-- validator;
-- entidade;
-- teste.
-
-Evite:
-
-- reler arquivos já compreendidos;
-- buscas repetidas equivalentes;
-- análises longas de módulos não relacionados;
-- criar vários subagentes para tarefas simples;
-- implementar alternativas que não foram solicitadas.
-
-Só amplie a investigação quando houver evidência de dependência ou risco transversal.
-
----
-
-## Planejamento proporcional ao risco
-
-Para mudanças simples, investigue e implemente diretamente.
-
-Faça um plano curto antes de editar quando houver:
-
-- autenticação;
-- autorização;
-- isolamento por clínica;
-- alteração de banco;
-- migration;
-- integração externa;
-- concorrência;
-- segurança;
-- mudança transversal.
-
-Não produza planos extensos para tarefas triviais.
-
----
-
-## Testes
-
-Execute primeiro os testes diretamente relacionados à alteração.
-
-Amplie a suíte proporcionalmente ao risco.
-
-Mudanças em:
-
-- autenticação;
-- autorização;
-- tenant;
-- sessão;
-- senha;
-- SecurityVersion;
-- middleware;
-- migrations;
-- contratos compartilhados;
-
-devem incluir testes negativos e de regressão quando aplicável.
-
-Para isolamento multi-clínica, teste explicitamente cenários em que:
-
-- Clínica A possui o recurso;
-- Clínica B tenta acessá-lo;
-- o acesso deve ser negado ou não revelar o recurso.
-
-Não execute repetidamente suítes caras se o código não mudou.
-
----
-
-## Anti-alucinação
-
-Nunca assuma que existe:
-
-- classe;
-- endpoint;
-- tabela;
-- coluna;
-- serviço;
-- configuração;
-- fluxo;
-- teste;
-
-sem localizar evidência no repositório.
-
-Não invente comportamento da aplicação.
-
-Quando houver informação insuficiente, investigue o código relacionado antes de
-decidir.
-
----
-
-## Dependências externas
-
-Não adicione nova dependência se a solução puder ser implementada adequadamente
-com a infraestrutura existente.
-
-Antes de adicionar uma dependência, considere:
-
-- segurança;
-- manutenção;
-- disponibilidade;
-- custo;
-- privacidade.
-
-Nunca criar serviço pago ou assinatura externa sem requisito explícito.
-
----
-
-## Finalização
-
-Antes de concluir:
-
-- revise o diff;
-- confirme que o escopo foi respeitado;
-- confirme que segurança e isolamento continuam válidos;
-- execute os testes relevantes;
-- verifique que nenhum secret ou dado sensível foi introduzido.
-
-Ao finalizar, informe apenas:
-
-1. o que foi alterado;
-2. principais arquivos afetados;
-3. testes executados e resultado;
-4. riscos ou pendências reais.
-
-Não gere documentação extensa sem necessidade.
-
----
+Testes focados passam (amplie a suíte conforme o risco), diff revisado, nada sensível introduzido.
+Resposta final, só isto: o que mudou · arquivos principais · testes executados e resultado · riscos reais.
 
 ## Prioridade
 
-Em caso de conflito, priorize:
-
-SEGURANÇA > ISOLAMENTO DE DADOS > CORREÇÃO FUNCIONAL > ARQUITETURA >
-TESTABILIDADE > PERFORMANCE > CONVENIÊNCIA.
-
-## Orquestração inteligente de agentes
-
-Antes de implementar qualquer tarefa, avaliar:
-
-- Complexidade técnica e arquitetural.
-- Risco de regressão.
-- Impacto na segurança.
-- Impacto no isolamento multiclínica.
-- Quantidade de módulos afetados.
-- Dependências entre frontend, API e banco.
-- Necessidade de testes unitários, integração e E2E.
-
-### Seleção dos agentes
-
-Delegar tarefas a agentes especializados quando houver benefício objetivo. Não criar subagentes para tarefas triviais que possam ser executadas diretamente.
-
-Preferir:
-
-- **Explorer:** investigação e localização de código.
-- **Frontend:** interfaces, componentes e acessibilidade.
-- **Backend:** endpoints, CQRS, validações e regras de negócio.
-- **Security:** autenticação, autorização e isolamento de dados.
-- **Database:** EF Core, SQL, migrações e integridade.
-- **QA:** testes, regressão e Playwright.
-- **DevOps:** Docker, Azure e GitHub Actions.
-- **Architect:** decisões estruturais de alto impacto.
-
-### Política de esforço
-
-- **Low:** tarefas triviais, localizadas e de baixo risco.
-- **Medium:** implementações convencionais e correções moderadas.
-- **High:** alterações com múltiplas dependências ou regras complexas.
-- **XHigh:** alterações críticas de segurança, isolamento entre clínicas e decisões arquiteturais com elevado risco de regressão, quando suportado pelo modelo.
-
-Selecionar o menor nível de esforço compatível com o risco e a complexidade.
-
-Quando o esforço não puder ser alterado dinamicamente no agente principal, preferir subagentes com configurações apropriadas.
-
-### Regras obrigatórias
-
-1. Preservar Clean Architecture e a organização existente.
-2. Não alterar regras de negócio fora do escopo.
-3. Preservar o isolamento de dados por clínica.
-4. Evitar mudanças desnecessárias em contratos públicos.
-5. Executar testes proporcionais ao impacto, incluindo E2E para fluxos afetados.
-6. Evitar paralelismo entre agentes que editam os mesmos arquivos.
-7. Não criar commits, merges ou deploys sem autorização explícita.
-8. Não reduzir a profundidade dos testes apenas para economizar tokens.
-9. Não alterar AGENTS.md ou configurações de agentes sem necessidade justificada.
-
-### Relatório obrigatório
-
-Ao concluir, informar:
-
-- Classificação de complexidade e risco.
-- Agentes efetivamente utilizados.
-- Modelo e esforço, quando identificáveis.
-- Arquivos modificados.
-- Testes executados e resultados.
-- Riscos restantes e limitações.
-- Status final da implementação.
+Segurança > isolamento de dados > correção funcional > arquitetura > testes > performance > conveniência.

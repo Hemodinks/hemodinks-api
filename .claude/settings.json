@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(./HemodinksAPI.Infrastructure/Data/Migrations/*.Designer.cs)",
+      "Read(./HemodinksAPI.Infrastructure/Data/Migrations/*ModelSnapshot.cs)",
+      "Read(./**/bin/**)",
+      "Read(./**/obj/**)",
+      "Read(./TestResults/**)",
+      "Read(./artifacts/**)",
+      "Read(./logs/**)",
+      "Read(./out/**)",
+      "Read(./.env)"
+    ]
+  }
+}
