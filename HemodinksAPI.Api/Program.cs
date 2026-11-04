@@ -41,9 +41,6 @@ builder.Services
 builder.Services.AddOptions<SecurityObservationOptions>()
     .Bind(builder.Configuration.GetSection(SecurityObservationOptions.SectionName))
     .Validate(options => options.IsValid(), "Invalid security observation thresholds").ValidateOnStart();
-builder.Services.AddOpenTelemetry().WithMetrics(metrics => metrics
-    .AddMeter("Hemodinks.Security")
-    .AddMeter(HemodinksAPI.Infrastructure.Data.DatabaseConnectionTimingInterceptor.MeterName));
 builder.Services.AddSingleton<ISecurityObservationReader, SecurityObservationReader>();
 builder.Services.AddSingleton<SecurityObservationWorker>();
 builder.Services.AddSingleton<ISecurityObservationWriter>(sp => sp.GetRequiredService<SecurityObservationWorker>());

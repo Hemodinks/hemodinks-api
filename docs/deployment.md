@@ -246,7 +246,6 @@ Variaveis opcionais importantes:
 | --- | --- |
 | `ApiDocumentation__Enabled` | expoe Swagger/Scalar/OpenAPI fora de `Development` e `Testing` |
 | `NEW_RELIC_LICENSE_KEY` | ativa envio para New Relic |
-| `OTEL_EXPORTER_OTLP_EXTERNAL_ENDPOINT` | duplica telemetria para backend OTLP externo |
 | `AsyncQueues__ConnectionString` | storage usada pelas filas |
 | `Email__*` | SMTP quando reset por email direto estiver habilitado |
 | `Email__BrandLogoUrl` | URL publica opcional da logomarca no email de reset |
