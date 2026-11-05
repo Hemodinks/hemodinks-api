@@ -22,6 +22,11 @@ public static partial class ApiServiceCollectionExtensions
             {
                 options.MaxBytes = maxBytes;
             }
+
+            if (int.TryParse(azureStorage["ReadTimeoutSeconds"], out var readTimeoutSeconds))
+            {
+                options.ReadTimeoutSeconds = readTimeoutSeconds;
+            }
         });
 
         services.Configure<LocalStorageOptions>(options =>
