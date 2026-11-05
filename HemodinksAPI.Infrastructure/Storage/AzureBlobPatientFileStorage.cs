@@ -68,7 +68,8 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
     private async Task<BlobContainerClient> GetContainerClientAsync(
         CancellationToken cancellationToken,
         bool createIfMissing = true,
-        string? containerName = null)
+        string? containerName = null,
+        BlobClientOptions? clientOptions = null)
     {
         if (string.IsNullOrWhiteSpace(_options.ConnectionString))
         {
@@ -84,7 +85,7 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
             throw new InvalidOperationException("AzureStorage:PatientFilesContainerName deve ser configurado para salvar arquivos de paciente");
         }
 
-        var containerClient = new BlobContainerClient(_options.ConnectionString, resolvedContainerName);
+        var containerClient = new BlobContainerClient(_options.ConnectionString, resolvedContainerName, clientOptions);
         if (createIfMissing)
         {
             await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);
@@ -102,25 +103,42 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
             return null;
         }
 
+        var readTimeout = BlobReadResilience.ResolveTimeout(_options.ReadTimeoutSeconds);
+        using var readBudget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        readBudget.CancelAfter(readTimeout * 2 + TimeSpan.FromSeconds(2));
+
         try
         {
             var containerClient = await GetContainerClientAsync(
-                cancellationToken,
+                readBudget.Token,
                 createIfMissing: false,
-                location.ContainerName);
+                location.ContainerName,
+                BlobReadResilience.CreateReadClientOptions(readTimeout));
             var blobClient = containerClient.GetBlobClient(location.BlobName);
 
-            if (!(await blobClient.ExistsAsync(cancellationToken)).Value)
+            if (!(await blobClient.ExistsAsync(readBudget.Token)).Value)
             {
                 return null;
             }
 
-            var response = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
+            var response = await blobClient.DownloadStreamingAsync(cancellationToken: readBudget.Token);
             return new StoredPatientFileContent(response.Value.Content);
         }
         catch (Azure.RequestFailedException ex) when (ex.Status == StatusCodes.Status404NotFound)
         {
             return null;
+        }
+        catch (Exception ex) when (BlobReadResilience.IsReadFailure(ex, cancellationToken))
+        {
+            // Mantém o comportamento de erro para arquivos clínicos (não fingir que não existem),
+            // mas falha em segundos em vez de minutos.
+            _logger.LogWarning(
+                ex,
+                "Nao foi possivel ler o arquivo no Azure Storage ({Failure}). Container: {ContainerName}. Blob: {BlobName}",
+                BlobReadResilience.Describe(ex),
+                location.ContainerName,
+                location.BlobName);
+            throw new TimeoutException("O armazenamento de arquivos nao respondeu a tempo.", ex);
         }
     }
 

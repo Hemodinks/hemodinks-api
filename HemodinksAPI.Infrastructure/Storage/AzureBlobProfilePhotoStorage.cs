@@ -90,31 +90,37 @@ public class AzureBlobProfilePhotoStorage : IProfilePhotoStorage
             return null;
         }
 
+        var readTimeout = BlobReadResilience.ResolveTimeout(_options.ReadTimeoutSeconds);
+        using var readBudget = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        readBudget.CancelAfter(readTimeout * 2 + TimeSpan.FromSeconds(2));
+
         try
         {
             var containerClient = await GetContainerClientAsync(
-                cancellationToken,
+                readBudget.Token,
                 location.ContainerName,
-                createIfMissing: false);
+                createIfMissing: false,
+                BlobReadResilience.CreateReadClientOptions(readTimeout));
             var blobClient = containerClient.GetBlobClient(location.BlobName);
 
-            if (!(await blobClient.ExistsAsync(cancellationToken)).Value)
+            if (!(await blobClient.ExistsAsync(readBudget.Token)).Value)
             {
                 return null;
             }
 
-            var response = await blobClient.DownloadStreamingAsync(cancellationToken: cancellationToken);
+            var response = await blobClient.DownloadStreamingAsync(cancellationToken: readBudget.Token);
             var contentType = string.IsNullOrWhiteSpace(response.Value.Details.ContentType)
                 ? "application/octet-stream"
                 : response.Value.Details.ContentType;
 
             return new ProfilePhotoFile(response.Value.Content, contentType);
         }
-        catch (RequestFailedException ex)
+        catch (Exception ex) when (BlobReadResilience.IsReadFailure(ex, cancellationToken))
         {
             _logger.LogWarning(
                 ex,
-                "Nao foi possivel buscar a foto de perfil no Azure Storage. Container: {ContainerName}. Blob: {BlobName}",
+                "Nao foi possivel buscar a foto de perfil no Azure Storage ({Failure}). Container: {ContainerName}. Blob: {BlobName}",
+                BlobReadResilience.Describe(ex),
                 location.ContainerName,
                 location.BlobName);
             return null;
@@ -143,7 +149,8 @@ public class AzureBlobProfilePhotoStorage : IProfilePhotoStorage
     private async Task<BlobContainerClient> GetContainerClientAsync(
         CancellationToken cancellationToken,
         string? containerName = null,
-        bool createIfMissing = true)
+        bool createIfMissing = true,
+        BlobClientOptions? clientOptions = null)
     {
         if (string.IsNullOrWhiteSpace(_options.ConnectionString))
         {
@@ -159,7 +166,7 @@ public class AzureBlobProfilePhotoStorage : IProfilePhotoStorage
             throw new InvalidOperationException("AzureStorage:ContainerName deve ser configurado para salvar fotos de perfil");
         }
 
-        var containerClient = new BlobContainerClient(_options.ConnectionString, resolvedContainerName);
+        var containerClient = new BlobContainerClient(_options.ConnectionString, resolvedContainerName, clientOptions);
         if (createIfMissing)
         {
             await containerClient.CreateIfNotExistsAsync(cancellationToken: cancellationToken);

@@ -11,4 +11,7 @@ public class ProfilePhotoStorageOptions
     public string? PublicBaseUrl { get; set; }
 
     public long MaxBytes { get; set; } = DefaultMaxBytes;
+
+    /// <summary>Tempo máximo, em segundos, de cada tentativa de leitura no Blob Storage.</summary>
+    public int ReadTimeoutSeconds { get; set; } = BlobReadResilience.DefaultReadTimeoutSeconds;
 }
