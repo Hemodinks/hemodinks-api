@@ -12,7 +12,7 @@ internal sealed class AtendimentoCirurgicoConfiguration : IEntityTypeConfigurati
         {
             table.HasCheckConstraint("CK_AtendimentosCirurgicos_AuxiliaresDistintos", "[MedicoAuxiliar1Id] IS NULL OR [MedicoAuxiliar2Id] IS NULL OR [MedicoAuxiliar1Id] <> [MedicoAuxiliar2Id]");
             table.HasCheckConstraint("CK_AtendimentosCirurgicos_EquipeObrigatoria", "[MedicoResponsavelId] IS NOT NULL OR [MedicoAuxiliar1Id] IS NOT NULL OR [MedicoAuxiliar2Id] IS NOT NULL");
-            table.HasCheckConstraint("CK_AtendimentosCirurgicos_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia')");
+            table.HasCheckConstraint("CK_AtendimentosCirurgicos_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia', N'EmAutorizacao')");
         });
         entity.HasKey(x => x.Id);
         entity.Property(x => x.ClinicaId).IsRequired();

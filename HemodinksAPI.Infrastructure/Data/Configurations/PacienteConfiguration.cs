@@ -9,7 +9,7 @@ internal sealed class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
     public void Configure(EntityTypeBuilder<Paciente> entity)
     {
         entity.ToTable("Pacientes", table => table.HasCheckConstraint(
-            "CK_Pacientes_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia')"));
+            "CK_Pacientes_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia', N'EmAutorizacao')"));
 
         entity.HasKey(e => e.Id);
 

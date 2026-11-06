@@ -35,7 +35,8 @@ public sealed class SurgeryTypeSqlServerTests
             await db.Database.ExecuteSqlRawAsync(db.GetService<IHistoryRepository>().GetCreateScript());
             await using var scriptContext = new AppDbContext(new DbContextOptionsBuilder<AppDbContext>()
                 .UseSqlServer(db.Database.GetConnectionString()).Options, new ClinicaContext());
-            var migrationId = migration.GetType().GetCustomAttribute<MigrationAttribute>()!.Id;
+            // Replays the chain up to the latest migration so the schema matches the current model.
+            var migrationId = typeof(Schema_AddSurgeryTypeEmAutorizacao).GetCustomAttribute<MigrationAttribute>()!.Id;
             var script = scriptContext.GetService<IMigrator>().GenerateScript(
                 "20261017015429_Schema_AllowOptionalSurgicalPrincipal", migrationId,
                 MigrationsSqlGenerationOptions.Idempotent);
@@ -48,7 +49,7 @@ public sealed class SurgeryTypeSqlServerTests
                 Assert.All(await db.Pacientes.AsNoTracking().ToListAsync(), item => Assert.Equal(TipoCirurgia.Eletiva, item.TipoCirurgia));
                 Assert.All(await db.AtendimentosCirurgicos.AsNoTracking().ToListAsync(), item => Assert.Equal(TipoCirurgia.Eletiva, item.TipoCirurgia));
             }
-            Assert.Single(await db.Database.SqlQueryRaw<string>("SELECT MigrationId AS [Value] FROM __EFMigrationsHistory").ToListAsync());
+            Assert.Equal(2, (await db.Database.SqlQueryRaw<string>("SELECT MigrationId AS [Value] FROM __EFMigrationsHistory").ToListAsync()).Count);
 
             // An old application does not know the new column and must still be able to insert.
             await db.Database.ExecuteSqlInterpolatedAsync($"""
@@ -92,6 +93,7 @@ public sealed class SurgeryTypeSqlServerTests
             await ExecuteOperations(db, migration.DownOperations);
             Assert.Equal(defaultOnlyData, await ExistingData(db));
             await ExecuteOperations(db, migration.UpOperations);
+            await ExecuteOperations(db, new Schema_AddSurgeryTypeEmAutorizacao().UpOperations);
             Assert.Equal(defaultOnlyData, await ExistingData(db));
             Assert.Equal(expandedSchema, await Schema(db));
         }
@@ -142,6 +144,68 @@ public sealed class SurgeryTypeSqlServerTests
                     """);
                 Assert.Equal(before, await SurgeryTypes(db));
             }
+        }
+        finally
+        {
+            await db.Database.EnsureDeletedAsync();
+        }
+    }
+
+    [Fact]
+    [Trait("Category", "SqlServer")]
+    public async Task SurgeryType_EmAutorizacaoIsAcceptedAndRollbackRefusesItInEitherTable()
+    {
+        SqlServerTestConnection.RequireConfigured();
+        await using var db = CreateContext();
+        try
+        {
+            await db.Database.EnsureCreatedAsync();
+            var seed = await SeedAsync(db);
+            var migration = new Schema_AddSurgeryTypeEmAutorizacao();
+            var originalData = await ExistingData(db);
+            var originalSchema = await Schema(db);
+
+            foreach (var patientInAuthorization in new[] { true, false })
+            {
+                await db.Database.ExecuteSqlInterpolatedAsync($"""
+                    UPDATE Pacientes SET TipoCirurgia = {(patientInAuthorization ? "EmAutorizacao" : "Urgencia")} WHERE Id = {seed.PatientId};
+                    UPDATE AtendimentosCirurgicos SET TipoCirurgia = {(patientInAuthorization ? "Urgencia" : "EmAutorizacao")} WHERE Id = {seed.AttendanceId};
+                    """);
+                Assert.Equal(patientInAuthorization ? TipoCirurgia.EmAutorizacao : TipoCirurgia.Urgencia,
+                    (await db.Pacientes.AsNoTracking().SingleAsync(item => item.Id == seed.PatientId)).TipoCirurgia);
+                Assert.Equal(patientInAuthorization ? TipoCirurgia.Urgencia : TipoCirurgia.EmAutorizacao,
+                    (await db.AtendimentosCirurgicos.AsNoTracking().SingleAsync(item => item.Id == seed.AttendanceId)).TipoCirurgia);
+                var before = await SurgeryTypes(db);
+
+                // Intentionally no outer transaction: preflight must precede every schema mutation.
+                var error = await Assert.ThrowsAsync<SqlException>(() => ExecuteOperations(db, migration.DownOperations));
+                Assert.True(error.Number >= 50000);
+                Assert.Contains("Rollback bloqueado", error.Message);
+                Assert.Equal(originalData, await ExistingData(db));
+                Assert.Equal(originalSchema, await Schema(db));
+                Assert.Equal(before, await SurgeryTypes(db));
+            }
+
+            // Without the new value, Down narrows the schema and Up restores it without touching data.
+            await db.Database.ExecuteSqlInterpolatedAsync($"""
+                UPDATE Pacientes SET TipoCirurgia = {"Urgencia"} WHERE Id = {seed.PatientId};
+                UPDATE AtendimentosCirurgicos SET TipoCirurgia = {"Urgencia"} WHERE Id = {seed.AttendanceId};
+                """);
+            var preserved = await SurgeryTypes(db);
+            await ExecuteOperations(db, migration.DownOperations);
+            foreach (var table in new[] { "Pacientes", "AtendimentosCirurgicos" })
+            {
+                var refused = await Assert.ThrowsAsync<SqlException>(() => db.Database.ExecuteSqlRawAsync(
+                    table == "Pacientes"
+                        ? "UPDATE [Pacientes] SET [TipoCirurgia] = N'EmAutorizacao'"
+                        : "UPDATE [AtendimentosCirurgicos] SET [TipoCirurgia] = N'EmAutorizacao'"));
+                Assert.Equal(547, refused.Number);
+                Assert.Contains($"CK_{table}_TipoCirurgia", refused.Message);
+            }
+            await ExecuteOperations(db, migration.UpOperations);
+            Assert.Equal(originalSchema, await Schema(db));
+            Assert.Equal(originalData, await ExistingData(db));
+            Assert.Equal(preserved, await SurgeryTypes(db));
         }
         finally
         {
