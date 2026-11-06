@@ -109,4 +109,62 @@ public partial class ApiEndpointIntegrationTests
             ? (await verifyDb.AtendimentosCirurgicos.SingleAsync(x => x.Id == id)).TipoCirurgia
             : (await verifyDb.Pacientes.SingleAsync(x => x.Id == id)).TipoCirurgia);
     }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task SurgeryType_EmAutorizacaoPersistsAndFiltersOnlyWithinClinic(bool attendance)
+    {
+        using var factory = new HemodinksApiFactory();
+        var seed = await SeedFinanceiroAsync(factory);
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+        int otherClinicRecordId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var clinic = new Clinica { Nome = "Other authorization clinic", Slug = "other-authorization-clinic" };
+            db.Clinicas.Add(clinic); await db.SaveChangesAsync();
+            var doctor = new User { ClinicaId = clinic.Id, Nome = "Other doctor", Email = "other-authorization@example.invalid",
+                Telefone = "11999990000", Senha = "synthetic-hash", PerfilId = Perfil.MedicosId };
+            var patient = new Paciente { ClinicaId = clinic.Id, NomePaciente = "Other authorization", TipoCirurgia = TipoCirurgia.EmAutorizacao,
+                MedicoUser = doctor, User = new User { ClinicaId = clinic.Id, Nome = "Other patient", Email = "other-authorization-patient@example.invalid",
+                    Telefone = "11999990000", Senha = "synthetic-hash", PerfilId = Perfil.PacientesId } };
+            var surgery = new AtendimentoCirurgico { ClinicaId = clinic.Id, Paciente = patient,
+                MedicoResponsavel = doctor, DataProcedimento = new(2030, 1, 1), TipoCirurgia = TipoCirurgia.EmAutorizacao };
+            db.AtendimentosCirurgicos.Add(surgery); await db.SaveChangesAsync();
+            otherClinicRecordId = attendance ? surgery.Id : patient.Id;
+        }
+        var path = attendance ? "/api/atendimentos-cirurgicos/" : "/api/pacientes/";
+        object Payload() => attendance ? new
+        {
+            pacienteId = seed.PacienteId, dataProcedimento = new DateTime(2030, 1, 1), medicoResponsavelId = seed.MedicoId,
+            procedimentos = new[] { new { cbhpmCodigo = seed.CbhpmCodigo, quantidade = 1, pesoPercentual = 100 } }
+        } : new { nomePaciente = "Authorization record", medicoUserId = seed.MedicoId };
+        var json = System.Text.Json.JsonSerializer.SerializeToNode(Payload())!.AsObject();
+        json["tipoCirurgia"] = "EmAutorizacao";
+
+        var creation = await client.PostAsJsonAsync(path, json);
+        Assert.Equal(HttpStatusCode.Created, creation.StatusCode);
+        using var created = await ReadJsonAsync(creation);
+        Assert.Equal("EmAutorizacao", created.RootElement.GetProperty("tipoCirurgia").GetString());
+        var id = created.RootElement.GetProperty("id").GetInt32();
+
+        var oldClient = await client.PutAsJsonAsync($"{path}{id}", Payload());
+        Assert.Equal(HttpStatusCode.OK, oldClient.StatusCode);
+        using var preserved = await ReadJsonAsync(oldClient);
+        Assert.Equal("EmAutorizacao", preserved.RootElement.GetProperty("tipoCirurgia").GetString());
+
+        async Task<int[]> ListIds(string type)
+        {
+            using var list = await ReadJsonAsync(await client.GetAsync($"{path}?tipoCirurgia={type}"));
+            var items = attendance ? list.RootElement : list.RootElement.GetProperty("items");
+            return items.EnumerateArray().Select(item => item.GetProperty("id").GetInt32()).ToArray();
+        }
+        Assert.Equal(new[] { id }, await ListIds("EmAutorizacao"));
+        Assert.DoesNotContain(id, await ListIds("Urgencia"));
+        Assert.DoesNotContain(id, await ListIds("Eletiva"));
+        Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync(path + otherClinicRecordId)).StatusCode);
+    }
 }

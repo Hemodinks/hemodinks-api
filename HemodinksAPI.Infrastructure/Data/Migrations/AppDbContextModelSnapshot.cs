@@ -218,7 +218,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                             t.HasCheckConstraint("CK_AtendimentosCirurgicos_EquipeObrigatoria", "[MedicoResponsavelId] IS NOT NULL OR [MedicoAuxiliar1Id] IS NOT NULL OR [MedicoAuxiliar2Id] IS NOT NULL");
 
-                            t.HasCheckConstraint("CK_AtendimentosCirurgicos_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia')");
+                            t.HasCheckConstraint("CK_AtendimentosCirurgicos_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia', N'EmAutorizacao')");
                         });
                 });
 
@@ -2235,7 +2235,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.ToTable("Pacientes", null, t =>
                         {
-                            t.HasCheckConstraint("CK_Pacientes_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia')");
+                            t.HasCheckConstraint("CK_Pacientes_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia', N'EmAutorizacao')");
                         });
                 });
 
