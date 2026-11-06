@@ -57,6 +57,9 @@ internal static class ApiExceptionResults
     {
         options ??= EndpointErrorOptions.Default;
 
+        if (DatabaseAvailability.IsUnavailable(exception))
+            return new DatabaseUnavailableResult();
+
         return exception switch
         {
             HemodinksAPI.Application.Security.SensitiveIdentityException identity => Results.Json(
