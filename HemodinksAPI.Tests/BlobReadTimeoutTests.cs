@@ -43,6 +43,11 @@ public sealed class BlobReadTimeoutTests : IAsyncLifetime
                 {
                     return;
                 }
+                catch (InvalidOperationException) when (_stop.IsCancellationRequested)
+                {
+                    // O teste terminou e parou o listener antes de o loop chegar ao Accept.
+                    return;
+                }
             }
         });
         return ValueTask.CompletedTask;
