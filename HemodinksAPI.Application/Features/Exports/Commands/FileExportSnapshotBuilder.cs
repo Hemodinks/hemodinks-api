@@ -98,7 +98,7 @@ internal static class FileExportSnapshotBuilder
     private static string?[] ToRow(PacienteDto p) =>
     [
         p.Id.ToString(CultureInfo.InvariantCulture), p.NomePaciente, p.DataAtendimento?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
-        p.TipoCirurgia.ToString(), p.Medico, p.MedicoAuxiliar1, p.MedicoAuxiliar2, p.Convenio,
+        SurgeryTypeLabel(p.TipoCirurgia), p.Medico, p.MedicoAuxiliar1, p.MedicoAuxiliar2, p.Convenio,
         p.Procedimentos.Count > 0 ? string.Join("; ", p.Procedimentos.Select(item => item.Procedimento)) : p.Procedimento,
         Money(p.Faturamento?.HonorariosCirurgiao), Money(p.Faturamento?.HonorariosAuxiliares),
         Money(p.Faturamento?.RepasseMedico), Money(p.Faturamento?.ValorGlosa), p.StatusPago ? "Sim" : "Nao"
@@ -106,7 +106,7 @@ internal static class FileExportSnapshotBuilder
 
     private static List<FileExportTypeTotal> Summarize(List<PacienteDto> records) => records
         .GroupBy(p => p.TipoCirurgia).OrderBy(g => g.Key)
-        .Select(g => new FileExportTypeTotal(g.Key.ToString(), g.Count(),
+        .Select(g => new FileExportTypeTotal(SurgeryTypeLabel(g.Key), g.Count(),
             Sum(g.Select(p => p.Faturamento?.HonorariosCirurgiao)), Sum(g.Select(p => p.Faturamento?.HonorariosAuxiliares)),
             Sum(g.Select(p => p.Faturamento?.RepasseMedico)), Sum(g.Select(p => p.Faturamento?.ValorGlosa)))).ToList();
 
@@ -119,12 +119,16 @@ internal static class FileExportSnapshotBuilder
     internal static string? Money(decimal? value) => value?.ToString("F2", CultureInfo.InvariantCulture);
     private static InvalidOperationException TooLarge() => new("Exportacao excede o limite seguro. Reduza o intervalo ou aplique mais filtros; nenhum registro foi exportado.");
 
+    private static string SurgeryTypeLabel(TipoCirurgia value) =>
+        value == TipoCirurgia.EmAutorizacao ? "Em processo de autorizacao" : value.ToString();
+
     private static TipoCirurgia? ParseSurgeryType(string? value)
     {
         if (value == null) return null;
         if (Enum.TryParse<TipoCirurgia>(value, true, out var result) && Enum.IsDefined(result)
-            && (value.Equals("Eletiva", StringComparison.OrdinalIgnoreCase) || value.Equals("Urgencia", StringComparison.OrdinalIgnoreCase))) return result;
-        throw new InvalidOperationException("Tipo de cirurgia invalido. Use Eletiva ou Urgencia.");
+            && (value.Equals("Eletiva", StringComparison.OrdinalIgnoreCase) || value.Equals("Urgencia", StringComparison.OrdinalIgnoreCase)
+                || value.Equals("EmAutorizacao", StringComparison.OrdinalIgnoreCase))) return result;
+        throw new InvalidOperationException("Tipo de cirurgia invalido. Use Eletiva, Urgencia ou EmAutorizacao.");
     }
 
     private static void ValidateIds(string? value)

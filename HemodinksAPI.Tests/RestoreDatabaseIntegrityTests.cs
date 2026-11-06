@@ -106,7 +106,7 @@ public sealed class RestoreDatabaseIntegrityTests
             // marker for this fixture; operational copies must retain their real history.
             await db.Database.ExecuteSqlRawAsync("""
                 CREATE TABLE dbo.__EFMigrationsHistory (MigrationId nvarchar(150) NOT NULL PRIMARY KEY, ProductVersion nvarchar(32) NOT NULL);
-                INSERT dbo.__EFMigrationsHistory VALUES (N'20261019121529_Schema_AddSurgeryType', N'10.0.0');
+                INSERT dbo.__EFMigrationsHistory VALUES (N'20261106204749_Schema_AddSurgeryTypeEmAutorizacao', N'10.0.0');
                 """);
             await db.Database.OpenConnectionAsync();
             var connection = (SqlConnection)db.Database.GetDbConnection();
@@ -129,11 +129,11 @@ public sealed class RestoreDatabaseIntegrityTests
 
             await db.Database.ExecuteSqlRawAsync("UPDATE dbo.__EFMigrationsHistory SET MigrationId = N'20990101000000_UnknownFutureSchema'");
             Assert.Equal(51841, (await RunChecker(connection, script, name)).Error?.Number);
-            await db.Database.ExecuteSqlRawAsync("UPDATE dbo.__EFMigrationsHistory SET MigrationId = N'20261019121529_Schema_AddSurgeryType'");
+            await db.Database.ExecuteSqlRawAsync("UPDATE dbo.__EFMigrationsHistory SET MigrationId = N'20261106204749_Schema_AddSurgeryTypeEmAutorizacao'");
 
             await db.Database.ExecuteSqlRawAsync("ALTER TABLE dbo.Pacientes DROP CONSTRAINT CK_Pacientes_TipoCirurgia");
             Assert.Equal(51841, (await RunChecker(connection, script, name)).Error?.Number);
-            await db.Database.ExecuteSqlRawAsync("ALTER TABLE dbo.Pacientes WITH CHECK ADD CONSTRAINT CK_Pacientes_TipoCirurgia CHECK (TipoCirurgia IN (N'Eletiva', N'Urgencia'))");
+            await db.Database.ExecuteSqlRawAsync("ALTER TABLE dbo.Pacientes WITH CHECK ADD CONSTRAINT CK_Pacientes_TipoCirurgia CHECK (TipoCirurgia IN (N'Eletiva', N'Urgencia', N'EmAutorizacao'))");
 
             // Name-only matches must not satisfy the manifest: dropping a FK fails closed.
             await db.Database.ExecuteSqlRawAsync("ALTER TABLE dbo.Pacientes DROP CONSTRAINT FK_Pacientes_Users_ClinicaId_MedicoUserId");

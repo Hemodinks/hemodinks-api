@@ -10,6 +10,7 @@ SQL_REQUIRED = {
     "HemodinksAPI.Tests.PatientUserTenantSqlServerTests.SqlServer_RejectsCrossClinicPatientAndUserRelationships",
     "HemodinksAPI.Tests.SurgeryTypeSqlServerTests.SurgeryType_MigrationBackfillsLegacyRowsAndAllowsOldWritersWithoutChangingExistingData",
     "HemodinksAPI.Tests.SurgeryTypeSqlServerTests.SurgeryType_RollbackRefusesUrgencyInEitherTableBeforeChangingSchemaOrData",
+    "HemodinksAPI.Tests.SurgeryTypeSqlServerTests.SurgeryType_EmAutorizacaoIsAcceptedAndRollbackRefusesItInEitherTable",
     "HemodinksAPI.Tests.EventCreatorMigrationTests.CreatorMigration_PreservesLegacyUnknownCreatorAndRejectsCrossClinicAtDatabaseBoundary",
     "HemodinksAPI.Tests.PacienteCommandHandlerTests.DeletePaciente_SqlServer_EnforcesScopeAndCascadesOnlyAuthorizedPatient",
 }

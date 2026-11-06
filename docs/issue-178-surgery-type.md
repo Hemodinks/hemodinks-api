@@ -1,6 +1,6 @@
 # API #178 — tipo de cirurgia
 
-`TipoCirurgia` aceita `Eletiva` e `Urgencia`. Criações e registros anteriores
+`TipoCirurgia` aceita `Eletiva`, `Urgencia` e `EmAutorizacao`. Criações e registros anteriores
 recebem `Eletiva`; atualizações que omitem o campo preservam o valor existente.
 O registro cirúrgico legado de `Paciente` e cada `AtendimentoCirurgico` possuem
 classificações independentes. Faturamentos normalizados usam o atendimento.
@@ -99,3 +99,14 @@ Os 12 cenários `LoginBrowserTests.Browser_UsesRealApi` foram ignorados por falt
 de `HEMODINKS_E2E_FRONT_PATH`. O E2E responsivo do tipo de cirurgia com frontend
 e API integrados permanece pendente do frontend #173. Não houve commit, merge,
 deploy, nova dependência ou alteração de schema nesta retomada.
+
+## Em processo de autorização
+
+`EmAutorizacao` amplia o CHECK das duas tabelas com a migration aditiva
+`20261106204749_Schema_AddSurgeryTypeEmAutorizacao`. As exportações da API mostram
+"Em processo de autorizacao". O frontend inicia novos cadastros com esse valor, mas
+a API e o DEFAULT do banco seguem em `Eletiva` quando o campo é omitido. Publicar a
+API antes do frontend. O Down dessa
+migration bloqueia se qualquer tabela contiver o novo valor. Binários anteriores
+lançam exceção ao ler esse valor: depois do primeiro registro com ele, um rollback
+de aplicação quebra as telas que leem esses registros. Preferir correção para frente.

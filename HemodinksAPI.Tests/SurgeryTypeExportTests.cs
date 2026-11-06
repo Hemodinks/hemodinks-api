@@ -228,6 +228,7 @@ public partial class ApiEndpointIntegrationTests
     [InlineData("clinicaId", "17802")]
     [InlineData("CurrentUserId", "1")]
     [InlineData("tipoCirurgia", "9")]
+    [InlineData("tipoCirurgia", "2")]
     [InlineData("sortDirection", "sideways")]
     [InlineData("dataInicio", "not-a-date")]
     [InlineData("page", "2")]
@@ -271,6 +272,61 @@ public partial class ApiEndpointIntegrationTests
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains("filtros", await response.Content.ReadAsStringAsync(), StringComparison.OrdinalIgnoreCase);
         Assert.Empty(queue.Messages);
+    }
+
+    [Theory]
+    [InlineData("pacientes", "xlsx")]
+    [InlineData("pacientes", "pdf")]
+    [InlineData("faturamentos-medicos", "xlsx")]
+    [InlineData("faturamentos-medicos", "pdf")]
+    public async Task SurgeryExport_EmAutorizacaoShowsReadableLabelOnlyForSelectedRecordsOfClinic(string resource, string format)
+    {
+        var queue = new CapturingFileExportQueue();
+        using var factory = SurgeryExportFactory(queue);
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+        using (var scope = factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var otherClinic = new Clinica { Nome = "Other authorization clinic", Slug = "other-authorization-export" };
+            db.Clinicas.Add(otherClinic);
+            await db.SaveChangesAsync();
+            db.Pacientes.AddRange(
+                ExportPatient("AUTH178-SELECTED", 1, TipoCirurgia.EmAutorizacao),
+                ExportPatient("AUTH178-URGENT", 1, TipoCirurgia.Urgencia),
+                ExportPatient("AUTH178-OTHER-CLINIC", otherClinic.Id, TipoCirurgia.EmAutorizacao));
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/exports/", new
+        {
+            resource, format, reportType = "completo",
+            filters = new { search = "AUTH178", tipoCirurgia = "EmAutorizacao" }
+        })).StatusCode);
+        var message = Assert.Single(queue.Messages);
+        var row = Assert.Single(message.Snapshot!.Rows);
+        Assert.Contains("AUTH178-SELECTED", row);
+        Assert.Contains("Em processo de autorizacao", row);
+        Assert.Equal("Em processo de autorizacao", Assert.Single(message.Snapshot.Totals).TipoCirurgia);
+
+        var bytes = await CaptureSurgeryExportBytesAsync(message);
+        string output;
+        if (format == "xlsx")
+        {
+            using var archive = new ZipArchive(new MemoryStream(bytes));
+            using var reader = new StreamReader(archive.GetEntry("xl/worksheets/sheet1.xml")!.Open());
+            output = await reader.ReadToEndAsync();
+        }
+        else
+        {
+            output = Encoding.Latin1.GetString(bytes);
+        }
+        // The PDF table wraps cells by character count: the totals column holds 24 characters per line.
+        Assert.Contains(format == "xlsx" ? "Em processo de autorizacao" : "Em processo de autorizac", output);
+        Assert.DoesNotContain("EmAutorizacao", output);
+        Assert.DoesNotContain("AUTH178-URGENT", output);
+        Assert.DoesNotContain("AUTH178-OTHER-CLINIC", output);
     }
 
     private static HemodinksApiFactory SurgeryExportFactory(CapturingFileExportQueue queue) => new(services =>
