@@ -3,7 +3,7 @@ using HemodinksAPI.Domain.Models;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointAgendaIntervalTests : ApiEndpointTestBase
 {
     [Fact]
     public async Task AgendaInterval_ReturnsOverlapsAndLastDayEveningOnlyWithinRange()

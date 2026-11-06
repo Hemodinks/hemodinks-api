@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointEventScheduleTests : ApiEndpointTestBase
 {
     [Theory]
     [InlineData("POST")]

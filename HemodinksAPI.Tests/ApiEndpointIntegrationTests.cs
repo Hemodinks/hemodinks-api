@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointIntegrationTests : ApiEndpointTestBase
 {
     [Fact]
     public async Task Readiness_failure_does_not_disclose_database_details()

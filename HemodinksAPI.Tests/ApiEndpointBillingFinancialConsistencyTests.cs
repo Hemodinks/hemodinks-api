@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointBillingFinancialConsistencyTests : ApiEndpointTestBase
 {
     [Fact]
     public async Task Billing176_JsonContractDoesNotExposeOtherClinicsFinancialData()

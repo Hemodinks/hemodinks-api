@@ -9,7 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointTenantAuditTests : ApiEndpointTestBase
 {
     [Theory]
     [InlineData(false)]

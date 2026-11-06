@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointLegalAcceptanceTests : ApiEndpointTestBase
 {
     [Fact]
     public async Task LegalAcceptances_RequireAuthentication()

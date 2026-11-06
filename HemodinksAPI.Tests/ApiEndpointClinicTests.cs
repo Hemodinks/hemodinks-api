@@ -15,10 +15,8 @@ using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointClinicTests : ApiEndpointTestBase
 {
-    private const string ValidCnpj = "11.222.333/0001-81";
-
     [Fact]
     public async Task PublicClinics_ReturnsActiveClinicsFromDatabase()
     {

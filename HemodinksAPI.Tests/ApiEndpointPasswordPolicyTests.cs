@@ -1,4 +1,3 @@
-using System.Collections.Concurrent;
 using System.Net;
 using System.Net.Http.Json;
 using System.Security.Cryptography;
@@ -15,7 +14,7 @@ using Microsoft.Extensions.Logging;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointPasswordPolicyTests : ApiEndpointTestBase
 {
     [Theory]
     [InlineData("change", false)]
@@ -158,17 +157,4 @@ public partial class ApiEndpointIntegrationTests
         }
     }
 
-    private sealed class PasswordPolicyLogCapture : ILoggerProvider
-    {
-        public ConcurrentQueue<string> Messages { get; } = new();
-        public ILogger CreateLogger(string categoryName) => new Capture(Messages);
-        public void Dispose() { }
-        private sealed class Capture(ConcurrentQueue<string> messages) : ILogger
-        {
-            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
-            public bool IsEnabled(LogLevel logLevel) => true;
-            public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
-                => messages.Enqueue(formatter(state, exception) + exception?.ToString());
-        }
-    }
 }
