@@ -1,6 +1,6 @@
 # Deployment
 
-Backend preparado para Docker, Render, GitHub Actions e recursos Azure.
+Producao em Azure Container Apps (API blue/green + workers), homologacao no Render, imagens no GHCR e pipelines no GitHub Actions.
 
 ## URLs
 
@@ -9,7 +9,7 @@ Local:
 | Recurso | URL |
 | --- | --- |
 | API | `http://localhost:5000` |
-| Health check | `http://localhost:5000/healthz` |
+| Health check | `http://localhost:5000/healthz` (`/readyz`; liveness em `/livez`) |
 | Swagger | `http://localhost:5000/swagger` |
 | Scalar | `http://localhost:5000/scalar` |
 | OpenAPI | `http://localhost:5000/openapi/v1.json` |
@@ -23,20 +23,28 @@ Publicado:
 | Front homologacao principal | `https://hemodinks-homologacao.gestao-saude.tec.br` |
 | Front homologacao legado | `https://hemodinks-homologacao.vercel.app` |
 | Front confirmation Render opcional | `https://hemodinks-front-confirmation.onrender.com` |
-| API | `https://<api-publica>` |
+| API producao | `https://<api-publica>` (Container App `hemodinks-api-prod`) |
+| API homologacao | `https://hemodinks-api-1-90nb.onrender.com` |
 | Swagger | `https://<api-publica>/swagger` quando `ApiDocumentation__Enabled=true` |
 | Scalar | `https://<api-publica>/scalar` quando `ApiDocumentation__Enabled=true` |
 | OpenAPI | `https://<api-publica>/openapi/v1.json` quando `ApiDocumentation__Enabled=true` |
 
 ## GitHub Actions
 
-Workflows principais:
+Workflows do `hemodinks-api`:
 
-- `.github/workflows/ci.yml`: restore, build, testes e validacao de migrations
-- `.github/workflows/publish-container.yml`: publica imagens Docker no GHCR e, quando habilitado, atualiza Azure Container Apps
-- `.github/workflows/generate-migration-script.yml`: gera SQL idempotente de migrations para revisao/aplicacao controlada
-- `.github/workflows/azure-operational-tasks.yml`: executa tarefas operacionais manuais no Azure, como seed CBHPM temporario
-- `.github/workflows/vercel-deploy.yml`: gancho opcional para coordenacao com o front
+| Workflow | Gatilho | O que faz |
+| --- | --- | --- |
+| `ci.yml` (CI) | push/PR em `main`, `developer`, `dev-local` | escopo, restore, build, testes (incl. SQL Server), validacao de migrations e `Login integration E2E` |
+| `login-e2e.yml` | chamado pelo CI ou manual | cenarios de login no navegador |
+| `publish-container.yml` (Publish Production) | push na `main`/tags `v*.*.*`: so publica imagens; manual com `deploy_to_azure=true` na `main`: migra e faz deploy | imagens `sha-<commit>`, bundle de migrations, `migrate-production`, `deploy-api` (blue/green) e `deploy-functions` |
+| `apply-production-migrations.yml` | manual | valida e aplica migrations de producao isoladamente |
+| `rollback-production.yml` | manual | devolve o trafego da API para a revisao anterior (nao reverte migrations) |
+| `publish-homologation.yml` | manual na `developer` | `diagnose`, `diagnose-sql`, `prepare` ou `publish` no Render ([runbook](homologation-migrations.md)) |
+| `generate-migration-script.yml` | manual | SQL idempotente para revisao |
+| `azure-operational-tasks.yml` | manual | tarefas operacionais (ex.: seed CBHPM pontual) |
+| `cleanup-ghcr.yml` / `ghcr-retention.yml` | manual/agendado | auditoria e limpeza de imagens no GHCR |
+| `vercel-deploy.yml` | push na `main` | gancho de coordenacao com o front na Vercel |
 
 Imagens:
 
@@ -56,17 +64,16 @@ Container Apps recomendados:
 | `hemodinks-api` | `ghcr.io/hemodinks/hemodinks-api` | External | `8080` | API publica, health check em `/healthz` |
 | `hemodinks-functions` | `ghcr.io/hemodinks/hemodinks-api-workers` | External ou internal conforme uso HTTP | porta padrao da imagem Functions | Azure Functions em container para uploads, reset e exportacoes |
 
-Nao e necessario criar um terceiro Container App para workers neste momento. O processamento de lembretes roda dentro da API via `EventNotificationHostedService`; por isso mantenha a API com `max replicas = 1` ate esse processamento ser extraido para um job/worker dedicado com trava distribuida.
+Nao e necessario um terceiro Container App para workers. Em producao o workflow fixa `EventReminders__RunHostedProcessor=false`: lembretes vencidos sao reservados por `EventReminderProcessor` (lease com `UPDATE ... OUTPUT`) quando a agenda ou o dashboard sao consultados, o que e seguro com mais de uma revisao ativa.
 
 Configuracao da API no Container Apps:
 
 | Campo | Valor |
 | --- | --- |
 | Target port | `8080` |
-| Min replicas | `1` |
-| Max replicas inicial | `1` |
-| Health/readiness | `/healthz` |
-| Revision mode | Single, salvo estrategia explicita de blue/green |
+| Min/Max replicas | `0`/`1` por revisao (aplicado pelo workflow) |
+| Liveness / readiness | `/livez` / `/readyz` (`/healthz` equivalente a readiness) |
+| Revision mode | `Multiple`, com labels `blue`/`green` ([runbook blue/green](production-blue-green-runbook.md)) |
 
 Variaveis obrigatorias da API:
 
@@ -155,9 +162,9 @@ Repita para `hemodinks-functions`.
 
 ### Deploy pelo GitHub Actions
 
-O workflow `Publish Containers` sempre publica as duas imagens no GHCR em push para `main`.
-O deploy no Azure exige execução manual com `deploy_to_azure=true`, depois da aplicação
-controlada das migrations de produção.
+O workflow `Publish Production` (`publish-container.yml`) sempre publica as duas imagens no GHCR em push para `main`.
+O deploy no Azure exige execucao manual na `main` com `deploy_to_azure=true`: o job `migrate-production`
+(environment `production`, com aprovacao) aplica o bundle uma unica vez e so depois `deploy-api` troca o trafego.
 
 Repository variables:
 
@@ -184,7 +191,7 @@ Permissoes minimas esperadas para a identidade:
 - `Contributor` no resource group dos Container Apps, ou permissao equivalente para `Microsoft.App/containerApps`.
 - Permissao de federated credential configurada no app registration para este repositorio/ambiente GitHub.
 
-Com `AZURE_CONTAINER_APPS_DEPLOY_ENABLED=true`, merge em `main` publica as imagens e atualiza as revisoes dos Container Apps usando tags `sha-<commit>`.
+Merge em `main` publica as imagens; as revisoes dos Container Apps (tags `sha-<commit>`) so mudam na execucao manual com `deploy_to_azure=true`.
 O workflow tambem atualiza `Deployment__CommitSha` no Container App para forcar nova revisao; a conferência pós-deploy lê esse valor diretamente da revisão candidata pelo Azure CLI. O `/healthz` público retorna apenas o estado agregado.
 
 Se um Container App for movido para outro Resource Group, atualize `AZURE_RESOURCE_GROUP` ou defina o override especifico `AZURE_CONTAINER_APP_API_RESOURCE_GROUP` / `AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP`. O workflow tenta descobrir o Resource Group pelo nome do Container App quando o valor configurado nao encontra o recurso.
@@ -200,11 +207,11 @@ O CI ja valida se existem mudancas de modelo pendentes sem migration. Para produ
 3. Revise comandos destrutivos como `DROP`, `DELETE`, `ALTER COLUMN` e SQL manual.
 4. Aplique no Azure SQL com backup/PITR confirmado.
 
-Em producao, mantenha `Database__RunMigrationsOnStartup=false`. Use o workflow manual
-`Apply Production Migrations`, confirme backup/PITR e informe `APPLY-PRODUCTION`. O workflow
-valida a cadeia, guarda o SQL idempotente como artefato e aplica a migration usando o secret
-de ambiente `AZURE_SQL_CONNECTION_STRING`. Execute esse workflow antes de publicar uma imagem
-que dependa do novo schema.
+Em producao, mantenha `Database__RunMigrationsOnStartup=false`. O caminho padrao e o proprio
+`Publish Production` com `deploy_to_azure=true`, que aplica o bundle em `migrate-production` antes do deploy.
+`Apply Production Migrations` continua disponivel para aplicar migrations isoladamente: confirme backup/PITR e
+informe `APPLY-PRODUCTION`; o workflow valida a cadeia com `Hemodinks.SchemaGuard`, guarda o SQL idempotente
+como artefato e aplica somente migrations pendentes conhecidas.
 
 ### Seed CBHPM pontual
 
@@ -216,16 +223,16 @@ Para atualizar CBHPM sem deixar `Seed__CbhpmOnStartup=true` fixo:
 
 O seed atual insere/atualiza por codigo e nao remove procedimentos ausentes do JSON. Mesmo assim, revise o JSON antes de rodar em producao.
 
-## Render producao
+## Render (blueprint legado de producao)
 
-`render.yaml` define:
+A producao roda no Azure Container Apps. `render.yaml` permanece como blueprint de contingencia e define:
 
 - service: `hemodinks-api`
 - runtime: `docker`
 - branch: `main`
 - porta interna: `10000`
 - health check: `/healthz`
-- auto deploy: `checksPass`
+- auto deploy: desligado (`autoDeployTrigger: off`)
 
 Variaveis obrigatorias:
 
@@ -281,11 +288,12 @@ Observacao: o blueprint deixa `AsyncQueues__Enabled=false`, mas ativa os recurso
 
 `render.confirmation.yaml` define:
 
-- service: `hemodinks-api-confirmation`
+- service: `hemodinks-api-1` (https://hemodinks-api-1-90nb.onrender.com, regiao Virginia)
 - runtime: `docker`
 - branch: `developer`
 - ambiente `Confirmation`
-- health check: `/healthz`
+- health check: `/livez` (sem banco, para nao manter o SQL de homologacao acordado)
+- auto deploy: desligado; a publicacao e feita pelo workflow `Publish Homologation` ([runbook](homologation-migrations.md))
 
 Origens CORS configuradas no blueprint:
 
@@ -328,7 +336,7 @@ PasswordResetEmailQueueName=password-reset-emails-confirmation
 Uso:
 
 - persistencia relacional da API
-- migrations aplicadas pelo workflow manual `Apply Production Migrations`
+- migrations aplicadas pelo `Publish Production` (`migrate-production`) ou pelo workflow manual `Apply Production Migrations`
 - seed de perfis/usuarios/CBHPM conforme configuracao do ambiente
 
 Checklist:
@@ -337,7 +345,7 @@ Checklist:
 2. Liberar firewall para o host da API.
 3. Configurar `ConnectionStrings__DefaultConnection`.
 4. Confirmar que `SELECT FULLTEXTSERVICEPROPERTY('IsFullTextInstalled')` retorna `1`.
-4. Validar migrations antes do deploy:
+5. Validar migrations antes do deploy:
 
 ```powershell
 dotnet tool restore
@@ -365,10 +373,15 @@ AzureStorage__PatientFilesPublicBaseUrl=https://<storage-account>.blob.core.wind
 
 ## Filas e Azure Functions
 
-Fluxos assincronos opcionais:
+Functions de `HemodinksAPI.Workers`:
 
-- reset de senha por email
-- exportacoes PDF/XLSX via `POST /api/exports`
+| Function | Gatilho | Uso |
+| --- | --- | --- |
+| `SendPasswordResetEmail` | fila `PasswordResetEmailQueueName` | email de reset de senha |
+| `SendPasswordResetEmailSync` | HTTP | envio direto de reset (fallback) |
+| `GenerateFileExport` | fila `FileExportQueueName` | exportacoes de `POST /api/exports` |
+| `SendEventEmail` | HTTP | emails de eventos da agenda |
+| `UploadPatientFile` / `UploadProfilePhoto` | HTTP (`StorageFunctions__*`) | uploads para o Blob Storage |
 
 Variaveis da API:
 

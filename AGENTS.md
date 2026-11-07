@@ -7,12 +7,14 @@ Sistema de saúde multi-clínica: segurança e isolamento por clínica vêm ante
 
 - Entidades: `HemodinksAPI.Domain/Models` (`IClinicaOwnedEntity` = dado de uma clínica)
 - Casos de uso: `HemodinksAPI.Application/Features/<Módulo>/` (Commands, Queries, validators)
-- Endpoints: `HemodinksAPI.Api/*EndpointExtensions*.cs` — finos: mapeiam, validam e chamam MediatR
+- Endpoints: `HemodinksAPI.Api/*EndpointExtensions*.cs` e `HemodinksAPI.Api/Features/**` — finos: mapeiam, validam e chamam MediatR
+- Políticas de autorização: `HemodinksAPI.Api/ApiServiceCollectionExtensions.Auth.cs`; módulos do plano: `ClinicaModuleAccessMiddleware.cs`
 - Middlewares de sessão, tenant e auditoria: `HemodinksAPI.Api/*Middleware.cs`
 - Dados: `HemodinksAPI.Infrastructure/Data/AppDbContext.cs` (filtro global de tenant e bloqueio de FK entre clínicas)
 - Schema: `HemodinksAPI.Infrastructure/Data/Configurations/` (leia aqui, não nas migrations)
 - Azure Functions: `HemodinksAPI.Workers/Functions/`
-- Testes: `HemodinksAPI.Tests/<Área>*Tests.cs` (SQLite/InMemory). `*SqlServerTests` exigem SQL Server configurado.
+- Testes: `HemodinksAPI.Tests/<Área>*Tests.cs` (SQLite/InMemory). `*SqlServerTests` exigem `HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING`; os obrigatórios ficam em `scripts/check-test-results.py`.
+- Docs: `README.md` (inventário de rotas × perfis), `docs/` (runbooks), matriz gerada por `scripts/generate_permissions_matrix.py`.
 - Codex: subagentes e política de esforço em `.codex/ORCHESTRATION.md`.
 
 ## Comandos
@@ -53,6 +55,14 @@ primeiro acesso, `ClinicaId`, middleware, migration, contrato consumido pelo `he
 
 Menor mudança correta. Sem refatoração oportunista, renomeação ou troca de padrão sem pedido.
 Problema fora do escopo → reporte, não corrija. Não presuma classe, tabela, endpoint ou teste sem localizar no código.
+
+## Documentação
+
+- Mudou rota, política ou perfil → regere o inventário do `README.md` (`scripts/generate_route_inventory.py`), atualize os dados de `scripts/generate_permissions_matrix.py`,
+  rode o script e regere o PDF da matriz (comando no cabeçalho do script).
+- Nova migration → atualize o marcador de schema em `scripts/ValidateRestoredDatabase.sql`,
+  `HemodinksAPI.Tests/RestoreDatabaseIntegrityTests.cs` e `docs/issue-184-backup-recovery.md`.
+- `docs/issue-*.md` são registros históricos: não reescreva; marque o que ficou obsoleto.
 
 ## Pronto quando
 
