@@ -134,7 +134,8 @@ jobs:
         run: ./scripts/Test-Migrations.ps1 -NoBuild -Configuration Release
 
       - name: Test
-        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --filter "FullyQualifiedName!~LoginBrowserTests" --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
+        timeout-minutes: 25
+        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --filter "FullyQualifiedName!~LoginBrowserTests" --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type none --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
 
       - name: Require critical SQL tests and zero silent skips
         if: always()
