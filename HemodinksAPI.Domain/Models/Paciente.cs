@@ -8,7 +8,21 @@ public class Paciente : IClinicaOwnedEntity
     public int UserId { get; set; }
     public User User { get; set; } = null!;
     public DateTime? Data { get; set; }
-    public DateTime? DataAtendimento { get; set; }
+    private DateTime? _dataAtendimento;
+
+    // Data da consolidação. Ao atribuir, o status da cirurgia acompanha a data.
+    // O EF materializa pelo campo de apoio, então leituras preservam o status persistido.
+    public DateTime? DataAtendimento
+    {
+        get => _dataAtendimento;
+        set
+        {
+            _dataAtendimento = value;
+            StatusCirurgia = StatusCirurgiaRules.FromDataConsolidacao(value);
+        }
+    }
+
+    public StatusCirurgia StatusCirurgia { get; private set; } = StatusCirurgia.NaoConsolidada;
     // Classification of this legacy surgical record, independent of normalized attendances.
     public TipoCirurgia TipoCirurgia { get; set; } = TipoCirurgia.Eletiva;
     public string NomePaciente { get; set; } = null!;
