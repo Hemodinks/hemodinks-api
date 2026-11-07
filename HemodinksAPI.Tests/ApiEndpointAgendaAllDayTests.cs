@@ -4,7 +4,7 @@ using HemodinksAPI.Domain.Models;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointAgendaAllDayTests : ApiEndpointTestBase
 {
     [Fact]
     public async Task AgendaAllDay_CreateEditCivilRangeAndTenantIsolation()

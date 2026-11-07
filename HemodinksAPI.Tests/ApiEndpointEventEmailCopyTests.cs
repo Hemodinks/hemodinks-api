@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointEventEmailCopyTests : ApiEndpointTestBase
 {
     [Fact]
     public async Task EventEmailCopy_ExplicitOptInQueuesPersistedCreatorWithoutChangingNotifications()

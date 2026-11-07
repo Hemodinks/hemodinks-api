@@ -25,14 +25,44 @@ env:
   DOTNET_NOLOGO: true
 
 jobs:
+  scope:
+    name: Decide test scope
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      run_tests: ${{ steps.decide.outputs.run_tests }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Test scope rules
+        run: python3 -B -m unittest discover -s scripts/tests -p test_ci_scope.py -v
+
+      - name: Decide
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT_BEFORE: ${{ github.event.before }}
+        run: python3 -B scripts/ci_scope.py
+
   login-e2e:
     name: Login integration E2E
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.run_tests != 'false' }}
     permissions:
       contents: read
     uses: ./.github/workflows/login-e2e.yml
 
   build-test:
     name: Build and test
+    needs: scope
+    if: ${{ !cancelled() && needs.scope.outputs.run_tests != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -104,7 +134,8 @@ jobs:
         run: ./scripts/Test-Migrations.ps1 -NoBuild -Configuration Release
 
       - name: Test
-        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --filter "FullyQualifiedName!~LoginBrowserTests" --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
+        timeout-minutes: 25
+        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --filter "FullyQualifiedName!~LoginBrowserTests" --blame-hang --blame-hang-timeout 5m --blame-hang-dump-type none --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
 
       - name: Require critical SQL tests and zero silent skips
         if: always()

@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointAgendaRecipientsTests : ApiEndpointTestBase
 {
     [Fact]
     public async Task AgendaRecipients_SearchCannotExposeOtherClinic_AndReminderEditsPersist()

@@ -10,7 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiAuthorizationMatrixTests : ApiEndpointTestBase
 {
     private static readonly int[] AllProfiles =
     [

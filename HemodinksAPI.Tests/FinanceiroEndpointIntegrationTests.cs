@@ -12,7 +12,7 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class FinanceiroEndpointIntegrationTests : ApiEndpointTestBase
 {
     [Fact]
     public async Task ArquivoDoHistorico_PodeSerEnviadoListadoBaixadoEExcluidoPorMes()
@@ -627,30 +627,6 @@ public partial class ApiEndpointIntegrationTests
         using var json = await ReadJsonAsync(response);
         Assert.Equal(1, json.RootElement.GetProperty("totalItems").GetInt32());
     }
-
-    private static async Task<FinanceiroSeed> SeedFinanceiroAsync(HemodinksApiFactory factory)
-    {
-        using var scope = factory.Services.CreateScope();
-        var tenant = scope.ServiceProvider.GetRequiredService<ClinicaContext>(); tenant.SetPlatformScope();
-        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-        var suffix = Guid.NewGuid().ToString("N");
-        var medico = new User { ClinicaId = Clinica.DefaultId, Nome = "Medico Financeiro", Telefone = "+5511999999999",
-            Email = $"medico-{suffix}@teste.local", Senha = "hash", PerfilId = Perfil.MedicosId, Ativo = true, PrecisaTrocarSenha = false };
-        var pacienteUser = new User { ClinicaId = Clinica.DefaultId, Nome = "Paciente Financeiro", Telefone = "+5511888888888",
-            Email = $"paciente-{suffix}@teste.local", Senha = "hash", PerfilId = Perfil.PacientesId, Ativo = true, PrecisaTrocarSenha = false };
-        var convenio = new Convenio { ClinicaId = Clinica.DefaultId, DescricaoConvenio = $"Convenio {suffix}" };
-        var opme = new Opme { ClinicaId = Clinica.DefaultId, Fornecedor = $"Fornecedor OPME {suffix}" };
-        db.Users.AddRange(medico, pacienteUser); db.Convenios.Add(convenio); db.OPME.Add(opme); await db.SaveChangesAsync();
-        var paciente = new Paciente { ClinicaId = Clinica.DefaultId, UserId = pacienteUser.Id, NomePaciente = pacienteUser.Nome };
-        db.Pacientes.Add(paciente); await db.SaveChangesAsync();
-        const string code = "99999999";
-        if (!await db.CbhpmGeral.AnyAsync(x => x.Codigo == code)) db.CbhpmGeral.Add(new CbhpmGeral { Codigo = code, Procedimento = "Procedimento financeiro", ValorReferencia = 1000m });
-        await db.SaveChangesAsync();
-        return new(paciente.Id, medico.Id, convenio.IdConvenio, opme.IdFornecedor, opme.Fornecedor, code);
-    }
-
-    private sealed record FinanceiroSeed(int PacienteId, int MedicoId, int ConvenioId,
-        int OpmeFornecedorId, string OpmeFornecedor, string CbhpmCodigo);
 
     private static void AssertProcedimentoOficial(JsonElement procedimento, string codigoNormalizado)
     {

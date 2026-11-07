@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class SurgeryTypeEndpointTests : ApiEndpointTestBase
 {
     [Theory]
     [InlineData(false)]

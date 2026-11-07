@@ -3,7 +3,7 @@ using System.Net.Http.Json;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointInvalidPayloadTests : ApiEndpointTestBase
 {
     [Theory]
     [InlineData("POST", "/api/convenios-procedimentos-precos/")]

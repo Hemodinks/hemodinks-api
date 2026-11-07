@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class SensitiveIdentityEndpointTests : ApiEndpointTestBase
 {
     [Fact]
     public async Task SensitiveIdentity_EmailChangesOnlyAfterConfirmation_ThenOldSessionIsDenied()

@@ -7,7 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointPasswordResetAndExportTests : ApiEndpointTestBase
 {
     [Fact]
     public async Task PasswordResetRequest_WhenRetriedWithSameIdempotencyKey_ReplaysSameToken()
@@ -147,17 +147,6 @@ public partial class ApiEndpointIntegrationTests
         Assert.Equal("xlsx", json.RootElement.GetProperty("format").GetString());
         Assert.Single(fileExportQueue.Messages);
         Assert.Equal("Dr. Teste", fileExportQueue.Messages[0].Filters["medico"]);
-    }
-
-    private static HemodinksApiFactory CreateFactoryWithPasswordResetSender(
-        RecordingPasswordResetNotificationSender passwordResetSender)
-    {
-        return new HemodinksApiFactory(services =>
-        {
-            var descriptor = services.First(item => item.ServiceType == typeof(HemodinksAPI.Application.Services.IPasswordResetNotificationSender));
-            services.Remove(descriptor);
-            services.AddSingleton<HemodinksAPI.Application.Services.IPasswordResetNotificationSender>(passwordResetSender);
-        });
     }
 
 }

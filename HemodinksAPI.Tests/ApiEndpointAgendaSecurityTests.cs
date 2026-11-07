@@ -8,7 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointAgendaSecurityTests : ApiEndpointTestBase
 {
     [Fact]
     public async Task AgendaSecurity_CrossClinicCrudAndRecipientsAreBlocked()

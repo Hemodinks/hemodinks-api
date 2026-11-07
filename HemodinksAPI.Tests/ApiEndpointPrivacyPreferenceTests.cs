@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointPrivacyPreferenceTests : ApiEndpointTestBase
 {
     [Fact]
     public async Task PrivacyPreferences_RequireAuthentication()
