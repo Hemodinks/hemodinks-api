@@ -54,7 +54,7 @@ Sem forwarding correto, usuários podem compartilhar a cota do IP do ingress;
 com confiança inadequada, pode haver falsificação de IP. Não ampliar a cadeia
 de confiança para viabilizar o warm-up.
 
-O limitador é local ao processo, coerente com `maxReplicas = 1`, e reinicia com
+O limitador é local ao processo (cada revisão tem `maxReplicas = 1`; durante o blue/green duas revisões podem atender), e reinicia com
 a réplica. Ele protege o trabalho da API depois do startup; não impede que uma
 requisição chegue ao ingress e acorde o container. Não equivale a proteção
 distribuída contra DDoS. Usuários atrás do mesmo NAT compartilham a cota.

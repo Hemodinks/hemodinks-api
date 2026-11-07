@@ -6,14 +6,15 @@ Este checklist registra o que ja esta coberto no repositorio e o que ainda depen
 
 - [x] CI com restore, build e testes em `.github/workflows/ci.yml`.
 - [x] API com `/healthz` publico.
-- [x] `/healthz` e `/` validam conectividade com o banco e migrations pendentes.
+- [x] `/healthz` e `/readyz` validam conectividade com o banco (e migrations pendentes, exceto quando o deploy gerencia o schema); `/livez` e `/` sao liveness sem banco.
 - [x] Logs HTTP com Serilog, `TraceIdentifier` e header `X-Request-ID`.
 - [x] Reset de senha exclusivamente por token, sem modo de senha padrao compartilhada.
 - [x] Reset por email com cadeia Function HTTP -> fila Azure -> SMTP, sem alterar a senha quando todos os transportes falham.
 - [x] Filas opcionais por recurso para reset de senha e exportacao PDF/XLSX.
 - [x] Trial/licenca com politicas por feature.
 - [x] Endpoints administrativos de licenca protegidos por perfil administrador.
-- [x] Testes de reset, autenticacao, endpoints principais e licenca.
+- [x] Testes de reset, autenticacao, sessao, isolamento por clinica, matriz de autorizacao, financeiro, exportacoes e migrations (replay completo em SQL Server).
+- [x] Producao no Azure Container Apps com blue/green, migrations em job unico (`migrate-production`) e rollback de trafego (`rollback-production.yml`).
 
 ## GitGuardian e secrets
 
@@ -68,32 +69,30 @@ Politica recomendada:
 
 ## CI, branch protection e deploy
 
-O workflow `CI / Build and test` ja esta no repositorio. Para ele bloquear deploy/merge de verdade, configure no GitHub:
+O workflow `CI` (job `Build and test`) ja esta no repositorio. Para ele bloquear deploy/merge de verdade, configure no GitHub:
 
 - [ ] `main` protegida contra push direto.
 - [ ] Pull request obrigatorio para `main`.
 - [ ] Status check obrigatorio: `CI / Build and test`.
 - [ ] Branch precisa estar atualizada antes do merge.
 - [ ] Force push bloqueado em `main`.
-- [ ] Render apontando para a branch correta.
-- [ ] Render usando deploy apenas apos checks passarem.
+- [ ] Homologacao (Render, `developer`) publicada somente pelo workflow `Publish Homologation`, com Auto-Deploy desligado.
 - [ ] Produção com `Database__RunMigrationsOnStartup=false` e migrations aplicadas pelo workflow controlado.
 - [ ] Workflow rodando `pwsh ./scripts/Test-Migrations.ps1`.
 
 Fluxo recomendado:
 
-1. Desenvolvimento em `developer`.
-2. Pull request de `developer` para `main`.
-3. CI passa.
-4. Merge.
-5. Render faz deploy da `main`.
+1. Pull requests de feature para `developer`; CI passa; merge.
+2. `Publish Homologation` (`publish`) publica a `developer` no Render e aplica migrations pendentes conhecidas.
+3. Pull request de `developer` para `main`; CI passa; merge (publica as imagens no GHCR).
+4. `Publish Production` manual na `main` com `deploy_to_azure=true`: aprovacao, `migrate-production` e troca blue/green.
 
 ## Logs, monitoramento e alertas
 
 No codigo:
 
 - `/healthz` retorna `Healthy` ou `Unhealthy`.
-- `/` tambem responde ao health check para plataformas que testam a raiz por padrao.
+- `/` e `/livez` respondem liveness sem consultar o banco.
 - O check `database` valida conectividade com o banco e migrations pendentes.
 - Cada resposta inclui `X-Request-ID`.
 - Serilog registra metodo, path, status code, tempo, request id e trace id.
@@ -118,13 +117,18 @@ Perfis atuais:
 
 - `1` - Administrador.
 - `2` - Medicos.
-- `3` - Paciente.
+- `3` - Pacientes.
 - `4` - Controller.
+- `5` - SuperAdministrador.
+- `6` - Equipe.
+
+Detalhes por recurso: [docs/MATRIZ_PERFIS_PERMISSOES.md](docs/MATRIZ_PERFIS_PERMISSOES.md).
 
 Features atuais:
 
 - `Dashboard.Visualizar`
 - `Pacientes.Visualizar`
+- `Pacientes.Gerenciar`
 - `Cbhpm.Consultar`
 
 Trial atual:
@@ -136,7 +140,7 @@ Trial atual:
 
 Completa:
 
-- Dashboard, pacientes para visualizacao e CBHPM. Criacao de pacientes e liberada para medico/controller; edicao e liberada para medico vinculado e controller; anexos do paciente tambem sao permitidos para medico vinculado e controller. Exclusao permanece administrativa.
+- Dashboard, pacientes para visualizacao e CBHPM. Criacao de pacientes e liberada para medico/controller; edicao e liberada para medico vinculado e controller; anexos do paciente tambem sao permitidos para medico vinculado e controller. Exclusao de pacientes e permitida a Administrador, SuperAdministrador e Medico no escopo.
 
 Checklist antes de vender:
 

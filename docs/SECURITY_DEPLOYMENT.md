@@ -21,8 +21,9 @@ PIN e solicitação/confirmação de redefinição de senha.
 ## Logs e auditoria
 
 - Os arquivos locais de log são mantidos por no máximo 30 arquivos diários.
-- O acesso ao endpoint de monitoramento permanece restrito ao perfil de
-  administrador da plataforma.
+- Os endpoints de monitoramento (`/api/monitoramento/erros` e `/seguranca`) exigem a
+  política `Administrador`: o Administrador vê somente a própria clínica e o
+  SuperAdministrador vê todas.
 - A retenção da auditoria persistida deve ser definida pela política legal da
   organização e executada por rotina administrativa, sem apagar registros sob
   retenção legal.
