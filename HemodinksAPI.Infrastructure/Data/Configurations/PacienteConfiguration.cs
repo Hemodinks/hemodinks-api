@@ -8,8 +8,13 @@ internal sealed class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
 {
     public void Configure(EntityTypeBuilder<Paciente> entity)
     {
-        entity.ToTable("Pacientes", table => table.HasCheckConstraint(
-            "CK_Pacientes_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia', N'EmAutorizacao')"));
+        entity.ToTable("Pacientes", table =>
+        {
+            table.HasCheckConstraint(
+                "CK_Pacientes_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia', N'EmAutorizacao')");
+            table.HasCheckConstraint(
+                "CK_Pacientes_StatusCirurgia", "[StatusCirurgia] IN (N'NaoConsolidada', N'Consolidada')");
+        });
 
         entity.HasKey(e => e.Id);
 
@@ -20,6 +25,11 @@ internal sealed class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
             .HasConversion<string>()
             .HasMaxLength(20)
             .HasDefaultValue(TipoCirurgia.Eletiva);
+
+        entity.Property(e => e.StatusCirurgia)
+            .HasConversion<string>()
+            .HasMaxLength(20)
+            .HasDefaultValue(StatusCirurgia.NaoConsolidada);
 
         entity.Property(e => e.NomePaciente)
             .IsRequired()
@@ -87,6 +97,7 @@ internal sealed class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
         entity.HasIndex(e => e.ClinicaId);
         entity.HasIndex(e => new { e.ClinicaId, e.Data });
         entity.HasIndex(e => new { e.ClinicaId, e.DataAtendimento });
+        entity.HasIndex(e => new { e.ClinicaId, e.StatusCirurgia });
         entity.HasIndex(e => e.CbhpmCodigo);
         entity.HasIndex(e => e.HospitalId);
 

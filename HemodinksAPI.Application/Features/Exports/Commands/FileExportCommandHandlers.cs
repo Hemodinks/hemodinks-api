@@ -57,7 +57,8 @@ public class RequestFileExportCommandHandler : IRequestHandler<RequestFileExport
             throw new UnauthorizedAccessException("Contexto de exportacao invalido.");
         if (resource == "faturamentos-medicos" && !(currentUser.IsAdministrador || currentUser.IsController || currentUser.IsMedico || currentUser.IsEquipe))
             throw new UnauthorizedAccessException("Sem permissao para exportar faturamentos medicos.");
-        if (resource == "cbhpm" && (reportType != "completo" || request.Filters?.Keys.Any(key => string.Equals(key.Trim(), "tipoCirurgia", StringComparison.OrdinalIgnoreCase)) == true))
+        if (resource == "cbhpm" && (reportType != "completo" || request.Filters?.Keys.Any(key => string.Equals(key.Trim(), "tipoCirurgia", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(key.Trim(), "statusCirurgia", StringComparison.OrdinalIgnoreCase)) == true))
             throw new InvalidOperationException("CBHPM nao possui classificacao cirurgica ou relatorio sintetico.");
 
         var requestedAt = DateTime.UtcNow;

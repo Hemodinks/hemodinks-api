@@ -11,6 +11,7 @@ internal static class PacienteMapper
         {
             Id = paciente.Id,
             TipoCirurgia = paciente.TipoCirurgia,
+            StatusCirurgia = paciente.StatusCirurgia,
             UserId = paciente.UserId,
             Data = paciente.Data,
             DataAtendimento = paciente.DataAtendimento,

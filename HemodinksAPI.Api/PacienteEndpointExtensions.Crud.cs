@@ -23,6 +23,7 @@ public static partial class PacienteEndpointExtensions
         string? sortBy,
         string? sortDirection,
         HemodinksAPI.Domain.Models.TipoCirurgia? tipoCirurgia,
+        HemodinksAPI.Domain.Models.StatusCirurgia? statusCirurgia,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
@@ -48,6 +49,7 @@ public static partial class PacienteEndpointExtensions
                 SortBy = sortBy,
                 SortDirection = sortDirection,
                 TipoCirurgia = tipoCirurgia,
+                StatusCirurgia = statusCirurgia,
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId,
                 CurrentEquipeId = currentUser.EquipeId

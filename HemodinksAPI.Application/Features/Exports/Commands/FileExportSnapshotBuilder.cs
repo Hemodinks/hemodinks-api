@@ -18,12 +18,12 @@ internal static class FileExportSnapshotBuilder
     private static readonly string[] Columns = ["Id", "Paciente", "Data cirurgia", "Tipo cirurgia", "Medico", "Auxiliar 1", "Auxiliar 2", "Convenio", "Procedimento", "Honorarios cirurgiao", "Honorarios auxiliares", "Repasse medico", "Valor glosa", "Pagamento conferido"];
     private static readonly HashSet<string> PatientFilters = new(StringComparer.OrdinalIgnoreCase)
     {
-        "search", "tipoCirurgia", "medico", "convenio", "medicoUserIds", "convenioIds", "procedimento",
+        "search", "tipoCirurgia", "statusCirurgia", "medico", "convenio", "medicoUserIds", "convenioIds", "procedimento",
         "dataInicio", "dataFinal", "dataSolicitacaoInicio", "dataSolicitacaoFinal", "sortBy", "sortDirection"
     };
     private static readonly HashSet<string> BillingFilters = new(StringComparer.OrdinalIgnoreCase)
     {
-        "search", "tipoCirurgia", "medico", "convenio", "procedimento", "competenciaInicio", "competenciaFinal"
+        "search", "tipoCirurgia", "statusCirurgia", "medico", "convenio", "procedimento", "competenciaInicio", "competenciaFinal"
     };
 
     internal static void EnsureQueueLimit(FileExportQueueMessage message)
@@ -42,6 +42,8 @@ internal static class FileExportSnapshotBuilder
         string? Get(string key) => f.GetValueOrDefault(key);
         var tipo = ParseSurgeryType(Get("tipoCirurgia"));
         if (tipo.HasValue) f["tipoCirurgia"] = tipo.Value.ToString();
+        var status = ParseSurgeryStatus(Get("statusCirurgia"));
+        if (status.HasValue) f["statusCirurgia"] = status.Value.ToString();
         var start = ParseDate(Get("dataInicio"), "dataInicio");
         var end = ParseDate(Get("dataFinal"), "dataFinal");
         var requestedStart = ParseDate(Get("dataSolicitacaoInicio"), "dataSolicitacaoInicio");
@@ -67,7 +69,7 @@ internal static class FileExportSnapshotBuilder
             if (message.Resource == "pacientes")
                 result = await sender.Send(new GetAllPacientesQuery
                 {
-                    Page = page, PageSize = 100, Search = Get("search"), TipoCirurgia = tipo,
+                    Page = page, PageSize = 100, Search = Get("search"), TipoCirurgia = tipo, StatusCirurgia = status,
                     Medico = Get("medico"), Convenio = Get("convenio"), MedicoUserIds = Get("medicoUserIds"),
                     ConvenioIds = Get("convenioIds"), Procedimento = Get("procedimento"), DataInicio = start, DataFinal = end,
                     DataSolicitacaoInicio = requestedStart, DataSolicitacaoFinal = requestedEnd, SortBy = sortBy, SortDirection = direction,
@@ -76,7 +78,7 @@ internal static class FileExportSnapshotBuilder
             else
                 result = await sender.Send(new GetAllFaturamentosMedicosQuery
                 {
-                    Page = page, PageSize = 100, Search = Get("search"), TipoCirurgia = tipo,
+                    Page = page, PageSize = 100, Search = Get("search"), TipoCirurgia = tipo, StatusCirurgia = status,
                     Medico = Get("medico"), Convenio = Get("convenio"), Procedimento = Get("procedimento"),
                     CompetenciaInicio = competenceStart, CompetenciaFinal = competenceEnd,
                     CurrentUserId = user.Id, CurrentPerfilId = user.PerfilId, CurrentEquipeId = user.EquipeId
@@ -121,6 +123,15 @@ internal static class FileExportSnapshotBuilder
 
     private static string SurgeryTypeLabel(TipoCirurgia value) =>
         value == TipoCirurgia.EmAutorizacao ? "Em processo de autorizacao" : value.ToString();
+
+    // Ausente = todas. Aceita apenas os nomes do enum (numeros sao rejeitados).
+    private static StatusCirurgia? ParseSurgeryStatus(string? value)
+    {
+        if (value == null) return null;
+        if (value.Equals("Consolidada", StringComparison.OrdinalIgnoreCase)) return StatusCirurgia.Consolidada;
+        if (value.Equals("NaoConsolidada", StringComparison.OrdinalIgnoreCase)) return StatusCirurgia.NaoConsolidada;
+        throw new InvalidOperationException("Status da cirurgia invalido. Use Consolidada ou NaoConsolidada.");
+    }
 
     private static TipoCirurgia? ParseSurgeryType(string? value)
     {

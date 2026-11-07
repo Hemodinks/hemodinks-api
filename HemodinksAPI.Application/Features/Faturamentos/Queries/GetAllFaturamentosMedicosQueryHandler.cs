@@ -55,6 +55,8 @@ public class GetAllFaturamentosMedicosQueryHandler : IRequestHandler<GetAllFatur
 
             TipoCirurgiaRules.Validate(request.TipoCirurgia);
             if (request.TipoCirurgia.HasValue) query = query.Where(p => p.TipoCirurgia == request.TipoCirurgia);
+            StatusCirurgiaRules.Validate(request.StatusCirurgia);
+            if (request.StatusCirurgia.HasValue) query = query.Where(p => p.StatusCirurgia == request.StatusCirurgia);
             var totalItems = await query.CountAsync(cancellationToken);
 
             var items = await query
