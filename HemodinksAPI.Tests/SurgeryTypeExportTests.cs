@@ -19,7 +19,7 @@ using FileExportFunction = workers::HemodinksAPI.Workers.Functions.FileExportFun
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class SurgeryTypeExportTests : ApiEndpointTestBase
 {
     [Theory]
     [InlineData("pacientes", "xlsx")]

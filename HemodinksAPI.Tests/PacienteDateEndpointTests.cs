@@ -11,7 +11,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class PacienteDateEndpointTests : ApiEndpointTestBase
 {
     [Theory]
     [InlineData("data", "\"2026-02-30\"")]

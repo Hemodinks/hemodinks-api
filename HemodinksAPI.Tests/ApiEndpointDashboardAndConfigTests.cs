@@ -6,7 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
-public partial class ApiEndpointIntegrationTests
+public sealed class ApiEndpointDashboardAndConfigTests : ApiEndpointTestBase
 {
     [Fact]
     public async Task DashboardSummary_WhenAuthenticated_ReturnsSummary()
