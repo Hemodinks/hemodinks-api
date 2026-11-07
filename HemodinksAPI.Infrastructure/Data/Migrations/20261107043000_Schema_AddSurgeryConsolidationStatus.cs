@@ -19,10 +19,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 defaultValue: "NaoConsolidada");
 
             // Backfill: cirurgias com data da consolidação já preenchida passam a ser consolidadas.
+            // EXEC adia a compilação até a coluna existir (scripts idempotentes compilam o lote inteiro).
             migrationBuilder.Sql("""
-                UPDATE [Pacientes]
-                SET [StatusCirurgia] = N'Consolidada'
-                WHERE [DataAtendimento] IS NOT NULL;
+                EXEC(N'UPDATE [Pacientes] SET [StatusCirurgia] = N''Consolidada'' WHERE [DataAtendimento] IS NOT NULL;');
                 """);
 
             migrationBuilder.AddCheckConstraint(
