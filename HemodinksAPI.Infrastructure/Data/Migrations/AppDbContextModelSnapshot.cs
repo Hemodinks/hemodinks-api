@@ -2180,6 +2180,13 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<string>("StatusCirurgia")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("nvarchar(20)")
+                        .HasDefaultValue("NaoConsolidada");
+
                     b.Property<bool>("StatusPago")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
@@ -2230,11 +2237,15 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasIndex("ClinicaId", "MedicoUserId");
 
+                    b.HasIndex("ClinicaId", "StatusCirurgia");
+
                     b.HasIndex("ClinicaId", "UserId")
                         .IsUnique();
 
                     b.ToTable("Pacientes", null, t =>
                         {
+                            t.HasCheckConstraint("CK_Pacientes_StatusCirurgia", "[StatusCirurgia] IN (N'NaoConsolidada', N'Consolidada')");
+
                             t.HasCheckConstraint("CK_Pacientes_TipoCirurgia", "[TipoCirurgia] IN (N'Eletiva', N'Urgencia', N'EmAutorizacao')");
                         });
                 });

@@ -11,6 +11,7 @@ SQL_REQUIRED = {
     "HemodinksAPI.Tests.SurgeryTypeSqlServerTests.SurgeryType_MigrationBackfillsLegacyRowsAndAllowsOldWritersWithoutChangingExistingData",
     "HemodinksAPI.Tests.SurgeryTypeSqlServerTests.SurgeryType_RollbackRefusesUrgencyInEitherTableBeforeChangingSchemaOrData",
     "HemodinksAPI.Tests.SurgeryTypeSqlServerTests.SurgeryType_EmAutorizacaoIsAcceptedAndRollbackRefusesItInEitherTable",
+    "HemodinksAPI.Tests.SurgeryStatusSqlServerTests.SurgeryStatus_MigrationBackfillsFromConsolidationDateAndAllowsOldWriters",
     "HemodinksAPI.Tests.EventCreatorMigrationTests.CreatorMigration_PreservesLegacyUnknownCreatorAndRejectsCrossClinicAtDatabaseBoundary",
     "HemodinksAPI.Tests.PacienteCommandHandlerTests.DeletePaciente_SqlServer_EnforcesScopeAndCascadesOnlyAuthorizedPatient",
 }

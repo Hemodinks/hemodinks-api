@@ -81,6 +81,7 @@ public static class FaturamentoMedicoEndpointExtensions
         ILogger<Program> logger,
         string? competenciaInicio,
         TipoCirurgia? tipoCirurgia,
+        StatusCirurgia? statusCirurgia,
         string? competenciaFinal,
         CancellationToken cancellationToken)
     {
@@ -92,6 +93,7 @@ public static class FaturamentoMedicoEndpointExtensions
             var result = await mediator.Send(new GetAllFaturamentosMedicosQuery
             {
                 TipoCirurgia = tipoCirurgia,
+                StatusCirurgia = statusCirurgia,
                 Page = page.GetValueOrDefault(1),
                 PageSize = pageSize.GetValueOrDefault(100),
                 Search = search,

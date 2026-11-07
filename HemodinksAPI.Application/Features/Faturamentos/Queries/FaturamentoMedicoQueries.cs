@@ -8,6 +8,7 @@ namespace HemodinksAPI.Application.Features.Faturamentos.Queries;
 public class GetAllFaturamentosMedicosQuery : IRequest<PagedResult<PacienteDto>>
 {
     public TipoCirurgia? TipoCirurgia { get; set; }
+    public StatusCirurgia? StatusCirurgia { get; set; }
     public int Page { get; set; } = 1;
 
     public int PageSize { get; set; } = 100;
