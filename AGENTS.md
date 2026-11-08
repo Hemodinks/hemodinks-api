@@ -13,6 +13,8 @@ Sistema de saúde multi-clínica: segurança e isolamento por clínica vêm ante
 - Dados: `HemodinksAPI.Infrastructure/Data/AppDbContext.cs` (filtro global de tenant e bloqueio de FK entre clínicas)
 - Schema: `HemodinksAPI.Infrastructure/Data/Configurations/` (leia aqui, não nas migrations)
 - Azure Functions: `HemodinksAPI.Workers/Functions/`
+- Aspire: `Hemodinks.AppHost` (orquestração local) e `Hemodinks.ServiceDefaults` (health checks; observabilidade só pelo agente New Relic .NET — sem OpenTelemetry/Sentry)
+- CI/CD: `.github/workflows/` (`ci.yml` em push e PR; produção em Container Apps blue/green; homologação no Render)
 - Testes: `HemodinksAPI.Tests/<Área>*Tests.cs` (SQLite/InMemory). `*SqlServerTests` exigem `HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING`; os obrigatórios ficam em `scripts/check-test-results.py`.
 - Docs: `README.md` (inventário de rotas × perfis), `docs/` (runbooks), matriz gerada por `scripts/generate_permissions_matrix.py`.
 - Codex: subagentes e política de esforço em `.codex/ORCHESTRATION.md`.
@@ -33,11 +35,12 @@ Para entender o modelo, leia `Data/Configurations` e a entidade. Abra uma migrat
 
 ## Invariantes — nunca quebrar
 
-1. Isolamento por clínica: não remover nem contornar o filtro global. `ClinicaId` vem do contexto autenticado,
-   nunca do payload. Novo `IgnoreQueryFilters` só com justificativa explícita no PR.
+1. Isolamento por clínica: o filtro global é fail-closed (sem `ClinicaId` → nada); não remover nem contornar.
+   `ClinicaId` vem do contexto autenticado, nunca do payload. Escopo de plataforma só via `ClinicaContextFactory`
+   (`SetPlatformScope`); não criar outro caminho. Novo `IgnoreQueryFilters` só com justificativa explícita no PR.
 2. Perfis administrativos (Admin, SuperAdmin) não são bypass implícito de tenant. Autorização é sempre no backend.
 3. Nunca registrar senha, PIN, token completo, secret, connection string ou CPF. Erros não retornam dado sensível.
-4. Não reduzir o hash (PBKDF2-SHA256, 600 mil iterações) nem criar criptografia própria.
+4. Não reduzir iterações do PBKDF2-SHA256 (senha 600 mil, PIN 210 mil) nem criar criptografia própria.
 5. Migration destrutiva só com pedido explícito.
 6. Sem commit, push, merge ou deploy sem autorização explícita. PRs vão para `developer`.
 7. Sem dependência nova ou serviço pago sem requisito explícito.
@@ -45,11 +48,14 @@ Para entender o modelo, leia `Data/Configurations` e a entidade. Abra uma migrat
 ## Alto risco: plano curto antes, testes negativos depois
 
 Autenticação, autorização, sessão/JWT/refresh, `SecurityVersion`, senha/PIN/recuperação/senha temporária, MFA,
-primeiro acesso, `ClinicaId`, middleware, migration, contrato consumido pelo `hemodinks-front`.
+primeiro acesso, `ClinicaId`/escopo de plataforma, middleware, forwarded headers e rate limit
+(`AzureContainerAppsIngressMiddleware`, `AuthenticationRateLimiting`), migration, contrato consumido pelo `hemodinks-front`, workflows de
+produção (`publish-*`, `apply-production-migrations`, `rollback-production`).
 
 - Investigue o fluxo completo antes de editar.
 - Teste obrigatório de tenant: recurso da Clínica A acessado pela Clínica B → negado ou 404, sem revelar existência.
 - Mudou contrato de endpoint → avise que o `hemodinks-front` precisa acompanhar.
+- Workflow: mantenha `permissions` mínimas, `timeout-minutes`, `concurrency` e actions com versão fixa; secret só via `env`, nunca em log.
 
 ## Escopo
 
