@@ -2,7 +2,7 @@
 
 Documentação de autorização: [matriz detalhada](docs/MATRIZ_PERFIS_PERMISSOES.md) e [relatório visual em PDF](docs/MATRIZ_PERFIS_PERMISSOES_VISUAL.pdf).
 
-API ASP.NET Core/.NET 10 para usuarios, pacientes, observacoes, agenda/notificacoes, faturamento medico, grupos medicos, licencas, configuracao do sistema, arquivos, exportacoes e consulta CBHPM.
+API ASP.NET Core/.NET 10 multiclinica para usuarios, equipes, pacientes e cirurgias, observacoes, agenda/notificacoes, faturamento medico, financeiro (atendimentos cirurgicos, faturamentos, glosas, contas a receber e precos por convenio), grupos medicos, licencas, plataforma de clinicas, arquivos, exportacoes e consulta CBHPM.
 
 ## Stack
 
@@ -14,11 +14,12 @@ API ASP.NET Core/.NET 10 para usuarios, pacientes, observacoes, agenda/notificac
 - Serilog para logs estruturados
 - New Relic APM opcional
 - Azure Blob Storage para fotos e anexos
-- Azure Queue Storage + Azure Functions opcionais para reset por email e exportacoes
-- `BackgroundService` interno para lembretes da agenda
-- `IMemoryCache` para CBHPM
+- Azure Queue Storage + Azure Functions (`HemodinksAPI.Workers`) para reset de senha por email, exportacoes, emails de eventos e uploads
+- lembretes da agenda processados por `EventReminderProcessor`: `BackgroundService` em desenvolvimento/compose e sob demanda nas consultas de agenda e dashboard em producao
+- `IMemoryCache` para resolver procedimentos CBHPM por codigo
 - Swagger/OpenAPI e Scalar
-- Docker, Render e GitHub Actions
+- .NET Aspire (`Hemodinks.AppHost`) para desenvolvimento local
+- Docker, Azure Container Apps (producao, blue/green), Render (homologacao) e GitHub Actions
 
 ## Arquitetura
 
@@ -36,7 +37,17 @@ HemodinksAPI.Api
   Minimal APIs, auth, CORS, Swagger/Scalar e composition root.
 
 HemodinksAPI.Workers
-  Azure Functions isoladas para jobs assincronos.
+  Azure Functions isoladas: GenerateFileExport, SendPasswordResetEmail(Sync),
+  SendEventEmail, UploadPatientFile e UploadProfilePhoto.
+
+HemodinksAPI.Tests
+  xUnit v3: unitarios, integracao (InMemory/SQLite) e *SqlServerTests.
+
+Hemodinks.AppHost / Hemodinks.ServiceDefaults
+  Orquestracao local com .NET Aspire.
+
+tools/
+  Hemodinks.SchemaGuard (verificador de historico de migrations) e ghcr_retention.
 ```
 
 Direcao das dependencias:
@@ -55,7 +66,8 @@ Ambiente local:
 | Recurso | URL |
 | --- | --- |
 | API | `http://localhost:5000` |
-| Health check | `http://localhost:5000/healthz` |
+| Health check (prontidao) | `http://localhost:5000/healthz` e `/readyz` |
+| Liveness | `http://localhost:5000/livez` |
 | Swagger UI | `http://localhost:5000/swagger` |
 | Scalar UI | `http://localhost:5000/scalar` |
 | OpenAPI JSON | `http://localhost:5000/openapi/v1.json` |
@@ -70,7 +82,8 @@ Ambientes publicados:
 | Front homologacao principal | `https://hemodinks-homologacao.gestao-saude.tec.br` |
 | Front homologacao legado | `https://hemodinks-homologacao.vercel.app` |
 | Front confirmation Render opcional | `https://hemodinks-front-confirmation.onrender.com` |
-| API | configure em `VITE_API_URL`, por exemplo `https://hemodinks-api.onrender.com` |
+| API producao | Azure Container Apps (blue/green); a URL publica fica em `VITE_API_URL` do front |
+| API homologacao | `https://hemodinks-api-1-90nb.onrender.com` (Render, servico `hemodinks-api-1`) |
 
 Em ambiente publicado, Swagger/Scalar/OpenAPI so aparecem quando `ApiDocumentation__Enabled=true`.
 
@@ -84,7 +97,7 @@ Copy-Item .env.example .env
 docker compose up -d --build api workers
 ```
 
-A API aplica migrations no startup, cria perfis, seeda usuarios quando necessario e carrega CBHPM de `HemodinksAPI.Infrastructure/Data/SeedData/cbhpm-geral.json` quando o seed estiver habilitado.
+No compose, a API aplica migrations no startup (`Database__RunMigrationsOnStartup=true`), cria perfis, seeda usuarios quando necessario e carrega CBHPM de `HemodinksAPI.Infrastructure/Data/SeedData/cbhpm-geral.json` (`Seed__CbhpmOnStartup=true`). Em `appsettings.json` esses valores sao `false`; em `Development` migrations e manutencao sao habilitadas.
 
 O compose principal usa `restart: unless-stopped` para `api`, `workers`, `sqlserver` e `azurite`. Depois da primeira subida com o comando acima, o Docker Desktop volta a iniciar o stack da API junto com o engine. Se o compose avulso de `sqlserver/` ja tiver sido usado antes, pare o container antigo uma vez:
 
@@ -113,7 +126,7 @@ npm install --prefix ..\hemodinks-front
 dotnet run --project Hemodinks.AppHost
 ```
 
-O `AppHost` consegue subir API, front React/Vite e dashboard de observabilidade local no mesmo ambiente.
+O `AppHost` sobe a API e o front React/Vite (`../hemodinks-front`, script `dev`) com o dashboard local do Aspire.
 
 ## Idempotencia
 
@@ -161,9 +174,8 @@ versoes da equipe e operador, preservando identificacao nominal e exigencias de 
 Tokens de equipe ja expirados exigem nova identificacao; tokens individuais podem ser recuperados pelo
 cookie enquanto a sessao no servidor continuar ativa. JWTs antigos sem sessao/equipe continuam exigindo novo login.
 
-Publique a API antes do frontend atualizado. Nao ha migration nova. Usuarios que entraram pelo frontend antigo
-podem precisar autenticar uma vez para receber o cookie com credenciais habilitadas. Em navegadores que bloqueiam
-cookies entre sites, use uma origem de API no mesmo site do frontend ou um proxy; CORS sozinho nao remove esse bloqueio.
+Em navegadores que bloqueiam cookies entre sites, use uma origem de API no mesmo site do frontend ou um proxy;
+CORS sozinho nao remove esse bloqueio.
 
 Perfis seedados:
 
@@ -171,7 +183,7 @@ Perfis seedados:
 | --- | --- |
 | 1 | Administrador |
 | 2 | Medicos |
-| 3 | Paciente |
+| 3 | Pacientes |
 | 4 | Controller |
 | 5 | SuperAdministrador |
 | 6 | Equipe |
@@ -179,36 +191,319 @@ Perfis seedados:
 Regras principais:
 
 - Administrador gerencia usuarios, pacientes, agenda, licencas, grupos medicos, configuracao do sistema e exclusoes.
-- Medico acessa seu proprio cadastro, pacientes vinculados, faturamento filtrado pelo seu escopo e agenda.
+- Medico acessa seu proprio cadastro, pacientes vinculados (inclusive exclusao no escopo), faturamento e atendimentos filtrados pelo seu escopo e agenda.
 - Paciente acessa o proprio cadastro quando houver vinculo.
-- Controller acessa pacientes, faturamento e operacoes liberadas por policy, sem dashboard nem agenda no front atual.
+- Controller acessa pacientes, faturamento medico, financeiro (faturamentos, glosas, contas a receber, precos), grupos medicos e agenda propria; nao exclui pacientes.
 - Equipe usa uma identidade coletiva com identificacao individual do operador e acessa somente os dados da equipe configurada.
 - Licencas controlam dashboard, pacientes e CBHPM para medicos.
 - A assinatura comercial pertence a `Clinica`; licencas individuais de medicos continuam existindo como uma segunda camada de compatibilidade e liberacao de features.
+- Administrador consulta e atualiza a propria clinica e suas equipes em `/api/platform/clinicas`; somente o SuperAdministrador cria, desativa e alterna entre clinicas.
 - SuperAdministrador lista e provisiona clinicas pelos endpoints de plataforma. Para navegar, ele solicita um novo token tenant-scoped em `/api/session/selecionar-clinica`; headers nao alteram a clinica de uma sessao autenticada.
 
 Features atuais de licenca:
 
 - `Dashboard.Visualizar`
 - `Pacientes.Visualizar`
+- `Pacientes.Gerenciar`
 - `Cbhpm.Consultar`
+
+A matriz completa de perfis x recursos esta em [docs/MATRIZ_PERFIS_PERMISSOES.md](docs/MATRIZ_PERFIS_PERMISSOES.md).
 
 ## Endpoints principais
 
-### Plataforma multiclinica
+Inventario gerado por `python3 scripts/generate_route_inventory.py` a partir dos `Map*` e `RequireAuthorization` dos endpoints. Legenda: Adm = Administrador,
+Méd = Medicos, Pac = Pacientes, Ctrl = Controller, SA = SuperAdministrador, Eq = Equipe. "Autenticado" aceita
+qualquer perfil, mas o handler restringe ao proprio registro, ao escopo medico/equipe ou a clinica da sessao.
+Rotas da plataforma restringem o Administrador a clinica atual. Rotas de pacientes, faturamento medico, grupos
+medicos, agenda e usuarios tambem dependem do modulo contratado no plano `Parcial` (403 quando ausente).
 
-| Metodo | Rota | Auth | Descricao |
-| --- | --- | --- | --- |
-| `GET` | `/api/platform/clinicas` | superadmin | lista todas as clinicas |
-| `GET` | `/api/platform/clinicas/{id}` | superadmin | detalhe, assinatura e total de usuarios |
-| `POST` | `/api/platform/clinicas` | superadmin | provisiona clinica, administrador, identidade local do superadmin e catalogos iniciais |
-| `PUT` | `/api/platform/clinicas/{id}` | superadmin | atualiza nome, foto, cadastro, ativacao, plano e assinatura |
-| `DELETE` | `/api/platform/clinicas/{id}` | superadmin | desativa logicamente a clinica e preserva seus dados |
-| `GET` | `/api/platform/auditoria` | superadmin | consulta paginada da auditoria de plataforma |
-| `GET` | `/api/public/clinicas` | publico | lista minima das clinicas ativas para o seletor do login |
-| `GET` | `/api/public/clinicas/{slug}/foto` | publico | retorna a foto publica da clinica ativa |
-| `GET` | `/api/session/clinicas` | autenticado | lista associacoes ativas da identidade global |
-| `POST` | `/api/session/selecionar-clinica` | autenticado | valida `UsuarioClinica` e emite novo JWT para a clinica |
+### Sessão
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `POST` | `/api/session/atividade` | Autenticado |
+| `GET` | `/api/session/clinicas` | Autenticado |
+| `POST` | `/api/session/renovar` | Cookie de sessão (HttpOnly) |
+| `POST` | `/api/session/renovar-equipe` | Autenticado |
+| `POST` | `/api/session/restaurar` | Cookie de sessão (HttpOnly) |
+| `POST` | `/api/session/sair` | Cookie de sessão (HttpOnly) |
+| `POST` | `/api/session/selecionar-clinica` | Autenticado |
+
+### Usuários
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/users` | Adm, SA, Eq |
+| `POST` | `/api/users` | Adm, SA |
+| `POST` | `/api/users/authenticate` | Público |
+| `POST` | `/api/users/email/change` | Autenticado |
+| `POST` | `/api/users/email/change/cancel` | Autenticado |
+| `POST` | `/api/users/email/change/confirm` | Autenticado |
+| `GET` | `/api/users/email/{email}` | Adm, SA |
+| `POST` | `/api/users/login-context` | Público |
+| `POST` | `/api/users/password/reset` | Público |
+| `POST` | `/api/users/password/reset/confirm` | Público |
+| `POST` | `/api/users/password/temporary/complete` | Autenticado |
+| `GET` | `/api/users/perfis` | Adm, SA |
+| `GET` | `/api/users/{id}` | Autenticado |
+| `PUT` | `/api/users/{id}` | Autenticado |
+| `DELETE` | `/api/users/{id}` | Adm, SA |
+| `POST` | `/api/users/{id}/arquivos` | Autenticado |
+| `DELETE` | `/api/users/{id}/arquivos/{arquivoId}` | Autenticado |
+| `GET` | `/api/users/{id}/arquivos/{arquivoId}/download` | Autenticado |
+| `GET` | `/api/users/{id}/foto-perfil` | Autenticado |
+| `PUT` | `/api/users/{id}/password` | Autenticado |
+| `PUT` | `/api/users/{id}/password/reset` | Adm, SA |
+
+### Equipes — autenticação
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `POST` | `/api/equipe-auth/identificar` | Login da equipe (rate limit) |
+| `PUT` | `/api/equipe-auth/pin` | Eq |
+
+### Equipes
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/equipes` | Adm, SA |
+| `POST` | `/api/equipes` | Adm, SA |
+| `PUT` | `/api/equipes/{id}` | Adm, SA |
+| `POST` | `/api/equipes/{id}/membros` | Adm, SA |
+| `DELETE` | `/api/equipes/{id}/membros/{userId}` | Adm, SA |
+| `PUT` | `/api/equipes/{id}/operadores/{operadorId}/bloqueio` | Adm, SA |
+| `POST` | `/api/equipes/{id}/operadores/{operadorId}/pin` | Adm, SA |
+
+### Plataforma — clínicas
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/platform/clinicas` | Adm, SA |
+| `POST` | `/api/platform/clinicas` | SA |
+| `GET` | `/api/platform/clinicas/{id}` | Adm, SA |
+| `PUT` | `/api/platform/clinicas/{id}` | Adm, SA |
+| `DELETE` | `/api/platform/clinicas/{id}` | SA |
+| `GET` | `/api/platform/clinicas/{id}/equipes` | Adm, SA |
+| `GET` | `/api/platform/clinicas/{id}/equipes/usuarios` | Adm, SA |
+| `PUT` | `/api/platform/clinicas/{id}/equipes/{teamId}` | Adm, SA |
+| `POST` | `/api/platform/clinicas/{id}/equipes/{teamId}/membros` | Adm, SA |
+| `DELETE` | `/api/platform/clinicas/{id}/equipes/{teamId}/membros/{userId}` | Adm, SA |
+| `POST` | `/api/platform/clinicas/{id}/equipes/{teamId}/operadores/{operatorId}/pin` | Adm, SA |
+
+### Plataforma — auditoria
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/platform/auditoria` | SA |
+
+### Clínicas — público
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/public/clinicas` | Público |
+| `GET` | `/api/public/clinicas/{slug}/foto` | Público |
+
+### Configuração do sistema
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/configuracoes-sistema/current` | Público |
+| `GET` | `/api/configuracoes-sistema/current/foto-empresa` | Público |
+
+### Aceites legais
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/legal-acceptances/current` | Autenticado |
+| `POST` | `/api/legal-acceptances/current` | Autenticado |
+
+### Preferências de privacidade
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/privacy-preferences/current` | Autenticado |
+| `PUT` | `/api/privacy-preferences/current` | Autenticado |
+
+### Dashboard
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/dashboard/notifications` | Autenticado + licença `Dashboard.Visualizar` |
+| `GET` | `/api/dashboard/summary` | Autenticado + licença `Dashboard.Visualizar` |
+
+### Pacientes e cirurgias
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/pacientes` | Autenticado |
+| `POST` | `/api/pacientes` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
+| `GET` | `/api/pacientes/{id}` | Autenticado |
+| `PUT` | `/api/pacientes/{id}` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
+| `DELETE` | `/api/pacientes/{id}` | Adm, Méd, SA |
+| `POST` | `/api/pacientes/{id}/arquivos` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
+| `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
+| `GET` | `/api/pacientes/{id}/arquivos/{arquivoId}/download` | Autenticado |
+| `GET` | `/api/pacientes/{id}/observacoes` | Adm, Méd, Ctrl, SA, Eq |
+| `POST` | `/api/pacientes/{id}/observacoes` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
+| `POST` | `/api/pacientes/{id}/observacoes/marcar-lidas` | Adm, Méd, Ctrl, SA, Eq |
+| `GET` | `/api/pacientes/{id}/resumo-financeiro` | Autenticado |
+
+### Atendimentos cirúrgicos
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/atendimentos-cirurgicos` | Adm, Méd, Ctrl, SA |
+| `POST` | `/api/atendimentos-cirurgicos` | Adm, Méd, Ctrl, SA |
+| `GET` | `/api/atendimentos-cirurgicos/{id}` | Adm, Méd, Ctrl, SA |
+| `PUT` | `/api/atendimentos-cirurgicos/{id}` | Adm, Méd, Ctrl, SA |
+| `DELETE` | `/api/atendimentos-cirurgicos/{id}` | Adm, Méd, Ctrl, SA |
+| `POST` | `/api/atendimentos-cirurgicos/{id}/arquivos` | Adm, Méd, Ctrl, SA |
+| `DELETE` | `/api/atendimentos-cirurgicos/{id}/arquivos/{arquivoId}` | Adm, Méd, Ctrl, SA |
+| `GET` | `/api/atendimentos-cirurgicos/{id}/arquivos/{arquivoId}/download` | Adm, Méd, Ctrl, SA |
+
+### Faturamento médico
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/faturamentos-medicos` | Adm, Méd, Ctrl, SA, Eq |
+| `GET` | `/api/faturamentos-medicos/historico/arquivos` | Adm, Méd, Ctrl, SA, Eq |
+| `DELETE` | `/api/faturamentos-medicos/historico/arquivos/{arquivoId}` | Adm, Ctrl, SA |
+| `GET` | `/api/faturamentos-medicos/historico/arquivos/{arquivoId}/download` | Adm, Méd, Ctrl, SA, Eq |
+| `POST` | `/api/faturamentos-medicos/historico/{ano}/{mes}/arquivos` | Adm, Ctrl, SA |
+
+### Faturamento (lotes, glosas e recursos)
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/faturamentos` | Adm, Méd, Ctrl, SA |
+| `POST` | `/api/faturamentos` | Adm, Ctrl, SA |
+| `PUT` | `/api/faturamentos/glosas/{id}` | Adm, Ctrl, SA |
+| `DELETE` | `/api/faturamentos/glosas/{id}` | Adm, Ctrl, SA |
+| `POST` | `/api/faturamentos/glosas/{id}/recursos` | Adm, Ctrl, SA |
+| `GET` | `/api/faturamentos/pesquisa` | Adm, Méd, Ctrl, SA |
+| `PUT` | `/api/faturamentos/recursos-glosa/{id}` | Adm, Ctrl, SA |
+| `DELETE` | `/api/faturamentos/recursos-glosa/{id}` | Adm, Ctrl, SA |
+| `GET` | `/api/faturamentos/{id}` | Adm, Méd, Ctrl, SA |
+| `PUT` | `/api/faturamentos/{id}` | Adm, Ctrl, SA |
+| `DELETE` | `/api/faturamentos/{id}` | Adm, Ctrl, SA |
+| `POST` | `/api/faturamentos/{id}/contas-receber` | Adm, Ctrl, SA |
+| `POST` | `/api/faturamentos/{id}/glosas` | Adm, Ctrl, SA |
+| `PUT` | `/api/faturamentos/{id}/itens/{itemId}` | Adm, Ctrl, SA |
+| `POST` | `/api/faturamentos/{id}/retorno` | Adm, Ctrl, SA |
+| `PUT` | `/api/faturamentos/{id}/status` | Adm, Ctrl, SA |
+
+### Contas a receber
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/financeiro/contas-receber` | Adm, Ctrl, SA |
+| `GET` | `/api/financeiro/contas-receber/pesquisa` | Adm, Ctrl, SA |
+| `GET` | `/api/financeiro/contas-receber/recebimentos/{id}/comprovante` | Adm, Ctrl, SA |
+| `POST` | `/api/financeiro/contas-receber/recebimentos/{id}/comprovante` | Adm, Ctrl, SA |
+| `POST` | `/api/financeiro/contas-receber/recebimentos/{id}/estorno` | Adm, Ctrl, SA |
+| `GET` | `/api/financeiro/contas-receber/{id}` | Adm, Ctrl, SA |
+| `PUT` | `/api/financeiro/contas-receber/{id}` | Adm, Ctrl, SA |
+| `POST` | `/api/financeiro/contas-receber/{id}/cancelamento` | Adm, Ctrl, SA |
+| `POST` | `/api/financeiro/contas-receber/{id}/recebimentos` | Adm, Ctrl, SA |
+
+### Relatórios financeiros
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/financeiro/auditoria` | Adm, Ctrl, SA |
+| `GET` | `/api/financeiro/relatorios/resumo` | Adm, Ctrl, SA |
+
+### Preços por convênio
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/convenios-procedimentos-precos` | Adm, Méd, Ctrl, SA |
+| `POST` | `/api/convenios-procedimentos-precos` | Adm, Ctrl, SA |
+| `PUT` | `/api/convenios-procedimentos-precos/{id}` | Adm, Ctrl, SA |
+| `DELETE` | `/api/convenios-procedimentos-precos/{id}` | Adm, Ctrl, SA |
+
+### Grupos médicos
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/grupos-medicos` | Adm, Ctrl, SA |
+| `POST` | `/api/grupos-medicos` | Adm, Ctrl, SA |
+| `GET` | `/api/grupos-medicos/medicos` | Autenticado |
+| `GET` | `/api/grupos-medicos/{id}` | Adm, Ctrl, SA |
+| `PUT` | `/api/grupos-medicos/{id}` | Adm, Ctrl, SA |
+| `DELETE` | `/api/grupos-medicos/{id}` | Adm, Ctrl, SA |
+
+### Agenda e notificações
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/events` | Autenticado |
+| `POST` | `/api/events` | Autenticado (Eq: operador identificado) |
+| `GET` | `/api/events/medical-users` | Autenticado |
+| `GET` | `/api/events/notification-recipients` | Autenticado |
+| `POST` | `/api/events/notifications/mark-read` | Autenticado |
+| `GET` | `/api/events/{id}` | Autenticado |
+| `PUT` | `/api/events/{id}` | Autenticado (Eq: operador identificado) |
+| `DELETE` | `/api/events/{id}` | Autenticado (Eq: operador identificado) |
+| `POST` | `/api/events/{id}/complete` | Autenticado (Eq: operador identificado) |
+| `GET` | `/api/events/{id}/email-notification` | Autenticado |
+| `POST` | `/api/events/{id}/email-notification` | Autenticado (Eq: operador identificado) |
+
+### CBHPM
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/cbhpm` | Autenticado + licença `Cbhpm.Consultar` |
+| `POST` | `/api/cbhpm/import` | Adm, SA |
+
+### Hospitais
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/hospitais` | Autenticado |
+
+### Convênios
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/convenios` | Autenticado |
+
+### OPME
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/opme` | Autenticado |
+
+### Licenças
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/licencas/current` | Autenticado |
+| `GET` | `/api/licencas/users/{userId}` | Adm, SA |
+| `PUT` | `/api/licencas/users/{userId}` | Adm, SA |
+| `POST` | `/api/licencas/users/{userId}/liberar-completa` | Adm, SA |
+
+### Exportações
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `POST` | `/api/exports` | Autenticado (Eq: operador identificado) |
+
+### Monitoramento
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/monitoramento/erros` | Adm, SA |
+| `DELETE` | `/api/monitoramento/erros` | Adm, SA |
+| `GET` | `/api/monitoramento/seguranca` | Adm, SA |
+
+### Infraestrutura
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/warmup` | Público (rate limit `Warmup`) |
+| `GET`/`HEAD` | `/healthz`, `/readyz` | Público (somente status) |
+| `GET`/`HEAD` | `/livez` e `/` | Público (liveness, sem banco) |
 
 O seletor publico do login consulta diretamente o banco de dados e retorna somente as clinicas
 ativas. A listagem e a foto publica usam a mesma fonte de dados utilizada na resolucao da clinica
@@ -218,84 +513,7 @@ Configure os emails autorizados com `Platform__SuperAdminEmails__0`. No startup,
 
 `UsuarioGlobal` guarda a credencial unica; `UsuarioClinica` liga essa identidade ao usuario local, clinica e perfil. O `ClinicaId` do JWT e o tenant efetivo. Consultas sem contexto resolvido falham fechadas; gravacoes com `ClinicaId` divergente e relacionamentos internos entre clinicas diferentes sao recusados antes do `SaveChanges`.
 
-O nome e a foto institucionais pertencem a `Clinica` e somente o SuperAdministrador pode altera-los pelo CRUD de plataforma. O antigo `PUT /api/configuracoes-sistema/current` nao e mais exposto.
-
-### Auth e usuarios
-
-| Metodo | Rota | Auth | Descricao |
-| --- | --- | --- | --- |
-| `POST` | `/api/users/authenticate` | nao | login JWT |
-| `POST` | `/api/users/password/reset` | nao | solicitar reset de senha |
-| `POST` | `/api/users/password/reset/confirm` | nao | confirmar reset com token temporario |
-| `GET` | `/api/users` | admin | lista paginada de usuarios |
-| `POST` | `/api/users` | admin | cria usuario |
-| `GET` | `/api/users/{id}` | sim | detalhe de usuario |
-| `GET` | `/api/users/{id}/foto-perfil` | sim | foto de perfil |
-| `PUT` | `/api/users/{id}` | sim | atualiza usuario |
-| `DELETE` | `/api/users/{id}` | admin | exclui usuario |
-| `PUT` | `/api/users/{id}/password` | sim | altera senha |
-| `PUT` | `/api/users/{id}/password/reset` | admin | gera senha temporaria aleatoria e exige troca no proximo acesso |
-| `POST` | `/api/users/{id}/arquivos` | sim | upload de documento medico |
-| `DELETE` | `/api/users/{id}/arquivos/{arquivoId}` | sim | exclui documento medico |
-
-### Pacientes, observacoes e catalogos
-
-| Metodo | Rota | Auth | Descricao |
-| --- | --- | --- | --- |
-| `GET` | `/api/pacientes` | licenca | lista paginada de pacientes |
-| `GET` | `/api/pacientes/{id}` | licenca | detalhe do paciente |
-| `POST` | `/api/pacientes` | admin/medico/controller | cria paciente |
-| `PUT` | `/api/pacientes/{id}` | admin/medico/controller | atualiza paciente |
-| `DELETE` | `/api/pacientes/{id}` | admin/medico | exclui paciente |
-| `POST` | `/api/pacientes/{id}/arquivos` | admin/medico vinculado/controller | upload de anexo |
-| `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | admin/medico vinculado/controller | exclui anexo |
-| `GET` | `/api/pacientes/{id}/observacoes` | sim | lista observacoes do paciente |
-| `POST` | `/api/pacientes/{id}/observacoes` | sim | cria observacao |
-| `POST` | `/api/pacientes/{id}/observacoes/marcar-lidas` | sim | marca observacoes como lidas |
-| `GET` | `/api/hospitais` | sim | lista hospitais |
-| `GET` | `/api/convenios` | sim | lista convenios |
-| `GET` | `/api/opme` | sim | lista fornecedores OPME |
-| `GET` | `/api/cbhpm` | licenca | consulta CBHPM paginada |
-| `POST` | `/api/cbhpm/import` | admin | importa/substitui itens CBHPM |
-
-### Dashboard, agenda, faturamento e grupos
-
-| Metodo | Rota | Auth | Descricao |
-| --- | --- | --- | --- |
-| `GET` | `/api/dashboard/summary` | licenca | resumo do dashboard |
-| `GET` | `/api/dashboard/notifications` | licenca | notificacoes do dashboard |
-| `GET` | `/api/events` | sim | lista eventos por periodo |
-| `GET` | `/api/events/{id}` | sim | detalhe do evento |
-| `GET` | `/api/events/medical-users` | sim | medicos ativos da agenda |
-| `GET` | `/api/events/notification-recipients` | sim | usuarios e grupos elegiveis para notificacao |
-| `POST` | `/api/events/notifications/mark-read` | sim | marca notificacoes da agenda como lidas |
-| `POST` | `/api/events` | sim | cria evento |
-| `PUT` | `/api/events/{id}` | sim | atualiza evento |
-| `POST` | `/api/events/{id}/complete` | sim | conclui evento |
-| `DELETE` | `/api/events/{id}` | sim | exclui evento |
-| `GET` | `/api/faturamentos-medicos` | sim | lista paginada de faturamentos medicos |
-| `GET` | `/api/grupos-medicos` | admin | lista grupos medicos |
-| `GET` | `/api/grupos-medicos/{id}` | admin | detalhe do grupo |
-| `GET` | `/api/grupos-medicos/medicos` | sim | medicos disponiveis conforme escopo |
-| `POST` | `/api/grupos-medicos` | policy | cria grupo medico |
-| `PUT` | `/api/grupos-medicos/{id}` | admin | atualiza grupo medico |
-| `DELETE` | `/api/grupos-medicos/{id}` | admin | exclui grupo medico |
-
-### Configuracao do sistema, licencas e exportacoes
-
-| Metodo | Rota | Auth | Descricao |
-| --- | --- | --- | --- |
-| `GET` | `/api/configuracoes-sistema/current` | nao | configuracao publica do sistema |
-| `GET` | `/api/configuracoes-sistema/current/foto-empresa` | nao | foto da empresa |
-| `PUT` | `/api/configuracoes-sistema/current` | admin | atualiza nome e foto da empresa |
-| `GET` | `/api/monitoramento/erros` | admin | erros tecnicos paginados; administrador ve a propria clinica e SuperAdministrador ve todas |
-| `DELETE` | `/api/monitoramento/erros` | admin | limpa o histórico visível no escopo atual sem interromper novos logs |
-| `GET` | `/api/licencas/current` | sim | licenca do usuario autenticado |
-| `GET` | `/api/licencas/users/{userId}` | admin | consulta licenca de medico |
-| `PUT` | `/api/licencas/users/{userId}` | admin | atualiza licenca |
-| `POST` | `/api/licencas/users/{userId}/liberar-completa` | admin | libera plano completo |
-| `POST` | `/api/exports` | sim | enfileira exportacao PDF/XLSX |
-| `GET` | `/healthz` | nao | health check |
+O nome e a foto institucionais pertencem a `Clinica` e somente o SuperAdministrador pode altera-los pelo CRUD de plataforma. O antigo `PUT /api/configuracoes-sistema/current` nao e mais exposto; a configuracao do sistema e somente leitura publica.
 
 ## Agenda, notificacoes e observacoes
 
@@ -314,7 +532,10 @@ O dashboard agrega:
 
 ## CBHPM
 
-A tabela `CBHPMGeral` e criada por migration e pode receber seed automatico a partir do JSON gerado do PDF da tabela. O backend usa `IMemoryCache` para acelerar filtros e paginacao em memoria apos o primeiro carregamento.
+A tabela `CBHPMGeral` e criada por migration e pode receber seed a partir do JSON gerado do PDF da tabela
+(`scripts/import_cbhpm_pdf.py`). `GET /api/cbhpm` filtra, ordena e pagina no SQL (LIKE e Full-Text Search quando
+disponivel). O `IMemoryCache` (`cbhpm-geral:v1`, 12 h absoluta / 2 h deslizante) resolve procedimentos por codigo no
+cadastro de pacientes e e invalidado pela importacao.
 
 Consulta tipica:
 
@@ -325,28 +546,19 @@ Authorization: Bearer <token>
 
 ## Banco de dados
 
-Entidades principais:
+Tabelas principais (DbSets de `AppDbContext`), por area:
 
-- `Perfis`
-- `Users`
-- `UserArquivos`
-- `Licencas`
-- `Pacientes`
-- `PacienteArquivos`
-- `PacienteProcedimentos`
-- `Observacoes`
-- `AgendaNotifications`
-- `Events`
-- `Hospitais`
-- `Convenios`
-- `Opmes`
-- `FaturamentosMedicos`
-- `GrupoMedicos`
-- `GrupoMedicoUsuarios`
-- `ConfiguracoesSistema`
-- `PasswordResetTokens`
-- `IdempotencyRequests`
-- `CBHPMGeral`
+- Multiclinica e identidade: `Clinicas`, `UsuariosGlobais`, `UsuariosClinicas`, `Users`, `Perfis`, `AuthenticationSessions`, `TemporaryAccessCredentials`, `EmailChangeRequests`, `PasswordResetTokens`, `AuditoriasPlataforma`
+- Equipes: `Equipes`, `EquipeMembros`, `EquipeOperadores`, `EquipeLoginDesafios`
+- LGPD: `UserLegalAcceptances`, `UserPrivacyPreferences`
+- Pacientes e cirurgias: `Pacientes` (inclui `TipoCirurgia` e `StatusCirurgia`), `PacienteArquivos`, `PacienteProcedimentos`, `Observacoes`
+- Faturamento medico: `FaturamentosMedicos`, `FaturamentoHistoricoArquivos`
+- Financeiro: `AtendimentosCirurgicos`, `AtendimentoProcedimentos`, `AtendimentoArquivos`, `Faturamentos`, `FaturamentoItens`, `Glosas`, `RecursosGlosa`, `ContasReceber`, `Recebimentos`, `ConvenioProcedimentoPrecos`, `FinanceiroMigracaoInconsistencias`
+- Agenda: `Events`, `AgendaNotifications`, `EventEmailDeliveries`
+- Catalogos e grupos: `Hospitais`, `Convenios`, `OPME`, `CbhpmGeral`, `GruposMedicos`, `GrupoMedicoUsuarios`
+- Outros: `UserArquivos`, `Licencas`, `ConfiguracoesSistema`, `IdempotencyRequests`
+
+O schema e definido em `HemodinksAPI.Infrastructure/Data/Configurations`; consulte la (e nao as migrations) para entender o modelo.
 
 Em desenvolvimento, migrations podem rodar no startup com `Database__RunMigrationsOnStartup=true`.
 Em produção, mantenha essa opção desabilitada e use o workflow manual `Apply Production Migrations`
@@ -354,7 +566,7 @@ antes de publicar a imagem que depende do novo schema.
 
 ### Tempo de inicializacao
 
-O workflow `Publish Containers` executa `migrate-production` antes de `deploy-api`.
+O workflow `Publish Production` (`publish-container.yml`, push na `main`) executa `migrate-production` antes de `deploy-api`.
 Somente nesse deploy, `Database__SchemaManagedByDeployment=true` dispensa a consulta
 de migrations no startup e nos health checks. O padrao e `false`: Render e execucoes
 fora desse fluxo continuam validando o schema. Nao habilite essa opcao em um deploy
@@ -418,8 +630,13 @@ O documento OpenAPI inclui esquema `Bearer`.
 ```powershell
 dotnet build HemodinksAPI.slnx
 pwsh ./scripts/Test-Migrations.ps1 -NoBuild
-dotnet test HemodinksAPI.slnx --no-build
+dotnet test HemodinksAPI.slnx --no-build --filter "FullyQualifiedName!~LoginBrowserTests"   # suite do CI
+dotnet test HemodinksAPI.slnx --filter "FullyQualifiedName~<ClasseDeTeste>"                 # focado
 ```
+
+Testes `*SqlServerTests` exigem `HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING` (ou `HEMODINKS_TEST_LOCALDB=1`); sem isso sao ignorados localmente,
+mas o CI os executa e `scripts/check-test-results.py` falha se algum teste obrigatorio for pulado.
+`LoginBrowserTests` rodam no workflow `Login integration E2E`.
 
 ## Documentos relacionados
 
@@ -432,9 +649,16 @@ dotnet test HemodinksAPI.slnx --no-build
 - [Exemplos HTTP](./API.http)
 - [Documentacao tecnica PDF](./docs/Hemodinks-Documentacao-Tecnica.pdf)
 
-### Migrations de homologação
+### Homologacao
 
-O workflow manual `Publish Homologation` prepara artefatos sem acessar o banco por padrão.
-Escolha `deploy-no-schema-changes` para publicar somente com historico atualizado, ou
-`migrate-and-deploy` para aplicar migrations autorizadas antes de publicar.
-Consulte a [ativação e operação](docs/homologation-migrations.md) antes de sincronizar o blueprint.
+O merge na `developer` executa apenas o CI. Para publicar a API de homologacao (Render), rode manualmente
+`Actions > Publish Homologation > Run workflow` na branch `developer` e escolha o modo:
+
+| Modo | Efeito |
+| --- | --- |
+| `diagnose` | valida a configuracao do Render, sem banco e sem deploy |
+| `diagnose-sql` | consulta conexao e historico de migrations, sem alterar nada |
+| `prepare` (padrao) | gera bundle e SQL auditavel, sem acessar o banco |
+| `publish` | aplica somente migrations pendentes conhecidas (quando houver) e publica o commit verificado |
+
+Consulte a [ativacao e operacao](docs/homologation-migrations.md) antes de sincronizar o blueprint.

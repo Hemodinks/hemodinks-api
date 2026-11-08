@@ -190,15 +190,13 @@ pwsh ./scripts/Export-MigrationScripts.ps1
 
 ## Agenda retorna `Invalid object name 'Events'`
 
-Isso indica que a API subiu apontando para um banco que ainda nao recebeu a migration da agenda. Em producao no Render, confirme que a variavel abaixo esta configurada no servico:
+Isso indica que a API subiu apontando para um banco que ainda nao recebeu as migrations. Ambientes publicados
+nao migram no startup (`Database__RunMigrationsOnStartup=false`):
 
-```text
-Database__RunMigrationsOnStartup=true
-```
+- homologacao: rode `Publish Homologation` em `publish` (aplica migrations pendentes conhecidas);
+- producao: rode `Publish Production` com `deploy_to_azure=true` (ou `Apply Production Migrations`).
 
-Depois faca um novo deploy ou reinicie o servico. O startup deve registrar `Iniciando migracao do banco de dados` e aplicar a migration `20260610234500_EnsureEventReminderColumns`, que cria a tabela `Events` quando ela ainda nao existe.
-
-Se o servico foi criado manualmente no dashboard e nao pelo `render.yaml`, adicione essa variavel no dashboard do Render tambem.
+Localmente/compose, `Database__RunMigrationsOnStartup=true` aplica as migrations no startup.
 
 ## Login retorna 401
 
@@ -251,10 +249,10 @@ Isso indica que o banco tem a tabela `Events`, mas ainda nao tem as colunas de l
 
 Solucoes:
 
-1. Publique a versao que contem a migration `20260610234500_EnsureEventReminderColumns`.
-2. Confirme `Database__RunMigrationsOnStartup=true` no ambiente.
-3. Reinicie a API para o startup executar `Database.MigrateAsync()`.
-4. Se precisar aplicar manualmente:
+1. Publique a versao que contem a migration `20260610234500_EnsureEventReminderColumns` pelo workflow do ambiente
+   (`Publish Homologation` em `publish` ou `Publish Production` com `deploy_to_azure=true`).
+2. Localmente, confirme `Database__RunMigrationsOnStartup=true` e reinicie a API.
+3. Em banco local, se precisar aplicar manualmente:
 
 ```powershell
 dotnet tool run dotnet-ef database update --project HemodinksAPI.Infrastructure --startup-project HemodinksAPI.Api
@@ -310,7 +308,8 @@ VITE_API_URL=https://<api-publica>
 
 ## Cache CBHPM parece desatualizado
 
-O cache e em memoria por instancia da API. Ele expira sozinho, mas pode ficar com dados antigos ate:
+A listagem `GET /api/cbhpm` consulta o banco diretamente. O cache em memoria (por instancia) so resolve
+procedimentos por codigo no cadastro de pacientes e pode ficar com dados antigos ate:
 
 - expirar a janela de cache
 - reiniciar a API
@@ -335,13 +334,12 @@ Get-Content .\HemodinksAPI.Api\logs\hemodinks-api-*.txt -Wait
 Backend:
 
 ```powershell
-dotnet test .\HemodinksAPI.Tests\HemodinksAPI.Tests.csproj
+dotnet test HemodinksAPI.slnx --filter "FullyQualifiedName!~LoginBrowserTests"
 ```
 
 Frontend:
 
 ```powershell
 cd ..\hemodinks-front
-npm test
-npm run build
+npm run verify
 ```

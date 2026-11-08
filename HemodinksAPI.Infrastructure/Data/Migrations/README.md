@@ -32,6 +32,7 @@ Exemplos atuais:
 - `20260617171244_AddAgendaNotifications`: schema.
 - `20260619191959_AddFaturamentosMedicos`: schema + backfill.
 - `20260610234500_EnsureEventReminderColumns`: repair.
+- `20261107043000_Schema_AddSurgeryConsolidationStatus`: schema + backfill (SQL em `EXEC(...)` por causa dos scripts idempotentes).
 
 ## Convencao recomendada para futuras migrations
 
@@ -48,10 +49,18 @@ Isso melhora leitura, auditoria e decisao de rollout/rollback.
 Antes de publicar uma release com migration:
 
 1. Rode `pwsh ./scripts/Test-Migrations.ps1`.
-2. Gere o SQL de rollout: `pwsh ./scripts/Export-MigrationScripts.ps1`.
+2. Gere o SQL de rollout: `pwsh ./scripts/Export-MigrationScripts.ps1` (ou o artefato dos workflows de publicacao).
 3. Confirme backup/PITR do banco.
-4. Publique a aplicacao.
-5. Valide `/healthz` e logs logo apos o deploy.
+4. Publique pelo workflow do ambiente: `Publish Homologation` (`publish`) ou `Publish Production` (`deploy_to_azure=true`);
+   ambos aplicam somente migrations pendentes conhecidas, validadas pelo `Hemodinks.SchemaGuard`.
+5. Valide `/readyz` e logs logo apos o deploy.
+
+Ao adicionar uma migration, atualize tambem o marcador de schema em `scripts/ValidateRestoredDatabase.sql`,
+`HemodinksAPI.Tests/RestoreDatabaseIntegrityTests.cs` e `docs/issue-184-backup-recovery.md`, e o manifesto de
+`CHECK` quando houver nova constraint.
+
+Backfills com `migrationBuilder.Sql` que referenciam colunas criadas na mesma migration devem usar `EXEC(N'...')`:
+o script idempotente compila o lote inteiro antes de a coluna existir.
 
 ## Politica segura de rollback
 

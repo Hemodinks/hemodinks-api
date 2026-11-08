@@ -146,7 +146,7 @@ Nao execute o bootstrap pelo GitHub Actions e nao o use em homologacao.
 
 ## Deployment normal
 
-Em Actions, abra **Publish Containers**, escolha **Run workflow** na ref desejada
+Em Actions, abra **Publish Production** (`publish-container.yml`), escolha **Run workflow** na ref desejada
 e marque `deploy_to_azure=true`.
 
 Ordem esperada:
@@ -175,7 +175,7 @@ imagem, revisoes, label, migration, smoke test e trafego final.
 O workflow legado **Apply Production Migrations** permanece apenas para uma
 aplicacao manual excepcional: ele agora executa restore/build/test/auditoria,
 gera o mesmo bundle/SQL, usa o mesmo lock e so avanca para a ultima migration.
-Ele nao publica a API; prefira sempre o fluxo completo **Publish Containers**.
+Ele nao publica a API; prefira sempre o fluxo completo **Publish Production** (`publish-container.yml`).
 
 Se build, testes, auditoria, bundle, migration, provisionamento ou smoke falhar,
 o step de troca nao e executado e o trafego permanece na revisao anterior. Se o

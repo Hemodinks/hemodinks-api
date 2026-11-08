@@ -6,23 +6,36 @@ Este documento resume a implementacao atual do backend.
 
 | Projeto | Conteudo |
 | --- | --- |
-| `HemodinksAPI.Domain` | entidades (`User`, `Paciente`, `Event`, `Licenca`, `ConfiguracaoSistema`, `GrupoMedico`, etc.) e utilitarios puros |
+| `HemodinksAPI.Domain` | entidades (`Clinica`, `UsuarioGlobal`, `UsuarioClinica`, `User`, `Equipe`, `Paciente`, `AtendimentoCirurgico`, `Faturamento`, `ContaReceber`, `Event`, `Licenca`, `GrupoMedico`, etc.), enums (`TipoCirurgia`, `StatusCirurgia`) e utilitarios puros |
 | `HemodinksAPI.Application` | features por modulo, CQRS, DTOs, validadores, contratos e regras de aplicacao |
 | `HemodinksAPI.Infrastructure` | `AppDbContext`, migrations, seeders, JWT, storage, filas, notificacoes e hosted services |
 | `HemodinksAPI.Api` | endpoints Minimal API, autenticacao, autorizacao, CORS, Swagger/Scalar e DI |
-| `HemodinksAPI.Workers` | Azure Functions para reset por email e exportacoes assincronas |
-| `HemodinksAPI.Tests` | testes unitarios e de integracao |
+| `HemodinksAPI.Workers` | Azure Functions para reset por email, exportacoes, emails de eventos e uploads |
+| `HemodinksAPI.Tests` | xUnit v3: unitarios, integracao (InMemory/SQLite) e `*SqlServerTests` |
 
 ## Padrao de fluxo
 
 1. Endpoint recebe a requisicao HTTP.
-2. JWT e policies verificam acesso.
+2. Middlewares resolvem a sessao e a clinica (`ClinicaId` do JWT) e bloqueiam modulos nao contratados; JWT e policies verificam acesso.
 3. Endpoint monta command/query e envia via MediatR.
 4. `ValidationBehavior` executa validadores registrados.
 5. Handler aplica regras, usa contratos da Application e persiste via `IAppDbContext`.
 6. Infrastructure fornece banco, storage, notificacao, filas e hash.
 
 ## Modulos
+
+### Multiclinica, sessao e plataforma
+
+Responsavel por clinicas (plano, modulos, assinatura), identidade global (`UsuarioGlobal`) e vinculos por clinica
+(`UsuarioClinica`), sessao com refresh em cookie `HttpOnly` (`/api/session/*`), troca de clinica pelo SuperAdministrador
+e auditoria da plataforma. Principais pontos: `ClinicaResolutionMiddleware`, `AuthenticationSessionMiddleware`,
+`ClinicaModuleAccessMiddleware`, filtro global de tenant em `AppDbContext` e `Features/Clinics`/`Features/Sessions`.
+
+### Equipes
+
+Identidade coletiva do perfil `Equipe`, membros, operadores com PIN e identificacao por operador
+(`/api/equipes`, `/api/equipe-auth/*`). Operacoes sensiveis exigem `EquipeOperacaoSensivel` e sao auditadas
+por `EquipeMutationAuditMiddleware`. Codigo em `Features/Teams`.
 
 ### Usuarios e autenticacao
 
@@ -74,7 +87,8 @@ Implementacao principal:
 - `EventQueryHandlers`
 - `AgendaNotificationQueryHandlers`
 - `EventReminderProcessor`
-- `EventNotificationHostedService`
+- `EventNotificationHostedService` (somente com `EventReminders__RunHostedProcessor=true`; em producao os lembretes sao processados nas consultas)
+- `EventEmailDeliveryHostedService` e Function `SendEventEmail` para emails de eventos
 
 ### Faturamento medico
 
@@ -85,6 +99,12 @@ Classes principais:
 - `GetAllFaturamentosMedicosQueryHandler`
 - `FaturamentoMedicoScope`
 - `FaturamentoMedicoFilters`
+
+### Financeiro
+
+Atendimentos cirurgicos, faturamentos (itens, status, glosas, recursos e retorno), contas a receber, recebimentos,
+comprovantes, estornos, precos por convenio, resumo e auditoria financeira. Codigo em `Features/Financeiro`;
+endpoints em `FinanceiroEndpointExtensions` com `FinanceiroAuditFilter`.
 
 ### Grupos medicos
 
@@ -139,7 +159,11 @@ Fluxo:
 
 ### Exportacoes assincronas
 
-`POST /api/exports` enfileira jobs PDF/XLSX. A API continua dona de auth, rate limiting, idempotencia e payload. O `HemodinksAPI.Workers` executa o processamento pesado quando as filas estiverem habilitadas.
+`POST /api/exports` monta no servidor o snapshot dos dados (`FileExportSnapshotBuilder`, com as mesmas queries e escopo do perfil) e o enfileira para `GenerateFileExport`. A API continua dona de auth, rate limiting, limite de tamanho da mensagem e filtros (`tipoCirurgia`, `statusCirurgia`). O `HemodinksAPI.Workers` gera o arquivo PDF/XLSX.
+
+### LGPD e monitoramento
+
+Aceites legais, preferencias de privacidade e consulta/limpeza de erros e eventos de seguranca (`/api/monitoramento/*`).
 
 ## Documentacao da API
 
@@ -154,28 +178,7 @@ Em ambiente publicado, essas rotas exigem `ApiDocumentation__Enabled=true`.
 
 ## Persistencia
 
-Tabelas principais:
-
-- `Perfis`
-- `Users`
-- `UserArquivos`
-- `Licencas`
-- `Pacientes`
-- `PacienteArquivos`
-- `PacienteProcedimentos`
-- `Observacoes`
-- `AgendaNotifications`
-- `Events`
-- `Hospitais`
-- `Convenios`
-- `Opmes`
-- `FaturamentosMedicos`
-- `GrupoMedicos`
-- `GrupoMedicoUsuarios`
-- `ConfiguracoesSistema`
-- `PasswordResetTokens`
-- `IdempotencyRequests`
-- `CBHPMGeral`
+A lista de tabelas por area esta no [README](README.md#banco-de-dados); a configuracao de cada entidade fica em `HemodinksAPI.Infrastructure/Data/Configurations`.
 
 Migrations ficam em:
 
@@ -204,7 +207,7 @@ Reset por email:
 
 ```powershell
 dotnet build HemodinksAPI.slnx
-dotnet test HemodinksAPI.slnx --no-build
+dotnet test HemodinksAPI.slnx --no-build --filter "FullyQualifiedName!~LoginBrowserTests"
 ```
 
 Cobertura existente valida:
@@ -213,7 +216,9 @@ Cobertura existente valida:
 - queries e comandos de usuarios
 - regras de pacientes e observacoes
 - faturamento medico
-- CBHPM com cache
+- CBHPM (consulta SQL e cache por codigo)
+- isolamento por clinica, sessao, equipes e matriz de autorizacao
+- financeiro, exportacoes e migrations (incluindo replay completo em SQL Server)
 - grupos medicos
 - storage local/Azure
 - endpoints principais e integracoes de API

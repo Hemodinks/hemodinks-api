@@ -63,7 +63,7 @@ dotnet user-secrets set --project HemodinksAPI.Api "JwtSettings:ExpirationMinute
 dotnet run --project HemodinksAPI.Api
 ```
 
-As migrations sao aplicadas no startup. O seed inicial cria perfis, usuarios iniciais, licencas quando necessario e a tabela CBHPM quando estiver vazia.
+Em `Development` (padrao do `dotnet run`), `appsettings.Development.json` liga migrations, manutencao e seeds no startup: sao criados perfis, usuarios iniciais, licencas quando necessario e a tabela CBHPM quando estiver vazia. Ambientes publicados mantem tudo isso desligado.
 
 ## Testar login
 

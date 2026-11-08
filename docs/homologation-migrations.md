@@ -4,18 +4,26 @@
 
 | Modo | Quando usar | Banco | Publica API? |
 | --- | --- | --- | --- |
-| prepare (padrao) | Revisar SQL e pacote | Nao acessa | Nao |
-| deploy-no-schema-changes | Correcoes durante congelamento do banco | Apenas consulta historico de migrations | Sim, se historico corresponder ao commit |
-| migrate-and-deploy | Mudanca de schema autorizada | Aplica todas as migrations pendentes | Sim, apos sucesso |
+| `diagnose` | Conferir a configuracao do Render | Nao acessa | Nao |
+| `diagnose-sql` | Investigar conexao e historico de migrations | Apenas leitura | Nao |
+| `prepare` (padrao) | Revisar SQL e pacote | Nao acessa | Nao |
+| `publish` | Publicar o commit da `developer` | Consulta o historico e, se houver migrations pendentes conhecidas, aplica o bundle | Sim, apos verificacao |
 
-O antigo booleano publish foi substituido por mode. Integracoes que usam workflow_dispatch devem enviar mode. O padrao continua sendo apenas preparar.
+No modo `publish`, o job escolhe sozinho entre `deploy-only` (historico igual ao commit) e
+`migrate-and-deploy` (somente migrations conhecidas pendentes). Historico desconhecido, fora de ordem ou
+adiantado bloqueia o deploy. Os antigos modos `deploy-no-schema-changes` e `migrate-and-deploy` deixaram de
+ser opcoes de entrada.
 
 ## Passo a passo
 
-1. Enviar codigo para developer e aguardar CI aprovado para o commit.
-2. Actions > Publish Homologation > Run workflow > branch developer.
-3. Escolher prepare para revisao; durante congelamento, usar deploy-no-schema-changes para publicar. Usar migrate-and-deploy somente quando alteracoes de schema forem autorizadas e backup estiver disponivel.
-4. Aguardar sucesso e verificar login e funcionalidades na homologacao. Nao usar deploy direto no Render para contornar verificacoes.
+1. Fazer merge na `developer` e aguardar o CI aprovado para o commit (o workflow verifica isso).
+2. Actions > Publish Homologation > Run workflow > branch `developer`.
+3. Opcional: rodar `prepare` para revisar o SQL gerado (artefato `homologation-migrations-<sha>`).
+4. Rodar `publish`. Quando houver migration, garanta antes um backup ou ponto de restauracao do banco de homologacao.
+5. Aguardar sucesso e verificar login e funcionalidades na homologacao. Nao usar deploy direto no Render para contornar verificacoes.
+
+O front de homologacao e publicado pela integracao da Vercel a partir da `developer`; nenhum workflow do
+`hemodinks-front` publica a homologacao.
 
 ## Garantias e limites
 
@@ -25,9 +33,9 @@ A ferramenta Hemodinks.SchemaGuard usa os metadados EF Core do proprio commit e 
 
 Esta verificacao compara historico EF; nao detecta alteracoes manuais de colunas fora das migrations. Nao certifica compatibilidade de dados ou de SQL escrito manualmente. Deploy sem alterar schema nao impede escritas normais da aplicacao apos publicacao.
 
-Apos verificacao bem-sucedida OU aplicacao bem-sucedida do bundle, o workflow define Database__SchemaManagedByDeployment=true e publica o SHA verificado. Isso reutiliza a otimizacao de producao para dispensar consulta de migrations no startup/readiness; o probe de disponibilidade SQL permanece. Render Free ainda pode sofrer cold start.
+Apos verificacao bem-sucedida ou aplicacao bem-sucedida do bundle, o workflow define Database__SchemaManagedByDeployment=true e publica o SHA verificado. Isso reutiliza a otimizacao de producao para dispensar consulta de migrations no startup/readiness; o probe de disponibilidade SQL permanece. Render Free ainda pode sofrer cold start.
 
-Falha no gate impede alteracao de configuracao e deploy. Falha posterior de deploy nao reverte migrations ja aplicadas no modo migrate-and-deploy. Concurrency serializa execucoes deste workflow; evitar operacoes manuais concorrentes.
+Falha no gate impede alteracao de configuracao e deploy. Falha posterior de deploy nao reverte migrations ja aplicadas pelo modo `publish`. Concurrency serializa execucoes deste workflow; evitar operacoes manuais concorrentes.
 
 ## Configuracao
 
@@ -38,7 +46,7 @@ Environment GitHub homologation restrito a developer:
 - Provisionamento, verificacao efetiva, rede e rollback: [runbook SQL](issue-197-sql-runtime-network.md).
 - Variavel HOMOLOGATION_RENDER_SERVICE_ID=srv-d8hmtje47okc738ldllg.
 
-Servico: hemodinks-api-1, https://hemodinks-api-1-90nb.onrender.com, developer, Virginia, ASP.NET Confirmation. Auto-Deploy precisa permanecer Off. Seeds e manutencao permanecem desabilitados. Os secrets foram cadastrados e a preparacao anterior concluiu na execucao 36633800221; esse resultado nao valida os novos modos deste incremento.
+Servico: hemodinks-api-1, https://hemodinks-api-1-90nb.onrender.com, developer, Virginia, ASP.NET Confirmation. Auto-Deploy precisa permanecer Off. Seeds e manutencao permanecem desabilitados. Os secrets estao cadastrados no environment `homologation`.
 
 ## Producao e PR para main
 
@@ -46,9 +54,10 @@ Somente workflow_dispatch e permitido, e os dois jobs sao restritos a refs/heads
 
 ## Validacao
 
-Testes locais cobrem historico igual, ordenacao, migrations pendentes, banco adiantado, historico divergente/vazio, ausencia da tabela de historico sem criacao de tabelas e falha de conexao. Nenhum banco remoto foi acessado ou alterado nesta implementacao.
-
-Resultados deste incremento: 17 testes passaram (9 do verificador e 8 de startup); CLI sem connection string retorna codigo 2; Actionlint/YAML e verificacao de whitespace aprovados. Novos modos ainda nao executados no GitHub nem em bancos remotos.
+`tools/Hemodinks.SchemaGuard` tem testes para historico igual, ordenacao, migrations pendentes, banco adiantado,
+historico divergente/vazio, ausencia da tabela de historico sem criacao de tabelas e falha de conexao.
+O fluxo completo foi exercitado em homologacao (por exemplo, a publicacao da migration
+`20261107043000_Schema_AddSurgeryConsolidationStatus`).
 
 ## Diagnostico SQL somente de leitura
 

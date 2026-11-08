@@ -165,7 +165,7 @@ def page_overview(c: canvas.Canvas, page: int) -> int:
     y = HEIGHT - 100
     y = draw_wrapped(
         c,
-        "O Hemodinks e uma aplicacao web composta por frontend React/Vite, API ASP.NET Core/.NET 10, banco SQL Server/Azure SQL e Azure Blob Storage para arquivos. A API usa Clean Architecture pragmatica, CQRS com MediatR, validacao em pipeline, JWT Bearer, EF Core, Serilog, Swagger, Scalar, agenda com lembretes, grupos medicos, configuracao do sistema, faturamento medico, IMemoryCache para CBHPM e fluxos assincronos opcionais para reset de senha e exportacoes.",
+        "O Hemodinks e uma aplicacao web multiclinica composta por frontend React 19/Vite/TypeScript, API ASP.NET Core/.NET 10, banco SQL Server/Azure SQL e Azure Blob Storage para arquivos. A API usa Clean Architecture pragmatica, CQRS com MediatR, validacao em pipeline, JWT com refresh em cookie HttpOnly, isolamento por ClinicaId, EF Core, Serilog, New Relic, Swagger e Scalar. Cobre usuarios, equipes, pacientes e cirurgias (tipo e status), agenda, grupos medicos, faturamento medico, financeiro (atendimentos, faturamentos, glosas, contas a receber), licencas, plataforma de clinicas, CBHPM e exportacoes.",
         MARGIN,
         y,
         720,
@@ -184,6 +184,8 @@ def page_overview(c: canvas.Canvas, page: int) -> int:
         ("Frontend homologacao", "https://hemodinks-homologacao.gestao-saude.tec.br"),
         ("Frontend homologacao legado", "https://hemodinks-homologacao.vercel.app"),
         ("API local", "http://localhost:5000"),
+        ("API homologacao", "https://hemodinks-api-1-90nb.onrender.com"),
+        ("API producao", "Azure Container Apps (hemodinks-api-prod, blue/green)"),
         ("Swagger", "/swagger"),
         ("Scalar", "/scalar"),
         ("OpenAPI JSON", "/openapi/v1.json"),
@@ -205,11 +207,11 @@ def page_overview(c: canvas.Canvas, page: int) -> int:
         [
             "Azure SQL Database: persistencia relacional via Entity Framework Core.",
             "Azure Blob Storage: containers profile-photos e patient-files.",
-            "Agenda: lembretes processados por BackgroundService interno, sem fila paga nesta fase.",
-            "Licencas: controle de trial, plano completo e features liberadas para medicos.",
-            "Azure Queue Storage: opcional para reset por email e exportacoes.",
-            "Azure Functions: usadas pelo HemodinksAPI.Workers para filas e processamento assincrono.",
-            "IMemoryCache: cache local da API, sem recurso Azure separado.",
+            "Azure Container Apps: API em producao com revisoes blue/green e workers em container.",
+            "Azure Queue Storage + Azure Functions (HemodinksAPI.Workers): reset de senha, exportacoes, emails de eventos e uploads.",
+            "Agenda: lembretes reservados por EventReminderProcessor nas consultas de agenda/dashboard (BackgroundService so em dev).",
+            "Render: homologacao (hemodinks-api-1), publicada pelo workflow Publish Homologation.",
+            "IMemoryCache: resolucao de procedimentos CBHPM por codigo, local por instancia.",
         ],
         MARGIN,
         y,
@@ -231,7 +233,7 @@ def page_architecture(c: canvas.Canvas, page: int) -> int:
     box(c, 640, 455, 130, 42, "IMemoryCache\nCBHPM", LIGHT_ORANGE, ORANGE)
     box(c, 640, 390, 130, 42, "Azure SQL\nDatabase", LIGHT_PURPLE, PURPLE)
     box(c, 640, 325, 130, 42, "Azure Blob\nStorage", LIGHT_PURPLE, PURPLE)
-    box(c, 640, 260, 130, 42, "Worker Agenda\ninterno", LIGHT_ORANGE, ORANGE)
+    box(c, 640, 260, 130, 42, "Lembretes\nsob demanda", LIGHT_ORANGE, ORANGE)
     box(c, 640, 195, 130, 42, "Azure Queue /\nFunctions", LIGHT_RED, RED)
     arrow(c, 140, 412, 175, 412, "HTTPS")
     arrow(c, 295, 412, 330, 412, "REST + JWT")
@@ -249,8 +251,8 @@ def page_architecture(c: canvas.Canvas, page: int) -> int:
         [
             "Swagger e Scalar sao servidos pela propria API e consomem o documento OpenAPI gerado por Swashbuckle.",
             "Em ambientes publicados, a documentacao interativa exige ApiDocumentation__Enabled=true.",
-            "A consulta CBHPM aquece o cache na primeira chamada; filtros e paginacao seguintes rodam em memoria.",
-            "Agenda usa BackgroundService interno e NextReminderAt para consultar apenas lembretes vencidos.",
+            "Todo request autenticado resolve a clinica pelo JWT; o filtro global do EF falha fechado sem ClinicaId.",
+            "Lembretes vencidos (NextReminderAt) sao reservados com lease por EventReminderProcessor, seguro entre replicas.",
             "Uploads usam Azure Blob Storage; o banco guarda a URL e os metadados.",
             "Reset de senha por email segue a ordem Function HTTP valida, fila Azure e SMTP direto.",
         ],
@@ -267,7 +269,7 @@ def page_mer(c: canvas.Canvas, page: int) -> int:
     title(c, "MER - Modelo Entidade Relacional", "Tabelas principais, chaves e relacionamentos")
     users_fields = [
         "Id PK",
-        "PerfilId FK",
+        "ClinicaId FK, PerfilId FK",
         "Nome, Email UK, Telefone",
         "Cpf UK, CRM, CRM UF",
         "FotoPerfil, Senha hash",
@@ -279,9 +281,9 @@ def page_mer(c: canvas.Canvas, page: int) -> int:
         "UserId FK UK",
         "HospitalId, ConvenioId",
         "MedicoUserId FK",
-        "NomePaciente",
-        "CbhpmCodigo/Porte",
-        "Procedimento, StatusPago",
+        "ClinicaId FK, NomePaciente",
+        "TipoCirurgia, StatusCirurgia",
+        "DataAtendimento, StatusPago",
     ]
     cbhpm_fields = [
         "Id PK",
@@ -386,8 +388,9 @@ def page_business_flow(c: canvas.Canvas, page: int) -> int:
     bullet_list(
         c,
         [
-            "Administrador pode cadastrar e editar pacientes; medico tem acesso conforme vinculo; paciente acessa o proprio cadastro.",
+            "Administrador, Controller, Medico (escopo) e Equipe (operador identificado) cadastram e editam; paciente le o proprio cadastro.",
             "Se CbhpmCodigo existir, a API busca o procedimento no cache e usa os dados oficiais de codigo, porte e procedimento.",
+            "StatusCirurgia e derivado da data da consolidacao: preenchida = Consolidada; vazia = NaoConsolidada.",
             "Anexos sao enviados separadamente por endpoint multipart e armazenados no Azure Blob Storage.",
         ],
         45,
@@ -406,7 +409,7 @@ def page_agenda_licensing(c: canvas.Canvas, page: int) -> int:
     box(c, 365, 430, 135, 44, "EventFeatureRules\nValidationBehavior", LIGHT_GREEN, GREEN)
     box(c, 535, 430, 120, 44, "Events SQL", LIGHT_PURPLE, PURPLE)
     box(c, 55, 310, 135, 44, "NextReminderAt", LIGHT_ORANGE, ORANGE)
-    box(c, 225, 310, 155, 44, "EventNotification\nHostedService", LIGHT_ORANGE, ORANGE)
+    box(c, 225, 310, 155, 44, "EventReminder\nProcessor", LIGHT_ORANGE, ORANGE)
     box(c, 420, 310, 135, 44, "NotificationService\nfake/log", LIGHT_ORANGE, ORANGE)
     box(c, 595, 310, 130, 44, "Recalcula\nproximo lembrete", LIGHT_ORANGE, ORANGE)
 
@@ -434,9 +437,9 @@ def page_agenda_licensing(c: canvas.Canvas, page: int) -> int:
         c,
         [
             "Agenda pergunta se deve notificar usuario e/ou perfil medico e salva reminderPeriodMinutes.",
-            "Worker interno consulta somente lembretes vencidos por NextReminderAt; evento concluido nao gera novos lembretes.",
+            "EventReminderProcessor reserva lembretes vencidos por NextReminderAt ao consultar agenda/dashboard; evento concluido nao gera novos.",
+            "Emails de eventos saem por EventEmailDeliveries (hosted service) ou pela Function SendEventEmail.",
             "Licencas controlam Dashboard, Pacientes e CBHPM por feature; administrador pode liberar plano completo.",
-            "NotificationService atual registra logs; a interface permite trocar por push, email, FCM ou fila futura.",
         ],
         55,
         112,
@@ -448,14 +451,14 @@ def page_agenda_licensing(c: canvas.Canvas, page: int) -> int:
 
 
 def page_cbhpm_flow(c: canvas.Canvas, page: int) -> int:
-    title(c, "Fluxo CBHPM e Cache", "Seed, leitura, filtro, paginacao e invalidacao")
+    title(c, "Fluxo CBHPM e Cache", "Seed, consulta SQL paginada e cache por codigo")
     box(c, 55, 430, 120, 44, "Startup API", LIGHT_BLUE, BLUE)
     box(c, 215, 430, 120, 44, "Migrations", LIGHT_BLUE, BLUE)
     box(c, 375, 430, 120, 44, "CbhpmSeeder", LIGHT_BLUE, BLUE)
     box(c, 535, 430, 130, 44, "CBHPMGeral SQL", LIGHT_PURPLE, PURPLE)
     box(c, 55, 310, 130, 44, "GET /api/cbhpm", LIGHT_GREEN, GREEN)
-    box(c, 225, 310, 130, 44, "ICbhpmCache", LIGHT_ORANGE, ORANGE)
-    box(c, 395, 310, 130, 44, "Snapshot memoria", LIGHT_ORANGE, ORANGE)
+    box(c, 225, 310, 130, 44, "LIKE / Full-Text", LIGHT_ORANGE, ORANGE)
+    box(c, 395, 310, 130, 44, "Count + Skip/Take\nno SQL", LIGHT_ORANGE, ORANGE)
     box(c, 565, 310, 130, 44, "Filtro + paginacao", LIGHT_GREEN, GREEN)
     box(c, 565, 215, 130, 44, "PagedResult", LIGHT_GREEN, GREEN)
     box(c, 55, 185, 130, 44, "POST /api/cbhpm/import", LIGHT_RED, RED)
@@ -469,7 +472,7 @@ def page_cbhpm_flow(c: canvas.Canvas, page: int) -> int:
     arrow(c, 355, 332, 395, 332)
     arrow(c, 525, 332, 565, 332)
     arrow(c, 630, 310, 630, 259)
-    arrow(c, 460, 310, 590, 430, "miss cache")
+    arrow(c, 460, 310, 590, 430, "consulta")
     arrow(c, 185, 207, 225, 207)
     arrow(c, 355, 207, 395, 207)
     arrow(c, 525, 207, 565, 430, "recarrega proxima leitura", RED, dashed=True)
@@ -480,9 +483,9 @@ def page_cbhpm_flow(c: canvas.Canvas, page: int) -> int:
     bullet_list(
         c,
         [
-            "Expiracao absoluta de 12 horas e deslizante de 2 horas.",
-            "Cache local por processo; em multiplas instancias, cada instancia aquece seu proprio cache.",
-            "Importacao e seed invalidam a chave cbhpm-geral:v1.",
+            "GET /api/cbhpm filtra, ordena e pagina no SQL; o cache nao participa da listagem.",
+            "ICbhpmCache (cbhpm-geral:v1, 12 h absoluta / 2 h deslizante) resolve procedimentos por codigo no cadastro de pacientes.",
+            "Importacao e seed invalidam o cache; cada instancia aquece o seu.",
         ],
         55,
         112,
@@ -493,28 +496,77 @@ def page_cbhpm_flow(c: canvas.Canvas, page: int) -> int:
     return page + 1
 
 
-def page_endpoints(c: canvas.Canvas, page: int) -> int:
-    title(c, "Documentacao Viva da API", "Swagger, Scalar e endpoints principais")
+def page_tenancy(c: canvas.Canvas, page: int) -> int:
+    title(c, "Multiclinica, Perfis e Financeiro", "Isolamento por clinica, sessao, perfis e modulos")
+    box(c, 45, 430, 120, 44, "Login\nUsuarioGlobal", LIGHT_BLUE, BLUE)
+    box(c, 200, 430, 135, 44, "UsuarioClinica\nperfil por clinica", LIGHT_BLUE, BLUE)
+    box(c, 370, 430, 130, 44, "JWT ClinicaId +\ncookie refresh", LIGHT_GREEN, GREEN)
+    box(c, 535, 430, 130, 44, "Filtro global EF\n(fail-closed)", LIGHT_PURPLE, PURPLE)
+    box(c, 370, 345, 130, 44, "Modulos do plano\n(Parcial = 403)", LIGHT_ORANGE, ORANGE)
+    box(c, 535, 345, 130, 44, "Policies por\nperfil/licenca", LIGHT_ORANGE, ORANGE)
+    arrow(c, 165, 452, 200, 452)
+    arrow(c, 335, 452, 370, 452)
+    arrow(c, 500, 452, 535, 452)
+    arrow(c, 435, 430, 435, 389)
+    arrow(c, 500, 367, 535, 367)
     rows = [
-        ("GET", "/healthz", "Health check publico"),
+        ("1", "Administrador", "gestao da clinica; propria clinica e equipes na plataforma"),
+        ("2", "Medicos", "pacientes, atendimentos, faturamento e agenda no escopo"),
+        ("3", "Pacientes", "proprio cadastro e prontuario"),
+        ("4", "Controller", "operacao clinica e financeira, sem excluir pacientes"),
+        ("5", "SuperAdministrador", "cria, desativa e alterna clinicas; auditoria da plataforma"),
+        ("6", "Equipe", "identidade coletiva; operacoes sensiveis exigem operador identificado"),
+    ]
+    y = 300
+    c.setFont("Helvetica-Bold", 11)
+    c.setFillColor(NAVY)
+    c.drawString(45, y, "Perfis")
+    y -= 18
+    c.setFont("Helvetica", 9)
+    for pid, name, desc in rows:
+        c.setFillColor(BLUE)
+        c.drawString(45, y, f"{pid}  {name}")
+        c.setFillColor(colors.black)
+        c.drawString(190, y, desc)
+        y -= 15
+    bullet_list(
+        c,
+        [
+            "Financeiro: atendimentos cirurgicos -> faturamentos (itens, glosas, recursos, retorno) -> contas a receber -> recebimentos e estornos.",
+            "Precos por convenio alimentam os faturamentos; relatorios e auditoria financeira ficam com Administrador, Controller e SuperAdministrador.",
+            "Matriz completa: docs/MATRIZ_PERFIS_PERMISSOES.md (gerada por scripts/generate_permissions_matrix.py).",
+        ],
+        45,
+        y - 10,
+        760,
+    )
+    footer(c, page)
+    c.showPage()
+    return page + 1
+
+
+def page_endpoints(c: canvas.Canvas, page: int) -> int:
+    title(c, "Documentacao Viva da API", "Swagger, Scalar e endpoints principais (amostra)")
+    rows = [
+        ("GET", "/healthz, /readyz, /livez", "Prontidao e liveness publicos"),
         ("POST", "/api/users/authenticate", "Login JWT"),
         ("POST", "/api/users/password/reset", "Solicitacao de token de reset"),
         ("POST", "/api/users/password/reset/confirm", "Confirmacao de reset por token"),
-        ("GET", "/api/users", "Usuarios paginados"),
+        ("POST", "/api/session/renovar", "Renovacao do JWT pelo cookie HttpOnly"),
+        ("GET", "/api/platform/clinicas", "Clinicas (SuperAdministrador; Administrador: a propria)"),
         ("GET", "/api/pacientes", "Pacientes paginados"),
         ("POST", "/api/pacientes/{id}/observacoes", "Observacoes do paciente"),
         ("GET", "/api/faturamentos-medicos", "Faturamento medico paginado"),
-        ("GET", "/api/grupos-medicos", "Grupos medicos"),
-        ("GET", "/api/configuracoes-sistema/current", "Configuracao publica do sistema"),
+        ("GET", "/api/faturamentos", "Faturamentos, glosas e recursos (financeiro)"),
+        ("GET", "/api/financeiro/contas-receber", "Contas a receber e recebimentos"),
         ("GET", "/api/cbhpm", "Consulta CBHPM paginada com cache"),
         ("GET", "/api/dashboard/summary", "Resumo do dashboard"),
         ("GET", "/api/events", "Eventos da agenda por periodo"),
         ("POST", "/api/events", "Criacao de evento com lembretes"),
-        ("GET", "/api/events/notification-recipients", "Destinatarios permitidos"),
-        ("POST", "/api/events/{id}/complete", "Conclusao de evento"),
+        ("POST", "/api/equipe-auth/identificar", "Identificacao do operador da equipe"),
         ("GET", "/api/licencas/current", "Licenca do usuario autenticado"),
         ("PUT", "/api/licencas/users/{userId}", "Atualizacao de licenca admin"),
-        ("GET", "/api/opme", "Catalogo OPME"),
+        ("GET", "/api/atendimentos-cirurgicos", "Atendimentos cirurgicos"),
         ("POST", "/api/exports", "Exportacao assincrona PDF/XLSX"),
     ]
     x = 55
@@ -549,6 +601,7 @@ def page_endpoints(c: canvas.Canvas, page: int) -> int:
             "OpenAPI JSON usado pelo Scalar: /openapi/v1.json",
             "Swagger JSON: /swagger/v1/swagger.json",
             "Em ambiente publicado, habilite ApiDocumentation__Enabled=true.",
+            "Inventario completo (146 rotas, acesso por perfil): README.md#endpoints-principais.",
         ],
         x,
         y,
@@ -562,9 +615,12 @@ def page_endpoints(c: canvas.Canvas, page: int) -> int:
 def generate() -> None:
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
     c = canvas.Canvas(str(OUTPUT), pagesize=PAGE_SIZE)
+    c.setTitle("Hemodinks - Documentacao Tecnica")
+    c.setAuthor("GM Tech Solutions")
     page = 1
     page = page_overview(c, page)
     page = page_architecture(c, page)
+    page = page_tenancy(c, page)
     page = page_mer(c, page)
     page = page_backend_flow(c, page)
     page = page_business_flow(c, page)

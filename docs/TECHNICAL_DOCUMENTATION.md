@@ -2,7 +2,7 @@
 
 ## Visao geral
 
-O Hemodinks combina frontend React/Vite, API ASP.NET Core/.NET 10, SQL Server/Azure SQL, Azure Blob Storage e componentes opcionais de fila/Functions para reset de senha e exportacoes. A API segue Clean Architecture pragmatica com CQRS, MediatR, validacao em pipeline, EF Core, Minimal APIs, JWT e politicas por perfil/licenca.
+O Hemodinks e um SaaS multiclinica: frontend React 19/Vite/TypeScript, API ASP.NET Core/.NET 10, SQL Server/Azure SQL, Azure Blob Storage e Azure Queue Storage + Functions (`HemodinksAPI.Workers`). A API segue Clean Architecture pragmatica com CQRS, MediatR, validacao em pipeline (FluentValidation), EF Core, Minimal APIs, JWT com refresh em cookie `HttpOnly`, isolamento por `ClinicaId` e politicas por perfil/licenca/modulo. Producao roda no Azure Container Apps (blue/green); homologacao, no Render.
 
 URLs principais:
 
@@ -15,6 +15,8 @@ URLs principais:
 | Frontend homologacao legado | `https://hemodinks-homologacao.vercel.app` |
 | Frontend confirmation Render opcional | `https://hemodinks-front-confirmation.onrender.com` |
 | API local | `http://localhost:5000` |
+| API homologacao | `https://hemodinks-api-1-90nb.onrender.com` |
+| API producao | Azure Container Apps `hemodinks-api-prod` (URL em `VITE_API_URL` do front) |
 | Swagger local | `/swagger` |
 | Scalar local | `/scalar` |
 | OpenAPI JSON local | `/openapi/v1.json` |
@@ -29,8 +31,10 @@ Em ambiente publicado, as rotas de documentacao interativa exigem `ApiDocumentat
 | `HemodinksAPI.Application` | commands, queries, handlers, DTOs, validadores, contratos e regras |
 | `HemodinksAPI.Infrastructure` | EF Core, migrations, seeders, JWT, storage, notificacoes, filas e implementacoes concretas |
 | `HemodinksAPI.Api` | Minimal APIs, auth, CORS, Swagger/Scalar e composition root |
-| `HemodinksAPI.Workers` | Azure Functions para jobs assincronos |
-| `HemodinksAPI.Tests` | testes unitarios e de integracao |
+| `HemodinksAPI.Workers` | Azure Functions: `GenerateFileExport`, `SendPasswordResetEmail(Sync)`, `SendEventEmail`, `UploadPatientFile`, `UploadProfilePhoto` |
+| `HemodinksAPI.Tests` | xUnit v3: unitarios, integracao (InMemory/SQLite) e `*SqlServerTests` |
+| `Hemodinks.AppHost` / `Hemodinks.ServiceDefaults` | orquestracao local com .NET Aspire (API + front) |
+| `tools/Hemodinks.SchemaGuard` | verifica o historico de migrations antes de deploys |
 
 ## Componentes
 
@@ -47,25 +51,43 @@ flowchart LR
     Infra --> Blob[(Azure Blob Storage)]
     Infra --> Queue[(Azure Queue Storage)]
     Queue --> Functions[HemodinksAPI.Workers]
-    Infra --> Worker[EventNotificationHostedService]
+    Handlers --> Reminders[EventReminderProcessor]
     Handlers --> Cache[IMemoryCache]
 ```
 
 ## Modulos funcionais
 
+### Multiclinica e plataforma
+
+- `Clinica` com plano (`Trial`, `Completa`, `Parcial`), modulos liberados e assinatura
+- `UsuarioGlobal` (credencial unica) e `UsuarioClinica` (perfil por clinica)
+- `ClinicaId` do JWT e o tenant efetivo; filtro global do EF falha fechado e bloqueia FK entre clinicas
+- `ClinicaModuleAccessMiddleware`: no plano `Parcial`, modulos nao contratados retornam 403 (Administrador e SuperAdministrador nao sao bloqueados)
+- SuperAdministrador cria, desativa e alterna clinicas (`/api/session/selecionar-clinica`); Administrador ve e atualiza a propria
+- seletor publico de clinicas no login (`/api/public/clinicas`) e auditoria da plataforma
+
 ### Usuarios e autenticacao
 
-- login JWT
+- login JWT (`/api/users/login-context` + `/api/users/authenticate`)
 - refresh token rotativo em cookie `HttpOnly`, com expiracao deslizante apos 30 minutos de inatividade
 - renovacao de JWT, registro de atividade e revogacao de sessao no logout
 - reset de senha por email/token
-- reset administrativo com senha temporaria aleatoria e troca obrigatoria
+- reset administrativo com senha temporaria aleatoria e troca obrigatoria (`/api/users/password/temporary/complete`)
+- troca de e-mail com confirmacao
+- hash PBKDF2-SHA256 com 600 mil iteracoes e rate limiting de autenticacao
 - foto de perfil
 - anexos do cadastro medico
 
-### Pacientes e observacoes
+### Equipes
 
-- cadastro clinico/administrativo
+- identidade coletiva (perfil `Equipe`) com membros e operadores
+- identificacao do operador por selecao ou PIN (`/api/equipe-auth/identificar`, `/api/equipe-auth/pin`)
+- operacoes sensiveis exigem operador identificado (`EquipeOperacaoSensivel`) e sao auditadas
+
+### Pacientes, cirurgias e observacoes
+
+- cadastro clinico/administrativo da cirurgia
+- `TipoCirurgia` (`Eletiva`, `Urgencia`, `EmAutorizacao`) e `StatusCirurgia` (`Consolidada` quando a data da consolidacao esta preenchida; `NaoConsolidada` caso contrario), ambos filtraveis nas listagens e exportacoes
 - procedimentos CBHPM
 - anexos
 - observacoes com resposta e leitura
@@ -87,9 +109,18 @@ flowchart LR
 
 ### Faturamento medico
 
-- leitura agregada do faturamento
-- escopo por perfil
+- leitura agregada do faturamento (`/api/faturamentos-medicos`)
+- escopo por perfil, filtros por tipo e status da cirurgia
 - totais, glosas, convenios e checklist
+- historico mensal de arquivos
+
+### Financeiro
+
+- atendimentos cirurgicos com procedimentos e anexos
+- faturamentos com itens, status, glosas, recursos de glosa e retorno do convenio
+- contas a receber, recebimentos, comprovantes, estornos e cancelamentos
+- precos por convenio e procedimento CBHPM
+- resumo financeiro, auditoria financeira e resumo financeiro do paciente
 
 ### Grupos medicos
 
@@ -99,9 +130,8 @@ flowchart LR
 
 ### Configuracao do sistema
 
-- nome da empresa
-- foto da empresa
-- endpoint publico para login e branding do front
+- nome e foto institucionais (pertencem a `Clinica`; alterados pelo SuperAdministrador)
+- endpoints publicos somente leitura para login e branding do front
 
 ### Licencas
 
@@ -117,23 +147,34 @@ flowchart LR
 
 ### Exportacoes assincronas
 
-- endpoint `POST /api/exports`
-- filas opcionais
-- processamento no `HemodinksAPI.Workers`
+- endpoint `POST /api/exports` (`pacientes`, `faturamentos-medicos`, `cbhpm`)
+- a API monta o snapshot no servidor com as mesmas queries e escopo do perfil (`FileExportSnapshotBuilder`)
+- a fila `FileExportQueueName` entrega o snapshot a `GenerateFileExport` no `HemodinksAPI.Workers`
+- as telas do front tambem exportam no navegador os dados ja filtrados pela API
+
+### LGPD e monitoramento
+
+- aceites legais (`/api/legal-acceptances/current`) e preferencias de privacidade (`/api/privacy-preferences/current`)
+- erros tecnicos e eventos de seguranca em `/api/monitoramento/*` (Administrador: propria clinica; SuperAdministrador: todas)
 
 ## Perfis e escopo
 
 | Id | Perfil | Escopo principal |
 | --- | --- | --- |
-| 1 | Administrador | gestao completa |
-| 2 | Medicos | agenda, pacientes vinculados, faturamento proprio, meu cadastro |
-| 3 | Paciente | proprio cadastro quando vinculado |
-| 4 | Controller | pacientes, faturamento e operacoes liberadas por policy |
+| 1 | Administrador | gestao da clinica; propria clinica e equipes na plataforma |
+| 2 | Medicos | agenda, pacientes, atendimentos e faturamento no escopo, meu cadastro |
+| 3 | Pacientes | proprio cadastro quando vinculado |
+| 4 | Controller | pacientes, faturamento medico, financeiro e grupos medicos |
+| 5 | SuperAdministrador | plataforma: clinicas, auditoria e troca de clinica |
+| 6 | Equipe | identidade coletiva com operador identificado |
+
+A matriz completa esta em [MATRIZ_PERFIS_PERMISSOES.md](MATRIZ_PERFIS_PERMISSOES.md).
 
 Features de licenca atuais:
 
 - `Dashboard.Visualizar`
 - `Pacientes.Visualizar`
+- `Pacientes.Gerenciar`
 - `Cbhpm.Consultar`
 
 ## Fluxos principais
@@ -166,7 +207,8 @@ flowchart TD
     Create --> Validate[ValidationBehavior + EventFeatureRules]
     Validate --> Persist[Events]
     Persist --> Next[Calcula NextReminderAt]
-    Worker[EventNotificationHostedService] --> Due[Consulta lembretes vencidos]
+    Query[GET agenda/dashboard] --> Worker[EventReminderProcessor]
+    Worker --> Due[Reserva lembretes vencidos com lease]
     Due --> Notify[INotificationService]
     Notify --> Recalc[Recalcula proximo lembrete]
     Recalc --> Complete{Evento concluido?}
@@ -207,39 +249,31 @@ flowchart TD
     Migration --> Seed[CbhpmSeeder]
     Seed --> Table[(CBHPMGeral)]
     Request[GET /api/cbhpm] --> Handler[GetCbhpmGeralQueryHandler]
-    Handler --> Filter[LIKE por codigo, procedimento, grupo e search]
+    Handler --> Filter[LIKE / Full-Text por codigo, procedimento, porte e search]
     Filter --> Table
     Table --> Sort[Ordenacao e count no SQL]
     Sort --> Pagination[Paginacao no SQL]
     Import[POST /api/cbhpm/import] --> Table
-    Import --> Invalidate[Invalidate cache por codigo]
+    Import --> Invalidate[Invalida cache cbhpm-geral:v1]
+    Paciente[Cadastro de paciente] --> Cache[ICbhpmCache por codigo]
+    Cache --> Table
 ```
 
 ## Persistencia
 
-Entidades principais:
+Tabelas principais (DbSets de `AppDbContext`):
 
-- `Perfis`
-- `Users`
-- `UserArquivos`
-- `Licencas`
-- `Pacientes`
-- `PacienteArquivos`
-- `PacienteProcedimentos`
-- `Observacoes`
-- `AgendaNotifications`
-- `Events`
-- `Hospitais`
-- `Convenios`
-- `Opmes`
-- `FaturamentosMedicos`
-- `GrupoMedicos`
-- `GrupoMedicoUsuarios`
-- `ConfiguracoesSistema`
-- `PasswordResetTokens`
-- `IdempotencyRequests`
-- `CBHPMGeral`
+- Multiclinica e identidade: `Clinicas`, `UsuariosGlobais`, `UsuariosClinicas`, `Users`, `Perfis`, `AuthenticationSessions`, `TemporaryAccessCredentials`, `EmailChangeRequests`, `PasswordResetTokens`, `AuditoriasPlataforma`
+- Equipes: `Equipes`, `EquipeMembros`, `EquipeOperadores`, `EquipeLoginDesafios`
+- LGPD: `UserLegalAcceptances`, `UserPrivacyPreferences`
+- Pacientes: `Pacientes`, `PacienteArquivos`, `PacienteProcedimentos`, `Observacoes`
+- Faturamento medico: `FaturamentosMedicos`, `FaturamentoHistoricoArquivos`
+- Financeiro: `AtendimentosCirurgicos`, `AtendimentoProcedimentos`, `AtendimentoArquivos`, `Faturamentos`, `FaturamentoItens`, `Glosas`, `RecursosGlosa`, `ContasReceber`, `Recebimentos`, `ConvenioProcedimentoPrecos`, `FinanceiroMigracaoInconsistencias`
+- Agenda: `Events`, `AgendaNotifications`, `EventEmailDeliveries`
+- Catalogos e grupos: `Hospitais`, `Convenios`, `OPME`, `CbhpmGeral`, `GruposMedicos`, `GrupoMedicoUsuarios`
+- Outros: `UserArquivos`, `Licencas`, `ConfiguracoesSistema`, `IdempotencyRequests`
 
+O schema e configurado em `HemodinksAPI.Infrastructure/Data/Configurations`.
 Migrations ficam em `HemodinksAPI.Infrastructure/Data/Migrations` e podem ser validadas com:
 
 ```powershell
@@ -254,10 +288,12 @@ dotnet tool run dotnet-ef migrations list --project HemodinksAPI.Infrastructure 
 | --- | --- | --- |
 | Azure SQL Database | usado | banco relacional da aplicacao |
 | Azure Blob Storage | usado | fotos, anexos e arquivos exportados |
-| Azure Queue Storage | opcional | reset por email e jobs de exportacao |
-| Azure Functions | opcional | projeto `HemodinksAPI.Workers` |
-| New Relic APM | opcional | telemetria APM da API |
-| Worker Render separado | nao usado | lembretes atuais rodam no `BackgroundService` interno |
+| Azure Queue Storage | usado | reset por email e jobs de exportacao |
+| Azure Functions | usado | projeto `HemodinksAPI.Workers` (container ou Function App) |
+| Azure Container Apps | usado | producao: API blue/green e workers |
+| Render | usado | homologacao (`hemodinks-api-1`) |
+| GitHub Container Registry | usado | imagens `hemodinks-api` e `hemodinks-api-workers` |
+| New Relic APM | usado | telemetria da API (Browser no front) |
 
 ## Documentacao interativa
 
@@ -268,25 +304,18 @@ Swagger e Scalar sao servidos pela propria API:
 - OpenAPI JSON: `/openapi/v1.json`
 - Swagger JSON: `/swagger/v1/swagger.json`
 
-Tags atuais do documento OpenAPI:
+Tags atuais do documento OpenAPI: `Sessao`, `Users`, `Equipes`, `Equipes - Autenticacao`, `Plataforma - Clinicas`,
+`Plataforma - Auditoria`, `Clinicas - Publico`, `ConfiguracoesSistema`, `Legal`, `Privacy`, `Dashboard`, `Pacientes`,
+`Atendimentos cirurgicos`, `Faturamento medico`, `Faturamento`, `Contas a receber`, `Relatorios financeiros`,
+`Precos por convenio`, `GruposMedicos`, `Agenda e notificacoes`, `CBHPM`, `Hospitais`, `Convenios`, `OPME`,
+`Licencas`, `Exports` e `Monitoramento`.
 
-- `Users`
-- `Pacientes`
-- `Dashboard`
-- `Agenda e notificacoes`
-- `Faturamento medico`
-- `GruposMedicos`
-- `ConfiguracoesSistema`
-- `Licencas`
-- `CBHPM`
-- `Hospitais`
-- `Convenios`
-- `OPME`
-- `Exports`
+O inventario completo de rotas com o acesso por perfil esta no [README](../README.md#endpoints-principais).
 
 ## Observacoes operacionais
 
 - `IMemoryCache` de CBHPM e local por instancia
-- `EventNotificationHostedService` e o worker atual de lembretes
-- configuracao do sistema e anonima para permitir branding no login do front
-- exportacoes e reset por email podem sair da API para filas/Functions sem mover auth e regras de negocio
+- lembretes: `EventNotificationHostedService` roda em desenvolvimento/compose; em producao `EventReminders__RunHostedProcessor=false` e `EventReminderProcessor` reserva os vencidos durante consultas de agenda e dashboard
+- emails de eventos: `EventEmailDeliveryHostedService` (polling apos requisicoes autenticadas) ou Function `SendEventEmail`
+- configuracao do sistema e publicas de clinica sao anonimas para permitir branding no login do front
+- exportacoes e reset por email saem da API para filas/Functions sem mover auth e regras de negocio
