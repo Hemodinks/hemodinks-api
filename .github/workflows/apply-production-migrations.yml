@@ -84,6 +84,7 @@ jobs:
             artifacts/hemodinks-efbundle
             artifacts/hemodinks-production-migrations.sql
           if-no-files-found: error
+          retention-days: 30
 
       - name: Validate SQL deployment identities without connecting
         env:

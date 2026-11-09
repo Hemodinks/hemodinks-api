@@ -8,7 +8,7 @@ modelo efetivo nao exposto). Nenhum recurso foi provisionado ou modificado.
 
 ## Antes: evidencia somente leitura em 28/10/2026
 
-Servidor `gm-tech-solution`, RG `rg-hemodinks-prod`, banco `HemodinksDB`:
+Servidor `<servidor-sql-producao>`, RG `rg-hemodinks-prod`, banco `HemodinksDB`:
 
 | Verificacao | Resultado |
 | --- | --- |

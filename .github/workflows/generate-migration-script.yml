@@ -56,3 +56,4 @@ jobs:
           name: hemodinks-migrations-sql
           path: artifacts/hemodinks-migrations.sql
           if-no-files-found: error
+          retention-days: 7

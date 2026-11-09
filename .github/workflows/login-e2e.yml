@@ -69,3 +69,4 @@ jobs:
           name: login-e2e-results
           path: TestResults/login-e2e/*.trx
           if-no-files-found: error
+          retention-days: 7
