@@ -37,7 +37,8 @@ Para entender o modelo, leia `Data/Configurations` e a entidade. Abra uma migrat
 
 1. Isolamento por clínica: o filtro global é fail-closed (sem `ClinicaId` → nada); não remover nem contornar.
    `ClinicaId` vem do contexto autenticado, nunca do payload. Escopo de plataforma só via `ClinicaContextFactory`
-   (`SetPlatformScope`); não criar outro caminho. Novo `IgnoreQueryFilters` só com justificativa explícita no PR.
+   (`SetPlatformScope`); não criar outro caminho. Novo `IgnoreQueryFilters` só com justificativa explícita no PR
+   e entrada em `HemodinksAPI.Tests/IgnoreQueryFiltersAllowlistTests.cs`.
 2. Perfis administrativos (Admin, SuperAdmin) não são bypass implícito de tenant. Autorização é sempre no backend.
 3. Nunca registrar senha, PIN, token completo, secret, connection string ou CPF. Erros não retornam dado sensível.
 4. Não reduzir iterações do PBKDF2-SHA256 (senha 600 mil, PIN 210 mil) nem criar criptografia própria.
