@@ -26,12 +26,12 @@ jobs:
       GHCR_AUDIT_CONTAINER_APP: ${{ vars.GHCR_AUDIT_CONTAINER_APP }}
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Azure OIDC sign-in (non-blocking; collector fails closed)
         id: azure_login
         if: ${{ vars.AZURE_CLIENT_ID != '' && vars.AZURE_TENANT_ID != '' && vars.AZURE_SUBSCRIPTION_ID != '' }}
         continue-on-error: true
-        uses: azure/login@v2
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
@@ -42,7 +42,7 @@ jobs:
         run: python3 tools/ghcr_retention/weekly_audit.py --output ghcr-audit-output
       - name: Upload audit artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ghcr-weekly-audit-${{ github.run_id }}
           path: ghcr-audit-output/

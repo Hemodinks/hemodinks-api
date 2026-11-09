@@ -35,6 +35,10 @@ Cada SHA da `main` e testado uma vez, pelo job `validate` do Publish Production;
 rode `dotnet restore ./HemodinksAPI.slnx` e commite os `packages.lock.json` (o `Hemodinks.AppHost` nao usa lock file,
 porque o Aspire resolve pacotes por sistema operacional) (#221).
 
+Actions externas ficam pinadas por SHA completo com a versao em comentario (`uses: owner/action@<sha> # vX.Y.Z`),
+uma versao por Action; `scripts/tests/test_actions_pinned.py` bloqueia tag, branch ou SHA curto. O Dependabot
+(`.github/dependabot.yml`) abre um PR semanal agrupado para `developer` atualizando SHA e comentario (#222).
+
 | Workflow | Gatilho | O que faz |
 | --- | --- | --- |
 | `ci.yml` (CI) | push em `developer`, `dev-local`; PR para `main`, `developer`, `dev-local` | escopo, restore, build, testes (incl. SQL Server), validacao de migrations e `Login integration E2E` |
