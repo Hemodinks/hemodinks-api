@@ -78,10 +78,7 @@ Ambientes publicados:
 | Recurso | URL |
 | --- | --- |
 | Front producao | `https://hemodinks.gestao-saude.tec.br` |
-| Front producao legado | `https://hemodinks-saude.vercel.app` |
 | Front homologacao principal | `https://hemodinks-homologacao.gestao-saude.tec.br` |
-| Front homologacao legado | `https://hemodinks-homologacao.vercel.app` |
-| Front confirmation Render opcional | `https://hemodinks-front-confirmation.onrender.com` |
 | API producao | Azure Container Apps (blue/green); a URL publica fica em `VITE_API_URL` do front |
 | API homologacao | `https://hemodinks-api-1-90nb.onrender.com` (Render, servico `hemodinks-api-1`) |
 

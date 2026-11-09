@@ -36,7 +36,8 @@ builder.Services
     .AddLicensing(builder.Configuration)
     .AddStorage(builder.Configuration, builder.Environment)
     .AddApplicationServices(builder.Configuration, builder.Environment)
-    .AddApiDocumentation();
+    .AddApiDocumentation()
+    .AddApiResponseCompression();
 
 builder.Services.AddOptions<SecurityObservationOptions>()
     .Bind(builder.Configuration.GetSection(SecurityObservationOptions.SectionName))
@@ -59,6 +60,8 @@ if (app.Configuration.GetValue<bool>("ForwardedHeaders:AzureContainerAppsIngress
 {
     app.UseMiddleware<AzureContainerAppsIngressMiddleware>();
 }
+// After forwarded headers so the HTTPS scheme is known; sensitive routes opt out (#223).
+app.UseApiResponseCompression();
 app.UseMiddleware<ApiExceptionHandlingMiddleware>();
 app.UseMiddleware<SecurityObservationMiddleware>();
 app.UseStatusCodePages(async statusCodeContext =>

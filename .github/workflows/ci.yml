@@ -1,9 +1,9 @@
 name: CI
 
 on:
+  # Push na main nao roda aqui: o job validate do Publish Production testa cada SHA da main (#221).
   push:
     branches:
-      - main
       - developer
       - dev-local
   pull_request:
@@ -18,7 +18,8 @@ permissions:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name != 'pull_request' }}
+  # Superseded PR and branch runs are cancelled; a push to main is tested by Publish Production.
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 env:
   DOTNET_CLI_TELEMETRY_OPTOUT: true
@@ -36,7 +37,7 @@ jobs:
       run_tests: ${{ steps.decide.outputs.run_tests }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
           persist-credentials: false
@@ -68,13 +69,19 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Test Production approval and rollback gates without Azure
         run: python3 -B -m unittest discover -s scripts/tests -p test_production_deployment_gates.py -v
 
       - name: Test SQL identity separation without database access
         run: python3 -B -m unittest discover -s scripts/tests -p test_sql_identity_separation.py -v
+
+      - name: Test Functions network restriction rules without Azure
+        run: python3 -B -m unittest discover -s scripts/tests -p test_functions_network_restrictions.py -v
+
+      - name: Test GitHub Actions pinned by SHA
+        run: python3 -B -m unittest discover -s scripts/tests -p test_actions_pinned.py -v
 
       - name: Start SQL Server for relational tests
         shell: bash
@@ -110,15 +117,19 @@ jobs:
           echo "HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING=Server=localhost,1433;User ID=sa;Password=$test_password;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=True" >> "$GITHUB_ENV"
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: |
+            **/packages.lock.json
+            Directory.Packages.props
 
       - name: Restore local tools
         run: dotnet tool restore
 
       - name: Restore
-        run: dotnet restore ./HemodinksAPI.slnx
+        run: dotnet restore ./HemodinksAPI.slnx --locked-mode
 
       - name: Build
         run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
@@ -146,8 +157,9 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: test-results
           path: TestResults/*.trx
           if-no-files-found: ignore
+          retention-days: 7
