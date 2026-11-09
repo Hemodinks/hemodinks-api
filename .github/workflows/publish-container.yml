@@ -44,7 +44,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Test trusted proxy configuration
         run: python3 -B -m unittest discover -s scripts/tests -p test_forwarded_headers.py -v
@@ -62,6 +62,9 @@ jobs:
 
       - name: Test Functions network restriction rules without Azure
         run: python3 -B -m unittest discover -s scripts/tests -p test_functions_network_restrictions.py -v
+
+      - name: Test GitHub Actions pinned by SHA
+        run: python3 -B -m unittest discover -s scripts/tests -p test_actions_pinned.py -v
 
       - name: Test result gate regressions
         run: python3 -B -m unittest discover -s scripts/tests -p test_test_results_gate.py -v
@@ -100,7 +103,7 @@ jobs:
           echo "HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING=Server=localhost,1433;User ID=sa;Password=$test_password;Encrypt=False;TrustServerCertificate=True;MultipleActiveResultSets=True" >> "$GITHUB_ENV"
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 10.0.x
           cache: true
@@ -130,7 +133,7 @@ jobs:
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: deployment-test-results-${{ github.sha }}
           path: TestResults/*.trx
@@ -154,20 +157,20 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Docker Buildx
-        uses: docker/setup-buildx-action@v4.4.1
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@v4.6.0
+        uses: docker/login-action@8aa5831fb8d48d8f76594c7ddde61ae58019f550 # v4.8.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push immutable image
-        uses: docker/build-push-action@v7.4.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
           file: ${{ matrix.dockerfile }}
@@ -186,10 +189,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 10.0.x
           cache: true
@@ -231,7 +234,7 @@ jobs:
         run: dotnet publish tools/Hemodinks.SchemaGuard/Hemodinks.SchemaGuard.csproj --configuration Release --runtime linux-x64 --self-contained true --output artifacts/schema-guard
 
       - name: Upload migration artifacts
-        uses: actions/upload-artifact@v7.0.1
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: production-migrations-${{ github.sha }}
           path: |
@@ -255,10 +258,10 @@ jobs:
 
     steps:
       - name: Checkout proxy preflight
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Log in to Azure for ingress preflight
-        uses: azure/login@v3.1.0
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -279,7 +282,7 @@ jobs:
             | python3 -B scripts/forwarded_headers.py --azure-app-config --github-output "$GITHUB_OUTPUT"
 
       - name: Download reviewed migration bundle
-        uses: actions/download-artifact@v8.0.1
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: production-migrations-${{ github.sha }}
           path: artifacts
@@ -361,10 +364,10 @@ jobs:
 
     steps:
       - name: Checkout revision policy script
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Log in to Azure
-        uses: azure/login@v3.1.0
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -859,7 +862,7 @@ jobs:
 
     steps:
       - name: Log in to Azure
-        uses: azure/login@v3.1.0
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
@@ -891,10 +894,10 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v7.0.1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v6.0.0
+        uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         with:
           dotnet-version: 10.0.x
 
@@ -902,14 +905,14 @@ jobs:
         run: dotnet publish HemodinksAPI.Workers/HemodinksAPI.Workers.csproj --configuration Release --output ./publish/workers
 
       - name: Log in to Azure
-        uses: azure/login@v3.1.0
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy workers
-        uses: Azure/functions-action@v1.5.7
+        uses: Azure/functions-action@c5060b3b8bb1ebbcb531abd00c822ecbaa8ea656 # v1.5.7
         with:
           app-name: ${{ vars.AZURE_FUNCTION_APP_WORKERS_NAME }}
           package: ./publish/workers
