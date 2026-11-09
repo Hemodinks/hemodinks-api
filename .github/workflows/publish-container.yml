@@ -56,6 +56,16 @@ jobs:
         shell: pwsh
         run: ./scripts/tests/test_bootstrap_proxy.ps1
 
+      # Antes so no CI, que nao roda mais no push da main (#221).
+      - name: Test SQL identity separation without database access
+        run: python3 -B -m unittest discover -s scripts/tests -p test_sql_identity_separation.py -v
+
+      - name: Test Functions network restriction rules without Azure
+        run: python3 -B -m unittest discover -s scripts/tests -p test_functions_network_restrictions.py -v
+
+      - name: Test result gate regressions
+        run: python3 -B -m unittest discover -s scripts/tests -p test_test_results_gate.py -v
+
       - name: Start SQL Server for relational tests
         shell: bash
         run: |
@@ -93,12 +103,16 @@ jobs:
         uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: |
+            **/packages.lock.json
+            Directory.Packages.props
 
       - name: Restore local tools
         run: dotnet tool restore
 
       - name: Restore
-        run: dotnet restore ./HemodinksAPI.slnx
+        run: dotnet restore ./HemodinksAPI.slnx --locked-mode
 
       - name: Build
         run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
@@ -178,11 +192,15 @@ jobs:
         uses: actions/setup-dotnet@v6.0.0
         with:
           dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: |
+            **/packages.lock.json
+            Directory.Packages.props
 
       - name: Restore tools and dependencies
         run: |
           dotnet tool restore
-          dotnet restore ./HemodinksAPI.slnx
+          dotnet restore ./HemodinksAPI.slnx --locked-mode
 
       - name: Build migration projects
         run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore

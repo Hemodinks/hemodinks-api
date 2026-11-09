@@ -11,6 +11,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UserSecretsId>208fab08-8d90-456a-840c-8c15377f7d9f</UserSecretsId>
+    <!-- Aspire resolve pacotes por sistema operacional (win-x64, linux-x64); um lock file unico quebraria o CI. -->
+    <RestorePackagesWithLockFile>false</RestorePackagesWithLockFile>
   </PropertyGroup>
 
 </Project>
