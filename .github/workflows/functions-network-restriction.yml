@@ -1,0 +1,133 @@
+name: Functions network restriction
+
+# Issue #224: limita a origem das Azure Functions de producao aos IPs de saida da API
+# (Container Apps), alem da function key. Detalhes e limitacoes: docs/functions-network-restriction.md
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: check (somente leitura), apply ou rollback
+        type: choice
+        required: true
+        default: check
+        options:
+          - check
+          - apply
+          - rollback
+      confirmation:
+        description: Para apply digite RESTRICT-FUNCTIONS; para rollback digite UNRESTRICT-FUNCTIONS
+        required: false
+        type: string
+  schedule:
+    # Toda segunda, 07:41 UTC: avisa se os IPs de saida da API mudaram.
+    - cron: '41 7 * * 1'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: functions-network-restriction
+  cancel-in-progress: false
+
+env:
+  API_ID: /subscriptions/${{ vars.AZURE_SUBSCRIPTION_ID }}/resourceGroups/rg-hemodinks-prod/providers/Microsoft.App/containerApps/hemodinks-api-prod
+  FUNCTIONS_ID: /subscriptions/${{ vars.AZURE_SUBSCRIPTION_ID }}/resourceGroups/hemodinks-workers-production_group/providers/Microsoft.Web/sites/hemodinks-workers-production
+  ARM: https://management.azure.com
+  APP_API_VERSION: '2024-03-01'
+  WEB_API_VERSION: '2024-04-01'
+  # Endpoint HTTP usado so para o teste de origem: sem chave, 401 = origem aceita; 403 = origem bloqueada.
+  PROBE_PATH: /api/storage/profile-photo
+
+jobs:
+  check:
+    name: Check allowed origins (read-only)
+    if: ${{ github.ref == 'refs/heads/main' && (github.event_name == 'schedule' || inputs.mode == 'check') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Log in to Azure
+        uses: azure/login@v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Compare API outbound IPs with Functions access rules
+        run: |
+          az rest --method get --url "$ARM$API_ID?api-version=$APP_API_VERSION" \
+            --query "{properties:{outboundIpAddresses:properties.outboundIpAddresses}}" > source.json
+          az rest --method get --url "$ARM$FUNCTIONS_ID/config/web?api-version=$WEB_API_VERSION" > current.json
+          python3 -B scripts/functions_network_restrictions.py check --current current.json --source source.json
+
+  change:
+    name: ${{ inputs.mode == 'apply' && 'Restrict' || 'Unrestrict' }} Functions origin
+    if: >-
+      ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch'
+      && ((inputs.mode == 'apply' && inputs.confirmation == 'RESTRICT-FUNCTIONS')
+      || (inputs.mode == 'rollback' && inputs.confirmation == 'UNRESTRICT-FUNCTIONS')) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Log in to Azure
+        uses: azure/login@v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Build payload
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          az rest --method get --url "$ARM$API_ID?api-version=$APP_API_VERSION" \
+            --query "{properties:{outboundIpAddresses:properties.outboundIpAddresses}}" > source.json
+          if [ "$MODE" = "apply" ]; then
+            python3 -B scripts/functions_network_restrictions.py payload --source source.json > payload.json
+          else
+            python3 -B scripts/functions_network_restrictions.py rollback > payload.json
+          fi
+          echo "Regras no payload: $(jq '.properties.ipSecurityRestrictions | length' payload.json)"
+
+      - name: Apply access rules
+        run: |
+          az rest --method patch --url "$ARM$FUNCTIONS_ID/config/web?api-version=$WEB_API_VERSION" \
+            --headers "Content-Type=application/json" --body @payload.json --output none
+
+      - name: Verify configuration
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          az rest --method get --url "$ARM$FUNCTIONS_ID/config/web?api-version=$WEB_API_VERSION" > current.json
+          if [ "$MODE" = "apply" ]; then
+            python3 -B scripts/functions_network_restrictions.py check --current current.json --source source.json --require-applied
+          else
+            test "$(jq -r '.properties.ipSecurityRestrictionsDefaultAction' current.json)" = "Allow"
+          fi
+
+      - name: Probe from outside the allowed origins
+        env:
+          MODE: ${{ inputs.mode }}
+        run: |
+          # O runner do GitHub nao esta na lista: apos apply deve receber 403 (bloqueio de rede, antes da chave);
+          # apos rollback volta a receber 401 (sem chave). A propagacao leva alguns segundos.
+          expected=$([ "$MODE" = "apply" ] && echo 403 || echo 401)
+          host="$(az rest --method get --url "$ARM$FUNCTIONS_ID?api-version=$WEB_API_VERSION" --query properties.defaultHostName -o tsv)"
+          for attempt in $(seq 1 20); do
+            status="$(curl -s -o /dev/null -w '%{http_code}' -X POST "https://$host$PROBE_PATH" --max-time 30 || true)"
+            echo "Tentativa $attempt: HTTP $status (esperado $expected)"
+            if [ "$status" = "$expected" ]; then exit 0; fi
+            sleep 15
+          done
+          echo "::error::Origem externa recebeu HTTP $status em vez de $expected."
+          exit 1
