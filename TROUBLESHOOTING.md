@@ -290,7 +290,7 @@ Se a Storage Account nao permitir criacao de container pela API, crie os contain
 Origem padrao permitida:
 
 ```text
-https://hemodinks-saude.vercel.app
+https://hemodinks.gestao-saude.tec.br
 ```
 
 Para outras origens:
