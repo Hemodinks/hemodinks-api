@@ -30,9 +30,14 @@ Publicado:
 
 Workflows do `hemodinks-api`:
 
+Cada SHA da `main` e testado uma vez, pelo job `validate` do Publish Production; o CI nao roda no push da `main`
+(so no PR para ela). O restore usa `packages.lock.json` em locked mode e cache de NuGet: ao incluir ou atualizar pacote,
+rode `dotnet restore ./HemodinksAPI.slnx` e commite os `packages.lock.json` (o `Hemodinks.AppHost` nao usa lock file,
+porque o Aspire resolve pacotes por sistema operacional) (#221).
+
 | Workflow | Gatilho | O que faz |
 | --- | --- | --- |
-| `ci.yml` (CI) | push/PR em `main`, `developer`, `dev-local` | escopo, restore, build, testes (incl. SQL Server), validacao de migrations e `Login integration E2E` |
+| `ci.yml` (CI) | push em `developer`, `dev-local`; PR para `main`, `developer`, `dev-local` | escopo, restore, build, testes (incl. SQL Server), validacao de migrations e `Login integration E2E` |
 | `login-e2e.yml` | chamado pelo CI ou manual | cenarios de login no navegador |
 | `publish-container.yml` (Publish Production) | push na `main`/tags `v*.*.*`: so publica imagens; manual com `deploy_to_azure=true` na `main`: migra e faz deploy | imagens `sha-<commit>`, bundle de migrations, `migrate-production`, `deploy-api` (blue/green) e `deploy-functions` |
 | `apply-production-migrations.yml` | manual | valida e aplica migrations de producao isoladamente |
