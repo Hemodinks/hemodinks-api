@@ -19,10 +19,7 @@ Publicado:
 | Recurso | URL |
 | --- | --- |
 | Front producao | `https://hemodinks.gestao-saude.tec.br` |
-| Front producao legado | `https://hemodinks-saude.vercel.app` |
-| Front homologacao principal | `https://hemodinks-homologacao.gestao-saude.tec.br` |
-| Front homologacao legado | `https://hemodinks-homologacao.vercel.app` |
-| Front confirmation Render opcional | `https://hemodinks-front-confirmation.onrender.com` |
+| Front homologacao (Vercel, branch `developer`) | `https://hemodinks-homologacao.gestao-saude.tec.br` |
 | API producao | `https://<api-publica>` (Container App `hemodinks-api-prod`) |
 | API homologacao | `https://hemodinks-api-1-90nb.onrender.com` |
 | Swagger | `https://<api-publica>/swagger` quando `ApiDocumentation__Enabled=true` |
@@ -44,7 +41,6 @@ Workflows do `hemodinks-api`:
 | `generate-migration-script.yml` | manual | SQL idempotente para revisao |
 | `azure-operational-tasks.yml` | manual | tarefas operacionais (ex.: seed CBHPM pontual) |
 | `cleanup-ghcr.yml` / `ghcr-retention.yml` | manual/agendado | auditoria e limpeza de imagens no GHCR |
-| `vercel-deploy.yml` | push na `main` | gancho de coordenacao com o front na Vercel |
 
 Imagens:
 
@@ -87,7 +83,6 @@ AzureStorage__ConnectionString=<Azure Storage>
 AzureStorage__ContainerName=profile-photos
 AzureStorage__PatientFilesContainerName=patient-files
 Cors__AllowedOrigins__0=https://hemodinks.gestao-saude.tec.br
-Cors__AllowedOrigins__1=https://hemodinks-saude.vercel.app
 Frontend__ResetPasswordUrl=https://hemodinks.gestao-saude.tec.br/reset-password
 Database__RunMigrationsOnStartup=false
 Database__RunMaintenanceOnStartup=false
@@ -225,64 +220,8 @@ O seed atual insere/atualiza por codigo e nao remove procedimentos ausentes do J
 
 ## Render (blueprint legado de producao)
 
-A producao roda no Azure Container Apps. `render.yaml` permanece como blueprint de contingencia e define:
-
-- service: `hemodinks-api`
-- runtime: `docker`
-- branch: `main`
-- porta interna: `10000`
-- health check: `/healthz`
-- auto deploy: desligado (`autoDeployTrigger: off`)
-
-Variaveis obrigatorias:
-
-| Chave | Descricao |
-| --- | --- |
-| `ConnectionStrings__DefaultConnection` | connection string do Azure SQL ou SQL Server externo |
-| `JwtSettings__SecretKey` | chave JWT com 32 bytes ou mais |
-| `AzureStorage__ConnectionString` | connection string da Storage Account |
-| `AzureStorage__PublicBaseUrl` | URL publica do container `profile-photos` |
-| `AzureStorage__PatientFilesPublicBaseUrl` | URL publica do container `patient-files` |
-| `Cors__AllowedOrigins__0` | `https://hemodinks.gestao-saude.tec.br` |
-| `Cors__AllowedOrigins__1` | `https://hemodinks-saude.vercel.app`, se o dominio legado continuar ativo |
-| `Frontend__ResetPasswordUrl` | `https://hemodinks.gestao-saude.tec.br/reset-password` |
-
-Variaveis opcionais importantes:
-
-| Chave | Descricao |
-| --- | --- |
-| `ApiDocumentation__Enabled` | expoe Swagger/Scalar/OpenAPI fora de `Development` e `Testing` |
-| `NEW_RELIC_LICENSE_KEY` | ativa envio para New Relic |
-| `AsyncQueues__ConnectionString` | storage usada pelas filas |
-| `Email__*` | SMTP quando reset por email direto estiver habilitado |
-| `Email__BrandLogoUrl` | URL publica opcional da logomarca no email de reset |
-
-Variaveis ja declaradas no blueprint:
-
-| Chave | Valor |
-| --- | --- |
-| `ASPNETCORE_ENVIRONMENT` | `Production` |
-| `ASPNETCORE_URLS` | `http://0.0.0.0:10000` |
-| `CORECLR_ENABLE_PROFILING` | `1` |
-| `Database__RunMigrationsOnStartup` | `false` |
-| `Database__RunMaintenanceOnStartup` | `false` |
-| `EventReminders__RunHostedProcessor` | `false` na API com mais de uma replica |
-| `Seed__CbhpmOnStartup` | `false` |
-| `Seed__UsersOnStartup` | `false` |
-| `JwtSettings__Issuer` | `HemodinksAPI` |
-| `JwtSettings__Audience` | `HemodinksAPI` |
-| `JwtSettings__ExpirationMinutes` | `30` |
-| `AuthenticationSession__IdleTimeoutMinutes` | `30` |
-| `AuthenticationSession__RefreshCookieName` | `hemodinks_refresh` |
-| `AuthenticationSession__RefreshCookieLifetimeDays` | `30` |
-| `NEW_RELIC_APP_NAME` | `Hemodinks API Production` |
-| `AsyncQueues__Enabled` | `false` |
-| `AsyncQueues__PasswordResetEnabled` | `true` |
-| `AsyncQueues__FileExportEnabled` | `true` |
-| `AzureStorage__ContainerName` | `profile-photos` |
-| `AzureStorage__PatientFilesContainerName` | `patient-files` |
-
-Observacao: o blueprint deixa `AsyncQueues__Enabled=false`, mas ativa os recursos especificos `AsyncQueues__PasswordResetEnabled=true` e `AsyncQueues__FileExportEnabled=true`.
+Removido na issue #220: `render.yaml` (servico `hemodinks-api`, sem uso; a producao roda no Azure Container Apps)
+e `vercel-deploy.yml`. O Render continua so para a homologacao, abaixo.
 
 ## Render homologacao: confirmation
 
@@ -299,8 +238,6 @@ Origens CORS configuradas no blueprint:
 
 ```text
 Cors__AllowedOrigins__0=https://hemodinks-homologacao.gestao-saude.tec.br
-Cors__AllowedOrigins__1=https://hemodinks-homologacao.vercel.app
-Cors__AllowedOrigins__2=https://hemodinks-front-confirmation.onrender.com
 ```
 
 Variaveis que devem diferir da producao:
