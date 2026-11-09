@@ -383,6 +383,9 @@ Functions de `HemodinksAPI.Workers`:
 | `SendEventEmail` | HTTP | emails de eventos da agenda |
 | `UploadPatientFile` / `UploadProfilePhoto` | HTTP (`StorageFunctions__*`) | uploads para o Blob Storage |
 
+As Functions HTTP de producao podem ter a origem restrita aos IPs de saida da API, alem da function key:
+workflow `Functions network restriction` (`docs/functions-network-restriction.md`).
+
 Variaveis da API:
 
 | Chave | Descricao |
