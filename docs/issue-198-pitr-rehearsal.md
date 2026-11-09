@@ -47,7 +47,7 @@ nenhum novo subagente foi acionado e nenhuma regra de negocio foi alterada.
 
 O usuario identificou o outro sistema como ESCOLA, informando que esta pausado
 no Render e na Azure. O inventario nominal Azure encontrou somente o recurso
-SQL gm-tech-solution/ESCOLA_API, em estado Paused; nao encontrou Web App ou
+SQL <servidor-sql-producao>/ESCOLA_API, em estado Paused; nao encontrou Web App ou
 Container App com nome ESCOLA. Isso nao prova ausencia de compute com outro
 nome. Pausa SQL nao e suspensao da aplicacao: Azure SQL serverless pode retomar
 ao receber conexao. Nao foi aberta sessao no banco ESCOLA.
@@ -138,7 +138,7 @@ executou descarte. A revisao Security (high) confirmou esses dois bloqueios.
 
 **Status: homologacao validada; PITR de producao bloqueado antes do restore.**
 Complexidade alta, risco critico. Origem prevista pela referencia #184:
-`HemodinksDB`, servidor `gm-tech-solution`, RG `rg-hemodinks-prod`.
+`HemodinksDB`, servidor `<servidor-sql-producao>`, RG `rg-hemodinks-prod`.
 Nao foi trocada a origem do ensaio por homologacao. Nenhuma mutacao Azure,
 novo banco, acesso a registros clinicos, deploy ou despesa foi executado aqui.
 

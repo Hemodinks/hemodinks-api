@@ -2,7 +2,7 @@
 
 ## Situação operacional (28/10/2026)
 
-- Azure SQL: banco `HemodinksDB` no servidor `gm-tech-solution`.
+- Azure SQL: banco `HemodinksDB` no servidor `<servidor-sql-producao>`.
 - Runtime contido `hemodinks_runtime_prod` e migrator `hemodinks_migrator_prod` criados com identidades diferentes.
 - O runtime passou na auditoria de permissões executada com sua própria identidade.
 - API de produção: revisão `hemodinks-api-prod--p197sqlruntimev2` com 100% do tráfego, usando secret `connectionstrings-runtime-prod-v2`.

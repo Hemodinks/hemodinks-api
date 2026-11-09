@@ -46,3 +46,7 @@ docker-compose.override.yml
 # Saidas geradas por build, testes e workflows
 artifacts/
 TestResults/
+
+# Colecoes locais do Postman (podem conter credenciais/CPF de testes manuais)
+postman/
+.postman/

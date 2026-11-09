@@ -218,7 +218,7 @@ cobrados).
 
 ## Evidências e reprodução
 
-- Configuração: `az sql db list -s gm-tech-solution -g rg-hemodinks-prod`;
+- Configuração: `az sql db list -s <servidor-sql-producao> -g rg-hemodinks-prod`;
   `az containerapp list`; schedules/jobSchedules/runbooks via
   `az rest` em `Microsoft.Automation/automationAccounts/automation-hemodinks-prod`.
 - Janelas Online: `az monitor activity-log list -g rg-hemodinks-prod` dia a

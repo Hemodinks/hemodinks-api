@@ -162,3 +162,4 @@ jobs:
           name: test-results
           path: TestResults/*.trx
           if-no-files-found: ignore
+          retention-days: 7

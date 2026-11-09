@@ -138,6 +138,7 @@ jobs:
           name: deployment-test-results-${{ github.sha }}
           path: TestResults/*.trx
           if-no-files-found: ignore
+          retention-days: 7
 
   publish:
     name: Build and publish ${{ matrix.service }} SHA image

@@ -22,7 +22,7 @@ edição; modelo efetivo dos agentes não exposto.
 ### Evidência ARM atual
 
 Consultas concluídas entre **2026-10-26 17:19:42 e 17:20:25 UTC** no servidor
-`gm-tech-solution`, banco `HemodinksDB`, RG `rg-hemodinks-prod`:
+`<servidor-sql-producao>`, banco `HemodinksDB`, RG `rg-hemodinks-prod`:
 
 | Verificação | Resultado |
 | --- | --- |
@@ -113,8 +113,8 @@ implementou o SQL e seus testes; Security revisou os três arquivos sem editar
 | Item | Resultado observado |
 | --- | --- |
 | API | `hemodinks-api-prod`, RG `rg-hemodinks-prod`; conexão usa `secretRef=connectionstrings-defaultconnection`. Na continuação, referência resolvida em memória sem saída de credenciais. |
-| Servidor SQL inventariado | `gm-tech-solution`, RG `rg-hemodinks-prod`, região `brazilsouth`. |
-| Banco configurado da API | Referência resolvida confirma `tcp:gm-tech-solution.database.windows.net,1433`, banco `HemodinksDB`. Confirmação da configuração, sem abrir conexão SQL nem consultar dados. |
+| Servidor SQL inventariado | `<servidor-sql-producao>`, RG `rg-hemodinks-prod`, região `brazilsouth`. |
+| Banco configurado da API | Referência resolvida confirma `tcp:<servidor-sql-producao>.database.windows.net,1433`, banco `HemodinksDB`. Confirmação da configuração, sem abrir conexão SQL nem consultar dados. |
 | Estado/SKU | `Paused`, `GP_S_Gen5_2`, General Purpose serverless Gen5, 0,5–2 vCores, autopause 30 min, máximo 32 GiB. Nenhuma conexão foi aberta para acordá-lo. |
 | PITR/STR | `retentionDays=7`, `diffBackupIntervalInHours=12`. |
 | Limite inferior publicado | `earliestRestoreDate=2026-10-17T01:21:24.059984Z` na segunda consulta. É uma fotografia móvel; reler imediatamente antes do ensaio. Não foi obtido limite superior restaurável nem horário do último log backup. |
