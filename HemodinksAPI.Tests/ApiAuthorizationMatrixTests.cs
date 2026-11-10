@@ -37,6 +37,8 @@ public sealed class ApiAuthorizationMatrixTests : ApiEndpointTestBase
         [Perfil.AdministradorId, Perfil.SuperAdministradorId, Perfil.EquipeId];
     private static readonly int[] PatientDeleters =
         [Perfil.AdministradorId, Perfil.SuperAdministradorId, Perfil.MedicosId];
+    private static readonly int[] PatientPendingViewers =
+        [Perfil.AdministradorId, Perfil.MedicosId, Perfil.ControllerId, Perfil.SuperAdministradorId];
 
     [Fact]
     public async Task ActiveSession_WhenUserIsPromotedToSuperAdministrador_UsesCurrentProfileForMutations()
@@ -129,6 +131,7 @@ public sealed class ApiAuthorizationMatrixTests : ApiEndpointTestBase
             Probe("Usuarios", "Resetar senha de terceiro", HttpMethod.Put, "/api/users/999999/password/reset", Administrators),
 
             Probe("Pacientes", "Listar", HttpMethod.Get, "/api/pacientes/", AllProfiles),
+            Probe("Pacientes", "Pendencias data consolidacao", HttpMethod.Get, "/api/pacientes/pendencias/data-consolidacao", PatientPendingViewers),
             Probe("Pacientes", "Cadastrar", HttpMethod.Post, "/api/pacientes/", ClinicalOperators, BodyKind.EmptyJson),
             Probe("Pacientes", "Alterar", HttpMethod.Put, "/api/pacientes/999999", ClinicalOperators, BodyKind.EmptyJson),
             Probe("Pacientes", "Excluir", HttpMethod.Delete, "/api/pacientes/999999", PatientDeleters),

@@ -129,6 +129,9 @@ public class GetAllPacientesQuery : IRequest<PagedResult<PacienteDto>>
 
     public DateTime? DataSolicitacaoFinal { get; set; }
 
+    // Somente cadastros com ano da data da consolidação fora da faixa permitida.
+    public bool PendenciaDataConsolidacao { get; set; }
+
     public int CurrentUserId { get; set; }
 
     public int CurrentPerfilId { get; set; }

@@ -67,7 +67,7 @@ POL={
  'UsuariosVisualizar':[A,S,E],
  'GrupoMedicoCadastrar':[A,S,C],'GrupoMedicoGerenciar':[A,S,C],
  'PacienteCadastrar':[A,S,C,M,E],'PacienteArquivosGerenciar':[A,S,M,C,E],'PacienteEditar':[A,S,M,C,E],
- 'PacienteExcluir':[A,S,M],'PacienteObservacaoGerenciar':[A,S,M,C,E],
+ 'PacienteExcluir':[A,S,M],'PacientePendenciasVisualizar':[A,S,C,M],'PacienteObservacaoGerenciar':[A,S,M,C,E],
  'FaturamentoMedicoVisualizar':[A,S,M,C,E],'AtendimentoVisualizar':[A,S,M,C],'AtendimentoGerenciar':[A,S,M,C],
  'FaturamentoVisualizar':[A,S,M,C],'FaturamentoGerenciar':[A,S,C],'FinanceiroVisualizar':[A,S,C],'FinanceiroGerenciar':[A,S,C],
  'TabelaPrecoVisualizar':[A,S,M,C],'TabelaPrecoGerenciar':[A,S,C],

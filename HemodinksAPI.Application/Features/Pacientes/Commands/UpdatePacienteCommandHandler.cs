@@ -17,6 +17,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
     private readonly IProfilePhotoStorage _profilePhotoStorage;
     private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<UpdatePacienteCommandHandler> _logger;
+    private readonly TimeProvider _timeProvider;
 
     internal UpdatePacienteCommandHandler(
         IPatientFeatureDbContext context,
@@ -37,13 +38,15 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
         ICbhpmCache cbhpmCache,
         IProfilePhotoStorage profilePhotoStorage,
         IClinicaContext clinicaContext,
-        ILogger<UpdatePacienteCommandHandler> logger)
+        ILogger<UpdatePacienteCommandHandler> logger,
+        TimeProvider? timeProvider = null)
     {
         _context = context;
         _cbhpmCache = cbhpmCache;
         _profilePhotoStorage = profilePhotoStorage;
         _clinicaContext = clinicaContext;
         _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public async Task<PacienteDto> Handle(UpdatePacienteCommand request, CancellationToken cancellationToken)
@@ -69,6 +72,10 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             {
                 throw new UnauthorizedAccessException("Sem permissao para atualizar paciente");
             }
+
+            // Data legada fora da faixa só é tolerada enquanto não for alterada (pendência sinalizada)
+            // e não pode ser apagada: só trocada por uma data válida.
+            DataConsolidacaoRules.ValidateUpdate(paciente.DataAtendimento, request.DataAtendimento, _timeProvider.GetUtcNow());
 
             var cpf = string.IsNullOrWhiteSpace(request.Cpf)
                 ? paciente.User.Cpf

@@ -334,6 +334,7 @@ medicos, agenda e usuarios tambem dependem do modulo contratado no plano `Parcia
 | --- | --- | --- |
 | `GET` | `/api/pacientes` | Autenticado |
 | `POST` | `/api/pacientes` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
+| `GET` | `/api/pacientes/pendencias/data-consolidacao` | Adm, Méd, Ctrl, SA |
 | `GET` | `/api/pacientes/{id}` | Autenticado |
 | `PUT` | `/api/pacientes/{id}` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
 | `DELETE` | `/api/pacientes/{id}` | Adm, Méd, SA |

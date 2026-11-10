@@ -126,6 +126,9 @@ public static partial class ApiServiceCollectionExtensions
         options.AddPolicy("PacienteEditar", policy =>
             policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.ControllerId.ToString(), Perfil.EquipeId.ToString()));
 
+        options.AddPolicy("PacientePendenciasVisualizar", policy =>
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString(), Perfil.MedicosId.ToString()));
+
         options.AddPolicy("PacienteExcluir", policy =>
             policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString()));
 
