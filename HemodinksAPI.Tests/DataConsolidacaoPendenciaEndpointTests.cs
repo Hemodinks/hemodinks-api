@@ -139,17 +139,40 @@ public sealed class DataConsolidacaoPendenciaEndpointTests : ApiEndpointTestBase
     }
 
     [Fact]
-    public async Task Update_ClearingDateOfConformingPatient_RemainsAllowed()
+    public async Task Update_ClearingDateOfConsolidatedPatientWithinRange_IsRejected()
     {
         using var factory = new HemodinksApiFactory();
         var seed = await SeedFinanceiroAsync(factory);
-        var id = await SeedPacienteAsync(factory, Clinica.DefaultId, new DateTime(2026, 5, 20), seed.MedicoId);
+        var id = await SeedPacienteAsync(factory, Clinica.DefaultId, new DateTime(2026, 11, 10), seed.MedicoId);
         using var client = factory.CreateClient();
         await AuthenticateAsync(client);
 
         using var response = await client.PutAsJsonAsync($"/api/pacientes/{id}", new
         {
-            nomePaciente = "Sem consolidacao", medicoUserId = seed.MedicoId, dataAtendimento = (string?)null
+            nomePaciente = "Tentativa de apagar", medicoUserId = seed.MedicoId, dataAtendimento = (string?)null
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.Contains(DataConsolidacaoRules.MensagemApagarProibidoBase, body);
+        Assert.DoesNotContain("Corrija o ano", body);
+        var stored = await ReadPacienteAsync(factory, id);
+        Assert.Equal(new DateTime(2026, 11, 10), stored.DataAtendimento?.Date);
+        Assert.Equal(StatusCirurgia.Consolidada, stored.StatusCirurgia);
+    }
+
+    [Fact]
+    public async Task Update_PatientNeverConsolidated_CanStayWithoutDate()
+    {
+        using var factory = new HemodinksApiFactory();
+        var seed = await SeedFinanceiroAsync(factory);
+        var id = await SeedPacienteAsync(factory, Clinica.DefaultId, null, seed.MedicoId);
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        using var response = await client.PutAsJsonAsync($"/api/pacientes/{id}", new
+        {
+            nomePaciente = "Ainda nao consolidado", medicoUserId = seed.MedicoId, dataAtendimento = (string?)null
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -377,13 +400,15 @@ public sealed class DataConsolidacaoRulesTests
     private static readonly DateTimeOffset Agora = new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void ValidateUpdate_BlocksClearingOnlyForPendingDates()
+    public void ValidateUpdate_BlocksClearingAnyConsolidatedDate()
     {
         var ex = Assert.Throws<InvalidOperationException>(() =>
             DataConsolidacaoRules.ValidateUpdate(new DateTime(2016, 1, 1), null, Agora));
         Assert.StartsWith("Não é permitido apagar a data de uma cirurgia já consolidada.", ex.Message);
 
-        DataConsolidacaoRules.ValidateUpdate(new DateTime(2026, 1, 1), null, Agora);
+        var inRange = Assert.Throws<InvalidOperationException>(() =>
+            DataConsolidacaoRules.ValidateUpdate(new DateTime(2026, 1, 1), null, Agora));
+        Assert.Equal(DataConsolidacaoRules.MensagemApagarProibidoBase, inRange.Message);
         DataConsolidacaoRules.ValidateUpdate(null, null, Agora);
         DataConsolidacaoRules.ValidateUpdate(new DateTime(2016, 1, 1), new DateTime(2016, 1, 1, 15, 0, 0), Agora);
         DataConsolidacaoRules.ValidateUpdate(new DateTime(2016, 1, 1), new DateTime(2026, 1, 1), Agora);

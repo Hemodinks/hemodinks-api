@@ -107,10 +107,14 @@ public sealed class SurgeryStatusTests : ApiEndpointTestBase
         using var consolidated = await ReadJsonAsync(updated);
         Assert.Equal("Consolidada", consolidated.RootElement.GetProperty("statusCirurgia").GetString());
 
+        // Cirurgia consolidada não pode voltar a "Não consolidada" apagando a data (evita mascarar o faturamento).
         var cleared = await client.PutAsJsonAsync($"/api/pacientes/{id}", new { nomePaciente = "Status pending", medicoUserId = seed.MedicoId });
-        Assert.Equal(HttpStatusCode.OK, cleared.StatusCode);
-        using var reverted = await ReadJsonAsync(cleared);
-        Assert.Equal("NaoConsolidada", reverted.RootElement.GetProperty("statusCirurgia").GetString());
+        Assert.Equal(HttpStatusCode.BadRequest, cleared.StatusCode);
+        Assert.Contains(DataConsolidacaoRules.MensagemApagarProibidoBase, await cleared.Content.ReadAsStringAsync());
+
+        var neverConsolidated = await client.PostAsJsonAsync("/api/pacientes/", new { nomePaciente = "Status never consolidated", medicoUserId = seed.MedicoId });
+        using var neverConsolidatedJson = await ReadJsonAsync(neverConsolidated);
+        var pendingId = neverConsolidatedJson.RootElement.GetProperty("id").GetInt32();
 
         using var onlyConsolidated = await ReadJsonAsync(await client.GetAsync("/api/pacientes/?statusCirurgia=Consolidada&pageSize=100"));
         var consolidatedItems = onlyConsolidated.RootElement.GetProperty("items").EnumerateArray().ToList();
@@ -119,7 +123,8 @@ public sealed class SurgeryStatusTests : ApiEndpointTestBase
 
         using var onlyPending = await ReadJsonAsync(await client.GetAsync("/api/pacientes/?statusCirurgia=NaoConsolidada&pageSize=100"));
         var pendingItems = onlyPending.RootElement.GetProperty("items").EnumerateArray().ToList();
-        Assert.Contains(pendingItems, x => x.GetProperty("id").GetInt32() == id);
+        Assert.Contains(pendingItems, x => x.GetProperty("id").GetInt32() == pendingId);
+        Assert.DoesNotContain(pendingItems, x => x.GetProperty("id").GetInt32() == id);
         Assert.All(pendingItems, x => Assert.Equal("NaoConsolidada", x.GetProperty("statusCirurgia").GetString()));
 
         using var billing = await ReadJsonAsync(await client.GetAsync("/api/faturamentos-medicos/?statusCirurgia=Consolidada"));
