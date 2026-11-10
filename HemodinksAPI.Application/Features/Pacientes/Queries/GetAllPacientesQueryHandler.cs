@@ -11,15 +11,18 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
     private readonly IPatientFeatureDbContext _context;
     private readonly ILogger<GetAllPacientesQueryHandler> _logger;
     private readonly bool _supportsFullTextSearch;
+    private readonly TimeProvider _timeProvider;
 
     public GetAllPacientesQueryHandler(
         IPatientFeatureDbContext context,
         ILogger<GetAllPacientesQueryHandler> logger,
-        IFullTextSearchCapability? fullTextSearchCapability = null)
+        IFullTextSearchCapability? fullTextSearchCapability = null,
+        TimeProvider? timeProvider = null)
     {
         _context = context;
         _logger = logger;
         _supportsFullTextSearch = fullTextSearchCapability?.IsSupported == true;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public async Task<PagedResult<PacienteDto>> Handle(GetAllPacientesQuery request, CancellationToken cancellationToken)
@@ -43,6 +46,9 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
             StatusCirurgiaRules.Validate(request.StatusCirurgia);
             if (request.StatusCirurgia.HasValue) query = query.Where(p => p.StatusCirurgia == request.StatusCirurgia);
             query = PacienteAccess.ApplyScope(_context, query, request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId);
+            if (request.PendenciaDataConsolidacao)
+                query = DataConsolidacaoPendencias.Apply(query, request.CurrentPerfilId, request.CurrentUserId,
+                    DataConsolidacaoRules.AnoMaximo(_timeProvider.GetUtcNow()));
             query = PacienteFilters.ApplyFilters(
                 query,
                 search,

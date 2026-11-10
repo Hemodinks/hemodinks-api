@@ -49,6 +49,7 @@ Esta é a fonte de verdade para segurança. Ocultar um botão na interface não 
 | Resetar senha de terceiro | Sim | — | — | — | Sim | — |
 | Equipes (`/api/equipes`) | CRUD | — | — | — | CRUD | Trocar PIN próprio |
 | Pacientes e cirurgias | CRUD | CRUD · escopo | R próprio | CRU | CRUD | CRU · escopo |
+| Pendências de cadastro de pacientes (ano da consolidação) | R clínica | R · escopo | — | R clínica | R clínica | — |
 | Arquivos de pacientes | CRD | CRD · escopo | R próprios | CRD | CRD | CRD · escopo |
 | Observações de pacientes | CRU | CRU · escopo | — | CRU | CRU | CRU · escopo |
 | Faturamento médico | R clínica | R · escopo | — | R clínica | R clínica | R · escopo |
