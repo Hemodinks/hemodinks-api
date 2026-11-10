@@ -156,6 +156,7 @@ API_MATRIX = [
     ("Resetar senha de terceiro", ["Sim", NO, NO, NO, "Sim", NO]),
     ("Equipes (`/api/equipes`)", ["CRUD", NO, NO, NO, "CRUD", "~Trocar PIN próprio"]),
     ("Pacientes e cirurgias", ["CRUD", "~CRUD · escopo", "~R próprio", "CRU", "CRUD", "~CRU · escopo"]),
+    ("Pendências de cadastro de pacientes (ano da consolidação)", ["R clínica", "~R · escopo", NO, "R clínica", "R clínica", NO]),
     ("Arquivos de pacientes", ["CRD", "~CRD · escopo", "~R próprios", "CRD", "CRD", "~CRD · escopo"]),
     ("Observações de pacientes", ["CRU", "~CRU · escopo", NO, "CRU", "CRU", "~CRU · escopo"]),
     ("Faturamento médico", ["R clínica", "~R · escopo", NO, "R clínica", "R clínica", "~R · escopo"]),

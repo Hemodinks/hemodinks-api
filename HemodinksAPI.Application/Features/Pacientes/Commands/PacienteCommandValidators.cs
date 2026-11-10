@@ -1,12 +1,17 @@
 using HemodinksAPI.Application.Validation;
+using HemodinksAPI.Domain.Models;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
-public sealed class CreatePacienteCommandValidator : IRequestValidator<CreatePacienteCommand>
+public sealed class CreatePacienteCommandValidator(TimeProvider? timeProvider = null) : IRequestValidator<CreatePacienteCommand>
 {
+    private readonly TimeProvider _timeProvider = timeProvider ?? TimeProvider.System;
+
     public void Validate(CreatePacienteCommand request)
     {
         PacienteCommandValidator.Validate(request);
+        // Cadastro novo sempre respeita a faixa; a edição trata registros legados no handler.
+        DataConsolidacaoRules.Validate(request.DataAtendimento, _timeProvider.GetUtcNow());
     }
 }
 

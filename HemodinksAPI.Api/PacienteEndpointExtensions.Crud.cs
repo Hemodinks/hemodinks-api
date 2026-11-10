@@ -24,6 +24,7 @@ public static partial class PacienteEndpointExtensions
         string? sortDirection,
         HemodinksAPI.Domain.Models.TipoCirurgia? tipoCirurgia,
         HemodinksAPI.Domain.Models.StatusCirurgia? statusCirurgia,
+        bool? pendenciaDataConsolidacao,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
@@ -50,6 +51,7 @@ public static partial class PacienteEndpointExtensions
                 SortDirection = sortDirection,
                 TipoCirurgia = tipoCirurgia,
                 StatusCirurgia = statusCirurgia,
+                PendenciaDataConsolidacao = pendenciaDataConsolidacao == true,
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId,
                 CurrentEquipeId = currentUser.EquipeId
@@ -127,5 +129,21 @@ public static partial class PacienteEndpointExtensions
 
             return Results.NoContent();
         }, logger, "Erro ao excluir paciente", "Erro ao excluir paciente");
+    }
+
+    private static Task<IResult> GetDataConsolidacaoPendencias(
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        return EndpointExecution.RunAsync(async () =>
+        {
+            var currentUser = GetRequiredCurrentUser(claimsPrincipal);
+            var result = await mediator.Send(
+                new GetDataConsolidacaoPendenciasQuery(currentUser.Id, currentUser.PerfilId, currentUser.EquipeId),
+                cancellationToken);
+            return Results.Ok(result);
+        }, logger, "Erro ao consultar pendencias de pacientes", "Erro ao consultar pendencias de pacientes");
     }
 }

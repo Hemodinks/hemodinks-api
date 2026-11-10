@@ -15,6 +15,12 @@ public static partial class PacienteEndpointExtensions
             .WithSummary("Listar pacientes")
             .RequireAuthorization(LicencaPolicies.PacientesVisualizar);
 
+        group.MapGet("/pendencias/data-consolidacao", GetDataConsolidacaoPendencias)
+            .WithName("GetDataConsolidacaoPendencias")
+            .WithSummary("Contar pacientes com ano da data da consolidacao fora da faixa permitida")
+            .RequireAuthorization(LicencaPolicies.PacientesVisualizar)
+            .RequireAuthorization("PacientePendenciasVisualizar");
+
         group.MapGet("/{id}", GetPacienteById)
             .WithName("GetPacienteById")
             .WithSummary("Buscar paciente por ID")
