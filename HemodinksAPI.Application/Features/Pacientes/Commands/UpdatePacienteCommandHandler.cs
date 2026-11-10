@@ -73,9 +73,9 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
                 throw new UnauthorizedAccessException("Sem permissao para atualizar paciente");
             }
 
-            // Data legada fora da faixa só é tolerada enquanto não for alterada (pendência sinalizada).
-            if (request.DataAtendimento?.Date != paciente.DataAtendimento?.Date)
-                DataConsolidacaoRules.Validate(request.DataAtendimento, _timeProvider.GetUtcNow());
+            // Data legada fora da faixa só é tolerada enquanto não for alterada (pendência sinalizada)
+            // e não pode ser apagada: só trocada por uma data válida.
+            DataConsolidacaoRules.ValidateUpdate(paciente.DataAtendimento, request.DataAtendimento, _timeProvider.GetUtcNow());
 
             var cpf = string.IsNullOrWhiteSpace(request.Cpf)
                 ? paciente.User.Cpf

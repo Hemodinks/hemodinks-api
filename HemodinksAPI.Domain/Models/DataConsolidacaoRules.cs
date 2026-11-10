@@ -18,11 +18,31 @@ public static class DataConsolidacaoRules
     public static string MensagemForaDaFaixa(int anoMaximo) =>
         $"O ano da data da consolidação deve estar entre {AnoMinimo} e {anoMaximo}.";
 
+    public static string MensagemApagarProibido(int anoMaximo) =>
+        "Não é permitido apagar a data de uma cirurgia já consolidada. "
+        + $"Corrija o ano da data da consolidação para um valor entre {AnoMinimo} e {anoMaximo}.";
+
     public static void Validate(DateTime? dataConsolidacao, DateTimeOffset agora)
     {
         if (!dataConsolidacao.HasValue) return;
         var anoMaximo = AnoMaximo(agora);
         if (!IsConforme(dataConsolidacao.Value, anoMaximo))
             throw new InvalidOperationException(MensagemForaDaFaixa(anoMaximo));
+    }
+
+    // Edição: data legada inalterada é tolerada; data alterada precisa estar na faixa;
+    // cadastro pendente (data fora da faixa) não pode ter a data apagada, para não mascarar o faturamento.
+    public static void ValidateUpdate(DateTime? dataAtual, DateTime? novaData, DateTimeOffset agora)
+    {
+        if (novaData?.Date == dataAtual?.Date) return;
+        var anoMaximo = AnoMaximo(agora);
+        if (!novaData.HasValue)
+        {
+            if (dataAtual.HasValue && !IsConforme(dataAtual.Value, anoMaximo))
+                throw new InvalidOperationException(MensagemApagarProibido(anoMaximo));
+            return;
+        }
+
+        Validate(novaData, agora);
     }
 }

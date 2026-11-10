@@ -118,6 +118,45 @@ public sealed class DataConsolidacaoPendenciaEndpointTests : ApiEndpointTestBase
     }
 
     [Fact]
+    public async Task Update_ClearingDateOfPendingPatient_IsRejectedAndKeepsStoredDate()
+    {
+        using var factory = new HemodinksApiFactory();
+        var seed = await SeedFinanceiroAsync(factory);
+        var legacyId = await SeedPacienteAsync(factory, Clinica.DefaultId, new DateTime(8202, 5, 20), seed.MedicoId);
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        using var response = await client.PutAsJsonAsync($"/api/pacientes/{legacyId}", new
+        {
+            nomePaciente = "Tentativa de apagar", medicoUserId = seed.MedicoId, dataAtendimento = (string?)null
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains("Não é permitido apagar a data de uma cirurgia já consolidada", await response.Content.ReadAsStringAsync());
+        var stored = await ReadPacienteAsync(factory, legacyId);
+        Assert.Equal(new DateTime(8202, 5, 20), stored.DataAtendimento?.Date);
+        Assert.Equal(StatusCirurgia.Consolidada, stored.StatusCirurgia);
+    }
+
+    [Fact]
+    public async Task Update_ClearingDateOfConformingPatient_RemainsAllowed()
+    {
+        using var factory = new HemodinksApiFactory();
+        var seed = await SeedFinanceiroAsync(factory);
+        var id = await SeedPacienteAsync(factory, Clinica.DefaultId, new DateTime(2026, 5, 20), seed.MedicoId);
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+
+        using var response = await client.PutAsJsonAsync($"/api/pacientes/{id}", new
+        {
+            nomePaciente = "Sem consolidacao", medicoUserId = seed.MedicoId, dataAtendimento = (string?)null
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Null((await ReadPacienteAsync(factory, id)).DataAtendimento);
+    }
+
+    [Fact]
     public async Task Update_LegacyPatientOfAnotherClinic_Returns404WithoutRevealingDateRule()
     {
         using var factory = new HemodinksApiFactory();
@@ -333,6 +372,23 @@ public sealed class DataConsolidacaoRulesTests
     public void AnoMaximo_UsesBrasiliaCivilYearPlusOne(string utcNow, int expected)
     {
         Assert.Equal(expected, DataConsolidacaoRules.AnoMaximo(DateTimeOffset.Parse(utcNow, System.Globalization.CultureInfo.InvariantCulture)));
+    }
+
+    private static readonly DateTimeOffset Agora = new(2026, 11, 10, 12, 0, 0, TimeSpan.Zero);
+
+    [Fact]
+    public void ValidateUpdate_BlocksClearingOnlyForPendingDates()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(() =>
+            DataConsolidacaoRules.ValidateUpdate(new DateTime(2016, 1, 1), null, Agora));
+        Assert.StartsWith("Não é permitido apagar a data de uma cirurgia já consolidada.", ex.Message);
+
+        DataConsolidacaoRules.ValidateUpdate(new DateTime(2026, 1, 1), null, Agora);
+        DataConsolidacaoRules.ValidateUpdate(null, null, Agora);
+        DataConsolidacaoRules.ValidateUpdate(new DateTime(2016, 1, 1), new DateTime(2016, 1, 1, 15, 0, 0), Agora);
+        DataConsolidacaoRules.ValidateUpdate(new DateTime(2016, 1, 1), new DateTime(2026, 1, 1), Agora);
+        Assert.Throws<InvalidOperationException>(() =>
+            DataConsolidacaoRules.ValidateUpdate(new DateTime(2016, 1, 1), new DateTime(2045, 1, 1), Agora));
     }
 
     [Theory]
