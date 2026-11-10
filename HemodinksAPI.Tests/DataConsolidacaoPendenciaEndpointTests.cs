@@ -15,7 +15,7 @@ public sealed class DataConsolidacaoPendenciaEndpointTests : ApiEndpointTestBase
     private static int AnoMaximo => DataConsolidacaoRules.AnoMaximo(DateTimeOffset.UtcNow);
 
     [Theory]
-    [InlineData(2025)]
+    [InlineData(2024)]
     [InlineData(2016)]
     [InlineData(8202)]
     public async Task Create_WithConsolidationYearBelowMinimumOrFarFuture_Returns400(int year)
@@ -211,7 +211,7 @@ public sealed class DataConsolidacaoPendenciaEndpointTests : ApiEndpointTestBase
             await SeedPacienteAsync(factory, Clinica.DefaultId, new DateTime(2016, 1, 5), seed.MedicoId),
             await SeedPacienteAsync(factory, Clinica.DefaultId, new DateTime(2045, 7, 1), seed.MedicoId),
             await SeedPacienteAsync(factory, Clinica.DefaultId, new DateTime(8202, 5, 20), seed.MedicoId),
-            await SeedPacienteAsync(factory, Clinica.DefaultId, new DateTime(2025, 12, 31), seed.MedicoId)
+            await SeedPacienteAsync(factory, Clinica.DefaultId, new DateTime(2024, 12, 31), seed.MedicoId)
         };
         await SeedPacienteAsync(factory, Clinica.DefaultId, new DateTime(2026, 1, 1), seed.MedicoId);
         await SeedPacienteAsync(factory, Clinica.DefaultId, new DateTime(AnoMaximo, 12, 31), seed.MedicoId);
@@ -417,7 +417,8 @@ public sealed class DataConsolidacaoRulesTests
     }
 
     [Theory]
-    [InlineData(2025, false)]
+    [InlineData(2024, false)]
+    [InlineData(2025, true)]
     [InlineData(2026, true)]
     [InlineData(2027, true)]
     [InlineData(2028, false)]
