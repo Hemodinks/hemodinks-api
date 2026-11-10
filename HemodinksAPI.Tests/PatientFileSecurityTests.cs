@@ -16,7 +16,7 @@ public sealed class PatientFileSecurityTests : IDisposable
         var content = "not-a-pdf"u8.ToArray();
 
         var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CreateStorage().SaveAsync(CreateFile("laudo.pdf", content), CancellationToken.None));
+            CreateStorage().SaveAsync(CreateFile("laudo.pdf", content), 1, CancellationToken.None));
 
         Assert.Contains("não corresponde", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -30,7 +30,7 @@ public sealed class PatientFileSecurityTests : IDisposable
             () => new MemoryStream(content, writable: false));
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CreateStorage(maxBytes: 1024).SaveAsync(file, CancellationToken.None));
+            CreateStorage(maxBytes: 1024).SaveAsync(file, 1, CancellationToken.None));
     }
 
     [Fact]
@@ -45,7 +45,7 @@ public sealed class PatientFileSecurityTests : IDisposable
 
         var bytes = content.ToArray();
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            CreateStorage().SaveAsync(CreateFile("report.docx", bytes), CancellationToken.None));
+            CreateStorage().SaveAsync(CreateFile("report.docx", bytes), 1, CancellationToken.None));
     }
 
     [Fact]
@@ -55,6 +55,7 @@ public sealed class PatientFileSecurityTests : IDisposable
 
         var stored = await CreateStorage().SaveAsync(
             CreateFile("../../sensitive/laudo.pdf", content),
+            1,
             CancellationToken.None);
 
         Assert.Equal("laudo.pdf", stored.OriginalName);

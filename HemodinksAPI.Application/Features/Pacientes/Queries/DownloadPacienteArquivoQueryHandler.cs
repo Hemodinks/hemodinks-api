@@ -45,6 +45,7 @@ public sealed class DownloadPacienteArquivoQueryHandler
                 && accessiblePatientIds.Contains(item.PacienteId))
             .Select(item => new
             {
+                item.ClinicaId,
                 item.Url,
                 item.NomeOriginal,
                 item.ContentType
@@ -56,7 +57,7 @@ public sealed class DownloadPacienteArquivoQueryHandler
             return null;
         }
 
-        var storedFile = await _patientFileStorage.GetAsync(arquivo.Url, cancellationToken)
+        var storedFile = await _patientFileStorage.GetAsync(arquivo.Url, arquivo.ClinicaId, cancellationToken)
             ?? throw new StoredFileUnavailableException(
                 "Arquivo do paciente registrado nao foi localizado no armazenamento.");
 

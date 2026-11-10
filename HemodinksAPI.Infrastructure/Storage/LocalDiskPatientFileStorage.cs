@@ -20,12 +20,13 @@ public class LocalDiskPatientFileStorage : IPatientFileStorage
         _logger = logger;
     }
 
-    public async Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
+    public async Task<StoredPatientFile> SaveAsync(UploadedFile file, int clinicaId, CancellationToken cancellationToken)
     {
+        PatientFileBlobPath.EnsureValidClinicaId(clinicaId);
         await using var source = file.OpenReadStream();
         var validated = await PatientFileValidation.ValidateAsync(file, source, _options.MaxBytes, cancellationToken);
 
-        var relativePath = $"pacientes/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{validated.Extension}";
+        var relativePath = PatientFileBlobPath.Build(clinicaId, validated.Extension, DateTime.UtcNow);
         var physicalPath = LocalStoragePathHelper.GetPhysicalPath(_localOptions, StorageFolder, relativePath);
         var directoryPath = Path.GetDirectoryName(physicalPath)
             ?? throw new InvalidOperationException("Nao foi possivel resolver a pasta do arquivo");
@@ -42,10 +43,10 @@ public class LocalDiskPatientFileStorage : IPatientFileStorage
             LocalStoragePathHelper.BuildPublicUrl(_localOptions, StorageFolder, relativePath));
     }
 
-    public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
+    public Task DeleteAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken)
     {
         var relativePath = LocalStoragePathHelper.TryGetRelativePath(_localOptions, StorageFolder, fileUrl);
-        if (relativePath == null)
+        if (relativePath == null || !PatientFileBlobPath.BelongsTo(relativePath, clinicaId))
         {
             return Task.CompletedTask;
         }
@@ -67,12 +68,19 @@ public class LocalDiskPatientFileStorage : IPatientFileStorage
         return Task.CompletedTask;
     }
 
-    public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
+    public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken)
     {
         var relativePath = LocalStoragePathHelper.TryGetRelativePath(_localOptions, StorageFolder, fileUrl);
         if (relativePath == null)
         {
             return Task.FromResult<StoredPatientFileContent?>(null);
+        }
+
+        if (!PatientFileBlobPath.BelongsTo(relativePath, clinicaId))
+        {
+            // 404 genérico: não revela que o arquivo existe em outra clínica.
+            _logger.LogWarning("Leitura de arquivo recusada: prefixo de clinica nao corresponde ao registro.");
+            throw new KeyNotFoundException("Arquivo nao encontrado.");
         }
 
         var physicalPath = LocalStoragePathHelper.GetPhysicalPath(_localOptions, StorageFolder, relativePath);

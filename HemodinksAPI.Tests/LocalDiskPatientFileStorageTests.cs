@@ -26,15 +26,15 @@ public sealed class LocalDiskPatientFileStorageTests : IDisposable
         var file = new UploadedFile("laudo.pdf", "application/pdf", content.LongLength,
             () => new MemoryStream(content, writable: false));
 
-        var storedFile = await storage.SaveAsync(file, CancellationToken.None);
+        var storedFile = await storage.SaveAsync(file, 1, CancellationToken.None);
         var localPath = GetLocalPathFromUrl(storedFile.Url);
 
         Assert.Equal("laudo.pdf", storedFile.OriginalName);
         Assert.Equal("application/pdf", storedFile.ContentType);
-        Assert.StartsWith("http://localhost:5000/storage/patient-files/pacientes/", storedFile.Url);
+        Assert.StartsWith("http://localhost:5000/storage/patient-files/clinicas/1/pacientes/", storedFile.Url);
         Assert.True(File.Exists(localPath));
 
-        await storage.DeleteAsync(storedFile.Url, CancellationToken.None);
+        await storage.DeleteAsync(storedFile.Url, 1, CancellationToken.None);
 
         Assert.False(File.Exists(localPath));
     }

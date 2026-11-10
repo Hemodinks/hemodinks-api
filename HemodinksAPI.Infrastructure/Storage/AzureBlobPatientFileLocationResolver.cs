@@ -82,9 +82,15 @@ internal static class AzureBlobPatientFileLocationResolver
             return null;
         }
 
+        // Layout do #226: clinicas/{clinicaId}/pacientes/... mantém o prefixo no nome do blob.
+        var blobStartIndex = patientPathIndex >= 2
+            && segments[patientPathIndex - 2].Equals(PatientFileBlobPath.ClinicSegment, StringComparison.OrdinalIgnoreCase)
+                ? patientPathIndex - 2
+                : patientPathIndex;
+
         return new AzureBlobPatientFileLocation(
             defaultContainerName,
-            string.Join('/', segments[patientPathIndex..]));
+            string.Join('/', segments[blobStartIndex..]));
     }
 }
 

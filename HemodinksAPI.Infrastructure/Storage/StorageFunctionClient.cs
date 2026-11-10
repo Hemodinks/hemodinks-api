@@ -62,11 +62,16 @@ public class StorageFunctionClient
         string contentType,
         long length,
         Stream content,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        IReadOnlyDictionary<string, string>? extraHeaders = null)
     {
         using var client = CreateClient();
         using var request = new HttpRequestMessage(HttpMethod.Post, NormalizeRelativePath(relativePath));
         request.Headers.Add("X-File-Name-Base64", Convert.ToBase64String(Encoding.UTF8.GetBytes(fileName)));
+        foreach (var (name, value) in extraHeaders ?? new Dictionary<string, string>())
+        {
+            request.Headers.Add(name, value);
+        }
         request.Headers.Add("X-File-Length", length.ToString(System.Globalization.CultureInfo.InvariantCulture));
         request.Content = new StreamContent(content);
         request.Content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);

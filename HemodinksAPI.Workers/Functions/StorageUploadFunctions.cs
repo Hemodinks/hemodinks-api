@@ -15,13 +15,13 @@ public class StorageUploadFunctions
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
     private readonly IProfilePhotoStorage _profilePhotoStorage;
-    private readonly IPatientFileStorage _patientFileStorage;
+    private readonly AzureBlobPatientFileStorage _patientFileStorage;
     private readonly ILogger<StorageUploadFunctions> _logger;
     private readonly PatientFileStorageOptions _patientFileOptions;
 
     public StorageUploadFunctions(
         IProfilePhotoStorage profilePhotoStorage,
-        IPatientFileStorage patientFileStorage,
+        AzureBlobPatientFileStorage patientFileStorage,
         IOptions<PatientFileStorageOptions> patientFileOptions,
         ILogger<StorageUploadFunctions> logger)
     {
@@ -103,7 +103,16 @@ public class StorageUploadFunctions
             fileLength,
             () => tempFile);
 
-        var storedFile = await _patientFileStorage.SaveAsync(uploadedFile, cancellationToken);
+        // #226: clínica dona do arquivo vem da API (registro sob filtro de tenant). Valor inválido é recusado;
+        // ausência só ocorre com API anterior ao #226 durante o rollout e mantém o layout legado.
+        var clinicaId = StorageFunctionHeaders.ParseClinicaId(
+            request.Headers.TryGetValues(StorageFunctionHeaders.ClinicaId, out var clinicaValues) ? clinicaValues : null);
+        if (clinicaId is null)
+        {
+            _logger.LogWarning("Upload sem X-Clinica-Id (API anterior ao #226): gravando no layout legado.");
+        }
+
+        var storedFile = await _patientFileStorage.SaveForStorageFunctionAsync(uploadedFile, clinicaId, cancellationToken);
 
         _logger.LogInformation("Upload de arquivo processado pela Function");
 

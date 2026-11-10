@@ -16,8 +16,9 @@ public class FunctionBackedPatientFileStorage : IPatientFileStorage
         _options = options.Value;
     }
 
-    public async Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
+    public async Task<StoredPatientFile> SaveAsync(UploadedFile file, int clinicaId, CancellationToken cancellationToken)
     {
+        PatientFileBlobPath.EnsureValidClinicaId(clinicaId);
         await using var stream = file.OpenReadStream();
         var validated = await PatientFileValidation.ValidateAsync(file, stream, _options.MaxBytes, cancellationToken);
 
@@ -27,7 +28,8 @@ public class FunctionBackedPatientFileStorage : IPatientFileStorage
             validated.ContentType,
             validated.SizeBytes,
             stream,
-            cancellationToken);
+            cancellationToken,
+            new Dictionary<string, string> { [StorageFunctionHeaders.ClinicaId] = clinicaId.ToString(System.Globalization.CultureInfo.InvariantCulture) });
 
         return new StoredPatientFile(
             response.OriginalName,
@@ -36,13 +38,13 @@ public class FunctionBackedPatientFileStorage : IPatientFileStorage
             response.Url);
     }
 
-    public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
+    public Task DeleteAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken)
     {
-        return _fallbackStorage.DeleteAsync(fileUrl, cancellationToken);
+        return _fallbackStorage.DeleteAsync(fileUrl, clinicaId, cancellationToken);
     }
 
-    public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
+    public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken)
     {
-        return _fallbackStorage.GetAsync(fileUrl, cancellationToken);
+        return _fallbackStorage.GetAsync(fileUrl, clinicaId, cancellationToken);
     }
 }

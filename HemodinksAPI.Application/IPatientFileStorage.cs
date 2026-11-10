@@ -2,11 +2,14 @@ namespace HemodinksAPI.Application.Storage;
 
 public interface IPatientFileStorage
 {
-    Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken);
+    // clinicaId vem sempre do registro carregado sob o filtro de tenant (nunca do payload).
+    // Novos arquivos ficam em clinicas/{clinicaId}/pacientes/... (PatientFileBlobPath).
+    Task<StoredPatientFile> SaveAsync(UploadedFile file, int clinicaId, CancellationToken cancellationToken);
 
-    Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken);
+    // Arquivo com prefixo de outra clínica é tratado como inexistente (defesa em profundidade).
+    Task<StoredPatientFileContent?> GetAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken);
 
-    Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken);
+    Task DeleteAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken);
 }
 
 public sealed record StoredPatientFile(
