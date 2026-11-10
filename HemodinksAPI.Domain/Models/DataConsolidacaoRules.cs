@@ -1,11 +1,11 @@
 namespace HemodinksAPI.Domain.Models;
 
 // Faixa permitida para o ano da data da consolidação (Paciente.DataAtendimento).
-// O HemoDinks começou a operar em 2026; o limite superior acompanha o ano corrente (+1).
+// Ano mínimo 2025 (regra de negócio); o limite superior acompanha o ano corrente (+1).
 // Registros legados fora da faixa continuam válidos para uso, mas são sinalizados como pendência.
 public static class DataConsolidacaoRules
 {
-    public const int AnoMinimo = 2026;
+    public const int AnoMinimo = 2025;
 
     // Brasil sem horário de verão desde 2019: o ano civil local é UTC-3.
     private static readonly TimeSpan BrasiliaOffset = TimeSpan.FromHours(-3);
