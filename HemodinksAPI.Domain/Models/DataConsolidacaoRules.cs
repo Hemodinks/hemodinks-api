@@ -18,9 +18,12 @@ public static class DataConsolidacaoRules
     public static string MensagemForaDaFaixa(int anoMaximo) =>
         $"O ano da data da consolidação deve estar entre {AnoMinimo} e {anoMaximo}.";
 
-    public static string MensagemApagarProibido(int anoMaximo) =>
-        "Não é permitido apagar a data de uma cirurgia já consolidada. "
-        + $"Corrija o ano da data da consolidação para um valor entre {AnoMinimo} e {anoMaximo}.";
+    public const string MensagemApagarProibidoBase = "Não é permitido apagar a data de uma cirurgia já consolidada.";
+
+    // Cadastro pendente recebe também a orientação de correção do ano.
+    public static string MensagemApagarProibido(bool pendente, int anoMaximo) => pendente
+        ? $"{MensagemApagarProibidoBase} Corrija o ano da data da consolidação para um valor entre {AnoMinimo} e {anoMaximo}."
+        : MensagemApagarProibidoBase;
 
     public static void Validate(DateTime? dataConsolidacao, DateTimeOffset agora)
     {
@@ -31,15 +34,16 @@ public static class DataConsolidacaoRules
     }
 
     // Edição: data legada inalterada é tolerada; data alterada precisa estar na faixa;
-    // cadastro pendente (data fora da faixa) não pode ter a data apagada, para não mascarar o faturamento.
+    // cirurgia já consolidada (com data) nunca pode ter a data apagada, para não mascarar o faturamento.
+    // Só cadastros que nunca tiveram data podem continuar sem data.
     public static void ValidateUpdate(DateTime? dataAtual, DateTime? novaData, DateTimeOffset agora)
     {
         if (novaData?.Date == dataAtual?.Date) return;
         var anoMaximo = AnoMaximo(agora);
         if (!novaData.HasValue)
         {
-            if (dataAtual.HasValue && !IsConforme(dataAtual.Value, anoMaximo))
-                throw new InvalidOperationException(MensagemApagarProibido(anoMaximo));
+            if (dataAtual.HasValue)
+                throw new InvalidOperationException(MensagemApagarProibido(!IsConforme(dataAtual.Value, anoMaximo), anoMaximo));
             return;
         }
 
