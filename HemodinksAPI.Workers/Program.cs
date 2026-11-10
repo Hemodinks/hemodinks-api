@@ -39,7 +39,8 @@ var host = new HostBuilder()
         services.AddSingleton<SmtpPasswordResetNotificationSender>();
         services.AddSingleton<SmtpEventEmailSender>();
         services.AddSingleton<IProfilePhotoStorage, AzureBlobProfilePhotoStorage>();
-        services.AddSingleton<IPatientFileStorage, AzureBlobPatientFileStorage>();
+        services.AddSingleton<AzureBlobPatientFileStorage>();
+        services.AddSingleton<IPatientFileStorage>(sp => sp.GetRequiredService<AzureBlobPatientFileStorage>());
     })
     .Build();
 

@@ -36,6 +36,7 @@ public sealed class DownloadUserArquivoQueryHandler
             .Where(item => item.Id == request.ArquivoId && item.UserId == request.UserId)
             .Select(item => new
             {
+                item.ClinicaId,
                 item.Url,
                 item.NomeOriginal,
                 item.ContentType
@@ -47,7 +48,7 @@ public sealed class DownloadUserArquivoQueryHandler
             return null;
         }
 
-        var storedFile = await _patientFileStorage.GetAsync(arquivo.Url, cancellationToken)
+        var storedFile = await _patientFileStorage.GetAsync(arquivo.Url, arquivo.ClinicaId, cancellationToken)
             ?? throw new StoredFileUnavailableException(
                 "Arquivo do usuario registrado nao foi localizado no armazenamento.");
 

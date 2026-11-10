@@ -13,6 +13,9 @@ public class AzureBlobPatientFileStorageTests
     [InlineData("https://stgmtechsolution.blob.core.windows.net/patient-files/pacientes/2026/09/file.pdf", "patient-files-confirmation", "pacientes/2026/09/file.pdf")]
     [InlineData("https://stgmtechsolution.blob.core.windows.net/patient-files/patient-files-confirmation/pacientes/2026/09/file.pdf", "patient-files-confirmation", "pacientes/2026/09/file.pdf")]
     [InlineData("http://azurite:10000/devstoreaccount1/patient-files/pacientes/2026/09/file.pdf", "patient-files-confirmation", "pacientes/2026/09/file.pdf")]
+    [InlineData("clinicas/7/pacientes/2026/11/file.pdf", "patient-files-confirmation", "clinicas/7/pacientes/2026/11/file.pdf")]
+    [InlineData("https://stgmtechsolution.blob.core.windows.net/patient-files-confirmation/clinicas/7/pacientes/2026/11/file.pdf", "patient-files-confirmation", "clinicas/7/pacientes/2026/11/file.pdf")]
+    [InlineData("https://stgmtechsolution.blob.core.windows.net/patient-files/patient-files-confirmation/clinicas/7/pacientes/2026/11/file.pdf", "patient-files-confirmation", "clinicas/7/pacientes/2026/11/file.pdf")]
     public void GetBlobLocationFromUrl_ResolvesCurrentLegacyAndNestedContainerPaths(
         string fileUrl,
         string expectedContainerName,

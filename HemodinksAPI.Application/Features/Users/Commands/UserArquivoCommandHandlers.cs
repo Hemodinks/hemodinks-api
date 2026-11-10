@@ -45,7 +45,7 @@ public class UploadUserArquivoCommandHandler : IRequestHandler<UploadUserArquivo
                 throw new InvalidOperationException("Documentos de cadastro estao disponiveis apenas para medicos");
             }
 
-            var storedFile = await _patientFileStorage.SaveAsync(request.File, cancellationToken);
+            var storedFile = await _patientFileStorage.SaveAsync(request.File, user.ClinicaId, cancellationToken);
             var arquivo = new UserArquivo
             {
                 ClinicaId = user.ClinicaId,
@@ -106,10 +106,11 @@ public class DeleteUserArquivoCommandHandler : IRequestHandler<DeleteUserArquivo
             }
 
             var fileUrl = arquivo.Url;
+            var clinicaId = arquivo.ClinicaId;
             arquivo.User.DataAtualizacao = DateTime.UtcNow;
             _context.UserArquivos.Remove(arquivo);
             await _context.SaveChangesAsync(cancellationToken);
-            await _patientFileStorage.DeleteAsync(fileUrl, cancellationToken);
+            await _patientFileStorage.DeleteAsync(fileUrl, clinicaId, cancellationToken);
         }
         catch (Exception ex)
         {

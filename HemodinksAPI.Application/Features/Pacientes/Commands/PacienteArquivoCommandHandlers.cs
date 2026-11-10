@@ -41,7 +41,7 @@ public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacient
                 throw new UnauthorizedAccessException("Sem permissao para enviar arquivo do paciente");
             }
 
-            var storedFile = await _patientFileStorage.SaveAsync(request.File, cancellationToken);
+            var storedFile = await _patientFileStorage.SaveAsync(request.File, paciente.ClinicaId, cancellationToken);
             var arquivo = new PacienteArquivo
             {
                 ClinicaId = paciente.ClinicaId,
@@ -103,10 +103,11 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
             }
 
             var fileUrl = arquivo.Url;
+            var clinicaId = arquivo.ClinicaId;
             arquivo.Paciente.User.DataAtualizacao = DateTime.UtcNow;
             _context.PacienteArquivos.Remove(arquivo);
             await _context.SaveChangesAsync(cancellationToken);
-            await _patientFileStorage.DeleteAsync(fileUrl, cancellationToken);
+            await _patientFileStorage.DeleteAsync(fileUrl, clinicaId, cancellationToken);
         }
         catch (Exception ex)
         {

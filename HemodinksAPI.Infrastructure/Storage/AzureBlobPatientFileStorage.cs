@@ -17,13 +17,23 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
         _logger = logger;
     }
 
-    public async Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
+    public Task<StoredPatientFile> SaveAsync(UploadedFile file, int clinicaId, CancellationToken cancellationToken)
+    {
+        PatientFileBlobPath.EnsureValidClinicaId(clinicaId);
+        return SaveForStorageFunctionAsync(file, clinicaId, cancellationToken);
+    }
+
+    // Só a Function usa null: upload vindo de uma API anterior ao #226, sem X-Clinica-Id (compatibilidade de rollout).
+    // Fora da Function, use SaveAsync, que exige clínica válida.
+    public async Task<StoredPatientFile> SaveForStorageFunctionAsync(UploadedFile file, int? clinicaId, CancellationToken cancellationToken)
     {
         await using var stream = file.OpenReadStream();
         var validated = await PatientFileValidation.ValidateAsync(file, stream, _options.MaxBytes, cancellationToken);
 
         var containerClient = await GetContainerClientAsync(cancellationToken);
-        var blobName = $"pacientes/{DateTime.UtcNow:yyyy/MM}/{Guid.NewGuid():N}{validated.Extension}";
+        var blobName = clinicaId.HasValue
+            ? PatientFileBlobPath.Build(clinicaId.Value, validated.Extension, DateTime.UtcNow)
+            : PatientFileBlobPath.BuildLegacy(validated.Extension, DateTime.UtcNow);
         var blobClient = containerClient.GetBlobClient(blobName);
 
         await blobClient.UploadAsync(stream, new BlobUploadOptions
@@ -42,12 +52,19 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
             BuildPublicUrl(blobClient, blobName));
     }
 
-    public async Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
+    public async Task DeleteAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken)
     {
         var location = GetBlobLocationFromUrl(fileUrl);
 
         if (location == null)
         {
+            return;
+        }
+
+        // Dono verificado no blob que será de fato excluído (não na URL original: evita bypass com ? ou #).
+        if (!PatientFileBlobPath.BelongsTo(location.BlobName, clinicaId))
+        {
+            _logger.LogWarning("Exclusao de arquivo recusada: prefixo de clinica nao corresponde ao registro.");
             return;
         }
 
@@ -94,13 +111,21 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
         return containerClient;
     }
 
-    public async Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
+    public async Task<StoredPatientFileContent?> GetAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken)
     {
         var location = GetBlobLocationFromUrl(fileUrl);
 
         if (location == null)
         {
             return null;
+        }
+
+        // Dono verificado no blob que será de fato lido (não na URL original: evita bypass com ? ou #).
+        // 404 genérico: não revela que o arquivo existe em outra clínica.
+        if (!PatientFileBlobPath.BelongsTo(location.BlobName, clinicaId))
+        {
+            _logger.LogWarning("Leitura de arquivo recusada: prefixo de clinica nao corresponde ao registro.");
+            throw new KeyNotFoundException("Arquivo nao encontrado.");
         }
 
         var readTimeout = BlobReadResilience.ResolveTimeout(_options.ReadTimeoutSeconds);

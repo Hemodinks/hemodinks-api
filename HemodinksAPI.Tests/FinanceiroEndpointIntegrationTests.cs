@@ -641,15 +641,15 @@ public sealed class FinanceiroEndpointIntegrationTests : ApiEndpointTestBase
         private byte[] _content = [];
         public string? LastSavedName { get; private set; }
         public bool DeleteCalled { get; private set; }
-        public async Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
+        public async Task<StoredPatientFile> SaveAsync(UploadedFile file, int clinicaId, CancellationToken cancellationToken)
         {
             LastSavedName = file.FileName; await using var stream = new MemoryStream();
             await file.CopyToAsync(stream, cancellationToken); _content = stream.ToArray();
             return new(file.FileName, file.ContentType, file.Length, "https://storage.test/comprovante.pdf");
         }
-        public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken) =>
+        public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken) =>
             Task.FromResult<StoredPatientFileContent?>(new(new MemoryStream(_content)));
-        public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
+        public Task DeleteAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken)
         {
             DeleteCalled = true;
             return Task.CompletedTask;

@@ -105,7 +105,7 @@ public sealed class BlobReadTimeoutTests : IAsyncLifetime
 
         var stopwatch = Stopwatch.StartNew();
         await Assert.ThrowsAsync<TimeoutException>(
-            async () => await storage.GetAsync("pacientes/2026/08/exame.pdf", CancellationToken.None));
+            async () => await storage.GetAsync("pacientes/2026/08/exame.pdf", 1, CancellationToken.None));
         stopwatch.Stop();
 
         Assert.True(stopwatch.Elapsed < MaxExpectedDuration, $"Leitura levou {stopwatch.Elapsed}.");

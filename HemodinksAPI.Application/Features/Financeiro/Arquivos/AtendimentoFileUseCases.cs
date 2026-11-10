@@ -16,14 +16,14 @@ public sealed partial class FinanceiroFileUseCases
         CurrentUserContext user,
         CancellationToken cancellationToken)
     {
-        var fileUrls = await db.AtendimentoArquivos.AsNoTracking()
+        var files = await db.AtendimentoArquivos.AsNoTracking()
             .Where(item => item.AtendimentoCirurgicoId == id)
-            .Select(item => item.Url)
+            .Select(item => new { item.Url, item.ClinicaId })
             .ToListAsync(cancellationToken);
         await sender.Send(new ExcluirAtendimentoCommand(id, user.Id, user.PerfilId), cancellationToken);
-        foreach (var fileUrl in fileUrls)
+        foreach (var file in files)
         {
-            await storage.DeleteAsync(fileUrl, cancellationToken);
+            await storage.DeleteAsync(file.Url, file.ClinicaId, cancellationToken);
         }
     }
 
@@ -37,7 +37,7 @@ public sealed partial class FinanceiroFileUseCases
             ?? throw new KeyNotFoundException("Atendimento nao encontrado.");
         EnsureMedicalAccess(atendimento, user, "Sem permissao para anexar arquivos ao atendimento.");
 
-        var stored = await storage.SaveAsync(file, cancellationToken);
+        var stored = await storage.SaveAsync(file, atendimento.ClinicaId, cancellationToken);
         var entity = new AtendimentoArquivo
         {
             ClinicaId = atendimento.ClinicaId,
@@ -66,7 +66,7 @@ public sealed partial class FinanceiroFileUseCases
             .SingleOrDefaultAsync(item => item.Id == fileId && item.AtendimentoCirurgicoId == atendimentoId, cancellationToken)
             ?? throw new KeyNotFoundException("Arquivo nao encontrado.");
         EnsureMedicalAccess(entity.AtendimentoCirurgico, user, "Sem permissao para baixar este arquivo.");
-        var stored = await storage.GetAsync(entity.Url, cancellationToken)
+        var stored = await storage.GetAsync(entity.Url, entity.ClinicaId, cancellationToken)
             ?? throw new StoredFileUnavailableException(
                 "Arquivo do atendimento registrado nao foi localizado no armazenamento.");
         return new PrivateFileDownload { Content = stored.Content, ContentType = entity.ContentType, FileName = entity.NomeOriginal };
@@ -83,9 +83,10 @@ public sealed partial class FinanceiroFileUseCases
             ?? throw new KeyNotFoundException("Arquivo nao encontrado.");
         EnsureMedicalAccess(entity.AtendimentoCirurgico, user, "Sem permissao para excluir este arquivo.");
         var url = entity.Url;
+        var clinicaId = entity.ClinicaId;
         db.AtendimentoArquivos.Remove(entity);
         await db.SaveChangesAsync(cancellationToken);
-        await storage.DeleteAsync(url, cancellationToken);
+        await storage.DeleteAsync(url, clinicaId, cancellationToken);
     }
 
 }

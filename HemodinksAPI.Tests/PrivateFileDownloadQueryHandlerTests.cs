@@ -144,12 +144,12 @@ public class PrivateFileDownloadQueryHandlerTests
 
         public bool ReturnMissing { get; init; }
 
-        public Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
+        public Task<StoredPatientFile> SaveAsync(UploadedFile file, int clinicaId, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }
 
-        public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
+        public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken)
         {
             GetCalls++;
             if (ReturnMissing)
@@ -161,7 +161,7 @@ public class PrivateFileDownloadQueryHandlerTests
                 new StoredPatientFileContent(new MemoryStream("conteudo"u8.ToArray())));
         }
 
-        public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
+        public Task DeleteAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken)
         {
             throw new NotSupportedException();
         }
