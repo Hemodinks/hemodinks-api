@@ -182,6 +182,11 @@ O deploy no Azure exige execucao manual na `main` com `deploy_to_azure=true`: o 
 (environment `production`, com aprovacao) aplica o bundle uma unica vez e so depois `deploy-api` troca o trafego
 e `deploy-function-app` publica os Workers.
 
+Desde o #229 o bash de cada passo do `deploy-api` fica em `scripts/deploy/*.sh` (um script por passo, mesmas
+variaveis de ambiente e as mesmas opcoes `-e -o pipefail` do `run:`); o YAML so declara `env:` e chama o script.
+O CI roda `shellcheck` nesses scripts e `scripts/tests/test_production_deployment_gates.py` executa os scripts reais
+com `az`/`curl` simulados. Para mudar o deploy, edite o script e o teste, nao o YAML.
+
 Repository variables:
 
 | Nome | Exemplo |
