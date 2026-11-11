@@ -47,8 +47,8 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedRe
                     && membro.Ativo));
             }
             // CPF: busca exata por hash (#227); parcial nao e possivel com o dado cifrado.
-            var cpfHash = digits.Length == 11 ? _context.ComputeCpfLookupHash(digits) : null;
-            query = ApplyFilters(query, request.ProfileId, search, digits, cpfHash, _supportsFullTextSearch);
+            var cpfHashes = digits.Length == 11 ? _context.ComputeCpfLookupHashCandidates(digits) : null;
+            query = ApplyFilters(query, request.ProfileId, search, digits, cpfHashes, _supportsFullTextSearch);
 
             var totalItems = await query.CountAsync(cancellationToken);
             query = UserQueryOrdering.ApplyOrdering(query, request.SortBy, request.SortDirection);
@@ -82,7 +82,7 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedRe
         int? profileId,
         string? search,
         string digits,
-        string? cpfHash,
+        string[]? cpfHashes,
         bool supportsFullTextSearch)
     {
         if (profileId.HasValue)
@@ -99,14 +99,14 @@ public class GetAllUsersQueryHandler : IRequestHandler<GetAllUsersQuery, PagedRe
                     || u.Email.Contains(search)
                     || u.Telefone.Contains(search)
                     || u.Perfil.Nome.Contains(search)
-                    || (cpfHash != null && u.CpfHash == cpfHash)
+                    || (cpfHashes != null && u.CpfHash != null && cpfHashes.Contains(u.CpfHash))
                     || (!string.IsNullOrEmpty(digits) && u.Telefone.Contains(digits)))
                 : query.Where(u =>
                     u.Nome.Contains(search)
                     || u.Email.Contains(search)
                     || u.Telefone.Contains(search)
                     || u.Perfil.Nome.Contains(search)
-                    || (cpfHash != null && u.CpfHash == cpfHash)
+                    || (cpfHashes != null && u.CpfHash != null && cpfHashes.Contains(u.CpfHash))
                     || (!string.IsNullOrEmpty(digits) && u.Telefone.Contains(digits)));
         }
 

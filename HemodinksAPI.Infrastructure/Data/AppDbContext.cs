@@ -145,6 +145,11 @@ public partial class AppDbContext : DbContext,
         return RequireCpfProtector().ComputeLookupHash(cpf);
     }
 
+    public string[] ComputeCpfLookupHashCandidates(string? cpf)
+    {
+        return RequireCpfProtector().ComputeLookupHashCandidates(cpf);
+    }
+
     private ICpfProtector RequireCpfProtector()
     {
         return _cpfProtector
@@ -197,17 +202,31 @@ public partial class AppDbContext : DbContext,
     {
         ValidateTenantChanges();
         ProtectCpfChanges();
-        return base.SaveChanges(acceptAllChangesOnSuccess);
+        try
+        {
+            return base.SaveChanges(acceptAllChangesOnSuccess);
+        }
+        catch (DbUpdateException exception) when (UserPersistenceErrors.ShouldSanitize(exception, ChangeTracker))
+        {
+            throw UserPersistenceErrors.Sanitize(exception);
+        }
     }
 
     public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
         => SaveChangesAsync(true, cancellationToken);
 
-    public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
+    public override async Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         ValidateTenantChanges();
         ProtectCpfChanges();
-        return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        try
+        {
+            return await base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
+        }
+        catch (DbUpdateException exception) when (UserPersistenceErrors.ShouldSanitize(exception, ChangeTracker))
+        {
+            throw UserPersistenceErrors.Sanitize(exception);
+        }
     }
 
     private void ValidateTenantChanges()

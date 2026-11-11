@@ -364,7 +364,7 @@ public sealed partial class CpfProtectionTests
         var query = HemodinksAPI.Application.Features.Pacientes.Queries.PacienteFilters.ApplyFilters(
             context.Pacientes.AsNoTracking(), search, digits, null, null, null, [], [], null, null, null, null,
             supportsFullTextSearch: false,
-            cpfHash: digits.Length == 11 ? context.ComputeCpfLookupHash(digits) : null);
+            cpfHashes: digits.Length == 11 ? context.ComputeCpfLookupHashCandidates(digits) : null);
         return await query.Select(paciente => paciente.NomePaciente).ToArrayAsync();
     }
 

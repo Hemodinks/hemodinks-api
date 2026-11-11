@@ -14,4 +14,16 @@ public interface ICpfProtector
 
     /// <summary>Hash de busca do CPF normalizado (somente digitos); null quando nao ha digitos.</summary>
     string? ComputeLookupHash(string? cpf);
+
+    /// <summary>
+    /// Hashes aceitos na comparacao: chave atual primeiro e depois as anteriores, enquanto uma rotacao
+    /// da chave de hash nao termina. Vazio quando nao ha digitos.
+    /// </summary>
+    string[] ComputeLookupHashCandidates(string? cpf);
+
+    /// <summary>
+    /// true quando a cifra foi feita com uma chave do Data Protection protegida por um certificado
+    /// anterior; o reconciliador recifra essas linhas para que o certificado antigo possa ser removido.
+    /// </summary>
+    bool RequiresReprotection(string protectedCpf);
 }

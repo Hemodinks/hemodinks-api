@@ -104,7 +104,9 @@ CpfProtection__LookupHashKey=<32+ bytes aleatorios em base64>
 
 As tres chaves `CpfProtection__*` (#227) sao obrigatorias fora de Development/Testing: sem elas a
 API nao sobe. Configure-as como secrets do Container App **antes** do deploy que contem a migration
-`Schema_ProtectCpfAtRest`. Geracao, backup e rollback: [issue-227-cpf-em-repouso.md](issue-227-cpf-em-repouso.md).
+`Schema_ProtectCpfAtRest`. Gere o material com `scripts/New-CpfProtectionKeys.ps1`. Backup, rotacao
+(`CpfProtection__PreviousCertificates__0__*` e `CpfProtection__PreviousLookupHashKeys__0`, so durante a
+troca) e rollback: [issue-227-cpf-em-repouso.md](issue-227-cpf-em-repouso.md).
 
 ### New Relic APM na API
 

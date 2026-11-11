@@ -10,16 +10,37 @@ internal static class CpfProtectionKeyMaterial
 {
     public const int MinimumLookupHashKeyBytes = 32;
 
-    public static X509Certificate2 LoadCertificate(CpfProtectionOptions options)
+    public static X509Certificate2 LoadCertificate(CpfProtectionOptions options) =>
+        LoadCertificate(options.CertificateBase64, options.CertificatePassword, "CpfProtection:CertificateBase64");
+
+    public static X509Certificate2[] LoadPreviousCertificates(CpfProtectionOptions options) =>
+        options.PreviousCertificates
+            .Select((item, index) => LoadCertificate(
+                item.CertificateBase64,
+                item.CertificatePassword,
+                $"CpfProtection:PreviousCertificates:{index}:CertificateBase64"))
+            .ToArray();
+
+    public static byte[][] LoadPreviousLookupHashKeys(CpfProtectionOptions options) =>
+        options.PreviousLookupHashKeys
+            .Select((item, index) => LoadLookupHashKey(item, $"CpfProtection:PreviousLookupHashKeys:{index}"))
+            .ToArray();
+
+    private static X509Certificate2 LoadCertificate(string? base64, string? password, string setting)
     {
+        if (string.IsNullOrWhiteSpace(base64))
+        {
+            throw new InvalidOperationException($"{setting} nao foi configurado.");
+        }
+
         byte[] raw;
         try
         {
-            raw = Convert.FromBase64String(options.CertificateBase64!.Trim());
+            raw = Convert.FromBase64String(base64.Trim());
         }
         catch (FormatException)
         {
-            throw new InvalidOperationException("CpfProtection:CertificateBase64 nao e base64 valido.");
+            throw new InvalidOperationException($"{setting} nao e base64 valido.");
         }
 
         X509Certificate2 certificate;
@@ -27,12 +48,12 @@ internal static class CpfProtectionKeyMaterial
         {
             certificate = X509CertificateLoader.LoadPkcs12(
                 raw,
-                string.IsNullOrEmpty(options.CertificatePassword) ? null : options.CertificatePassword,
+                string.IsNullOrEmpty(password) ? null : password,
                 X509KeyStorageFlags.EphemeralKeySet);
         }
         catch (CryptographicException)
         {
-            throw new InvalidOperationException("CpfProtection:CertificateBase64 nao pode ser lido (PFX ou senha invalidos).");
+            throw new InvalidOperationException($"{setting} nao pode ser lido (PFX ou senha invalidos).");
         }
         finally
         {
@@ -43,29 +64,37 @@ internal static class CpfProtectionKeyMaterial
         if (rsa is null)
         {
             certificate.Dispose();
-            throw new InvalidOperationException("CpfProtection:CertificateBase64 deve conter chave privada RSA.");
+            throw new InvalidOperationException($"{setting} deve conter chave privada RSA.");
         }
 
         return certificate;
     }
 
-    public static byte[] LoadLookupHashKey(CpfProtectionOptions options)
+    public static byte[] LoadLookupHashKey(CpfProtectionOptions options) =>
+        LoadLookupHashKey(options.LookupHashKey, "CpfProtection:LookupHashKey");
+
+    private static byte[] LoadLookupHashKey(string? base64, string setting)
     {
+        if (string.IsNullOrWhiteSpace(base64))
+        {
+            throw new InvalidOperationException($"{setting} nao foi configurado.");
+        }
+
         byte[] key;
         try
         {
-            key = Convert.FromBase64String(options.LookupHashKey!.Trim());
+            key = Convert.FromBase64String(base64.Trim());
         }
         catch (FormatException)
         {
-            throw new InvalidOperationException("CpfProtection:LookupHashKey nao e base64 valido.");
+            throw new InvalidOperationException($"{setting} nao e base64 valido.");
         }
 
         if (key.Length < MinimumLookupHashKeyBytes)
         {
             CryptographicOperations.ZeroMemory(key);
             throw new InvalidOperationException(
-                $"CpfProtection:LookupHashKey deve ter no minimo {MinimumLookupHashKeyBytes} bytes.");
+                $"{setting} deve ter no minimo {MinimumLookupHashKeyBytes} bytes.");
         }
 
         return key;
