@@ -172,13 +172,15 @@ public sealed class CpfKeyRotationTests
         using var previous = CreateCertificate();
         var currentPfx = Convert.ToBase64String(current.Export(X509ContentType.Pkcs12));
         var hashKey = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32));
+        var previousPfxPassword = Guid.NewGuid().ToString("N");
+        var mismatchedPfxPassword = Guid.NewGuid().ToString("N");
 
         var services = Register("Production", new()
         {
             ["CpfProtection:CertificateBase64"] = currentPfx,
             ["CpfProtection:LookupHashKey"] = hashKey,
-            ["CpfProtection:PreviousCertificates:0:CertificateBase64"] = Convert.ToBase64String(previous.Export(X509ContentType.Pkcs12, "anterior")),
-            ["CpfProtection:PreviousCertificates:0:CertificatePassword"] = "anterior",
+            ["CpfProtection:PreviousCertificates:0:CertificateBase64"] = Convert.ToBase64String(previous.Export(X509ContentType.Pkcs12, previousPfxPassword)),
+            ["CpfProtection:PreviousCertificates:0:CertificatePassword"] = previousPfxPassword,
             ["CpfProtection:PreviousLookupHashKeys:0"] = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
         });
         Assert.Contains(services, descriptor => descriptor.ServiceType == typeof(ICpfProtector));
@@ -197,11 +199,11 @@ public sealed class CpfKeyRotationTests
         {
             ["CpfProtection:CertificateBase64"] = currentPfx,
             ["CpfProtection:LookupHashKey"] = hashKey,
-            ["CpfProtection:PreviousCertificates:0:CertificateBase64"] = Convert.ToBase64String(previous.Export(X509ContentType.Pkcs12, "certa")),
-            ["CpfProtection:PreviousCertificates:0:CertificatePassword"] = "errada"
+            ["CpfProtection:PreviousCertificates:0:CertificateBase64"] = Convert.ToBase64String(previous.Export(X509ContentType.Pkcs12, previousPfxPassword)),
+            ["CpfProtection:PreviousCertificates:0:CertificatePassword"] = mismatchedPfxPassword
         }));
         Assert.Contains("PreviousCertificates:0", wrongPassword.Message, StringComparison.Ordinal);
-        Assert.DoesNotContain("errada", wrongPassword.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain(mismatchedPfxPassword, wrongPassword.Message, StringComparison.Ordinal);
 
         Assert.Throws<InvalidOperationException>(() => Register("Development", new()
         {
