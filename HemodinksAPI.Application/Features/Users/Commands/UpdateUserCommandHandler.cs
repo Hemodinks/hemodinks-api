@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Users.Queries;
@@ -113,7 +114,8 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             if (cpf != null)
             {
                 var cpfAlreadyExists = await _context.Users
-                    .AnyAsync(u => u.Id != request.Id && u.Cpf == cpf, cancellationToken);
+                    .WhereCpfMatches(_context, cpf)
+                    .AnyAsync(u => u.Id != request.Id, cancellationToken);
 
                 if (cpfAlreadyExists)
                 {

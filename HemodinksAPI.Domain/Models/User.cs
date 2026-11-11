@@ -24,7 +24,21 @@ public class User : IClinicaOwnedEntity
     /// </summary>
     public string Telefone { get; set; } = null!;
 
+    /// <summary>
+    /// CPF normalizado. Coluna legada em texto puro, mantida durante a migracao gradual (#227).
+    /// Nao use em filtros de consulta: compare <see cref="CpfHash"/>.
+    /// </summary>
     public string? Cpf { get; set; }
+
+    /// <summary>
+    /// CPF cifrado com ASP.NET Data Protection. Preenchido pelo contexto ao salvar; nao atribuir manualmente.
+    /// </summary>
+    public string? CpfCifrado { get; set; }
+
+    /// <summary>
+    /// HMAC-SHA256 do CPF normalizado, para unicidade e busca exata. Preenchido pelo contexto ao salvar.
+    /// </summary>
+    public string? CpfHash { get; set; }
 
     public string? Crm { get; set; }
 

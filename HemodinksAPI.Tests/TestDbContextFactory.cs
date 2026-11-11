@@ -15,7 +15,7 @@ internal static class TestDbContextFactory
             .UseInMemoryDatabase(Guid.NewGuid().ToString())
             .Options;
 
-        var context = new AppDbContext(options, ClinicaContextFactory.CreateDefaultResolved());
+        var context = new AppDbContext(options, ClinicaContextFactory.CreateDefaultResolved(), TestCpfProtection.Instance);
         context.Database.EnsureCreated();
 
         return context;

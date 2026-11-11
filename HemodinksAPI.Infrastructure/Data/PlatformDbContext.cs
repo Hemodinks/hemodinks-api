@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -9,8 +10,8 @@ namespace HemodinksAPI.Infrastructure.Data;
 /// </summary>
 public sealed class PlatformDbContext : AppDbContext
 {
-    public PlatformDbContext(DbContextOptions<AppDbContext> options)
-        : base(options, ClinicaContextFactory.CreatePlatform())
+    public PlatformDbContext(DbContextOptions<AppDbContext> options, ICpfProtector? cpfProtector = null)
+        : base(options, ClinicaContextFactory.CreatePlatform(), cpfProtector)
     {
     }
 }

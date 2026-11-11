@@ -31,6 +31,13 @@ services:
         sync: false
       - key: JwtSettings__SecretKey
         sync: false
+      # #227: obrigatorios fora de Development; sem eles a API nao sobe. Use chaves proprias da homologacao.
+      - key: CpfProtection__CertificateBase64
+        sync: false
+      - key: CpfProtection__CertificatePassword
+        sync: false
+      - key: CpfProtection__LookupHashKey
+        sync: false
       - key: JwtSettings__Issuer
         value: HemodinksAPI.Confirmation
       - key: JwtSettings__Audience

@@ -94,7 +94,8 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
             if (cpf != null)
             {
                 var cpfAlreadyExists = await _context.Users
-                    .AnyAsync(u => u.Id != (existingUser == null ? 0 : existingUser.Id) && u.Cpf == cpf, cancellationToken);
+                    .WhereCpfMatches(_context, cpf)
+                    .AnyAsync(u => u.Id != (existingUser == null ? 0 : existingUser.Id), cancellationToken);
 
                 if (cpfAlreadyExists)
                 {

@@ -18,7 +18,7 @@ public sealed class LegacyFinancialBackfillMigrationTests
         var options = new DbContextOptionsBuilder<AppDbContext>().UseSqlServer(connectionString).Options;
         var tenant = ClinicaContextFactory.CreateDefaultResolved();
 
-        await using var db = new AppDbContext(options, tenant);
+        await using var db = new AppDbContext(options, tenant, TestCpfProtection.Instance);
         try
         {
             var migrator = db.Database.GetService<IMigrator>();
@@ -34,6 +34,7 @@ public sealed class LegacyFinancialBackfillMigrationTests
                     CONSTRAINT [DF_TestLegacy_TipoCirurgia] DEFAULT N'Eletiva';
                 ALTER TABLE [Pacientes] ADD [StatusCirurgia] nvarchar(20) NOT NULL
                     CONSTRAINT [DF_TestLegacy_StatusCirurgia] DEFAULT N'NaoConsolidada';
+                ALTER TABLE [Users] ADD [CpfCifrado] varchar(512) NULL, [CpfHash] varchar(64) NULL;
                 """);
 
             var doctor = new User { ClinicaId = Clinica.DefaultId, Nome = "Médico legado", Telefone = "+5581999000001", Cpf = "11144477735", Email = $"doctor-{databaseName}@test.local", Senha = "hash", PerfilId = Perfil.MedicosId };
@@ -69,6 +70,7 @@ public sealed class LegacyFinancialBackfillMigrationTests
                 ALTER TABLE [Pacientes] DROP COLUMN [TipoCirurgia];
                 ALTER TABLE [Pacientes] DROP CONSTRAINT [DF_TestLegacy_StatusCirurgia];
                 ALTER TABLE [Pacientes] DROP COLUMN [StatusCirurgia];
+                ALTER TABLE [Users] DROP COLUMN [CpfCifrado], [CpfHash];
                 """);
 
             // Exercise the backfill itself, not later migrations (including Full-Text).
