@@ -29,7 +29,7 @@ def job_body(path, name):
 
 class ProductionApprovalTests(unittest.TestCase):
     def test_each_production_azure_identity_is_environment_protected(self):
-        for path, jobs in [(PUBLISH, ("migrate-production", "deploy-api", "deploy-functions", "deploy-function-app")),
+        for path, jobs in [(PUBLISH, ("migrate-production", "deploy-api", "deploy-function-app")),
                            (ROLLBACK, ("rollback",))]:
             for name in jobs:
                 with self.subTest(workflow=path.name, job=name):
@@ -40,7 +40,7 @@ class ProductionApprovalTests(unittest.TestCase):
 
     def test_production_mutating_jobs_require_main_branch(self):
         cases = (
-            (PUBLISH, ("migrate-production", "deploy-api", "deploy-functions", "deploy-function-app")),
+            (PUBLISH, ("migrate-production", "deploy-api", "deploy-function-app")),
             (APPLY_MIGRATIONS, ("migrate",)),
             (ROLLBACK, ("rollback",)),
         )
@@ -58,6 +58,52 @@ class ProductionApprovalTests(unittest.TestCase):
                 self.assertEqual(1, len(conditions))
                 self.assertIn("github.event_name != 'workflow_dispatch'", conditions[0])
                 self.assertIn("github.ref == 'refs/heads/main'", conditions[0])
+class WorkersSingleDeployRouteTests(unittest.TestCase):
+    """#228: Workers are deployed only as a code package to the Function App."""
+
+    def test_container_apps_workers_route_is_removed(self):
+        source = PUBLISH.read_text(encoding="utf-8")
+        self.assertIsNone(re.search(r"(?m)^  deploy-functions:$", source))
+        for removed in ("hemodinks-api-workers", "HemodinksAPI.Workers/Dockerfile",
+                        "AZURE_CONTAINER_APP_FUNCTIONS_NAME", "AZURE_CONTAINER_APPS_DEPLOY_ENABLED"):
+            with self.subTest(removed=removed):
+                self.assertNotIn(removed, source)
+
+    def test_exactly_one_job_deploys_workers(self):
+        source = PUBLISH.read_text(encoding="utf-8")
+        jobs = re.findall(r"(?m)^  ([\w-]+):\n", source.split("\njobs:\n", 1)[1])
+        markers = ("HemodinksAPI.Workers", "Azure/functions-action@", "api-workers", "containerapp update")
+        workers_jobs = [job for job in jobs if any(m in job_body(PUBLISH, job) for m in markers)]
+        self.assertEqual(["deploy-function-app"], workers_jobs)
+        self.assertEqual(1, source.count("Azure/functions-action@"))
+
+    def test_function_app_job_is_not_silently_skipped_by_missing_target(self):
+        condition = re.findall(r"(?m)^    if: (.+)$", job_body(PUBLISH, "deploy-function-app"))[0]
+        self.assertNotIn("AZURE_FUNCTION_APP_WORKERS_NAME", condition)
+        self.assertIn("migrate-production", job_body(PUBLISH, "deploy-function-app"))
+
+    def run_guard(self, name):
+        section = job_body(PUBLISH, "deploy-function-app").split("      - name: Require Workers Function App target\n", 1)
+        self.assertEqual(2, len(section), "Workers target guard must be present")
+        match = re.search(r"        run: \|\n((?:          .*\n)+)", section[1])
+        self.assertIsNotNone(match)
+        bash = (shutil.which("bash") if os.name != "nt" else
+                str(Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git/bin/bash.exe"))
+        self.assertTrue(bash and Path(bash).exists(), "Bash is required for offline workflow tests")
+        env = dict(os.environ, WORKERS_FUNCTION_APP_NAME=name)
+        return subprocess.run([bash, "-e", "-c", textwrap.dedent(match.group(1))], env=env,
+                              capture_output=True, text=True, timeout=10)
+
+    def test_guard_fails_when_function_app_target_is_missing(self):
+        result = self.run_guard("")
+        self.assertEqual(4, result.returncode, result.stderr)
+        self.assertIn("AZURE_FUNCTION_APP_WORKERS_NAME is not set", result.stdout)
+
+    def test_guard_passes_when_function_app_target_is_set(self):
+        result = self.run_guard("offline-workers")
+        self.assertEqual(0, result.returncode, result.stderr)
+
+
 class RollbackSmokeTests(unittest.TestCase):
     def run_smoke(self, scenario):
         source = ROLLBACK.read_text(encoding="utf-8")

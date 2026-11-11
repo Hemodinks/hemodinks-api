@@ -152,9 +152,6 @@ jobs:
           - service: api
             dockerfile: ./Dockerfile
             image: ghcr.io/hemodinks/hemodinks-api
-          - service: functions
-            dockerfile: ./HemodinksAPI.Workers/Dockerfile
-            image: ghcr.io/hemodinks/hemodinks-api-workers
 
     steps:
       - name: Checkout
@@ -852,48 +849,24 @@ jobs:
             echo "- Final traffic: \`${final_traffic}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
-  deploy-functions:
-    name: Deploy Functions to Azure Container Apps
-    needs:
-      - publish
-      - migrate-production
-    runs-on: ubuntu-latest
-    environment: production
-    if: ${{ github.ref == 'refs/heads/main' && vars.AZURE_CONTAINER_APPS_DEPLOY_ENABLED == 'true' && vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME != '' && (vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP != '' || vars.AZURE_RESOURCE_GROUP != '') && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
-
-    steps:
-      - name: Log in to Azure
-        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Install Container Apps extension
-        run: az extension add --name containerapp --upgrade
-
-      - name: Update Functions image
-        run: |
-          functions_name="${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_NAME }}"
-          resource_group="${{ vars.AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP || vars.AZURE_RESOURCE_GROUP }}"
-          if ! az containerapp show --name "$functions_name" --resource-group "$resource_group" >/dev/null 2>&1; then
-            echo "::error::Workers Container App '$functions_name' was not found in '$resource_group'."
-            exit 3
-          fi
-          az containerapp update \
-            --name "$functions_name" \
-            --resource-group "$resource_group" \
-            --image "ghcr.io/hemodinks/hemodinks-api-workers:sha-${{ github.sha }}" \
-            --set-env-vars Deployment__CommitSha="${{ github.sha }}"
-
+  # Unico caminho de deploy dos Workers (#228): pacote de codigo na Function App (Flex Consumption).
   deploy-function-app:
     name: Deploy Workers to Azure Function App
     needs: migrate-production
     runs-on: ubuntu-latest
     environment: production
-    if: ${{ github.ref == 'refs/heads/main' && vars.AZURE_FUNCTION_APP_WORKERS_NAME != '' && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
 
     steps:
+      - name: Require Workers Function App target
+        env:
+          WORKERS_FUNCTION_APP_NAME: ${{ vars.AZURE_FUNCTION_APP_WORKERS_NAME }}
+        run: |
+          if [ -z "$WORKERS_FUNCTION_APP_NAME" ]; then
+            echo "::error::AZURE_FUNCTION_APP_WORKERS_NAME is not set; Workers would not be deployed with this release."
+            exit 4
+          fi
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

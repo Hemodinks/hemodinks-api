@@ -82,12 +82,9 @@ A troca operacional dessa conexao, a rede e o rollback seguem o
 [runbook SQL](issue-197-sql-runtime-network.md); cadastrar secrets nao troca
 automaticamente a conexao da API.
 
-Variables preservadas para os workers:
+Variable dos workers (caminho unico desde o #228):
 
-- `AZURE_CONTAINER_APPS_DEPLOY_ENABLED=true`
-- `AZURE_CONTAINER_APP_FUNCTIONS_NAME`
-- `AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP` ou `AZURE_RESOURCE_GROUP`
-- `AZURE_FUNCTION_APP_WORKERS_NAME`, quando o Function App for usado
+- `AZURE_FUNCTION_APP_WORKERS_NAME` (obrigatoria; sem ela `deploy-function-app` falha)
 
 Configure required reviewers e habilite "Prevent self-review". O Environment
 libera seus secrets apenas depois da aprovacao.
