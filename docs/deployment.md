@@ -97,7 +97,14 @@ Database__RunMigrationsOnStartup=false
 Database__RunMaintenanceOnStartup=false
 Seed__CbhpmOnStartup=false
 Seed__UsersOnStartup=false
+CpfProtection__CertificateBase64=<PFX em base64 com chave privada RSA>
+CpfProtection__CertificatePassword=<senha do PFX>
+CpfProtection__LookupHashKey=<32+ bytes aleatorios em base64>
 ```
+
+As tres chaves `CpfProtection__*` (#227) sao obrigatorias fora de Development/Testing: sem elas a
+API nao sobe. Configure-as como secrets do Container App **antes** do deploy que contem a migration
+`Schema_ProtectCpfAtRest`. Geracao, backup e rollback: [issue-227-cpf-em-repouso.md](issue-227-cpf-em-repouso.md).
 
 ### New Relic APM na API
 
@@ -257,6 +264,7 @@ Variaveis que devem diferir da producao:
 | `JwtSettings__SecretKey` | usar outra chave |
 | `JwtSettings__Issuer` | `HemodinksAPI.Confirmation` |
 | `JwtSettings__Audience` | `HemodinksAPI.Confirmation` |
+| `CpfProtection__CertificateBase64` / `__CertificatePassword` / `__LookupHashKey` | gerar material proprio da homologacao (#227) |
 | `Frontend__ResetPasswordUrl` | `https://hemodinks-homologacao.gestao-saude.tec.br/reset-password` |
 | `NEW_RELIC_APP_NAME` | `Hemodinks API Confirmation` |
 | `AzureStorage__ContainerName` | `profile-photos-confirmation` |

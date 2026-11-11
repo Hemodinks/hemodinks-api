@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Utils;
 using Microsoft.EntityFrameworkCore;
@@ -24,7 +25,8 @@ internal static partial class PacienteRules
 
         var normalizedCpf = CpfUtils.Normalize(cpf)!;
         var cpfAlreadyExists = await context.Users
-            .AnyAsync(u => u.Cpf == normalizedCpf && (!currentUserId.HasValue || u.Id != currentUserId.Value), cancellationToken);
+            .WhereCpfMatches(context, normalizedCpf)
+            .AnyAsync(u => !currentUserId.HasValue || u.Id != currentUserId.Value, cancellationToken);
 
         if (cpfAlreadyExists)
         {

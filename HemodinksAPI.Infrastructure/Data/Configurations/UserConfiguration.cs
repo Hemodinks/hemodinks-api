@@ -28,6 +28,14 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         entity.Property(e => e.Cpf)
             .HasMaxLength(11);
 
+        entity.Property(e => e.CpfCifrado)
+            .HasMaxLength(512)
+            .IsUnicode(false);
+
+        entity.Property(e => e.CpfHash)
+            .HasMaxLength(64)
+            .IsUnicode(false);
+
         entity.Property(e => e.Crm)
             .HasMaxLength(20);
 
@@ -70,6 +78,10 @@ internal sealed class UserConfiguration : IEntityTypeConfiguration<User>
         entity.HasIndex(e => new { e.ClinicaId, e.Cpf })
             .IsUnique()
             .HasFilter("[Cpf] IS NOT NULL");
+
+        entity.HasIndex(e => new { e.ClinicaId, e.CpfHash })
+            .IsUnique()
+            .HasFilter("[CpfHash] IS NOT NULL");
 
         entity.HasIndex(e => e.PerfilId);
         entity.HasIndex(e => e.ClinicaId);

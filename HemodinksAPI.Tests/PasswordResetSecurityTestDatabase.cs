@@ -58,6 +58,7 @@ internal sealed class PasswordResetSecurityDbContext(DbContextOptions<PasswordRe
     public DbSet<UsuarioClinica> UsuariosClinicas => Set<UsuarioClinica>();
     public DbSet<PasswordResetToken> PasswordResetTokens => Set<PasswordResetToken>();
     public DbSet<AuthenticationSession> AuthenticationSessions => Set<AuthenticationSession>();
+    public string? ComputeCpfLookupHash(string? cpf) => throw new NotSupportedException();
     public Func<Task>? BeforeSensitiveSave { get; set; }
     public Func<Task>? BeforeCredentialSave { get; set; }
 

@@ -1,5 +1,6 @@
 using System.Reflection;
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Tenancy;
 using Microsoft.EntityFrameworkCore;
 
@@ -40,6 +41,8 @@ public partial class AppDbContext : DbContext,
         .GetMethod(nameof(PrincipalExistsInClinica), BindingFlags.Instance | BindingFlags.NonPublic)!;
 
     private readonly IClinicaContext _clinicaContext;
+
+    private readonly ICpfProtector? _cpfProtector;
 
     public DbSet<Clinica> Clinicas { get; set; } = null!;
 
@@ -126,11 +129,53 @@ public partial class AppDbContext : DbContext,
 
     private bool IsPlatformScope => _clinicaContext.IsPlatformScope;
 
+    // cpfProtector: obrigatorio para gravar ou buscar CPF; sem ele essas operacoes falham (fail-closed).
+    // Pode faltar apenas em contextos que nao tocam CPF (design-time, SchemaGuard).
     public AppDbContext(
         DbContextOptions<AppDbContext> options,
-        IClinicaContext clinicaContext) : base(options)
+        IClinicaContext clinicaContext,
+        ICpfProtector? cpfProtector = null) : base(options)
     {
         _clinicaContext = clinicaContext;
+        _cpfProtector = cpfProtector;
+    }
+
+    public string? ComputeCpfLookupHash(string? cpf)
+    {
+        return RequireCpfProtector().ComputeLookupHash(cpf);
+    }
+
+    private ICpfProtector RequireCpfProtector()
+    {
+        return _cpfProtector
+            ?? throw new InvalidOperationException("Protecao de CPF nao configurada para este contexto.");
+    }
+
+    private void ProtectCpfChanges()
+    {
+        foreach (var entry in ChangeTracker.Entries<User>())
+        {
+            var cpfChanged = entry.State == EntityState.Added
+                || (entry.State == EntityState.Modified && entry.Property(user => user.Cpf).IsModified);
+            if (!cpfChanged)
+            {
+                continue;
+            }
+
+            var cpf = entry.Entity.Cpf;
+            var cifrado = entry.Property(user => user.CpfCifrado);
+            var hash = entry.Property(user => user.CpfHash);
+            if (string.IsNullOrWhiteSpace(cpf))
+            {
+                cifrado.CurrentValue = null;
+                hash.CurrentValue = null;
+                continue;
+            }
+
+            var protector = RequireCpfProtector();
+            cifrado.CurrentValue = protector.Protect(cpf);
+            hash.CurrentValue = protector.ComputeLookupHash(cpf);
+        }
     }
 
     /// <summary>
@@ -151,6 +196,7 @@ public partial class AppDbContext : DbContext,
     public override int SaveChanges(bool acceptAllChangesOnSuccess)
     {
         ValidateTenantChanges();
+        ProtectCpfChanges();
         return base.SaveChanges(acceptAllChangesOnSuccess);
     }
 
@@ -160,6 +206,7 @@ public partial class AppDbContext : DbContext,
     public override Task<int> SaveChangesAsync(bool acceptAllChangesOnSuccess, CancellationToken cancellationToken = default)
     {
         ValidateTenantChanges();
+        ProtectCpfChanges();
         return base.SaveChangesAsync(acceptAllChangesOnSuccess, cancellationToken);
     }
 

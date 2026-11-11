@@ -37,6 +37,11 @@ public interface IGlobalIdentityDbContext : IUnitOfWork
 public interface IUserDbContext
 {
     DbSet<User> Users { get; }
+
+    /// <summary>
+    /// Hash de busca do CPF (#227). Compare com <see cref="User.CpfHash"/>; nunca consulte <see cref="User.Cpf"/> diretamente.
+    /// </summary>
+    string? ComputeCpfLookupHash(string? cpf);
 }
 
 public interface IUserSearchDbContext : IUserDbContext

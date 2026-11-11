@@ -28,6 +28,7 @@ builder.Host.UseSerilog(
 
 builder.Services
     .AddDatabase(builder.Configuration)
+    .AddCpfProtection(builder.Configuration, builder.Environment)
     .AddProxyForwarding(builder.Configuration)
     .AddTenancy()
     .AddAuth(builder.Configuration, builder.Environment)
