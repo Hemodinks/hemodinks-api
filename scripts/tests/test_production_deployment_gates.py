@@ -27,6 +27,56 @@ def job_body(path, name):
     return match.group(1)
 
 
+DEPLOY_SCRIPTS = ROOT / "scripts/deploy"
+
+
+def deploy_step_script(step):
+    """Return the versioned script that a deploy-api step runs (#229)."""
+    section = job_body(PUBLISH, "deploy-api").split(f"      - name: {step}\n", 1)
+    if len(section) != 2:
+        raise AssertionError(f"Missing deploy-api step {step}")
+    match = re.search(r"^        run: bash (scripts/deploy/[\w.-]+\.sh)$", section[1].split("      - name:", 1)[0], re.M)
+    if not match:
+        raise AssertionError(f"Step {step} must run a script from scripts/deploy")
+    return (ROOT / match.group(1)).read_text(encoding="utf-8")
+
+
+class DeployScriptExtractionTests(unittest.TestCase):
+    """#229: deploy-api bash lives in scripts/deploy, linted by shellcheck in CI."""
+
+    def test_deploy_api_has_no_long_inline_bash(self):
+        body = job_body(PUBLISH, "deploy-api")
+        for block in re.findall(r"        run: \|\n((?:          .*\n)+)", body):
+            with self.subTest(block=block.splitlines()[0]):
+                self.assertLessEqual(len(block.splitlines()), 3, "Move inline bash to scripts/deploy")
+
+    def test_every_deploy_script_is_used_exactly_once_and_exists(self):
+        body = job_body(PUBLISH, "deploy-api")
+        referenced = re.findall(r"run: bash scripts/deploy/([\w.-]+\.sh)$", body, re.M)
+        self.assertEqual(sorted(set(referenced)), sorted(referenced))
+        self.assertEqual(sorted(p.name for p in DEPLOY_SCRIPTS.glob("*.sh")), sorted(referenced))
+
+    def test_scripts_keep_github_run_shell_options_and_no_expressions(self):
+        for script in sorted(DEPLOY_SCRIPTS.glob("*.sh")):
+            with self.subTest(script=script.name):
+                text = script.read_text(encoding="utf-8")
+                self.assertTrue(text.startswith("#!/usr/bin/env bash\n"))
+                self.assertNotIn("\r", text)
+                self.assertNotIn("${{", text)
+                first_command = next(line for line in text.splitlines() if line and not line.startswith("#"))
+                self.assertRegex(first_command, r"^set -e(u)?o pipefail$")
+
+    def test_missing_step_or_inline_step_is_rejected(self):
+        with self.assertRaises(AssertionError):
+            deploy_step_script("Step that does not exist")
+        with self.assertRaises(AssertionError):
+            deploy_step_script("Enforce CURRENT/PREVIOUS revision policy")
+
+    def test_ci_runs_shellcheck_on_deploy_scripts(self):
+        ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        self.assertIn("shellcheck scripts/deploy/*.sh scripts/Enforce-ProductionRevisionPolicy.sh", ci)
+
+
 class ProductionApprovalTests(unittest.TestCase):
     def test_each_production_azure_identity_is_environment_protected(self):
         for path, jobs in [(PUBLISH, ("migrate-production", "deploy-api", "deploy-function-app")),
@@ -180,11 +230,7 @@ class PublishRevisionReuseTests(unittest.TestCase):
 
     def run_step(self, step, *, same_revision=True, color="blue", mismatch=None,
                  scenario="healthy", already_current="true"):
-        source = PUBLISH.read_text(encoding="utf-8")
-        section = source.split(f"      - name: {step}\n", 1)
-        self.assertEqual(2, len(section), f"Missing workflow step {step}")
-        match = re.search(r"        run: \|\n((?:          .*\n|\n)+)", section[1])
-        self.assertIsNotNone(match)
+        script = deploy_step_script(step)
         bash = (shutil.which("bash") if os.name != "nt" else
                 str(Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git/bin/bash.exe"))
         self.assertTrue(shutil.which("jq"), "jq is required to execute the real workflow checks")
@@ -259,7 +305,7 @@ az() {
                        CANDIDATE_FQDN=app["properties"]["configuration"]["ingress"]["fqdn"],
                        ALREADY_CURRENT=already_current, GITHUB_OUTPUT=(fixture / "output").as_posix())
             script_file = fixture / "step.sh"
-            script_file.write_text(stubs + textwrap.dedent(match[1]), encoding="utf-8", newline="\n")
+            script_file.write_text(stubs + script, encoding="utf-8", newline="\n")
             result = subprocess.run([bash, "-e", script_file.as_posix()],
                                     cwd=ROOT, env=env, capture_output=True, text=True, timeout=20)
             read = lambda name: (fixture / name).read_text() if (fixture / name).exists() else ""
