@@ -63,7 +63,7 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
                 request.DataSolicitacaoInicio,
                 request.DataSolicitacaoFinal,
                 _supportsFullTextSearch,
-                digits.Length == 11 ? _context.ComputeCpfLookupHash(digits) : null);
+                digits.Length == 11 ? _context.ComputeCpfLookupHashCandidates(digits) : null);
 
             var totalItems = await query.CountAsync(cancellationToken);
             query = PacienteQueryOrdering.ApplyOrdering(query, request.SortBy, request.SortDirection);

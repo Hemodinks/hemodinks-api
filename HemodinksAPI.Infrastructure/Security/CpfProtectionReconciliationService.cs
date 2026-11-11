@@ -34,6 +34,17 @@ public sealed class CpfProtectionReconciliationService(
             using var scope = scopeFactory.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
             var protector = scope.ServiceProvider.GetRequiredService<ICpfProtector>();
+            if (protector is DataProtectionCpfProtector dataProtection)
+            {
+                var rotation = dataProtection.PrepareCertificateRotation();
+                if (rotation.RetiringKeys > 0)
+                {
+                    logger.LogInformation(
+                        "Protecao de CPF: {RetiringKeys} chaves de certificado anterior no anel; chave nova criada: {CreatedKey}",
+                        rotation.RetiringKeys, rotation.CreatedKey);
+                }
+            }
+
             await ReconcileAsync(context, protector, logger, stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
@@ -52,7 +63,7 @@ public sealed class CpfProtectionReconciliationService(
         ILogger logger,
         CancellationToken cancellationToken)
     {
-        var total = new CpfReconciliationResult(0, 0, 0, 0);
+        var total = new CpfReconciliationResult(0, 0, 0, 0, 0);
         for (var pass = 1; pass <= MaximumPasses; pass++)
         {
             var result = await RunPassAsync(context, protector, cancellationToken);
@@ -61,7 +72,8 @@ public sealed class CpfProtectionReconciliationService(
                 Checked = total.Checked + result.Checked,
                 Updated = total.Updated + result.Updated,
                 Unreadable = total.Unreadable + result.Unreadable,
-                Failed = result.Failed
+                Failed = result.Failed,
+                PendingReprotection = result.PendingReprotection
             };
 
             // Conflitos de indice unico com hash obsoleto em outra linha se resolvem na passada seguinte.
@@ -72,8 +84,8 @@ public sealed class CpfProtectionReconciliationService(
         }
 
         logger.LogInformation(
-            "Reconciliacao de CPF concluida: {Checked} verificados, {Updated} atualizados, {Unreadable} cifras ilegiveis, {Failed} falhas",
-            total.Checked, total.Updated, total.Unreadable, total.Failed);
+            "Reconciliacao de CPF concluida: {Checked} verificados, {Updated} atualizados, {Unreadable} cifras ilegiveis, {Failed} falhas, {PendingReprotection} cifras pendentes de recifragem",
+            total.Checked, total.Updated, total.Unreadable, total.Failed, total.PendingReprotection);
         if (total.Unreadable > 0)
         {
             logger.LogWarning(
@@ -90,7 +102,7 @@ public sealed class CpfProtectionReconciliationService(
         CancellationToken cancellationToken)
     {
         var lastId = 0;
-        int checkedCount = 0, updated = 0, unreadable = 0, failed = 0;
+        int checkedCount = 0, updated = 0, unreadable = 0, failed = 0, pendingReprotection = 0;
 
         while (true)
         {
@@ -112,6 +124,7 @@ public sealed class CpfProtectionReconciliationService(
                 var legacyCpf = string.IsNullOrWhiteSpace(row.Cpf) ? null : row.Cpf;
                 string? expectedHash = null;
                 var needsUpdate = false;
+                var reprotect = false;
 
                 if (legacyCpf is null)
                 {
@@ -126,7 +139,10 @@ public sealed class CpfProtectionReconciliationService(
                         unreadable++;
                     }
 
-                    needsUpdate = !string.Equals(row.CpfHash, expectedHash, StringComparison.Ordinal)
+                    // Cifra feita com chave de certificado anterior: recifra com a chave padrao atual.
+                    reprotect = decrypted is not null && protector.RequiresReprotection(row.CpfCifrado!);
+                    needsUpdate = reprotect
+                        || !string.Equals(row.CpfHash, expectedHash, StringComparison.Ordinal)
                         || !string.Equals(decrypted, legacyCpf, StringComparison.Ordinal);
                 }
 
@@ -136,6 +152,13 @@ public sealed class CpfProtectionReconciliationService(
                 }
 
                 var newCifrado = legacyCpf is null ? null : protector.Protect(legacyCpf);
+                if (reprotect && protector.RequiresReprotection(newCifrado!))
+                {
+                    // A chave padrao ainda e do certificado anterior: regravar nao resolve.
+                    pendingReprotection++;
+                    continue;
+                }
+
                 try
                 {
                     // Condicionado ao valor legado lido: uma alteracao concorrente vence (ela ja grava os tres campos).
@@ -150,14 +173,18 @@ public sealed class CpfProtectionReconciliationService(
                 catch (Exception ex) when (ex is DbUpdateException or System.Data.Common.DbException)
                 {
                     failed++;
+                    if (reprotect)
+                    {
+                        pendingReprotection++;
+                    }
                 }
             }
 
             lastId = batch[^1].Id;
         }
 
-        return new CpfReconciliationResult(checkedCount, updated, unreadable, failed);
+        return new CpfReconciliationResult(checkedCount, updated, unreadable, failed, pendingReprotection);
     }
 }
 
-public sealed record CpfReconciliationResult(int Checked, int Updated, int Unreadable, int Failed);
+public sealed record CpfReconciliationResult(int Checked, int Updated, int Unreadable, int Failed, int PendingReprotection);

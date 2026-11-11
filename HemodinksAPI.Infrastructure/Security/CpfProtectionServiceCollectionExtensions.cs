@@ -5,7 +5,6 @@ using HemodinksAPI.Infrastructure.Data;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.Repositories;
 using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 
 namespace HemodinksAPI.Infrastructure.Security;
@@ -48,11 +47,21 @@ public static class CpfProtectionServiceCollectionExtensions
             // Valida no registro para falhar no startup, nao na primeira gravacao.
             var certificate = CpfProtectionKeyMaterial.LoadCertificate(options);
             var lookupHashKey = CpfProtectionKeyMaterial.LoadLookupHashKey(options);
+            var previousCertificates = CpfProtectionKeyMaterial.LoadPreviousCertificates(options);
+            var previousLookupHashKeys = CpfProtectionKeyMaterial.LoadPreviousLookupHashKeys(options);
             services.AddSingleton<ICpfProtector>(provider => CreatePersistent(
                 certificate,
                 lookupHashKey,
                 new SqlDataProtectionXmlRepository(provider.GetRequiredService<ISqlConnectionFactory>()),
-                provider.GetRequiredService<ILoggerFactory>()));
+                provider.GetRequiredService<ILoggerFactory>(),
+                previousCertificates,
+                previousLookupHashKeys));
+        }
+
+        if (!options.HasCertificate && (options.PreviousCertificates.Count > 0 || options.PreviousLookupHashKeys.Count > 0))
+        {
+            throw new InvalidOperationException(
+                "CpfProtection:PreviousCertificates e PreviousLookupHashKeys exigem certificado e chave de hash atuais.");
         }
 
         services.AddSingleton(new CpfProtectionRuntimeInfo(
@@ -67,22 +76,41 @@ public static class CpfProtectionServiceCollectionExtensions
         X509Certificate2 certificate,
         byte[] lookupHashKey,
         IXmlRepository repository,
-        ILoggerFactory loggerFactory)
+        ILoggerFactory loggerFactory,
+        IReadOnlyList<X509Certificate2>? previousCertificates = null,
+        IReadOnlyList<byte[]>? previousLookupHashKeys = null)
     {
-        // Provider isolado: chaves dedicadas ao CPF, sem alterar o Data Protection padrao da aplicacao.
-        var services = new ServiceCollection();
-        services.AddSingleton(loggerFactory);
-        services.AddDataProtection()
-            .SetApplicationName(ApplicationName)
-            .ProtectKeysWithCertificate(certificate)
-            .UnprotectKeysWithAnyCertificate(certificate)
-            .AddKeyManagementOptions(keyOptions => keyOptions.XmlRepository = repository);
-        var serviceProvider = services.BuildServiceProvider();
+        X509Certificate2[] readableCertificates = [certificate, .. previousCertificates ?? []];
+        ServiceProvider Build()
+        {
+            // Provider isolado: chaves dedicadas ao CPF, sem alterar o Data Protection padrao da aplicacao.
+            var services = new ServiceCollection();
+            services.AddSingleton(loggerFactory);
+            services.AddDataProtection()
+                .SetApplicationName(ApplicationName)
+                .ProtectKeysWithCertificate(certificate)
+                // Anteriores: so para ler chaves antigas durante a rotacao. Chaves novas usam o atual.
+                .UnprotectKeysWithAnyCertificate(readableCertificates)
+                .AddKeyManagementOptions(keyOptions => keyOptions.XmlRepository = repository);
+            return services.BuildServiceProvider();
+        }
+
+        var serviceProvider = Build();
 
         return new DataProtectionCpfProtector(
             serviceProvider.GetRequiredService<IDataProtectionProvider>(),
             lookupHashKey,
-            serviceProvider);
+            serviceProvider,
+            previousLookupHashKeys,
+            new CpfCertificateRotation(
+                repository,
+                serviceProvider.GetRequiredService<Microsoft.AspNetCore.DataProtection.KeyManagement.IKeyManager>(),
+                certificate),
+            () =>
+            {
+                var rebuilt = Build();
+                return (rebuilt.GetRequiredService<IDataProtectionProvider>(), rebuilt);
+            });
     }
 
     internal static DataProtectionCpfProtector CreateEphemeral(ILoggerFactory loggerFactory)

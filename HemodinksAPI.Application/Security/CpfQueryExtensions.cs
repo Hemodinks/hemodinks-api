@@ -12,7 +12,7 @@ public static class CpfQueryExtensions
     /// </summary>
     public static IQueryable<User> WhereCpfMatches(this IQueryable<User> users, IUserDbContext context, string normalizedCpf)
     {
-        var cpfHash = context.ComputeCpfLookupHash(normalizedCpf);
-        return users.Where(user => user.CpfHash == cpfHash || user.Cpf == normalizedCpf);
+        var cpfHashes = context.ComputeCpfLookupHashCandidates(normalizedCpf);
+        return users.Where(user => (user.CpfHash != null && cpfHashes.Contains(user.CpfHash)) || user.Cpf == normalizedCpf);
     }
 }
