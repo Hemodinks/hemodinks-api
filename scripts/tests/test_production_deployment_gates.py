@@ -108,6 +108,82 @@ class ProductionApprovalTests(unittest.TestCase):
                 self.assertEqual(1, len(conditions))
                 self.assertIn("github.event_name != 'workflow_dispatch'", conditions[0])
                 self.assertIn("github.ref == 'refs/heads/main'", conditions[0])
+
+
+def job_condition(name):
+    conditions = re.findall(r"(?m)^    if: (.+)$", job_body(PUBLISH, name))
+    if len(conditions) != 1:
+        raise AssertionError(f"{name} must have exactly one job-level guard")
+    return conditions[0]
+
+
+class ReleaseReuseWorkflowTests(unittest.TestCase):
+    """#278: deploy reuses the validated push run; push skips tests only with a tree proof."""
+
+    def test_deploy_jobs_depend_only_on_the_reused_release(self):
+        migrate = job_body(PUBLISH, "migrate-production")
+        self.assertRegex(migrate, r"(?m)^    needs: release-source$")
+        self.assertIn("needs.release-source.outputs.mode == 'reuse'", job_condition("migrate-production"))
+        self.assertIn("run-id: ${{ needs.release-source.outputs.source_run_id }}", migrate)
+        self.assertRegex(migrate, r"(?m)^      actions: read$")
+        self.assertRegex(migrate, r"(?m)^      id-token: write$")
+        deploy = job_body(PUBLISH, "deploy-api")
+        self.assertIn("needs: [release-source, migrate-production]", deploy)
+        self.assertIn("API_IMAGE: ${{ needs.release-source.outputs.api_image }}", deploy)
+
+    def test_no_mutable_tag_is_deployed(self):
+        source = PUBLISH.read_text(encoding="utf-8")
+        self.assertNotRegex(source, r"(?m)^  API_IMAGE:")
+        self.assertIn("API_IMAGE must be the validated", deploy_step_script("Create candidate revision with zero traffic"))
+
+    def test_build_jobs_never_run_in_reuse_mode_and_require_tests_or_proof(self):
+        for name in ("publish", "prepare-migrations"):
+            with self.subTest(job=name):
+                condition = job_condition(name)
+                self.assertIn("needs.release-source.outputs.mode == 'build'", condition)
+                self.assertIn("needs.release-source.result == 'success'", condition)
+                self.assertIn("needs.validate.result == 'success'", condition)
+                self.assertIn("needs.release-source.outputs.run_tests == 'false' && needs.validate.result == 'skipped'",
+                              condition)
+        self.assertIn("needs.login-e2e.result == 'success'", job_condition("publish"))
+
+    def test_tests_are_skipped_only_by_release_source(self):
+        for name in ("validate", "login-e2e"):
+            with self.subTest(job=name):
+                self.assertEqual("${{ needs.release-source.outputs.run_tests == 'true' }}", job_condition(name))
+
+    def test_release_source_has_minimal_permissions_and_validates_digest(self):
+        body = job_body(PUBLISH, "release-source")
+        self.assertRegex(body, r"(?m)^      contents: read\n      actions: read\n")
+        self.assertNotIn("id-token", body)
+        self.assertNotIn("packages", body)
+        self.assertIn("scripts/release_source.py --image-file release/image.txt", body)
+        self.assertIn("persist-credentials: false", body)
+        publish = job_body(PUBLISH, "publish")
+        self.assertIn("name: release-image-${{ github.sha }}", publish)
+        self.assertIn("scripts/release_source.py --image-file release/image.txt", publish)
+
+    def test_ci_records_tree_only_for_main_pull_requests_after_tests(self):
+        ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        steps = ci.split("  build-test:\n", 1)[1]
+        record = steps.index("      - name: Record tested tree for Publish Production")
+        for earlier in ("      - name: Test\n", "      - name: Require critical SQL tests and zero silent skips",
+                        "      - name: Test result gate regressions"):
+            with self.subTest(step=earlier.strip()):
+                self.assertLess(steps.index(earlier), record)
+        self.assertEqual(2, ci.count("if: github.event_name == 'pull_request' && github.base_ref == 'main'"))
+        self.assertIn("name: ci-tested-tree-${{ env.TESTED_TREE }}", ci)
+
+    def test_ci_covers_every_offline_check_of_publish_validation(self):
+        ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        validate = job_body(PUBLISH, "validate")
+        for check in re.findall(r"-p (test_[\w]+\.py)|(\./scripts/tests/[\w.-]+\.ps1)", validate):
+            name = check[0] or check[1]
+            with self.subTest(check=name):
+                self.assertIn(name, ci)
+        self.assertIn("Test-Migrations.ps1 -NoBuild -Configuration Release", ci)
+
+
 class WorkersSingleDeployRouteTests(unittest.TestCase):
     """#228: Workers are deployed only as a code package to the Function App."""
 
@@ -226,7 +302,7 @@ curl() {
 
 class PublishRevisionReuseTests(unittest.TestCase):
     SHA = "a" * 40
-    IMAGE = "ghcr.io/test/api@sha256:" + "b" * 64
+    IMAGE = "ghcr.io/hemodinks/hemodinks-api@sha256:" + "b" * 64
 
     CPF_SECRETS = ("cpf-protection-certificate", "cpf-protection-certificate-password", "cpf-protection-lookup-hash-key")
     CPF_ENV = [{"name": "CpfProtection__CertificateBase64", "secretRef": "cpf-protection-certificate"},
@@ -331,6 +407,20 @@ az() {
             read = lambda name: (fixture / name).read_text() if (fixture / name).exists() else ""
             self.last_patch = json.loads(read("patch.json")) if read("patch.json") else None
             return result, read("output"), read("mutations")
+
+    def test_candidate_rejects_tag_or_foreign_image_before_any_azure_call(self):
+        original = self.IMAGE
+        for image in ("ghcr.io/hemodinks/hemodinks-api:sha-" + self.SHA, "", "ghcr.io/other/api@sha256:" + "b" * 64):
+            with self.subTest(image=image):
+                self.IMAGE = image
+                try:
+                    result, output, mutations = self.run_step("Create candidate revision with zero traffic",
+                                                              same_revision=False)
+                finally:
+                    self.IMAGE = original
+                self.assertEqual(11, result.returncode, result.stderr)
+                self.assertEqual("", mutations)
+                self.assertEqual("", output)
 
     def candidate_env(self):
         return self.last_patch["properties"]["template"]["containers"][0]["env"]
