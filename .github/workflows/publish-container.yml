@@ -28,17 +28,63 @@ env:
   DOTNET_NOLOGO: true
   API_NAME: hemodinks-api-prod
   API_RESOURCE_GROUP: rg-hemodinks-prod
-  API_IMAGE: ghcr.io/hemodinks/hemodinks-api:sha-${{ github.sha }}
 
 jobs:
+  # #278: o deploy manual reaproveita o run de push do mesmo SHA (imagem por digest e bundle);
+  # o push na main so pula testes quando o CI do PR ja testou exatamente a mesma arvore.
+  release-source:
+    name: Decide release source
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      mode: ${{ steps.decide.outputs.mode }}
+      run_tests: ${{ steps.decide.outputs.run_tests }}
+      source_run_id: ${{ steps.decide.outputs.source_run_id }}
+      api_image: ${{ steps.image.outputs.api_image }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Decide
+        id: decide
+        env:
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_TO_AZURE: ${{ github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
+        run: |
+          TREE_SHA="$(git rev-parse 'HEAD^{tree}')" python3 -B scripts/release_source.py
+
+      - name: Download validated image manifest
+        if: steps.decide.outputs.mode == 'reuse'
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: release-image-${{ github.sha }}
+          path: release
+          run-id: ${{ steps.decide.outputs.source_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Validate image digest
+        id: image
+        if: steps.decide.outputs.mode == 'reuse'
+        run: python3 -B scripts/release_source.py --image-file release/image.txt
+
   login-e2e:
     name: Login integration E2E
+    needs: release-source
+    if: ${{ needs.release-source.outputs.run_tests == 'true' }}
     permissions:
       contents: read
     uses: ./.github/workflows/login-e2e.yml
 
   validate:
     name: Restore, build, test and audit
+    needs: release-source
+    if: ${{ needs.release-source.outputs.run_tests == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 35
 
@@ -142,9 +188,10 @@ jobs:
 
   publish:
     name: Build and publish ${{ matrix.service }} SHA image
-    needs: [validate, login-e2e]
-    if: ${{ github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
+    needs: [release-source, validate, login-e2e]
+    if: ${{ !cancelled() && (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main') && needs.release-source.result == 'success' && needs.release-source.outputs.mode == 'build' && ((needs.validate.result == 'success' && needs.login-e2e.result == 'success') || (needs.release-source.outputs.run_tests == 'false' && needs.validate.result == 'skipped' && needs.login-e2e.result == 'skipped')) }}
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -168,6 +215,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push immutable image
+        id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: .
@@ -178,10 +226,28 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
 
+      # #278: o deploy implanta este digest exato, nao a tag.
+      - name: Record validated image digest
+        env:
+          IMAGE: ${{ matrix.image }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p release
+          printf '%s@%s\n' "$IMAGE" "$DIGEST" > release/image.txt
+          python3 -B scripts/release_source.py --image-file release/image.txt > /dev/null
+
+      - name: Upload validated image manifest
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: release-image-${{ github.sha }}
+          path: release/image.txt
+          if-no-files-found: error
+          retention-days: 30
+
   prepare-migrations:
     name: Build migration bundle and audited SQL
-    needs: validate
-    if: ${{ github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main' }}
+    needs: [release-source, validate]
+    if: ${{ !cancelled() && (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main') && needs.release-source.result == 'success' && needs.release-source.outputs.mode == 'build' && (needs.validate.result == 'success' || (needs.release-source.outputs.run_tests == 'false' && needs.validate.result == 'skipped')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -244,13 +310,15 @@ jobs:
 
   migrate-production:
     name: Approve Production release and migrate once
-    needs:
-      - publish
-      - prepare-migrations
-    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
+    needs: release-source
+    if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure && needs.release-source.outputs.mode == 'reuse' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
     outputs:
       forwarded_headers_env: ${{ steps.proxy.outputs.environment }}
 
@@ -284,6 +352,8 @@ jobs:
         with:
           name: production-migrations-${{ github.sha }}
           path: artifacts
+          run-id: ${{ needs.release-source.outputs.source_run_id }}
+          github-token: ${{ github.token }}
 
       - name: Verify migration secret
         env:
@@ -342,23 +412,27 @@ jobs:
         if: always()
         env:
           MIGRATION_STATUS: ${{ job.status }}
+          SOURCE_RUN_ID: ${{ needs.release-source.outputs.source_run_id }}
         run: |
           {
             echo "## Production migration"
             echo ""
             echo "- Commit: \`${GITHUB_SHA}\`"
-            echo "- Bundle: \`production-migrations-${GITHUB_SHA}\`"
+            echo "- Bundle: \`production-migrations-${GITHUB_SHA}\` (push run ${SOURCE_RUN_ID})"
             echo "- Result: **${MIGRATION_STATUS}**"
             echo "- Executed once by job: \`${GITHUB_JOB}\`"
           } >> "$GITHUB_STEP_SUMMARY"
 
   deploy-api:
     name: Switch API Blue/Green
-    needs: migrate-production
+    needs: [release-source, migrate-production]
     if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.deploy_to_azure }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: production
+    env:
+      # #278: digest validado no run de push, nunca a tag mutavel.
+      API_IMAGE: ${{ needs.release-source.outputs.api_image }}
 
     steps:
       - name: Checkout revision policy script
