@@ -22,7 +22,9 @@ public static partial class ApiServiceCollectionExtensions
             {
                 sqlOptions.MigrationsAssembly(typeof(AppDbContext).Assembly.GetName().Name);
                 sqlOptions.EnableRetryOnFailure();
-            }).AddInterceptors(provider.GetRequiredService<DatabaseConnectionTimingInterceptor>()));
+            })
+            .SuppressRawDatabaseErrorLogs()
+            .AddInterceptors(provider.GetRequiredService<DatabaseConnectionTimingInterceptor>()));
         services.AddScoped<PlatformDbContext>();
         services.AddSingleton<ISqlConnectionFactory>(new SqlConnectionFactory(defaultConnection));
         services.AddScoped<HemodinksAPI.Application.Features.Clinics.IPublicClinicDirectory, SqlPublicClinicDirectory>();

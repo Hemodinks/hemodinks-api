@@ -28,6 +28,13 @@ UPDATE dbo.Users SET
     Crm = CASE WHEN Crm IS NULL THEN NULL ELSE CONCAT(N'TESTE', Id) END,
     CrmUf = CASE WHEN CrmUf IS NULL THEN NULL ELSE N'PE' END;
 
+-- #227: cifra/hash do CPF real nao podem sobreviver na copia. O reconciliador da API
+-- recalcula a partir do CPF anonimizado com as chaves do ambiente local.
+IF COL_LENGTH(N'dbo.Users', N'CpfCifrado') IS NOT NULL
+    EXEC sys.sp_executesql N'UPDATE dbo.Users SET CpfCifrado = NULL, CpfHash = NULL;';
+IF OBJECT_ID(N'dbo.DataProtectionKeys', N'U') IS NOT NULL
+    EXEC sys.sp_executesql N'DELETE FROM dbo.DataProtectionKeys;';
+
 UPDATE dbo.Pacientes SET
     NomePaciente = CONCAT(N'Paciente Teste ', Id),
     Data = CASE WHEN Data IS NULL THEN NULL ELSE DATEADD(DAY, (Id % 61) - 30, Data) END,

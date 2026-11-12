@@ -53,6 +53,7 @@ public class DeletePacienteCommandHandler : IRequestHandler<DeletePacienteComman
 
             var fotoPerfil = paciente.User.FotoPerfil;
             var fileUrls = paciente.Arquivos.Select(arquivo => arquivo.Url).ToList();
+            var clinicaId = paciente.ClinicaId;
 
             _context.Users.Remove(paciente.User);
             await _context.SaveChangesAsync(cancellationToken);
@@ -61,7 +62,7 @@ public class DeletePacienteCommandHandler : IRequestHandler<DeletePacienteComman
 
             foreach (var fileUrl in fileUrls)
             {
-                await _patientFileStorage.DeleteAsync(fileUrl, cancellationToken);
+                await _patientFileStorage.DeleteAsync(fileUrl, clinicaId, cancellationToken);
             }
         }
         catch (Exception ex)

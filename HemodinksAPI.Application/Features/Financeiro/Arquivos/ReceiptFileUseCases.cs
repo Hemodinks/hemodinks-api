@@ -23,10 +23,10 @@ public sealed partial class FinanceiroFileUseCases
         var receipt = await db.Recebimentos.SingleOrDefaultAsync(item => item.Id == receiptId, cancellationToken)
             ?? throw new KeyNotFoundException("Recebimento nao encontrado.");
         var oldUrl = receipt.DocumentoComprovante;
-        var stored = await storage.SaveAsync(file, cancellationToken);
+        var stored = await storage.SaveAsync(file, receipt.ClinicaId, cancellationToken);
         receipt.DocumentoComprovante = stored.Url;
         await db.SaveChangesAsync(cancellationToken);
-        if (!string.IsNullOrWhiteSpace(oldUrl)) await storage.DeleteAsync(oldUrl, cancellationToken);
+        if (!string.IsNullOrWhiteSpace(oldUrl)) await storage.DeleteAsync(oldUrl, receipt.ClinicaId, cancellationToken);
         return new ReceiptUploadResponse(receiptId, stored.OriginalName, stored.ContentType, stored.SizeBytes, stored.Url);
     }
 
@@ -35,7 +35,7 @@ public sealed partial class FinanceiroFileUseCases
         var receipt = await db.Recebimentos.AsNoTracking().SingleOrDefaultAsync(item => item.Id == receiptId, cancellationToken)
             ?? throw new KeyNotFoundException("Recebimento nao encontrado.");
         var storedUrl = receipt.DocumentoComprovante ?? throw new KeyNotFoundException("Comprovante nao encontrado.");
-        var file = await storage.GetAsync(storedUrl, cancellationToken)
+        var file = await storage.GetAsync(storedUrl, receipt.ClinicaId, cancellationToken)
             ?? throw new StoredFileUnavailableException(
                 "Comprovante registrado nao foi localizado no armazenamento.");
         var storedPath = Uri.TryCreate(storedUrl, UriKind.Absolute, out var storedUri) ? storedUri.AbsolutePath : storedUrl;

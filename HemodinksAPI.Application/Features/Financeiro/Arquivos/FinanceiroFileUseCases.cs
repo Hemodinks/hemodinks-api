@@ -50,7 +50,7 @@ public sealed partial class FinanceiroFileUseCases(
     {
         ValidateHistoryPeriod(year, month, requireBoth: true);
         var clinicId = tenant.GetRequiredClinicaId();
-        var stored = await storage.SaveAsync(file, cancellationToken);
+        var stored = await storage.SaveAsync(file, clinicId, cancellationToken);
         try
         {
             var entity = new FaturamentoHistoricoArquivo
@@ -77,7 +77,7 @@ public sealed partial class FinanceiroFileUseCases(
         }
         catch
         {
-            await storage.DeleteAsync(stored.Url, CancellationToken.None);
+            await storage.DeleteAsync(stored.Url, clinicId, CancellationToken.None);
             throw;
         }
     }
@@ -90,7 +90,7 @@ public sealed partial class FinanceiroFileUseCases(
         var entity = await db.FaturamentoHistoricoArquivos.AsNoTracking()
             .SingleOrDefaultAsync(item => item.Id == fileId && item.ClinicaId == clinicId, cancellationToken)
             ?? throw new KeyNotFoundException("Arquivo do histórico não encontrado.");
-        var stored = await storage.GetAsync(entity.Url, cancellationToken)
+        var stored = await storage.GetAsync(entity.Url, clinicId, cancellationToken)
             ?? throw new StoredFileUnavailableException(
                 "Arquivo do historico registrado nao foi localizado no armazenamento.");
         return new PrivateFileDownload
@@ -110,7 +110,7 @@ public sealed partial class FinanceiroFileUseCases(
         var url = entity.Url;
         db.FaturamentoHistoricoArquivos.Remove(entity);
         await db.SaveChangesAsync(cancellationToken);
-        await storage.DeleteAsync(url, cancellationToken);
+        await storage.DeleteAsync(url, clinicId, cancellationToken);
     }
 
 }

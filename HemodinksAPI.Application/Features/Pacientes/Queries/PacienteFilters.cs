@@ -31,14 +31,15 @@ internal static class PacienteFilters
         DateTime? dataFinal,
         DateTime? dataSolicitacaoInicio,
         DateTime? dataSolicitacaoFinal,
-        bool supportsFullTextSearch)
+        bool supportsFullTextSearch,
+        string[]? cpfHashes = null)
     {
         if (!string.IsNullOrWhiteSpace(search))
         {
             var fullTextCondition = FullTextSearchTermBuilder.BuildPrefixCondition(search);
             query = supportsFullTextSearch && fullTextCondition != null
-                ? ApplyFullTextSearch(query, search, digits, fullTextCondition)
-                : ApplyFallbackSearch(query, search, digits);
+                ? ApplyFullTextSearch(query, search, digits, cpfHashes, fullTextCondition)
+                : ApplyFallbackSearch(query, search, digits, cpfHashes);
         }
 
         if (!string.IsNullOrWhiteSpace(medico))
@@ -133,6 +134,7 @@ internal static class PacienteFilters
         IQueryable<Paciente> query,
         string search,
         string digits,
+        string[]? cpfHashes,
         string condition)
     {
         return query.Where(p =>
@@ -164,14 +166,16 @@ internal static class PacienteFilters
                     && item.CbhpmCodigo != null
                     && item.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
                 || (item.CbhpmPorte != null && item.CbhpmPorte.Contains(search)))
-            || (!string.IsNullOrEmpty(digits) && p.User.Cpf != null && p.User.Cpf.Contains(digits))
+            // CPF: busca exata por hash (#227); parcial nao e possivel com o dado cifrado.
+            || (cpfHashes != null && p.User.CpfHash != null && cpfHashes.Contains(p.User.CpfHash))
             || (!string.IsNullOrEmpty(digits) && p.User.Telefone.Contains(digits)));
     }
 
     private static IQueryable<Paciente> ApplyFallbackSearch(
         IQueryable<Paciente> query,
         string search,
-        string digits)
+        string digits,
+        string[]? cpfHashes)
     {
         return query.Where(p =>
             p.NomePaciente.Contains(search)
@@ -202,7 +206,8 @@ internal static class PacienteFilters
                     && item.CbhpmCodigo != null
                     && item.CbhpmCodigo.Replace(".", "").Replace("-", "").Contains(digits))
                 || (item.CbhpmPorte != null && item.CbhpmPorte.Contains(search)))
-            || (!string.IsNullOrEmpty(digits) && p.User.Cpf != null && p.User.Cpf.Contains(digits))
+            // CPF: busca exata por hash (#227); parcial nao e possivel com o dado cifrado.
+            || (cpfHashes != null && p.User.CpfHash != null && cpfHashes.Contains(p.User.CpfHash))
             || (!string.IsNullOrEmpty(digits) && p.User.Telefone.Contains(digits)));
     }
 }

@@ -43,7 +43,7 @@ uma versao por Action; `scripts/tests/test_actions_pinned.py` bloqueia tag, bran
 | --- | --- | --- |
 | `ci.yml` (CI) | push em `developer`, `dev-local`; PR para `main`, `developer`, `dev-local` | escopo, restore, build, testes (incl. SQL Server), validacao de migrations e `Login integration E2E` |
 | `login-e2e.yml` | chamado pelo CI ou manual | cenarios de login no navegador |
-| `publish-container.yml` (Publish Production) | push na `main`/tags `v*.*.*`: so publica imagens; manual com `deploy_to_azure=true` na `main`: migra e faz deploy | imagens `sha-<commit>`, bundle de migrations, `migrate-production`, `deploy-api` (blue/green) e `deploy-functions` |
+| `publish-container.yml` (Publish Production) | push na `main`/tags `v*.*.*`: so publica imagens; manual com `deploy_to_azure=true` na `main`: migra e faz deploy | imagem da API `sha-<commit>`, bundle de migrations, `migrate-production`, `deploy-api` (blue/green) e `deploy-function-app` (Workers) |
 | `apply-production-migrations.yml` | manual | valida e aplica migrations de producao isoladamente |
 | `rollback-production.yml` | manual | devolve o trafego da API para a revisao anterior (nao reverte migrations) |
 | `publish-homologation.yml` | manual na `developer` | `diagnose`, `diagnose-sql`, `prepare` ou `publish` no Render ([runbook](homologation-migrations.md)) |
@@ -51,12 +51,15 @@ uma versao por Action; `scripts/tests/test_actions_pinned.py` bloqueia tag, bran
 | `azure-operational-tasks.yml` | manual | tarefas operacionais (ex.: seed CBHPM pontual) |
 | `cleanup-ghcr.yml` / `ghcr-retention.yml` | manual/agendado | auditoria e limpeza de imagens no GHCR |
 
-Imagens:
+Imagem:
 
 ```text
 ghcr.io/hemodinks/hemodinks-api
-ghcr.io/hemodinks/hemodinks-api-workers
 ```
+
+Desde o #228 a imagem `ghcr.io/hemodinks/hemodinks-api-workers` nao e mais publicada: os Workers tem um unico caminho
+de deploy, o pacote de codigo na Function App (ver [Workers](#workers-function-app)). O `HemodinksAPI.Workers/Dockerfile`
+continua apenas para o `docker-compose` local; versoes antigas da imagem no GHCR seguem a politica do `cleanup-ghcr.yml`.
 
 ## Azure Container Apps
 
@@ -67,7 +70,8 @@ Container Apps recomendados:
 | App | Origem | Ingress | Porta | Observacao |
 | --- | --- | --- | --- | --- |
 | `hemodinks-api` | `ghcr.io/hemodinks/hemodinks-api` | External | `8080` | API publica, health check em `/healthz` |
-| `hemodinks-functions` | `ghcr.io/hemodinks/hemodinks-api-workers` | External ou internal conforme uso HTTP | porta padrao da imagem Functions | Azure Functions em container para uploads, reset e exportacoes |
+
+Os Workers (uploads, reset e exportacoes) nao rodam em Container Apps: ficam na Function App `hemodinks-workers-production`.
 
 Nao e necessario um terceiro Container App para workers. Em producao o workflow fixa `EventReminders__RunHostedProcessor=false`: lembretes vencidos sao reservados por `EventReminderProcessor` (lease com `UPDATE ... OUTPUT`) quando a agenda ou o dashboard sao consultados, o que e seguro com mais de uma revisao ativa.
 
@@ -97,7 +101,27 @@ Database__RunMigrationsOnStartup=false
 Database__RunMaintenanceOnStartup=false
 Seed__CbhpmOnStartup=false
 Seed__UsersOnStartup=false
+CpfProtection__CertificateBase64=<PFX em base64 com chave privada RSA>
+CpfProtection__CertificatePassword=<senha do PFX>
+CpfProtection__LookupHashKey=<32+ bytes aleatorios em base64>
 ```
+
+As tres chaves `CpfProtection__*` (#227) sao obrigatorias fora de Development/Testing: sem elas a
+API nao sobe. Gere o material com `scripts/New-CpfProtectionKeys.ps1` e, **antes** do deploy que contem a
+migration `Schema_ProtectCpfAtRest`, crie no Container App apenas os tres **secrets** (nao edite variaveis):
+
+| Secret do Container App | Arquivo gerado | Variavel na revisao |
+| --- | --- | --- |
+| `cpf-protection-certificate` | `CertificateBase64.txt` | `CpfProtection__CertificateBase64` |
+| `cpf-protection-certificate-password` | `CertificatePassword.txt` | `CpfProtection__CertificatePassword` |
+| `cpf-protection-lookup-hash-key` | `LookupHashKey.txt` | `CpfProtection__LookupHashKey` |
+
+O deploy (`scripts/deploy/create-candidate-revision.sh`) copia as variaveis da revisao **ativa**, entao editar
+variaveis pelo portal criaria uma revisao sem trafego que o deploy ignora. Por isso o script grava as tres
+variaveis acima como `secretRef` em toda revisao candidata e falha (codigo 10), antes de qualquer mutacao, se
+algum desses secrets nao existir. Backup, rotacao
+(`CpfProtection__PreviousCertificates__0__*` e `CpfProtection__PreviousLookupHashKeys__0`, so durante a
+troca) e rollback: [issue-227-cpf-em-repouso.md](issue-227-cpf-em-repouso.md).
 
 ### New Relic APM na API
 
@@ -162,25 +186,30 @@ az containerapp registry set \
   --password <github-pat-read-packages>
 ```
 
-Repita para `hemodinks-functions`.
-
 ### Deploy pelo GitHub Actions
 
-O workflow `Publish Production` (`publish-container.yml`) sempre publica as duas imagens no GHCR em push para `main`.
+O workflow `Publish Production` (`publish-container.yml`) sempre publica a imagem da API no GHCR em push para `main`.
 O deploy no Azure exige execucao manual na `main` com `deploy_to_azure=true`: o job `migrate-production`
-(environment `production`, com aprovacao) aplica o bundle uma unica vez e so depois `deploy-api` troca o trafego.
+(environment `production`, com aprovacao) aplica o bundle uma unica vez e so depois `deploy-api` troca o trafego
+e `deploy-function-app` publica os Workers.
+
+Desde o #229 o bash de cada passo do `deploy-api` fica em `scripts/deploy/*.sh` (um script por passo, mesmas
+variaveis de ambiente e as mesmas opcoes `-e -o pipefail` do `run:`); o YAML so declara `env:` e chama o script.
+O CI roda `shellcheck` nesses scripts e `scripts/tests/test_production_deployment_gates.py` executa os scripts reais
+com `az`/`curl` simulados. Para mudar o deploy, edite o script e o teste, nao o YAML.
 
 Repository variables:
 
 | Nome | Exemplo |
 | --- | --- |
-| `AZURE_CONTAINER_APPS_DEPLOY_ENABLED` | `true` |
 | `AZURE_RESOURCE_GROUP` | `rg-hemodinks-prod` |
 | `AZURE_CONTAINER_APP_API_RESOURCE_GROUP` | opcional; sobrescreve `AZURE_RESOURCE_GROUP` para a API |
-| `AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP` | opcional; sobrescreve `AZURE_RESOURCE_GROUP` para o worker em Container Apps |
 | `AZURE_CONTAINER_APP_API_NAME` | `hemodinks-api` |
-| `AZURE_CONTAINER_APP_FUNCTIONS_NAME` | `hemodinks-functions` |
-| `AZURE_FUNCTION_APP_WORKERS_NAME` | `hemodinks-workers-production` |
+| `AZURE_FUNCTION_APP_WORKERS_NAME` | `hemodinks-workers-production` (obrigatoria: sem ela o deploy dos Workers falha) |
+
+`AZURE_CONTAINER_APPS_DEPLOY_ENABLED`, `AZURE_CONTAINER_APP_FUNCTIONS_NAME` e `AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP`
+nao sao mais lidas pelo deploy (#228). `cleanup-ghcr.yml` ainda le as duas ultimas para inventariar consumidores da imagem
+antiga de Workers.
 
 Repository secrets para login OIDC no Azure:
 
@@ -198,9 +227,17 @@ Permissoes minimas esperadas para a identidade:
 Merge em `main` publica as imagens; as revisoes dos Container Apps (tags `sha-<commit>`) so mudam na execucao manual com `deploy_to_azure=true`.
 O workflow tambem atualiza `Deployment__CommitSha` no Container App para forcar nova revisao; a conferência pós-deploy lê esse valor diretamente da revisão candidata pelo Azure CLI. O `/healthz` público retorna apenas o estado agregado.
 
-Se um Container App for movido para outro Resource Group, atualize `AZURE_RESOURCE_GROUP` ou defina o override especifico `AZURE_CONTAINER_APP_API_RESOURCE_GROUP` / `AZURE_CONTAINER_APP_FUNCTIONS_RESOURCE_GROUP`. O workflow tenta descobrir o Resource Group pelo nome do Container App quando o valor configurado nao encontra o recurso.
+Se o Container App da API for movido para outro Resource Group, atualize `AZURE_RESOURCE_GROUP` ou defina o override `AZURE_CONTAINER_APP_API_RESOURCE_GROUP`. O workflow tenta descobrir o Resource Group pelo nome do Container App quando o valor configurado nao encontra o recurso.
 
-Se os workers estiverem em um Azure Function App tradicional em vez de Azure Container Apps, configure `AZURE_FUNCTION_APP_WORKERS_NAME` com o nome do Function App. O workflow publica `HemodinksAPI.Workers` diretamente nesse Function App usando o login Azure OIDC ja configurado.
+<a id="workers-function-app"></a>
+#### Workers (Function App)
+
+Caminho unico desde o #228: o job `deploy-function-app` roda `dotnet publish` de `HemodinksAPI.Workers` no mesmo commit
+e publica o pacote na Function App `AZURE_FUNCTION_APP_WORKERS_NAME` (Flex Consumption) com o login Azure OIDC do
+environment `production`, depois de `migrate-production`. Se a variavel estiver vazia, o job falha em vez de ser pulado.
+Nao ha blue/green nem rollback automatico para os Workers: para voltar, rode o workflow manual na `main` a partir do
+commit anterior. A rota anterior por Container App (`deploy-functions`) foi removida: `AZURE_CONTAINER_APP_FUNCTIONS_NAME` nao estava
+configurada e o job aparecia como `skipped` nas execucoes de producao (ex.: 10/11/2026).
 
 ### Migrations no pipeline
 
@@ -257,6 +294,7 @@ Variaveis que devem diferir da producao:
 | `JwtSettings__SecretKey` | usar outra chave |
 | `JwtSettings__Issuer` | `HemodinksAPI.Confirmation` |
 | `JwtSettings__Audience` | `HemodinksAPI.Confirmation` |
+| `CpfProtection__CertificateBase64` / `__CertificatePassword` / `__LookupHashKey` | gerar material proprio da homologacao (#227) |
 | `Frontend__ResetPasswordUrl` | `https://hemodinks-homologacao.gestao-saude.tec.br/reset-password` |
 | `NEW_RELIC_APP_NAME` | `Hemodinks API Confirmation` |
 | `AzureStorage__ContainerName` | `profile-photos-confirmation` |

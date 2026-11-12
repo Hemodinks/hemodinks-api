@@ -39,8 +39,11 @@ public partial class PacienteCommandHandlerTests
     private sealed class FakePatientFileStorage : IPatientFileStorage
     {
         public int Deletions { get; private set; }
-        public Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
+        public List<int> SavedClinicaIds { get; } = [];
+        public List<int> DeletedClinicaIds { get; } = [];
+        public Task<StoredPatientFile> SaveAsync(UploadedFile file, int clinicaId, CancellationToken cancellationToken)
         {
+            SavedClinicaIds.Add(clinicaId);
             return Task.FromResult(new StoredPatientFile(
                 file.FileName,
                 file.ContentType,
@@ -48,13 +51,14 @@ public partial class PacienteCommandHandlerTests
                 $"https://storage.example/{file.FileName}"));
         }
 
-        public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
+        public Task DeleteAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken)
         {
             Deletions++;
+            DeletedClinicaIds.Add(clinicaId);
             return Task.CompletedTask;
         }
 
-        public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
+        public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken)
         {
             return Task.FromResult<StoredPatientFileContent?>(
                 new StoredPatientFileContent(new MemoryStream("conteudo"u8.ToArray())));

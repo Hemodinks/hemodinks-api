@@ -286,10 +286,10 @@ dotnet tool run dotnet-ef migrations list --project HemodinksAPI.Infrastructure 
 | Azure SQL Database | usado | banco relacional da aplicacao |
 | Azure Blob Storage | usado | fotos, anexos e arquivos exportados |
 | Azure Queue Storage | usado | reset por email e jobs de exportacao |
-| Azure Functions | usado | projeto `HemodinksAPI.Workers` (container ou Function App) |
-| Azure Container Apps | usado | producao: API blue/green e workers |
+| Azure Functions | usado | projeto `HemodinksAPI.Workers` na Function App `hemodinks-workers-production` (unico caminho de deploy, #228) |
+| Azure Container Apps | usado | producao: API blue/green |
 | Render | usado | homologacao (`hemodinks-api-1`) |
-| GitHub Container Registry | usado | imagens `hemodinks-api` e `hemodinks-api-workers` |
+| GitHub Container Registry | usado | imagem `hemodinks-api` (`hemodinks-api-workers` nao e mais publicada desde o #228) |
 | New Relic APM | usado | telemetria da API (Browser no front) |
 
 ## Documentacao interativa

@@ -115,7 +115,7 @@ public partial class UserCommandHandlerTests
 
     private sealed class FakePatientFileStorage : IPatientFileStorage
     {
-        public Task<StoredPatientFile> SaveAsync(UploadedFile file, CancellationToken cancellationToken)
+        public Task<StoredPatientFile> SaveAsync(UploadedFile file, int clinicaId, CancellationToken cancellationToken)
         {
             return Task.FromResult(new StoredPatientFile(
                 file.FileName,
@@ -124,12 +124,12 @@ public partial class UserCommandHandlerTests
                 $"https://storage.example/{file.FileName}"));
         }
 
-        public Task DeleteAsync(string? fileUrl, CancellationToken cancellationToken)
+        public Task DeleteAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken)
         {
             return Task.CompletedTask;
         }
 
-        public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, CancellationToken cancellationToken)
+        public Task<StoredPatientFileContent?> GetAsync(string? fileUrl, int clinicaId, CancellationToken cancellationToken)
         {
             return Task.FromResult<StoredPatientFileContent?>(
                 new StoredPatientFileContent(new MemoryStream("conteudo"u8.ToArray())));

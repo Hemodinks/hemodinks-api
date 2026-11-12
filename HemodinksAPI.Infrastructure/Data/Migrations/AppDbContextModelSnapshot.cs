@@ -2636,6 +2636,16 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasMaxLength(11)
                         .HasColumnType("nvarchar(11)");
 
+                    b.Property<string>("CpfCifrado")
+                        .HasMaxLength(512)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(512)");
+
+                    b.Property<string>("CpfHash")
+                        .HasMaxLength(64)
+                        .IsUnicode(false)
+                        .HasColumnType("varchar(64)");
+
                     b.Property<string>("Crm")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -2699,6 +2709,10 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.HasIndex("ClinicaId", "Cpf")
                         .IsUnique()
                         .HasFilter("[Cpf] IS NOT NULL");
+
+                    b.HasIndex("ClinicaId", "CpfHash")
+                        .IsUnique()
+                        .HasFilter("[CpfHash] IS NOT NULL");
 
                     b.HasIndex("ClinicaId", "Email")
                         .IsUnique()
@@ -2947,6 +2961,32 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .IsUnique();
 
                     b.ToTable("UsuariosGlobais", (string)null);
+                });
+
+            modelBuilder.Entity("HemodinksAPI.Infrastructure.Data.DataProtectionKeyRecord", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("DataCriacao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("datetime2")
+                        .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<string>("FriendlyName")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<string>("Xml")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("DataProtectionKeys", (string)null);
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.AgendaNotification", b =>
