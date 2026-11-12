@@ -9,6 +9,7 @@ Este diretório adiciona agentes especializados sem modificar `AGENTS.md` nem re
 3. Tarefas baixas: agente principal diretamente; moderadas: agente principal e, quando útil, especialista; altas ou críticas: usar `architect` ou `security` para investigação independente. Testes proporcionais ao risco.
 4. Não executar subagentes que editem arquivos coincidentes; limitar a dois ativos.
 5. Para riscos críticos exigir testes negativos de isolamento de clínica e permissões, quando aplicável.
+6. Antes de concluir tarefa alta ou crítica, rodar `security-reviewer` (só leitura) sobre o diff: tenant/`ClinicaId`, bypass de Admin, dado sensível em log (inclusive CPF), forwarded headers e teste negativo entre clínicas.
 
 ## Esforço
 
