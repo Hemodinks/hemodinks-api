@@ -7,9 +7,9 @@ Sistema de saúde multi-clínica: segurança e isolamento por clínica vêm ante
 
 - Entidades: `HemodinksAPI.Domain/Models` (`IClinicaOwnedEntity` = dado de uma clínica)
 - Casos de uso: `HemodinksAPI.Application/Features/<Módulo>/` (Commands, Queries, validators)
-- Endpoints: `HemodinksAPI.Api/*EndpointExtensions*.cs` e `HemodinksAPI.Api/Features/**` — finos: mapeiam, validam e chamam MediatR
-- Políticas de autorização: `HemodinksAPI.Api/ApiServiceCollectionExtensions.Auth.cs`; módulos do plano: `ClinicaModuleAccessMiddleware.cs`
-- Middlewares de sessão, tenant e auditoria: `HemodinksAPI.Api/*Middleware.cs`
+- Endpoints: `HemodinksAPI.Api/Endpoints/` e `HemodinksAPI.Api/Features/**` — finos: mapeiam, validam e chamam MediatR
+- Políticas de autorização: `HemodinksAPI.Api/ApiServiceCollectionExtensions.Auth.cs`; módulos do plano: `HemodinksAPI.Api/Middleware/ClinicaModuleAccessMiddleware.cs`
+- Middlewares de tenant e auditoria: `HemodinksAPI.Api/Middleware/`; sessão: `HemodinksAPI.Api/Sessions/`; idempotência: `HemodinksAPI.Api/Idempotency/`; monitoramento: `HemodinksAPI.Api/Monitoring/`
 - Dados: `HemodinksAPI.Infrastructure/Data/AppDbContext.cs` (filtro global de tenant e bloqueio de FK entre clínicas)
 - Schema: `HemodinksAPI.Infrastructure/Data/Configurations/` (leia aqui, não nas migrations)
 - Azure Functions: `HemodinksAPI.Workers/Functions/`
