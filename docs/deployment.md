@@ -193,6 +193,22 @@ O deploy no Azure exige execucao manual na `main` com `deploy_to_azure=true`: o 
 (environment `production`, com aprovacao) aplica o bundle uma unica vez e so depois `deploy-api` troca o trafego
 e `deploy-function-app` publica os Workers.
 
+Desde o #278 o mesmo commit nao e mais validado tres vezes. O job `release-source` (`scripts/release_source.py`)
+decide a origem da release:
+
+| Execucao | O que roda |
+| --- | --- |
+| PR para `main` (CI) | suite completa, incluindo os testes offline que antes so o publish rodava; ao final registra a arvore git testada (artefato `ci-tested-tree-<arvore>`) |
+| Push na `main` | se um CI de PR bem-sucedido do proprio repositorio registrou **exatamente** a arvore do merge, pula validacao e E2E e so gera imagem e bundle; na duvida (`main` mudou, push direto, tag, API indisponivel) roda tudo |
+| Manual com `deploy_to_azure=true` | nao reconstroi: localiza o run de push bem-sucedido do mesmo SHA, baixa o bundle `production-migrations-<sha>` e o manifesto `release-image-<sha>` e implanta a imagem **por digest**. Sem esse run, falha antes das aprovacoes |
+| Manual sem deploy | build e testes completos, como antes |
+
+O deploy manual depende do run de push do mesmo commit; como os dois usam o mesmo grupo de concorrencia, um deploy
+disparado logo apos o merge espera o push terminar. Se o run de push falhou, rode novamente os jobs com falha dele e
+so depois dispare o deploy. Os artefatos ficam 30 dias; para implantar um commit mais antigo, use "Re-run all jobs"
+no run de push dele, que gera os artefatos de novo (o publish manual sem deploy nao serve, porque o deploy so aceita
+runs de push). Aprovacoes, migration unica, smoke test e rollback de trafego nao mudaram.
+
 Desde o #229 o bash de cada passo do `deploy-api` fica em `scripts/deploy/*.sh` (um script por passo, mesmas
 variaveis de ambiente e as mesmas opcoes `-e -o pipefail` do `run:`); o YAML so declara `env:` e chama o script.
 O CI roda `shellcheck` nesses scripts e `scripts/tests/test_production_deployment_gates.py` executa os scripts reais

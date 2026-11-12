@@ -2,6 +2,11 @@
 # Passo "Create candidate revision with zero traffic" do job deploy-api (publish-container.yml), extraido sem mudanca de comportamento (#229).
 # Entradas: API_NAME, API_RESOURCE_GROUP, API_IMAGE, GITHUB_SHA, NEW_RELIC_LICENSE_KEY, FORWARDED_HEADERS_ENV; escreve em GITHUB_OUTPUT.
 set -euo pipefail
+# #278: so implanta o digest validado no run de push; tag ou valor vazio bloqueiam antes de qualquer chamada.
+if ! [[ "${API_IMAGE:-}" =~ ^ghcr\.io/hemodinks/hemodinks-api@sha256:[0-9a-f]{64}$ ]]; then
+  echo "::error::API_IMAGE must be the validated ghcr.io/hemodinks/hemodinks-api@sha256 digest."
+  exit 11
+fi
 printf '[]' | python3 -B scripts/forwarded_headers.py --merge "$FORWARDED_HEADERS_ENV" > /dev/null
 az containerapp show --name "$API_NAME" --resource-group "$API_RESOURCE_GROUP" \
   --query '{name:name,resourceGroup:resourceGroup,properties:{configuration:{ingress:properties.configuration.ingress}}}' -o json \
