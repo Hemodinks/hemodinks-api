@@ -228,8 +228,14 @@ class PublishRevisionReuseTests(unittest.TestCase):
     SHA = "a" * 40
     IMAGE = "ghcr.io/test/api@sha256:" + "b" * 64
 
+    CPF_SECRETS = ("cpf-protection-certificate", "cpf-protection-certificate-password", "cpf-protection-lookup-hash-key")
+    CPF_ENV = [{"name": "CpfProtection__CertificateBase64", "secretRef": "cpf-protection-certificate"},
+               {"name": "CpfProtection__CertificatePassword", "secretRef": "cpf-protection-certificate-password"},
+               {"name": "CpfProtection__LookupHashKey", "secretRef": "cpf-protection-lookup-hash-key"}]
+
     def run_step(self, step, *, same_revision=True, color="blue", mismatch=None,
-                 scenario="healthy", already_current="true"):
+                 scenario="healthy", already_current="true", cpf_secrets=CPF_SECRETS, existing_candidate_env=None,
+                 active_extra_env=()):
         script = deploy_step_script(step)
         bash = (shutil.which("bash") if os.name != "nt" else
                 str(Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git/bin/bash.exe"))
@@ -237,7 +243,7 @@ class PublishRevisionReuseTests(unittest.TestCase):
         current = "hemodinks-api-prod--sha-" + (self.SHA[:10] if same_revision else "previous")
         candidate = "hemodinks-api-prod--sha-" + self.SHA[:10]
         approved = forwarded_headers.build_environment('["10.20.0.4"]', '[]')
-        environment = approved + [{"name": "Deployment__CommitSha", "value": self.SHA}]
+        environment = approved + [*active_extra_env, {"name": "Deployment__CommitSha", "value": self.SHA}]
         if mismatch == "sha":
             environment[-1]["value"] = self.SHA[:10] + "c" * 30
         if mismatch == "proxy":
@@ -270,8 +276,14 @@ curl() {
 az() {
   case "$1 $2 $3" in
     "containerapp revision show")
-      if [ "$SAME_REVISION" = false ] && [[ "$*" == *"--revision $EXPECTED_CANDIDATE"* ]]; then return 1; fi
+      if [ "$SAME_REVISION" = false ] && [[ "$*" == *"--revision $EXPECTED_CANDIDATE"* ]]; then
+        if [ -f "$FIXTURE/candidate.json" ]; then cat "$FIXTURE/candidate.json"; return 0; fi
+        return 1
+      fi
       cat "$FIXTURE/revision.json" ;;
+    "containerapp secret list")
+      if [[ "$*" == *"--show-values"* ]]; then echo "Secret values must never be read" >&2; return 97; fi
+      printf '%s\n' $CPF_SECRETS new-relic-license-key ;;
     "containerapp show --name")
       case "$*" in
         *"properties.configuration.ingress.traffic"*) cat "$FIXTURE/traffic.json" ;;
@@ -287,7 +299,10 @@ az() {
       if [[ "$*" == *"--label-weight $CANDIDATE_LABEL=100"* || "$*" == *"$ACTIVE_LABEL=0 $CANDIDATE_LABEL=100"* ]]; then
         printf '[{"label":"%s","revisionName":"%s","weight":100}]' "$CANDIDATE_LABEL" "$CANDIDATE_REVISION" > "$FIXTURE/traffic.json"
       fi ;;
-    *) if [ "$1" = rest ]; then printf 'patch\n' >> "$FIXTURE/mutations"; else echo "Unexpected Azure call: $*" >&2; return 99; fi ;;
+    *) if [ "$1" = rest ]; then
+         printf 'patch\n' >> "$FIXTURE/mutations"
+         while [ "$#" -gt 0 ]; do if [ "$1" = --body ]; then printf '%s' "$2" > "$FIXTURE/patch.json"; fi; shift; done
+       else echo "Unexpected Azure call: $*" >&2; return 99; fi ;;
   esac
 }
 '''
@@ -295,7 +310,12 @@ az() {
             fixture = Path(directory)
             for name, data in (("revision", revision), ("app", app), ("traffic", traffic)):
                 (fixture / f"{name}.json").write_text(json.dumps(data), encoding="utf-8")
+            if existing_candidate_env is not None:
+                candidate_json = {"properties": {"template": {"containers": [{
+                    "name": "api", "image": self.IMAGE, "env": approved + existing_candidate_env}]}}}
+                (fixture / "candidate.json").write_text(json.dumps(candidate_json), encoding="utf-8")
             env = dict(os.environ, FIXTURE=fixture.as_posix(), TEST_PYTHON=Path(sys.executable).as_posix(),
+                       CPF_SECRETS=" ".join(cpf_secrets),
                        SCENARIO=scenario, SAME_REVISION=str(same_revision).lower(),
                        GITHUB_SHA=self.SHA, API_IMAGE=self.IMAGE, API_NAME=app["name"],
                        API_RESOURCE_GROUP=app["resourceGroup"], NEW_RELIC_LICENSE_KEY="synthetic-key",
@@ -309,7 +329,59 @@ az() {
             result = subprocess.run([bash, "-e", script_file.as_posix()],
                                     cwd=ROOT, env=env, capture_output=True, text=True, timeout=20)
             read = lambda name: (fixture / name).read_text() if (fixture / name).exists() else ""
+            self.last_patch = json.loads(read("patch.json")) if read("patch.json") else None
             return result, read("output"), read("mutations")
+
+    def candidate_env(self):
+        return self.last_patch["properties"]["template"]["containers"][0]["env"]
+
+    def test_new_candidate_references_cpf_protection_secrets(self):
+        stale = [{"name": "CpfProtection__CertificateBase64", "value": "stale-plain-value"},
+                 {"name": "CpfProtection__PreviousLookupHashKeys__0", "secretRef": "cpf-protection-previous-lookup-hash-key"}]
+        result, output, mutations = self.run_step("Create candidate revision with zero traffic",
+                                                  same_revision=False, active_extra_env=stale)
+        self.assertEqual(0, result.returncode, result.stderr)
+        env = self.candidate_env()
+        cpf = [entry for entry in env if entry["name"] in {e["name"] for e in self.CPF_ENV}]
+        self.assertEqual(sorted(self.CPF_ENV, key=lambda e: e["name"]), sorted(cpf, key=lambda e: e["name"]))
+        self.assertNotIn("stale-plain-value", json.dumps(self.last_patch))
+        # Variaveis de rotacao configuradas na revisao ativa continuam sendo copiadas.
+        self.assertIn({"name": "CpfProtection__PreviousLookupHashKeys__0",
+                       "secretRef": "cpf-protection-previous-lookup-hash-key"}, env)
+
+    def test_missing_cpf_secret_blocks_deploy_before_any_mutation(self):
+        for missing in self.CPF_SECRETS:
+            with self.subTest(missing=missing):
+                secrets = tuple(s for s in self.CPF_SECRETS if s != missing)
+                result, output, mutations = self.run_step("Create candidate revision with zero traffic",
+                                                          same_revision=False, cpf_secrets=secrets)
+                self.assertEqual(10, result.returncode, result.stderr)
+                self.assertIn(missing, result.stdout)
+                self.assertEqual("", mutations)
+                self.assertNotIn("already_current", output)
+
+    def test_already_current_reuse_does_not_require_secret_listing(self):
+        result, output, mutations = self.run_step("Create candidate revision with zero traffic", cpf_secrets=())
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual("", mutations)
+        self.assertIn("already_current=true", output)
+
+    def test_existing_candidate_is_reused_only_with_cpf_secret_references(self):
+        result, output, mutations = self.run_step("Create candidate revision with zero traffic",
+                                                  same_revision=False, existing_candidate_env=self.CPF_ENV)
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertNotIn("patch", mutations)
+        self.assertIn("revision label add", mutations)
+
+        for broken in ([], self.CPF_ENV[:2], [{**self.CPF_ENV[0], "secretRef": "other"}, *self.CPF_ENV[1:]]):
+            with self.subTest(env=[e["name"] for e in broken]):
+                result, output, mutations = self.run_step("Create candidate revision with zero traffic",
+                                                          same_revision=False, existing_candidate_env=broken)
+                self.assertEqual(8, result.returncode, result.stderr)
+                self.assertIn("does not reference the CPF protection secrets", result.stdout)
+                self.assertNotIn("patch", mutations)
+                self.assertNotIn("revision label", mutations)
+                self.assertNotIn("ingress traffic", mutations)
 
     def test_current_commit_preserves_both_possible_active_labels_without_any_mutation(self):
         for color in ("blue", "green"):

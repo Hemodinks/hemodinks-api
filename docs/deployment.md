@@ -107,8 +107,19 @@ CpfProtection__LookupHashKey=<32+ bytes aleatorios em base64>
 ```
 
 As tres chaves `CpfProtection__*` (#227) sao obrigatorias fora de Development/Testing: sem elas a
-API nao sobe. Configure-as como secrets do Container App **antes** do deploy que contem a migration
-`Schema_ProtectCpfAtRest`. Gere o material com `scripts/New-CpfProtectionKeys.ps1`. Backup, rotacao
+API nao sobe. Gere o material com `scripts/New-CpfProtectionKeys.ps1` e, **antes** do deploy que contem a
+migration `Schema_ProtectCpfAtRest`, crie no Container App apenas os tres **secrets** (nao edite variaveis):
+
+| Secret do Container App | Arquivo gerado | Variavel na revisao |
+| --- | --- | --- |
+| `cpf-protection-certificate` | `CertificateBase64.txt` | `CpfProtection__CertificateBase64` |
+| `cpf-protection-certificate-password` | `CertificatePassword.txt` | `CpfProtection__CertificatePassword` |
+| `cpf-protection-lookup-hash-key` | `LookupHashKey.txt` | `CpfProtection__LookupHashKey` |
+
+O deploy (`scripts/deploy/create-candidate-revision.sh`) copia as variaveis da revisao **ativa**, entao editar
+variaveis pelo portal criaria uma revisao sem trafego que o deploy ignora. Por isso o script grava as tres
+variaveis acima como `secretRef` em toda revisao candidata e falha (codigo 10), antes de qualquer mutacao, se
+algum desses secrets nao existir. Backup, rotacao
 (`CpfProtection__PreviousCertificates__0__*` e `CpfProtection__PreviousLookupHashKeys__0`, so durante a
 troca) e rollback: [issue-227-cpf-em-repouso.md](issue-227-cpf-em-repouso.md).
 

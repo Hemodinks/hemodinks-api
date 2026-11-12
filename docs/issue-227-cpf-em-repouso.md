@@ -58,6 +58,11 @@ coluna legada existe. Depois da fase 2, a perda é definitiva. Apague a pasta lo
 - **Produção (Container Apps):** crie três secrets no Container App e referencie-os por variável
   (`CpfProtection__CertificateBase64`, `CpfProtection__CertificatePassword`, `CpfProtection__LookupHashKey`
   como `secretref:`). Prefira o portal: valores passados na linha de comando ficam no histórico do shell.
+  > **Atualizado em 12/11/2026:** crie só os secrets `cpf-protection-certificate`,
+  > `cpf-protection-certificate-password` e `cpf-protection-lookup-hash-key`. Não edite variáveis: o deploy
+  > copia as da revisão ativa e agora referencia esses três secrets sozinho
+  > (ver [deployment.md](deployment.md#azure-container-apps)). Variáveis de rotação (`Previous*`) ainda precisam
+  > estar na revisão ativa para serem copiadas; tratar quando houver a primeira rotação.
 - **Homologação (Render):** preencha as três chaves `sync: false` de `render.confirmation.yaml` no dashboard.
 - **Local:** sem configuração, Development usa chaves efêmeras e o reconciliador regrava tudo a cada
   startup. Para testar o caminho persistente, use `dotnet user-secrets` com material próprio de dev.
