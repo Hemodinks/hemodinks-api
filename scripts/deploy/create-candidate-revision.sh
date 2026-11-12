@@ -57,6 +57,20 @@ if [ "$candidate_revision" = "$previous_revision" ]; then
   exit 0
 fi
 
+# CPF em repouso (#227): a API nao sobe sem estes secrets fora de Development/Testing.
+# As variaveis nao sao copiadas da revisao ativa; a candidata sempre as referencia por secretRef.
+# Confere so os nomes (nunca os valores) e falha antes de qualquer mutacao.
+secret_names="$(az containerapp secret list \
+  --name "$API_NAME" \
+  --resource-group "$API_RESOURCE_GROUP" \
+  --query "[].name" -o tsv)"
+for required_secret in cpf-protection-certificate cpf-protection-certificate-password cpf-protection-lookup-hash-key; do
+  if ! grep -qx -- "$required_secret" <<<"$secret_names"; then
+    echo "::error::Container App secret '$required_secret' is missing. Configure CPF protection secrets before deploying (docs/issue-227-cpf-em-repouso.md)."
+    exit 10
+  fi
+done
+
 new_relic_enabled=false
 if [ -n "$NEW_RELIC_LICENSE_KEY" ]; then
   az containerapp secret set \
@@ -100,6 +114,9 @@ containers="$(jq \
             and .name != "Database__RunMaintenanceOnStartup"
             and .name != "Database__SchemaManagedByDeployment"
             and .name != "EventReminders__RunHostedProcessor"
+            and .name != "CpfProtection__CertificateBase64"
+            and .name != "CpfProtection__CertificatePassword"
+            and .name != "CpfProtection__LookupHashKey"
             and ($new_relic_enabled != "true" or (
               .name != "CORECLR_ENABLE_PROFILING"
               and .name != "NEW_RELIC_LICENSE_KEY"
@@ -112,7 +129,10 @@ containers="$(jq \
             {name: "Database__RunMigrationsOnStartup", value: "false"},
             {name: "Database__RunMaintenanceOnStartup", value: "false"},
             {name: "Database__SchemaManagedByDeployment", value: "true"},
-            {name: "EventReminders__RunHostedProcessor", value: "false"}
+            {name: "EventReminders__RunHostedProcessor", value: "false"},
+            {name: "CpfProtection__CertificateBase64", secretRef: "cpf-protection-certificate"},
+            {name: "CpfProtection__CertificatePassword", secretRef: "cpf-protection-certificate-password"},
+            {name: "CpfProtection__LookupHashKey", secretRef: "cpf-protection-lookup-hash-key"}
           ]
         + (if $new_relic_enabled == "true" then [
             {name: "CORECLR_ENABLE_PROFILING", value: "1"},
@@ -174,6 +194,20 @@ if existing_candidate_json="$(az containerapp revision show \
   if ! jq -c '.properties.template.containers[0].env // []' <<<"$existing_candidate_json" \
     | python3 -B scripts/forwarded_headers.py --merge "$FORWARDED_HEADERS_ENV" --verify-existing; then
     echo "::error::Existing candidate proxy policy differs from the approved preflight. Reuse and promotion are blocked."
+    exit 8
+  fi
+  if ! jq -e '
+    [.properties.template.containers[0].env[]?
+      | select(.name == "CpfProtection__CertificateBase64" or .name == "CpfProtection__CertificatePassword"
+          or .name == "CpfProtection__LookupHashKey")
+      | {name, secretRef}]
+    | sort_by(.name) == [
+        {name: "CpfProtection__CertificateBase64", secretRef: "cpf-protection-certificate"},
+        {name: "CpfProtection__CertificatePassword", secretRef: "cpf-protection-certificate-password"},
+        {name: "CpfProtection__LookupHashKey", secretRef: "cpf-protection-lookup-hash-key"}
+      ]
+  ' <<<"$existing_candidate_json" >/dev/null; then
+    echo "::error::Existing candidate does not reference the CPF protection secrets. Delete or deactivate it and rerun the deploy."
     exit 8
   fi
   echo "::notice::Reusing existing candidate revision '$candidate_revision'."
