@@ -139,10 +139,39 @@ deploy para `main`, o workflow:
 - grava a chave como secret `new-relic-license-key` no Container App;
 - referencia o secret pela variavel `NEW_RELIC_LICENSE_KEY`;
 - habilita o profiler e o distributed tracing;
-- identifica a entidade como `Hemodinks API`.
+- identifica a entidade como `Hemodinks API`;
+- encaminha ao New Relic so logs de nivel Warning ou acima
+  (`NEW_RELIC_APPLICATION_LOGGING_FORWARDING_LOG_LEVEL_DENYLIST`), cortando o log
+  Information de cada requisicao (sem o padrao do agente, todos os niveis eram encaminhados);
+- do contexto do log, envia apenas `RequestId`, `ClinicId` e as contagens do
+  snapshot de sessoes (`..._CONTEXT_DATA_INCLUDE`); `UserId` e `GlobalUserId` ficam de fora.
+  Atencao: o filtro vale so para atributos de contexto. O texto renderizado e a excecao
+  de um Warning/Error seguem inteiros e podem conter o caminho da requisicao (ex.:
+  `/api/users/email/{email}`) ou a mensagem da excecao. Nao coloque dado pessoal no
+  texto de logs Warning/Error;
+- liga `ActiveSessionsSnapshot__Enabled`: a cada 5 minutos, se a replica recebeu
+  requisicao autenticada nos ultimos 30, a API registra (nivel Warning, EventId 4300/4301)
+  usuarios online, total de sessoes e contagem por `ClinicaId`. Sem nome, e-mail,
+  perfil, IP ou navegador; a lista nominal continua so na tela do SuperAdministrador.
 
 Se o secret do GitHub nao estiver configurado, o deploy continua sem alterar
 uma configuracao New Relic que ja exista no Container App.
+
+Consultas NRQL para acompanhar producao sem entrar no HemoDinks:
+
+```sql
+-- Erros da API
+SELECT count(*) FROM TransactionError WHERE appName = 'Hemodinks API' SINCE 1 day ago TIMESERIES
+SELECT message, RequestId, ClinicId FROM Log WHERE entity.name = 'Hemodinks API' AND level IN ('Error', 'ERROR', 'Fatal', 'FATAL') SINCE 1 day ago
+-- Sessoes ativas (replicas registram o mesmo valor: use latest/max, nunca sum)
+SELECT latest(numeric(UsuariosOnline)) AS 'Usuarios online', latest(numeric(TotalSessoes)) AS 'Sessoes' FROM Log WHERE message LIKE 'ActiveSessionsSnapshot %' SINCE 30 minutes ago
+SELECT max(numeric(UsuariosOnline)) FROM Log WHERE message LIKE 'ActiveSessionsSnapshot %' SINCE 1 day ago TIMESERIES 15 minutes
+SELECT latest(numeric(SnapshotUsuarios)) FROM Log WHERE message LIKE 'ActiveSessionsSnapshotClinica%' FACET SnapshotClinicaId SINCE 30 minutes ago
+```
+
+Sem snapshot recente significa que nenhuma replica recebeu requisicao autenticada
+na janela (ninguem usando) ou que o agente esta desligado. Nao publique dashboards
+com link publico: eles mostram ClinicaId e volume de uso por clinica.
 
 Se uploads de fotos e arquivos forem processados por Azure Functions, configure tambem na API:
 

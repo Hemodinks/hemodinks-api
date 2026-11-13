@@ -101,6 +101,8 @@ if ! [[ "$target_port" =~ ^[0-9]+$ ]] || [ -z "$app_id" ]; then
   exit 6
 fi
 
+# New Relic: logs encaminhados so de Warning para cima (sem caminho/query string de requisicao) e,
+# do contexto, so identificadores tecnicos e as contagens agregadas do snapshot de sessoes.
 environment_json="$(jq -c '.properties.template.containers[0].env // []' <<<"$active_revision_json" \
   | python3 -B scripts/forwarded_headers.py --merge "$FORWARDED_HEADERS_ENV")"
 containers="$(jq \
@@ -127,6 +129,11 @@ containers="$(jq \
               and .name != "NEW_RELIC_LICENSE_KEY"
               and .name != "NEW_RELIC_APP_NAME"
               and .name != "NEW_RELIC_DISTRIBUTED_TRACING_ENABLED"
+              and .name != "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED"
+              and .name != "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_LOG_LEVEL_DENYLIST"
+              and .name != "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_ENABLED"
+              and .name != "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_INCLUDE"
+              and .name != "ActiveSessionsSnapshot__Enabled"
             ))
           ))
         + [
@@ -143,7 +150,14 @@ containers="$(jq \
             {name: "CORECLR_ENABLE_PROFILING", value: "1"},
             {name: "NEW_RELIC_LICENSE_KEY", secretRef: "new-relic-license-key"},
             {name: "NEW_RELIC_APP_NAME", value: "Hemodinks API"},
-            {name: "NEW_RELIC_DISTRIBUTED_TRACING_ENABLED", value: "true"}
+            {name: "NEW_RELIC_DISTRIBUTED_TRACING_ENABLED", value: "true"},
+            {name: "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED", value: "true"},
+            {name: "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_LOG_LEVEL_DENYLIST",
+             value: "VERBOSE,TRACE,DEBUG,INFORMATION,INFO"},
+            {name: "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_ENABLED", value: "true"},
+            {name: "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_INCLUDE",
+             value: "RequestId,ClinicId,UsuariosOnline,TotalSessoes,Clinicas,SnapshotClinicaId,SnapshotUsuarios,SnapshotSessoes"},
+            {name: "ActiveSessionsSnapshot__Enabled", value: "true"}
           ] else [] end)
       )
     | .[0].probes = [

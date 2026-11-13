@@ -105,6 +105,14 @@ public static partial class ApiServiceCollectionExtensions
             TimeSpan.FromMinutes(Math.Max(1, configuration.GetValue<int?>("EventEmails:ActivityWindowMinutes") ?? 15))));
         if (configuration.GetValue<bool?>("EventEmails:RunHostedProcessor") ?? true)
             services.AddHostedService<EventEmailDeliveryHostedService>();
+        // Resumo agregado de sessoes para o New Relic; ligado pelo deploy apenas com o agente ativo.
+        if (configuration.GetValue<bool?>("ActiveSessionsSnapshot:Enabled") ?? false)
+        {
+            services.AddSingleton(new ActiveSessionsSnapshotOptions(
+                TimeSpan.FromMinutes(Math.Max(1, configuration.GetValue<int?>("ActiveSessionsSnapshot:IntervalMinutes") ?? 5)),
+                TimeSpan.FromMinutes(Math.Max(1, configuration.GetValue<int?>("ActiveSessionsSnapshot:ActivityWindowMinutes") ?? 30))));
+            services.AddHostedService<ActiveSessionsSnapshotHostedService>();
+        }
         services.AddScoped<SessionUseCases>();
         services.AddScoped<IAuthenticationSessionStore, EfAuthenticationSessionStore>();
         services.AddScoped<PublicClinicQueries>();

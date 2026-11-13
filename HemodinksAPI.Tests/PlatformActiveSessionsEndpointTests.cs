@@ -6,7 +6,9 @@ using HemodinksAPI.Application.Features.Clinics.Platform;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
+using HemodinksAPI.Infrastructure.HostedServices;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 
 namespace HemodinksAPI.Tests;
 
@@ -158,6 +160,101 @@ public sealed class PlatformActiveSessionsEndpointTests : ApiEndpointTestBase
     public void UserAgentSummary_IsCoarse(string? userAgent, string expected)
     {
         Assert.Equal(expected, UserAgentSummary.Describe(userAgent));
+    }
+
+    [Fact]
+    public async Task Snapshot_CountsSameActiveSessionsAsList_ByClinicId()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var startup = factory.CreateClient();
+        var seed = await SeedAsync(factory);
+
+        using var scope = factory.Services.CreateScope();
+        var snapshot = await scope.ServiceProvider.GetRequiredService<PlatformActiveSessionsQueryHandler>()
+            .GetSnapshotAsync();
+
+        Assert.Equal(2, snapshot.UsuariosOnline);
+        Assert.Equal(2, snapshot.TotalSessoes);
+        Assert.Equal(
+            new[] { Clinica.DefaultId, seed.BetaClinicId }.Order().ToArray(),
+            snapshot.PorClinica.Select(item => item.ClinicaId).ToArray());
+        Assert.All(snapshot.PorClinica, item =>
+        {
+            Assert.Equal(1, item.Usuarios);
+            Assert.Equal(1, item.Sessoes);
+        });
+    }
+
+    [Fact]
+    public async Task SnapshotService_LogsOnlyAggregatedCounts_WithoutPersonalData()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var startup = factory.CreateClient();
+        var seed = await SeedAsync(factory);
+        var activity = new RequestActivitySignal(TimeProvider.System);
+        activity.MarkActive();
+        var logger = new SnapshotLogger();
+        var service = new ActiveSessionsSnapshotHostedService(factory.Services, activity,
+            new ActiveSessionsSnapshotOptions(TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(30)), logger);
+
+        Assert.True(await service.TryRecordOnceAsync(CancellationToken.None));
+
+        var summary = Assert.Single(logger.Entries, entry => entry.EventId == ActiveSessionsSnapshotHostedService.SnapshotEvent.Id);
+        Assert.Equal(LogLevel.Warning, summary.Level);
+        Assert.Equal(2, summary.Properties["UsuariosOnline"]);
+        Assert.Equal(2, summary.Properties["TotalSessoes"]);
+        var clinics = logger.Entries
+            .Where(entry => entry.EventId == ActiveSessionsSnapshotHostedService.ClinicSnapshotEvent.Id)
+            .Select(entry => (int)entry.Properties["SnapshotClinicaId"]!)
+            .Order()
+            .ToArray();
+        Assert.Equal(new[] { Clinica.DefaultId, seed.BetaClinicId }.Order().ToArray(), clinics);
+
+        var everything = string.Join(" | ", logger.Entries.Select(entry =>
+            entry.Message + " " + string.Join(" ", entry.Properties.Select(pair => $"{pair.Key}={pair.Value}"))));
+        Assert.DoesNotContain("Online", everything.Replace("UsuariosOnline", string.Empty));
+        Assert.DoesNotContain("Medico", everything);
+        Assert.DoesNotContain("Clinica Beta", everything);
+        Assert.DoesNotContain(Clinica.DefaultNome, everything);
+        Assert.DoesNotContain("@example.com", everything);
+        Assert.DoesNotContain(SessionIp, everything);
+        Assert.DoesNotContain("Chrome", everything);
+        Assert.DoesNotContain(SecretRefreshHash, everything);
+        Assert.DoesNotContain(seed.BetaSlug, everything);
+    }
+
+    [Fact]
+    public async Task SnapshotService_WithoutRecentAuthenticatedRequest_DoesNotQueryOrLog()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var startup = factory.CreateClient();
+        await SeedAsync(factory);
+        var logger = new SnapshotLogger();
+        var service = new ActiveSessionsSnapshotHostedService(factory.Services, new RequestActivitySignal(TimeProvider.System),
+            new ActiveSessionsSnapshotOptions(TimeSpan.FromMinutes(5), TimeSpan.FromMinutes(30)), logger);
+
+        Assert.False(await service.TryRecordOnceAsync(CancellationToken.None));
+        Assert.Empty(logger.Entries);
+    }
+
+    private sealed record SnapshotLogEntry(LogLevel Level, int EventId, string Message, IReadOnlyDictionary<string, object?> Properties);
+
+    private sealed class SnapshotLogger : ILogger<ActiveSessionsSnapshotHostedService>
+    {
+        public List<SnapshotLogEntry> Entries { get; } = [];
+
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => true;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
+            Func<TState, Exception?, string> formatter)
+        {
+            var properties = state is IEnumerable<KeyValuePair<string, object?>> pairs
+                ? pairs.ToDictionary(pair => pair.Key, pair => pair.Value)
+                : new Dictionary<string, object?>();
+            Entries.Add(new SnapshotLogEntry(logLevel, eventId.Id, formatter(state, exception), properties));
+        }
     }
 
     private sealed record Seed(string SuperAdminToken, string AdminToken, string BetaAdminToken, int BetaClinicId, string BetaSlug);
