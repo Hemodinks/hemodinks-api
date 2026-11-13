@@ -439,6 +439,27 @@ az() {
         self.assertIn({"name": "CpfProtection__PreviousLookupHashKeys__0",
                        "secretRef": "cpf-protection-previous-lookup-hash-key"}, env)
 
+    def test_new_candidate_limits_new_relic_log_forwarding_and_enables_session_snapshot(self):
+        stale = [{"name": "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_LOG_LEVEL_DENYLIST", "value": ""},
+                 {"name": "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_INCLUDE", "value": "UserId"}]
+        result, output, mutations = self.run_step("Create candidate revision with zero traffic",
+                                                  same_revision=False, active_extra_env=stale)
+        self.assertEqual(0, result.returncode, result.stderr)
+        env = {}
+        for entry in self.candidate_env():
+            self.assertNotIn(entry["name"], env, "variavel duplicada: " + entry["name"])
+            env[entry["name"]] = entry.get("value")
+        self.assertEqual("true", env["NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED"])
+        denied = env["NEW_RELIC_APPLICATION_LOGGING_FORWARDING_LOG_LEVEL_DENYLIST"].split(",")
+        for level in ("VERBOSE", "TRACE", "DEBUG", "INFORMATION", "INFO"):
+            self.assertIn(level, denied)
+        self.assertNotIn("WARNING", denied)
+        self.assertNotIn("ERROR", denied)
+        self.assertEqual("true", env["NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_ENABLED"])
+        included = set(env["NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_INCLUDE"].split(","))
+        self.assertFalse(included & {"UserId", "GlobalUserId", "RequestPath", "UserEmail", "UserName"})
+        self.assertEqual("true", env["ActiveSessionsSnapshot__Enabled"])
+
     def test_missing_cpf_secret_blocks_deploy_before_any_mutation(self):
         for missing in self.CPF_SECRETS:
             with self.subTest(missing=missing):
