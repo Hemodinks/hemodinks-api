@@ -1,6 +1,6 @@
 # Matriz de perfis e permissões
 
-Atualizado em 07/11/2026. Gerado por `scripts/generate_permissions_matrix.py` (não edite à mão).
+Atualizado em 12/11/2026. Gerado por `scripts/generate_permissions_matrix.py` (não edite à mão).
 
 Esta documentação descreve o comportamento efetivamente aplicado na API e a visibilidade atual da interface. As permissões sempre acumulam estas restrições:
 
@@ -45,6 +45,7 @@ Esta é a fonte de verdade para segurança. Ocultar um botão na interface não 
 | Dashboard | R | R | R | R | R | R |
 | Clínicas (`/api/platform/clinicas`) | R/U da própria + equipes | — | — | — | CRUD + troca | — |
 | Auditoria da plataforma | — | — | — | — | R | — |
+| Sessões ativas da plataforma | — | — | — | — | R | — |
 | Usuários | CRUD | R/U próprio | R/U próprio limitado | R próprio | CRUD | R membros |
 | Resetar senha de terceiro | Sim | — | — | — | Sim | — |
 | Equipes (`/api/equipes`) | CRUD | — | — | — | CRUD | Trocar PIN próprio |

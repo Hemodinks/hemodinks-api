@@ -91,6 +91,13 @@ public interface IPlatformClinicDbContext : IPlatformTeamDbContext, IAuditDbCont
 
 public interface ISessionDbContext : IGlobalIdentityDbContext, IClinicDirectoryDbContext, IUserDbContext;
 
+// Somente leitura e somente escopo de plataforma (PlatformDbContext): monitoramento de sessoes ativas.
+public interface IPlatformSessionMonitorDbContext
+{
+    DbSet<AuthenticationSession> AuthenticationSessions { get; }
+    DbSet<Equipe> Equipes { get; }
+}
+
 public interface ILegalAcceptanceDbContext : IUnitOfWork
 {
     DbSet<UserLegalAcceptance> UserLegalAcceptances { get; }

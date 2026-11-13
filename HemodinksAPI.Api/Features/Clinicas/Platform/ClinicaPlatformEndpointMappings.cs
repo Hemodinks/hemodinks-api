@@ -38,6 +38,10 @@ public static partial class ClinicaPlatformEndpointExtensions
         app.MapGet("/api/platform/auditoria", ListPlatformAudit)
             .WithTags("Plataforma - Auditoria")
             .RequireAuthorization("SuperAdministrador");
+
+        app.MapGet("/api/platform/sessoes-ativas", ListActiveSessions)
+            .WithTags("Plataforma - Sessoes")
+            .RequireAuthorization("SuperAdministrador");
     }
 
     private static async ValueTask<object?> RestrictAdministratorToCurrentClinicAsync(

@@ -293,6 +293,12 @@ medicos, agenda e usuarios tambem dependem do modulo contratado no plano `Parcia
 | --- | --- | --- |
 | `GET` | `/api/platform/auditoria` | SA |
 
+### Plataforma — sessões ativas
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/platform/sessoes-ativas` | SA |
+
 ### Clínicas — público
 
 | Método | Rota | Acesso |
