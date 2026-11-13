@@ -58,7 +58,7 @@ public sealed class DatabaseStartupPolicyTests
 
         using var context = new AppDbContext(options, ClinicaContextFactory.CreatePlatform());
 
-        Assert.Contains("20260831150919_AddLoginAccountProtection", context.Database.GetMigrations());
+        Assert.Contains("20261111154833_Schema_ProtectCpfAtRest", context.Database.GetMigrations());
     }
 
     [Fact]

@@ -23,7 +23,7 @@ O reset administrativo anterior substituía a senha definitiva por uma temporár
 | `HemodinksAPI.Application/Features/Users/Commands/TemporaryAccessService.cs` | Autorização, geração, consumo, conclusão, revogação e auditoria. |
 | `HemodinksAPI.Application/Features/Users/Commands/ChangeTemporaryPasswordCommand.cs` | Command, handler e validator FluentValidation para definição da senha. |
 | `HemodinksAPI.Infrastructure/Data/Configurations/TemporaryAccessCredentialConfiguration.cs` | Mapeamento e concorrência da credencial. |
-| `HemodinksAPI.Api/PasswordRecoveryMiddleware.cs` | Verificação da versão de segurança e bloqueio das APIs durante recuperação. |
+| `HemodinksAPI.Api/Middleware/PasswordRecoveryMiddleware.cs` | Verificação da versão de segurança e bloqueio das APIs durante recuperação. |
 | `HemodinksAPI.Infrastructure/Data/Migrations/20260908224929_AddTemporaryAccessCredentials.cs` | Migration incremental. |
 | `HemodinksAPI.Infrastructure/Data/Migrations/20260908224929_AddTemporaryAccessCredentials.Designer.cs` | Modelo da migration gerado pelo EF. |
 | `HemodinksAPI.Tests/TemporaryAccessTests.cs` | Autorização, expiração, ciclo de vida, política de senha e isolamento. |
@@ -44,8 +44,8 @@ Os caminhos abaixo são relativos ao respectivo repositório.
 | --- | --- |
 | `HemodinksAPI.Api/ApiServiceCollectionExtensions.Application.cs`, `ApiServiceCollectionExtensions.Database.cs` | Registro do serviço e contexto global de recuperação. |
 | `HemodinksAPI.Api/ApiServiceCollectionExtensions.Platform.cs`, `Program.cs` | Política de rate limiting por identidade autenticada e middleware de recuperação. Autenticação precede o limitador. |
-| `HemodinksAPI.Api/UserEndpointExtensions.cs`, `UserEndpointExtensions.Password.cs`, `UserEndpointExtensions.Crud.cs` | Integração das operações, contexto confiável do solicitante, resposta sem cache e preservação do desafio de identificação antes da sessão. |
-| `HemodinksAPI.Api/ClinicaModuleAccessMiddleware.cs`, `ClinicaResolutionMiddleware.cs` | Permitir a definição da senha independentemente do módulo contratado e após identificação válida com PIN ainda pendente de troca. |
+| `HemodinksAPI.Api/Endpoints/UserEndpointExtensions.cs`, `UserEndpointExtensions.Password.cs`, `UserEndpointExtensions.Crud.cs` | Integração das operações, contexto confiável do solicitante, resposta sem cache e preservação do desafio de identificação antes da sessão. |
+| `HemodinksAPI.Api/Middleware/ClinicaModuleAccessMiddleware.cs`, `ClinicaResolutionMiddleware.cs` | Permitir a definição da senha independentemente do módulo contratado e após identificação válida com PIN ainda pendente de troca. |
 | `HemodinksAPI.Application/ApplicationServiceCollectionExtensions.cs` | Registro do novo validator no pipeline existente. |
 | `HemodinksAPI.Application/Authentication/GlobalIdentityService.cs` | Impedir login com senha pessoal durante a recuperação administrativa. |
 | `HemodinksAPI.Application/Features/Sessions/AuthenticationSessionService.cs` | Vincular sessão à versão da credencial e preservar restrições na renovação. |

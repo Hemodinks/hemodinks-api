@@ -60,7 +60,14 @@ internal static class SchemaGuardProgram
                 Console.WriteLine($"Schema check stage={stage} elapsedMs={elapsed.ElapsedMilliseconds}");
 
                 var knownMigrations = context.Database.GetMigrations().ToArray();
-                var appliedMigrations = (await context.Database.GetAppliedMigrationsAsync(cancellationToken)).ToArray();
+                // Bancos anteriores à baseline (#231) trazem os IDs consolidados; histórico parcial é inconsistente.
+                var appliedMigrations = SchemaHistoryGuard.NormalizeApplied(
+                    await context.Database.GetAppliedMigrationsAsync(cancellationToken));
+                if (appliedMigrations is null)
+                {
+                    state = SchemaState.InconsistentHistory;
+                    return true;
+                }
 
                 // Automatic migration is allowed only when the database history is an exact prefix
                 // of the migrations compiled into this commit. This excludes unknown, missing and

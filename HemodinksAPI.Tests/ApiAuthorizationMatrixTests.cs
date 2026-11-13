@@ -121,6 +121,7 @@ public sealed class ApiAuthorizationMatrixTests : ApiEndpointTestBase
             Probe("Clinicas", "Alterar", HttpMethod.Put, "/api/platform/clinicas/999999", [Perfil.SuperAdministradorId], BodyKind.EmptyJson),
             Probe("Clinicas", "Desativar", HttpMethod.Delete, "/api/platform/clinicas/999999", [Perfil.SuperAdministradorId]),
             Probe("Auditoria", "Visualizar", HttpMethod.Get, "/api/platform/auditoria", [Perfil.SuperAdministradorId]),
+            Probe("Sessoes ativas", "Visualizar", HttpMethod.Get, "/api/platform/sessoes-ativas", [Perfil.SuperAdministradorId]),
 
             Probe("Usuarios", "Listar", HttpMethod.Get, "/api/users/", UserReaders),
             Probe("Usuarios", "Cadastrar", HttpMethod.Post, "/api/users/", Administrators, BodyKind.EmptyJson),

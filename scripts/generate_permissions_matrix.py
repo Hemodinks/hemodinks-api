@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
-UPDATED = "07/11/2026"
+UPDATED = "12/11/2026"
 
 CSS = r"""
     :root {
@@ -152,6 +152,7 @@ API_MATRIX = [
     ("Dashboard", ["R", "R", "R", "R", "R", "R"]),
     ("Clínicas (`/api/platform/clinicas`)", ["~R/U da própria + equipes", NO, NO, NO, "!CRUD + troca", NO]),
     ("Auditoria da plataforma", [NO, NO, NO, NO, "!R", NO]),
+    ("Sessões ativas da plataforma", [NO, NO, NO, NO, "!R", NO]),
     ("Usuários", ["CRUD", "~R/U próprio", "~R/U próprio limitado", "~R próprio", "CRUD", "~R membros"]),
     ("Resetar senha de terceiro", ["Sim", NO, NO, NO, "Sim", NO]),
     ("Equipes (`/api/equipes`)", ["CRUD", NO, NO, NO, "CRUD", "~Trocar PIN próprio"]),
@@ -446,7 +447,7 @@ def build_html() -> str:
     <div class="card soft">
       <h3>Arquivos de referência</h3>
       <p><b>Políticas:</b> HemodinksAPI.Api/ApiServiceCollectionExtensions.Auth.cs</p>
-      <p><b>Plano:</b> HemodinksAPI.Api/ClinicaModuleAccessMiddleware.cs</p>
+      <p><b>Plano:</b> HemodinksAPI.Api/Middleware/ClinicaModuleAccessMiddleware.cs</p>
       <p><b>Front:</b> src/app/appAccess.ts</p>
       <p><b>Documento detalhado:</b> docs/MATRIZ_PERFIS_PERMISSOES.md</p>
     </div>

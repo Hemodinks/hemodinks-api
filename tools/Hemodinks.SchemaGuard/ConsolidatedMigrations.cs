@@ -1,0 +1,78 @@
+namespace Hemodinks.SchemaGuard;
+
+/// <summary>
+/// Migrations removidas do código pela baseline 20260908224929 (#231). Bancos criados antes dela
+/// ainda têm estes IDs em __EFMigrationsHistory; bancos novos não têm nenhum. Não editar.
+/// </summary>
+public static class ConsolidatedMigrations
+{
+    public const string BaselineId = "20260908224929_AddTemporaryAccessCredentials";
+
+    public static IReadOnlySet<string> Ids { get; } = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "20260601133147_InitialCreate",
+        "20260601133534_AddUserPasswordChangeFlag",
+        "20260601163622_ResetUsersToDefaultPassword",
+        "20260601180816_AddUserProfiles",
+        "20260601192025_AddUserProfilePhoto",
+        "20260601200537_AddPatientsAndCpf",
+        "20260601222331_FixPatientFileUrls",
+        "20260603160245_AddUserArquivos",
+        "20260603191302_AddUserUpdateDate",
+        "20260604221629_AddCbhpmGeral",
+        "20260604224451_AddPacienteCbhpmSelection",
+        "20260606000242_AddUserMedicalRegistration",
+        "20260606003936_AddHospitais",
+        "20260606005303_AddPacienteMedicoUser",
+        "20260608191736_AddCbhpmValorReferencia",
+        "20260608203000_BackfillCbhpmValorReferencia",
+        "20260608203449_AddPacienteProcedimentos",
+        "20260608214543_AddConvenios",
+        "20260610154540_AddLicencas",
+        "20260610203813_AddEvents",
+        "20260610234500_EnsureEventReminderColumns",
+        "20260611160258_AddPasswordResetTokens",
+        "20260615150653_RemoveCbhpmPaginaPdf",
+        "20260615161044_AddPacienteMedicosAuxiliares",
+        "20260615203217_AddPacienteDiagnostico",
+        "20260615210851_AddOpmeFornecedores",
+        "20260615212638_AddControllerPerfil",
+        "20260616171257_AddPacienteTratamentoMedicoAndReduceDiagnostico",
+        "20260616192614_AddGruposMedicos",
+        "20260616232745_AddPacienteObservacoes",
+        "20260617171244_AddAgendaNotifications",
+        "20260619191959_AddFaturamentosMedicos",
+        "20260622214352_AddConfiguracoesSistema",
+        "20260624140047_MakeUserBirthDateOptional",
+        "20260626191525_Schema_AddIdempotencyRequests",
+        "20260630163800_AddConfiguracaoSistemaFotoEmpresa",
+        "20260703201553_AddClinicasAndClinicaIds",
+        "20260713160359_AddFaturamentoMedicoCompetencia",
+        "20260713195926_OptimizeFaturamentoCompetenciaIndexes",
+        "20260716013853_NormalizeConvenioEncoding",
+        "20260720175703_HardenMultiClinicTenancyAndPlatformAdmin",
+        "20260720191128_AddGlobalIdentityClinicSessionAndPlatformAudit",
+        "20260721145022_MoveClinicBrandingToClinicCrud",
+        "20260721160019_AddPartialClinicPlanModules",
+        "20260722181233_AddNormalizedBillingAndReceivables",
+        "20260722202127_AddLegacyPatientFinancialBackfillAudit",
+        "20260722231332_AddOpmeFornecedorToAtendimento",
+        "20260723205811_AddAtendimentoGlosa",
+        "20260729183446_BackfillAtendimentoProcedimentoValoresCbhpm",
+        "20260729185815_BackfillFaturamentosRascunhoValoresCbhpm",
+        "20260730161303_AddAtendimentoObservacaoArquivos",
+        "20260803153258_AddAuthenticationSessions",
+        "20260804180531_AddTeamsAndOperatorIdentification",
+        "20260805004914_AllowSharedTeamMemberEmails",
+        "20260810185452_Schema_AddFullTextSearchIndexes",
+        "20260811233000_AddPacienteDataAtendimento",
+        "20260812003023_AddFaturamentoMedicoDataPagamento",
+        "20260817233620_Schema_DisablePacienteFullTextStoplist",
+        "20260825224338_AddFaturamentoHistoricoArquivos",
+        "20260831150919_AddLoginAccountProtection",
+        "20260903122449_AddUserLegalAcceptances",
+        "20260903171938_AddUserPrivacyPreferences",
+        "20260904140716_Schema_AddClinicaCnpj",
+        "20260904232919_Schema_AddUniqueClinicaCnpj",
+    };
+}
