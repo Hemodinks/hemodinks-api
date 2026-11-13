@@ -36,7 +36,8 @@ if (-not (Test-Path $snapshotPath)) {
 }
 
 $migrationFiles = Get-ChildItem -Path $migrationsDir -Filter "*.cs" |
-    Where-Object { $_.Name -notlike "*.Designer.cs" -and $_.Name -ne "AppDbContextModelSnapshot.cs" } |
+    # Arquivos parciais (ex.: 20260908224929_Baseline.FullText.cs) complementam uma migration, nao sao migrations.
+    Where-Object { $_.Name -notlike "*.Designer.cs" -and $_.Name -ne "AppDbContextModelSnapshot.cs" -and $_.BaseName -notmatch "\." } |
     Sort-Object Name
 
 if ($migrationFiles.Count -eq 0) {

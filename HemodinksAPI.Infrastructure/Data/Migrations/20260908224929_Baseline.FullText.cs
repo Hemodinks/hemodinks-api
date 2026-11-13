@@ -1,19 +1,22 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace HemodinksAPI.Infrastructure.Data.Migrations
 {
-    /// <inheritdoc />
-    public partial class Schema_AddFullTextSearchIndexes : Migration
+    /// <summary>
+    /// Full-Text que o modelo do EF não gera. SQL copiado sem alteração de
+    /// 20260810185452_Schema_AddFullTextSearchIndexes (catálogo, índices e marcadores)
+    /// e 20260817233620_Schema_DisablePacienteFullTextStoplist.
+    /// </summary>
+    public partial class Baseline
     {
         private const string SqlServerProvider = "Microsoft.EntityFrameworkCore.SqlServer";
         private const string CatalogName = "HemodinksFullTextCatalog";
         private const string CatalogMarker = "Hemodinks_Schema_AddFullTextSearchIndexes_CatalogCreated";
         private const string IndexMarker = "Hemodinks_Schema_AddFullTextSearchIndexes_IndexCreated";
 
-        /// <inheritdoc />
-        protected override void Up(MigrationBuilder migrationBuilder)
+        private static void AddFullTextSearch(MigrationBuilder migrationBuilder)
         {
             if (migrationBuilder.ActiveProvider != SqlServerProvider)
             {
@@ -65,10 +68,20 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 ["Procedimento"]);
             CreateFullTextIndex(migrationBuilder, "GruposMedicos", "PK_GruposMedicos", "Id", ["Nome"]);
 
+            migrationBuilder.Sql(
+                """
+                IF EXISTS (
+                    SELECT 1
+                    FROM sys.fulltext_indexes
+                    WHERE object_id = OBJECT_ID(N'[dbo].[Pacientes]'))
+                BEGIN
+                    ALTER FULLTEXT INDEX ON [dbo].[Pacientes] SET STOPLIST = OFF;
+                END;
+                """,
+                suppressTransaction: true);
         }
 
-        /// <inheritdoc />
-        protected override void Down(MigrationBuilder migrationBuilder)
+        private static void DropFullTextSearch(MigrationBuilder migrationBuilder)
         {
             if (migrationBuilder.ActiveProvider != SqlServerProvider)
             {
@@ -100,7 +113,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     END;
                 END;
                 """, suppressTransaction: true);
-
         }
 
         private static void CreateFullTextIndex(
