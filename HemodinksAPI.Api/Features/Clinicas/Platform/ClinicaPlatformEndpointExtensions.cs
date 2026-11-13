@@ -56,4 +56,11 @@ public static partial class ClinicaPlatformEndpointExtensions
         int tamanhoPagina = 50,
         CancellationToken cancellationToken = default) =>
         handler.ListPlatformAudit(clinicaId, acao, de, ate, pagina, tamanhoPagina, cancellationToken).ToHttpResultAsync();
+
+    private static Task<IResult> ListActiveSessions(
+        PlatformActiveSessionsQueryHandler handler,
+        int pagina = 1,
+        int tamanhoPagina = 50,
+        CancellationToken cancellationToken = default) =>
+        handler.ListActiveSessions(pagina, tamanhoPagina, cancellationToken).ToHttpResultAsync();
 }

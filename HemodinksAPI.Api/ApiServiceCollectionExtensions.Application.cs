@@ -71,6 +71,7 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<PlatformAuditRecorder>();
         services.AddScoped<ClinicaPlatformRequestHandler>();
         services.AddScoped<ClinicaPlatformTeamRequestHandler>();
+        services.AddScoped<PlatformActiveSessionsQueryHandler>();
         services.AddScoped<INotificationService, NotificationService>();
         services.AddScoped<IEventReminderProcessor, EventReminderProcessor>();
         services.AddScoped<HemodinksAPI.Application.Data.IEventEmailFeatureDbContext>(sp => sp.GetRequiredService<AppDbContext>());

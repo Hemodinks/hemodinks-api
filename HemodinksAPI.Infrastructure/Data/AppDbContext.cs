@@ -31,6 +31,7 @@ public partial class AppDbContext : DbContext,
     IPlatformPasswordResetDbContext,
     IPlatformClinicDbContext,
     ISessionDbContext,
+    IPlatformSessionMonitorDbContext,
     ILegalAcceptanceDbContext,
     IPrivacyPreferenceDbContext
 {
