@@ -65,10 +65,10 @@ public sealed class FullMigrationReplaySqlServerTests(ITestOutputHelper output)
         }
     }
 
+    // Bancos existentes já têm o MigrationId da baseline (#231) aplicado; o script deve só completar o restante.
     [Theory]
-    [InlineData("20260601163622_ResetUsersToDefaultPassword")]
-    [InlineData("20260721160019_AddPartialClinicPlanModules")]
-    [InlineData("20260810185452_Schema_AddFullTextSearchIndexes")]
+    [InlineData("20260908224929_AddTemporaryAccessCredentials")]
+    [InlineData("20261012210010_AddEventAuthenticatedCreator")]
     [Trait("Category", "SqlServer")]
     public async Task FullScript_UpgradesPreviouslyAppliedMigrationPrefixes(string prefix)
     {
@@ -94,108 +94,9 @@ public sealed class FullMigrationReplaySqlServerTests(ITestOutputHelper output)
         finally { await db.Database.EnsureDeletedAsync(); }
     }
 
-    [Fact]
-    [Trait("Category", "SqlServer")]
-    public async Task FullText_RollbackAndReapplyPreservesDataAndSchema()
-    {
-        SqlServerTestConnection.RequireConfigured();
-        await using var db = CreateContext();
-        const string beforeFullText = "20260805004914_AllowSharedTeamMemberEmails";
-        const string fullText = "20260810185452_Schema_AddFullTextSearchIndexes";
-        try
-        {
-            var migrator = db.GetService<IMigrator>();
-            await migrator.MigrateAsync(beforeFullText);
-            var originalSchema = await Schema(db);
-            var originalData = await Data(db);
-            await ExecuteScript(db, migrator.GenerateScript(beforeFullText, fullText,
-                MigrationsSqlGenerationOptions.Idempotent));
-            Assert.Equal(8, await db.Database.SqlQueryRaw<int>(
-                "SELECT COUNT(*) AS [Value] FROM sys.fulltext_indexes").SingleAsync());
-            var expandedSchema = await Schema(db);
-            await ExecuteScript(db, migrator.GenerateScript(fullText, beforeFullText));
-            Assert.Equal(originalSchema, await Schema(db));
-            Assert.Equal(originalData, await Data(db));
-            Assert.Equal(beforeFullText, (await db.Database.GetAppliedMigrationsAsync()).Last());
-            await migrator.MigrateAsync(fullText);
-            Assert.Equal(expandedSchema, await Schema(db));
-            Assert.Equal(originalData, await Data(db));
-        }
-        finally { await db.Database.EnsureDeletedAsync(); }
-    }
-
     private static AppDbContext CreateContext() => new(new DbContextOptionsBuilder<AppDbContext>()
         .UseSqlServer(SqlServerTestConnection.Create($"HemodinksFullReplay_{Guid.NewGuid():N}"),
             sql => sql.CommandTimeout(120)).Options, ClinicaContextFactory.CreatePlatform());
-
-    [Fact]
-    [Trait("Category", "SqlServer")]
-    public async Task HistoricalBackfills_PreserveExistingRowsAndTenantOwnership()
-    {
-        SqlServerTestConnection.RequireConfigured();
-        await using var db = CreateContext();
-        try
-        {
-            var migrator = db.GetService<IMigrator>();
-            await migrator.MigrateAsync("20260601163622_ResetUsersToDefaultPassword");
-            await db.Database.ExecuteSqlRawAsync("""
-                INSERT INTO Users (Nome, Email, Telefone, Senha, DataNascimento)
-                VALUES (N'Synthetic legacy patient', N'legacy-replay@test.local', N'+5511999980001', N'test-hash', '1990-01-01');
-                """);
-            await Upgrade("20260601180816_AddUserProfiles");
-            Assert.Equal(2, await ScalarInt("SELECT PerfilId AS [Value] FROM Users WHERE Email = N'legacy-replay@test.local'"));
-            await db.Database.ExecuteSqlRawAsync("UPDATE Users SET PerfilId = 3 WHERE Email = N'legacy-replay@test.local';");
-            await Upgrade("20260601200537_AddPatientsAndCpf");
-            Assert.Equal(1, await ScalarInt("SELECT COUNT(*) AS [Value] FROM Pacientes WHERE NomePaciente = N'Synthetic legacy patient'"));
-            await db.Database.ExecuteSqlRawAsync("""
-                INSERT INTO Users (Nome, Email, Telefone, Senha, DataNascimento, PerfilId)
-                VALUES (N'Synthetic legacy doctor', N'legacy-doctor@test.local', N'+5511999980002', N'test-hash', '1990-01-01', 2);
-                UPDATE Pacientes SET Medico = N'Synthetic legacy doctor', Convenio = N'Amil',
-                    Data = '2026-06-15', Pagamento = N'100,00'
-                WHERE NomePaciente = N'Synthetic legacy patient';
-                """);
-            await Upgrade("20260703201553_AddClinicasAndClinicaIds");
-            Assert.Equal(1, await ScalarInt("""
-                SELECT COUNT(*) AS [Value] FROM Pacientes p JOIN Users u ON u.Id = p.MedicoUserId
-                WHERE p.NomePaciente = N'Synthetic legacy patient' AND u.Email = N'legacy-doctor@test.local'
-                    AND p.ClinicaId = 1 AND u.ClinicaId = 1 AND p.ConvenioId = 1
-                """));
-            await Upgrade("20260713160359_AddFaturamentoMedicoCompetencia");
-            Assert.Equal(1, await ScalarInt("""
-                SELECT COUNT(*) AS [Value] FROM FaturamentosMedicos f JOIN Pacientes p ON p.Id = f.PacienteId
-                WHERE p.NomePaciente = N'Synthetic legacy patient' AND f.ClinicaId = 1
-                    AND f.CompetenciaInicio = '2026-06-01' AND f.CompetenciaFinal = '2026-06-30'
-                """));
-            await db.Database.ExecuteSqlRawAsync("""
-                INSERT INTO IdempotencyRequests (Operation, Scope, IdempotencyKey, RequestHash, State)
-                VALUES (N'replay', N'clinic:1:user', N'legacy-replay', N'synthetic', N'Completed');
-                INSERT INTO Clinicas (Nome, Slug) VALUES (N'Synthetic legacy B', N'legacy-replay-b');
-                INSERT INTO IdempotencyRequests (Operation, Scope, IdempotencyKey, RequestHash, State)
-                SELECT N'replay', CONCAT(N'clinic:', Id, N':user'), N'legacy-replay-b', N'synthetic', N'Completed'
-                FROM Clinicas WHERE Slug = N'legacy-replay-b';
-                UPDATE ConfiguracoesSistema SET NomeEmpresa = N'Synthetic legacy clinic', FotoEmpresa = N'/synthetic-logo.png'
-                WHERE ClinicaId = 1;
-                """);
-            await Upgrade("20260721145022_MoveClinicBrandingToClinicCrud");
-            Assert.Equal(1, await ScalarInt("SELECT ClinicaId AS [Value] FROM IdempotencyRequests WHERE IdempotencyKey = N'legacy-replay'"));
-            Assert.Equal(1, await ScalarInt("SELECT COUNT(*) AS [Value] FROM IdempotencyRequests r JOIN Clinicas c ON c.Id = r.ClinicaId WHERE r.IdempotencyKey = N'legacy-replay-b' AND c.Slug = N'legacy-replay-b' AND c.Id <> 1"));
-            Assert.Equal(1, await ScalarInt("SELECT COUNT(*) AS [Value] FROM Clinicas WHERE Id = 1 AND TrialAte IS NOT NULL AND Nome = N'Synthetic legacy clinic' AND FotoClinica = N'/synthetic-logo.png'"));
-            Assert.Equal(1, await ScalarInt("SELECT COUNT(*) AS [Value] FROM Clinicas WHERE Slug = N'legacy-replay-b' AND Nome = N'Synthetic legacy B' AND FotoClinica IS NULL"));
-            var script = migrator.GenerateScript(options: MigrationsSqlGenerationOptions.Idempotent);
-            await ExecuteScript(db, script);
-            Assert.Equal(1, await ScalarInt("SELECT ClinicaId AS [Value] FROM Pacientes WHERE NomePaciente = N'Synthetic legacy patient'"));
-            var schema = await Schema(db);
-            var data = await Data(db);
-            await ExecuteScript(db, script);
-            Assert.Equal(schema, await Schema(db));
-            Assert.Equal(data, await Data(db));
-
-            Task Upgrade(string target) => ExecuteScript(db, migrator.GenerateScript(
-                toMigration: target, options: MigrationsSqlGenerationOptions.Idempotent));
-            Task<int> ScalarInt(string sql) => db.Database.SqlQueryRaw<int>(sql).SingleAsync();
-        }
-        finally { await db.Database.EnsureDeletedAsync(); }
-    }
 
     private static async Task SeedAndCheckTenantIsolation(AppDbContext db)
     {

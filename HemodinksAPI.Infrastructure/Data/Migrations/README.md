@@ -14,6 +14,15 @@ Esta pasta usa **EF Core Migrations**. Ela guarda o historico do schema, backfil
 - Nao apague migrations antigas ja aplicadas em ambiente algum.
 - Nao apague `.Designer.cs` sem validar se a migration correspondente foi criada manualmente de proposito.
 
+## Baseline (#231)
+
+`20260908224929_Baseline` consolida as 65 migrations de `20260601133147_InitialCreate` a
+`20260908224929_AddTemporaryAccessCredentials` e mantem o `MigrationId` da ultima delas. Bancos existentes ja
+tem esse ID no historico e nao aplicam nada; so bancos novos executam o `Up()`. O Full-Text que o modelo nao
+gera fica em `20260908224929_Baseline.FullText.cs`. Os 64 IDs removidos estao em
+`tools/Hemodinks.SchemaGuard/ConsolidatedMigrations.cs`, para o SchemaGuard aceitar o historico antigo.
+Procedimento e validacao: `docs/migrations-baseline.md`.
+
 Apagar arquivos antigos sem um baseline planejado pode quebrar:
 
 - `dotnet ef migrations add`
@@ -29,9 +38,7 @@ Apagar arquivos antigos sem um baseline planejado pode quebrar:
 
 Exemplos atuais:
 
-- `20260617171244_AddAgendaNotifications`: schema.
-- `20260619191959_AddFaturamentosMedicos`: schema + backfill.
-- `20260610234500_EnsureEventReminderColumns`: repair.
+- `20261011174221_AddEventEmailDeliveries`: schema.
 - `20261107043000_Schema_AddSurgeryConsolidationStatus`: schema + backfill (SQL em `EXEC(...)` por causa dos scripts idempotentes).
 
 ## Convencao recomendada para futuras migrations
@@ -82,8 +89,8 @@ Para gerar SQL direcionado entre duas migrations:
 
 ```powershell
 pwsh ./scripts/Export-MigrationScripts.ps1 `
-  -FromMigration 20260624140047_MakeUserBirthDateOptional `
-  -ToMigration 20260622214352_AddConfiguracoesSistema
+  -FromMigration 20261019121529_Schema_AddSurgeryType `
+  -ToMigration 20261017015429_Schema_AllowOptionalSurgicalPrincipal
 ```
 
 ## Auditoria automatizada
