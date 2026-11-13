@@ -50,6 +50,7 @@ Feita em SQL Server 2022 com Full-Text (`sqlserver/Dockerfile.fts`, o mesmo do C
 | Script novo sobre o banco criado pela cadeia antiga (simula produção) | 0 linhas afetadas, histórico continua com 76 IDs, schema e dados idênticos |
 | SchemaGuard deste commit e do `developer` sobre esse banco, com usuário de runtime restrito | os dois: "history matches", código 0 |
 | `scripts/Test-Migrations.ps1` | aprovado, sem drift entre modelo e snapshot |
+| `CompareDatabaseSchema.sql` em produção × banco novo pela baseline | `diff` vazio nas 1089 linhas de schema; só diferem `rows\|` (dados reais) e `trial\|` (TrialAte de produção é de julho) |
 
 Única diferença esperada entre um banco novo e um antigo: a ordem física das colunas (`column_id`). A cadeia
 antiga acrescentava colunas no fim com `ALTER TABLE ADD`; a baseline cria cada tabela de uma vez. O EF sempre
@@ -77,10 +78,9 @@ validando o replay completo, a execução dupla e os 8 índices Full-Text.
 
 ## Limitações
 
-- A comparação foi feita contra um banco criado pela cadeia antiga, não contra produção. Para fechar o
-  critério "schema diff vazio com produção", rode `CompareDatabaseSchema.sql` numa cópia restaurada de produção
-  (não no primário: a consulta lê todas as tabelas) e compare com um banco novo. Diferenças nas linhas `rows|`
-  são esperadas (dados reais); as demais devem ser vazias.
+- Para repetir a comparação com produção, rode `CompareDatabaseSchema.sql` de preferência numa cópia restaurada
+  (a consulta lê todas as tabelas) e compare com um banco novo. Diferenças nas linhas `rows|` e `trial|` são
+  esperadas (dados reais); as demais devem ser vazias.
 - `__EFMigrationsHistory` fica com 76 linhas nos bancos antigos e 12 nos novos. Não apague as 64 linhas antigas:
   o SchemaGuard exige o conjunto completo.
 
