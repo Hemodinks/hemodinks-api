@@ -24,35 +24,7 @@ public sealed class PlatformActiveSessionsQueryHandler(
         tamanhoPagina = Math.Clamp(tamanhoPagina, 1, 200);
 
         var now = lifetime.UtcNow;
-        // Mesmos limites de SessionLifetimePolicy.Failure: ociosidade e tempo absoluto.
-        var idleCutoff = now
-            .AddMinutes(-options.IdleTimeoutMinutes)
-            .AddSeconds(-options.ActivityPersistenceIntervalSeconds);
-        var absoluteCutoff = now.AddHours(-options.AbsoluteLifetimeHours);
-
-        // Mesmas condicoes de AuthenticationSessionService.IsActive/IsActive(membership) e, para equipe,
-        // o nucleo de FindTeamBindingAsync (equipe ativa, da clinica, do login e na versao de sessao).
-        // Invalidacao em nivel de operador (bloqueio, PIN) so aparece aqui depois da proxima validacao.
-        var query = context.AuthenticationSessions.AsNoTracking()
-            .Where(session => session.RevokedAt == null
-                && session.LastActivityAt > idleCutoff
-                && session.CreatedAt > absoluteCutoff
-                && session.CreatedAt <= now
-                && session.UsuarioGlobalId == session.UsuarioClinica.UsuarioGlobalId
-                && session.SecurityVersion == session.UsuarioClinica.UsuarioGlobal.SecurityVersion
-                && session.UsuarioClinica.Ativo
-                && session.UsuarioClinica.UsuarioGlobal.Ativo
-                && session.UsuarioClinica.User.Ativo
-                && session.UsuarioClinica.User.ClinicaId == session.UsuarioClinica.ClinicaId
-                && session.UsuarioClinica.Clinica.Ativa
-                && (session.EquipeId == null
-                    ? session.UsuarioClinica.User.PerfilId != Perfil.EquipeId
-                    : session.UsuarioClinica.User.PerfilId == Perfil.EquipeId
-                        && context.Equipes.Any(team => team.Id == session.EquipeId
-                            && team.ClinicaId == session.UsuarioClinica.ClinicaId
-                            && team.UsuarioLoginId == session.UsuarioClinica.UserId
-                            && team.Ativa
-                            && team.VersaoSessao == session.EquipeVersaoSessao)));
+        var query = ActiveSessions(now);
 
         var totalSessoes = await query.CountAsync(cancellationToken);
         var usuariosOnline = await query
@@ -117,7 +89,74 @@ public sealed class PlatformActiveSessionsQueryHandler(
             items
         });
     }
+
+    /// <summary>
+    /// Resumo so com contagens (sem nome, perfil, nome de clinica ou navegador), para telemetria
+    /// fora da aplicacao. Mesmo criterio de sessao ativa da listagem.
+    /// </summary>
+    public async Task<ActiveSessionsSnapshot> GetSnapshotAsync(CancellationToken cancellationToken = default)
+    {
+        var query = ActiveSessions(lifetime.UtcNow);
+
+        var totalSessoes = await query.CountAsync(cancellationToken);
+        var usuariosOnline = await query
+            .Select(session => session.UsuarioGlobalId)
+            .Distinct()
+            .CountAsync(cancellationToken);
+        var porClinica = await query
+            .GroupBy(session => session.UsuarioClinica.ClinicaId)
+            .Select(group => new ActiveSessionsClinicCount(
+                group.Key,
+                group.Select(session => session.UsuarioGlobalId).Distinct().Count(),
+                group.Count()))
+            .ToListAsync(cancellationToken);
+
+        return new ActiveSessionsSnapshot(
+            usuariosOnline,
+            totalSessoes,
+            porClinica.OrderBy(item => item.ClinicaId).ToList());
+    }
+
+    private IQueryable<AuthenticationSession> ActiveSessions(DateTime now)
+    {
+        // Mesmos limites de SessionLifetimePolicy.Failure: ociosidade e tempo absoluto.
+        var idleCutoff = now
+            .AddMinutes(-options.IdleTimeoutMinutes)
+            .AddSeconds(-options.ActivityPersistenceIntervalSeconds);
+        var absoluteCutoff = now.AddHours(-options.AbsoluteLifetimeHours);
+
+        // Mesmas condicoes de AuthenticationSessionService.IsActive/IsActive(membership) e, para equipe,
+        // o nucleo de FindTeamBindingAsync (equipe ativa, da clinica, do login e na versao de sessao).
+        // Invalidacao em nivel de operador (bloqueio, PIN) so aparece aqui depois da proxima validacao.
+        return context.AuthenticationSessions.AsNoTracking()
+            .Where(session => session.RevokedAt == null
+                && session.LastActivityAt > idleCutoff
+                && session.CreatedAt > absoluteCutoff
+                && session.CreatedAt <= now
+                && session.UsuarioGlobalId == session.UsuarioClinica.UsuarioGlobalId
+                && session.SecurityVersion == session.UsuarioClinica.UsuarioGlobal.SecurityVersion
+                && session.UsuarioClinica.Ativo
+                && session.UsuarioClinica.UsuarioGlobal.Ativo
+                && session.UsuarioClinica.User.Ativo
+                && session.UsuarioClinica.User.ClinicaId == session.UsuarioClinica.ClinicaId
+                && session.UsuarioClinica.Clinica.Ativa
+                && (session.EquipeId == null
+                    ? session.UsuarioClinica.User.PerfilId != Perfil.EquipeId
+                    : session.UsuarioClinica.User.PerfilId == Perfil.EquipeId
+                        && context.Equipes.Any(team => team.Id == session.EquipeId
+                            && team.ClinicaId == session.UsuarioClinica.ClinicaId
+                            && team.UsuarioLoginId == session.UsuarioClinica.UserId
+                            && team.Ativa
+                            && team.VersaoSessao == session.EquipeVersaoSessao)));
+    }
 }
+
+public sealed record ActiveSessionsSnapshot(
+    int UsuariosOnline,
+    int TotalSessoes,
+    IReadOnlyList<ActiveSessionsClinicCount> PorClinica);
+
+public sealed record ActiveSessionsClinicCount(int ClinicaId, int Usuarios, int Sessoes);
 
 /// <summary>Resumo grosseiro do User-Agent (navegador e sistema), sem versoes nem identificadores.</summary>
 public static class UserAgentSummary
