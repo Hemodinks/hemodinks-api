@@ -14,11 +14,13 @@ namespace HemodinksAPI.Tests;
 internal sealed class EmailConfirmationRecorder : IEmailChangeNotificationSender
 {
     public string Code { get; private set; } = "";
+    public int ValidMinutes { get; private set; }
     public bool Fail { get; set; }
-    public Task SendConfirmationAsync(string email, string code, CancellationToken ct)
+    public Task SendConfirmationAsync(string email, string code, int validMinutes, CancellationToken ct)
     {
         if (Fail) throw new InvalidOperationException("Test transport unavailable");
         Code = code;
+        ValidMinutes = validMinutes;
         return Task.CompletedTask;
     }
 }

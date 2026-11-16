@@ -217,12 +217,20 @@ M_CONDITION_UPDATE = """mutation($accountId: Int!, $id: ID!, $condition: AlertsN
   alertsNrqlConditionStaticUpdate(accountId: $accountId, id: $id, condition: $condition) { id name } }"""
 Q_DESTINATIONS = """query($accountId: Int!, $name: String) { actor { account(id: $accountId) { aiNotifications {
   destinations(filters: {name: $name}) { entities { id name } } } } } }"""
+# As mutations de notificacao recusam devolvendo `error` (union), nao erro GraphQL.
+AI_NOTIFICATIONS_ERROR = """error { __typename
+    ... on AiNotificationsResponseError { description details type }
+    ... on AiNotificationsDataValidationError { details fields { field message } }
+    ... on AiNotificationsConstraintsError { constraints { dependencies name } }
+    ... on AiNotificationsSuggestionError { description details type } }"""
 M_DESTINATION_CREATE = """mutation($accountId: Int!, $destination: AiNotificationsDestinationInput!) {
-  aiNotificationsCreateDestination(accountId: $accountId, destination: $destination) { destination { id name } } }"""
+  aiNotificationsCreateDestination(accountId: $accountId, destination: $destination) {
+    destination { id name } """ + AI_NOTIFICATIONS_ERROR + """ } }"""
 Q_CHANNELS = """query($accountId: Int!, $name: String) { actor { account(id: $accountId) { aiNotifications {
   channels(filters: {name: $name}) { entities { id name } } } } } }"""
 M_CHANNEL_CREATE = """mutation($accountId: Int!, $channel: AiNotificationsChannelInput!) {
-  aiNotificationsCreateChannel(accountId: $accountId, channel: $channel) { channel { id name } } }"""
+  aiNotificationsCreateChannel(accountId: $accountId, channel: $channel) {
+    channel { id name } """ + AI_NOTIFICATIONS_ERROR + """ } }"""
 Q_WORKFLOWS = """query($accountId: Int!, $name: String) { actor { account(id: $accountId) { aiWorkflows {
   workflows(filters: {name: $name}) { entities { id name } } } } } }"""
 M_WORKFLOW_CREATE = """mutation($accountId: Int!, $workflow: AiWorkflowsCreateWorkflowInput!) {
@@ -242,6 +250,13 @@ M_DASHBOARD_UPDATE = """mutation($guid: EntityGuid!, $dashboard: DashboardInput!
 def entity_query(name: str, kind: str, account_id: int) -> str:
     escaped = name.replace("\\", "\\\\").replace("'", "\\'")
     return f"name = '{escaped}' AND {kind} AND accountId = {int(account_id)}"
+
+
+def created_or_raise(result: dict, key: str, label: str) -> dict:
+    """aiNotifications devolve o objeto criado ou `error`; nunca seguir com None."""
+    if result.get(key):
+        return result[key]
+    raise RuntimeError(f"{label} nao criado: {json.dumps(result.get('error'), ensure_ascii=False)[:800]}")
 
 
 def by_name(items: list[dict], name: str) -> dict | None:
@@ -368,7 +383,7 @@ class Planner:
             created = self.client.query(M_DESTINATION_CREATE, {**account, "destination": {
                 "type": "EMAIL", "name": notification["destinationName"],
                 "properties": [{"key": "email", "value": self.alert_email}]}})
-            destination = created["aiNotificationsCreateDestination"]["destination"]
+            destination = created_or_raise(created["aiNotificationsCreateDestination"], "destination", "destino")
 
         channels = self.client.query(Q_CHANNELS, {**account, "name": notification["channelName"]})
         channel = by_name(channels["actor"]["account"]["aiNotifications"]["channels"]["entities"],
@@ -378,7 +393,7 @@ class Planner:
             created = self.client.query(M_CHANNEL_CREATE, {**account, "channel": {
                 "type": "EMAIL", "name": notification["channelName"], "product": "IINT",
                 "destinationId": destination["id"], "properties": []}})
-            channel = created["aiNotificationsCreateChannel"]["channel"]
+            channel = created_or_raise(created["aiNotificationsCreateChannel"], "channel", "canal")
 
         workflows = self.client.query(Q_WORKFLOWS, {**account, "name": notification["workflowName"]})
         workflow = by_name(workflows["actor"]["account"]["aiWorkflows"]["workflows"]["entities"],
