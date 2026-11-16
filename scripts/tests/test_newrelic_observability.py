@@ -197,6 +197,14 @@ class PlannerTests(unittest.TestCase):
             if document is not nr.M_DESTINATION_CREATE:
                 self.assertNotIn("alertas@example.invalid", repr(variables))
 
+    def test_errors_name_the_failing_operation_and_details(self):
+        message = nr.describe_errors(nr.M_CONDITION_CREATE, [{
+            "message": "Validation Error", "path": ["alertsNrqlConditionStaticCreate"],
+            "extensions": {"validationErrors": [{"field": "condition.terms.0.operator"}]}}])
+        self.assertIn("mutation alertsNrqlConditionStaticCreate", message)
+        self.assertIn("condition.terms.0.operator", message)
+        self.assertEqual("query actor", nr.operation_name(nr.Q_POLICIES))
+
     def test_plan_and_apply_require_credentials(self):
         with mock.patch.dict(os.environ, {"NEW_RELIC_API_KEY": "", "NEW_RELIC_ACCOUNT_ID": ""}):
             self.assertEqual(2, nr.main(["plan"]))
