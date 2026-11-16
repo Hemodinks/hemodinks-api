@@ -147,6 +147,15 @@ jobs:
       - name: Restore
         run: dotnet restore ./HemodinksAPI.slnx --locked-mode
 
+      # #286: High/Critical em pacote direto ou transitivo falha o build; exceção só com prazo na allowlist.
+      - name: Test NuGet vulnerability gate rules
+        run: python3 -B -m unittest discover -s scripts/tests -p test_nuget_vulnerabilities.py -v
+
+      - name: Audit NuGet vulnerabilities
+        run: |
+          dotnet list ./HemodinksAPI.slnx package --vulnerable --include-transitive --format json > "$RUNNER_TEMP/nuget-vulnerabilities.json"
+          python3 -B scripts/check_nuget_vulnerabilities.py "$RUNNER_TEMP/nuget-vulnerabilities.json"
+
       - name: Build
         run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
 

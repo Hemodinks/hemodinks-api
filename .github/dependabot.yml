@@ -1,4 +1,4 @@
-# Atualiza as GitHub Actions pinadas por SHA (#222). PRs vão para developer, agrupados por semana.
+# Atualiza as GitHub Actions pinadas por SHA (#222) e os pacotes NuGet (#286). PRs vão para developer, por semana.
 version: 2
 updates:
   - package-ecosystem: github-actions
@@ -11,5 +11,23 @@ updates:
       github-actions:
         patterns:
           - "*"
+    commit-message:
+      prefix: chore(deps)
+
+  # NuGet (#286): versões centrais em Directory.Packages.props. Minor/patch num PR semanal;
+  # major em PR próprio, para revisão isolada. O gate de vulnerabilidades roda no CI.
+  - package-ecosystem: nuget
+    directory: /
+    target-branch: developer
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      nuget-minor-patch:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
     commit-message:
       prefix: chore(deps)
