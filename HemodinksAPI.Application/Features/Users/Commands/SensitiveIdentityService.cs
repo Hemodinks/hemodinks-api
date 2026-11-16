@@ -10,6 +10,7 @@ using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -66,7 +67,7 @@ public sealed class SensitiveIdentityService(
         if (actor?.Id != userId) throw new UnauthorizedAccessException("Sem permissão para alterar esta senha.");
         var session = await VerifyCurrentPasswordAsync(actor, currentPassword, ct);
         if (hasher.VerifyPassword(newPassword, session.UsuarioGlobal.Senha))
-            throw new InvalidOperationException("A nova senha nao pode ser igual a senha atual");
+            throw new BusinessRuleException("A nova senha nao pode ser igual a senha atual");
         PasswordCommandMutations.ApplyNewPassword(session.UsuarioClinica.User, hasher, newPassword, false, lifetime.UtcNow);
         session.UsuarioGlobal.Senha = session.UsuarioClinica.User.Senha;
         session.UsuarioGlobal.DataAtualizacao = lifetime.UtcNow;

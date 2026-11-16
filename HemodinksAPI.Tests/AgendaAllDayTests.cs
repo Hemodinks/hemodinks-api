@@ -2,6 +2,7 @@ using HemodinksAPI.Application.Features.Events;
 using HemodinksAPI.Application.Features.Events.Commands;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -38,15 +39,15 @@ public class AgendaAllDayTests
     public void InvalidPeriodsAreRejected(string first, string last, string zone)
     {
         var request = Request(first, last, zone);
-        Assert.Throws<InvalidOperationException>(() => new CreateEventCommandValidator().Validate(new() { Request = request }));
-        Assert.Throws<InvalidOperationException>(() => new UpdateEventCommandValidator().Validate(new() { Id = 1, Request = request }));
+        Assert.Throws<BusinessRuleException>(() => new CreateEventCommandValidator().Validate(new() { Request = request }));
+        Assert.Throws<BusinessRuleException>(() => new UpdateEventCommandValidator().Validate(new() { Id = 1, Request = request }));
     }
 
     [Fact]
     public void DatesAreRequiredAndSwitchingBackToTimedClearsAllDayMetadata()
     {
         var request = Request(); request.AllDayStartDate = null;
-        Assert.Throws<InvalidOperationException>(() => EventFeatureRules.ApplyRequest(new Event(), request, 1, null, true));
+        Assert.Throws<BusinessRuleException>(() => EventFeatureRules.ApplyRequest(new Event(), request, 1, null, true));
         var ev = EventFeatureRules.ApplyRequest(new Event(), Request(), 1, null, true);
         var timed = new EventRequest { Title = "Com horário", Start = ev.Start.AddHours(9), End = ev.Start.AddHours(10) };
         EventFeatureRules.ApplyRequest(ev, timed, 1, null, false);

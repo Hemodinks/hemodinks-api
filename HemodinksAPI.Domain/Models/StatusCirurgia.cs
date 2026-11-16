@@ -1,3 +1,5 @@
+using HemodinksAPI.Domain.Exceptions;
+
 namespace HemodinksAPI.Domain.Models;
 
 // Derivado da data da consolidação (Paciente.DataAtendimento); nunca editado diretamente.
@@ -11,6 +13,6 @@ public static class StatusCirurgiaRules
     public static void Validate(StatusCirurgia? value)
     {
         if (value.HasValue && !Enum.IsDefined(value.Value))
-            throw new InvalidOperationException("Status da cirurgia invalido. Use Consolidada ou NaoConsolidada.");
+            throw new BusinessRuleException("Status da cirurgia invalido. Use Consolidada ou NaoConsolidada.");
     }
 }

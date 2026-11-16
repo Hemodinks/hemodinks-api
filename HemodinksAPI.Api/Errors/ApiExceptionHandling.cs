@@ -1,3 +1,4 @@
+using HemodinksAPI.Domain.Exceptions;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Api;
@@ -32,8 +33,7 @@ internal sealed class ApiExceptionHandlingMiddleware(
                 exception,
                 new EndpointErrorOptions
                 {
-                    NotFoundUsesExceptionMessage = true,
-                    ConcurrencyUsesExceptionMessage = true
+                    NotFoundUsesExceptionMessage = true
                 });
             await result.ExecuteAsync(context);
         }
@@ -45,12 +45,19 @@ internal static class ApiExceptionResults
     private const string InvalidPayloadMessage =
         "Alguns campos estao ausentes ou possuem formato invalido. Revise os dados informados.";
 
+    internal const string ConcurrencyMessage =
+        "O registro foi alterado por outra operacao. Atualize os dados e tente novamente.";
+
+    // #293: so excecoes de negocio explicitas sao "esperadas" (Warning) e expoem mensagem ao cliente.
+    // InvalidOperationException/KeyNotFoundException genericas (EF, LINQ, DI, Dictionary, runtime) sao bug: Error.
     public static bool IsExpected(Exception exception) =>
         exception is HemodinksAPI.Application.Security.PasswordPolicyUnavailableException
+            or HemodinksAPI.Application.Security.SensitiveIdentityException
+            or HemodinksAPI.Application.Security.CompromisedPasswordException
             or BadHttpRequestException
-            or KeyNotFoundException
+            or ResourceNotFoundException
             or UnauthorizedAccessException
-            or InvalidOperationException
+            or BusinessRuleException
             or DbUpdateConcurrencyException;
 
     public static IResult Map(Exception exception, EndpointErrorOptions? options = null)
@@ -78,8 +85,8 @@ internal static class ApiExceptionResults
             KeyNotFoundException notFound => MapNotFound(notFound, options),
             UnauthorizedAccessException when options.UnauthorizedAccessAsUnauthorized => Results.Unauthorized(),
             UnauthorizedAccessException => Results.Forbid(),
-            DbUpdateConcurrencyException concurrency => MapConcurrency(concurrency, options),
-            InvalidOperationException invalidOperation => Results.BadRequest(new { message = invalidOperation.Message }),
+            DbUpdateConcurrencyException => Results.Conflict(new { message = ConcurrencyMessage }),
+            BusinessRuleException businessRule => Results.BadRequest(new { message = businessRule.Message }),
             _ => Results.Problem(
                 title: options.InternalServerErrorTitle,
                 statusCode: StatusCodes.Status500InternalServerError)
@@ -88,20 +95,15 @@ internal static class ApiExceptionResults
 
     private static IResult MapNotFound(KeyNotFoundException exception, EndpointErrorOptions options)
     {
-        var message = options.NotFoundUsesExceptionMessage
-            ? exception.Message
-            : options.NotFoundMessage;
+        // Mensagem da excecao so quando e de negocio; KeyNotFoundException generica traz a chave do Dictionary.
+        var message = !options.NotFoundUsesExceptionMessage
+            ? options.NotFoundMessage
+            : exception is ResourceNotFoundException
+                ? exception.Message
+                : ResourceNotFoundException.DefaultMessage;
         return message == null
             ? Results.NotFound()
             : Results.NotFound(new { message });
-    }
-
-    private static IResult MapConcurrency(DbUpdateConcurrencyException exception, EndpointErrorOptions options)
-    {
-        var message = options.ConcurrencyUsesExceptionMessage
-            ? exception.Message
-            : "O registro foi alterado por outra operacao. Atualize os dados e tente novamente.";
-        return Results.Conflict(new { message });
     }
 }
 

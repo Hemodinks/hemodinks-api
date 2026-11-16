@@ -3,6 +3,7 @@ using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Services;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Events;
 
@@ -111,7 +112,7 @@ internal static class EventFeatureRules
     {
         if (request.NotificationUserIds == null || request.NotificationGroupIds == null
             || request.NotificationUserIds.Any(id => id <= 0) || request.NotificationGroupIds.Any(id => id <= 0))
-            throw new InvalidOperationException("Informe destinatarios validos.");
+            throw new BusinessRuleException("Informe destinatarios validos.");
         var hasMessage = !string.IsNullOrWhiteSpace(request.NotificationMessage);
         var hasRecipients = request.NotifyAllAllowedRecipients
             || request.NotificationUserIds.Any()
@@ -119,17 +120,17 @@ internal static class EventFeatureRules
 
         if (hasRecipients && !hasMessage)
         {
-            throw new InvalidOperationException("Informe a mensagem da notificacao.");
+            throw new BusinessRuleException("Informe a mensagem da notificacao.");
         }
 
         if (!hasRecipients && hasMessage)
         {
-            throw new InvalidOperationException("Selecione ao menos um destinatario para enviar a notificacao.");
+            throw new BusinessRuleException("Selecione ao menos um destinatario para enviar a notificacao.");
         }
 
         if (request.NotificationMessage is { Length: > 500 })
         {
-            throw new InvalidOperationException("A mensagem da notificacao deve ter no maximo 500 caracteres.");
+            throw new BusinessRuleException("A mensagem da notificacao deve ter no maximo 500 caracteres.");
         }
     }
 
@@ -152,7 +153,7 @@ internal static class EventFeatureRules
             && (reminderPeriodMinutes.Value < EventReminderSchedule.MinimumReminderPeriodMinutes
                 || reminderPeriodMinutes.Value > EventReminderSchedule.MaximumReminderPeriodMinutes))
         {
-            throw new InvalidOperationException("O periodo de lembrete deve ficar entre 15 minutos e 7 dias.");
+            throw new BusinessRuleException("O periodo de lembrete deve ficar entre 15 minutos e 7 dias.");
         }
 
         ev.UserId = userId;

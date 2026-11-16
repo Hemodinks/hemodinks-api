@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -28,12 +29,12 @@ internal static class UserProfileRules
 
         if (perfilId == Perfil.PacientesId)
         {
-            throw new InvalidOperationException("Perfil Pacientes desativado para cadastro de usuarios");
+            throw new BusinessRuleException("Perfil Pacientes desativado para cadastro de usuarios");
         }
 
         if (perfilId == Perfil.EquipeId)
         {
-            throw new InvalidOperationException("Perfil Equipe deve ser criado pelo gerenciamento de equipes");
+            throw new BusinessRuleException("Perfil Equipe deve ser criado pelo gerenciamento de equipes");
         }
     }
 
@@ -62,22 +63,22 @@ internal static class UserProfileRules
 
         if (string.IsNullOrWhiteSpace(normalizedCrm))
         {
-            throw new InvalidOperationException("CRM obrigatorio para medicos");
+            throw new BusinessRuleException("CRM obrigatorio para medicos");
         }
 
         if (normalizedCrm.Length > MaxCrmLength)
         {
-            throw new InvalidOperationException($"CRM deve ter no maximo {MaxCrmLength} caracteres");
+            throw new BusinessRuleException($"CRM deve ter no maximo {MaxCrmLength} caracteres");
         }
 
         if (string.IsNullOrWhiteSpace(normalizedCrmUf))
         {
-            throw new InvalidOperationException("UF do CRM obrigatoria para medicos");
+            throw new BusinessRuleException("UF do CRM obrigatoria para medicos");
         }
 
         if (!ValidBrazilUf.Contains(normalizedCrmUf))
         {
-            throw new InvalidOperationException("UF do CRM invalida");
+            throw new BusinessRuleException("UF do CRM invalida");
         }
 
         return (normalizedCrm, normalizedCrmUf);

@@ -6,6 +6,7 @@ using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
@@ -34,7 +35,7 @@ public sealed partial class FinanceiroFileUseCases
         CancellationToken cancellationToken)
     {
         var atendimento = await db.AtendimentosCirurgicos.SingleOrDefaultAsync(item => item.Id == atendimentoId, cancellationToken)
-            ?? throw new KeyNotFoundException("Atendimento nao encontrado.");
+            ?? throw new ResourceNotFoundException("Atendimento nao encontrado.");
         EnsureMedicalAccess(atendimento, user, "Sem permissao para anexar arquivos ao atendimento.");
 
         var stored = await storage.SaveAsync(file, atendimento.ClinicaId, cancellationToken);
@@ -64,7 +65,7 @@ public sealed partial class FinanceiroFileUseCases
         var entity = await db.AtendimentoArquivos.AsNoTracking()
             .Include(item => item.AtendimentoCirurgico)
             .SingleOrDefaultAsync(item => item.Id == fileId && item.AtendimentoCirurgicoId == atendimentoId, cancellationToken)
-            ?? throw new KeyNotFoundException("Arquivo nao encontrado.");
+            ?? throw new ResourceNotFoundException("Arquivo nao encontrado.");
         EnsureMedicalAccess(entity.AtendimentoCirurgico, user, "Sem permissao para baixar este arquivo.");
         var stored = await storage.GetAsync(entity.Url, entity.ClinicaId, cancellationToken)
             ?? throw new StoredFileUnavailableException(
@@ -80,7 +81,7 @@ public sealed partial class FinanceiroFileUseCases
     {
         var entity = await db.AtendimentoArquivos.Include(item => item.AtendimentoCirurgico)
             .SingleOrDefaultAsync(item => item.Id == fileId && item.AtendimentoCirurgicoId == atendimentoId, cancellationToken)
-            ?? throw new KeyNotFoundException("Arquivo nao encontrado.");
+            ?? throw new ResourceNotFoundException("Arquivo nao encontrado.");
         EnsureMedicalAccess(entity.AtendimentoCirurgico, user, "Sem permissao para excluir este arquivo.");
         var url = entity.Url;
         var clinicaId = entity.ClinicaId;

@@ -6,6 +6,7 @@ using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
@@ -18,7 +19,7 @@ public sealed partial class FinanceiroFileUseCases
         CancellationToken cancellationToken)
     {
         if (page < 1 || pageSize is < 1 or > 100)
-            throw new InvalidOperationException("Pagina deve ser positiva e o tamanho deve estar entre 1 e 100.");
+            throw new BusinessRuleException("Pagina deve ser positiva e o tamanho deve estar entre 1 e 100.");
         var clinicId = tenant.GetRequiredClinicaId();
         var query = db.AuditoriasPlataforma.AsNoTracking()
             .Where(item => item.ClinicaId == clinicId && item.Recurso.StartsWith("financeiro:"));
@@ -45,12 +46,12 @@ public sealed partial class FinanceiroFileUseCases
     private static void ValidateHistoryPeriod(int? year, int? month, bool requireBoth)
     {
         if (requireBoth && (!year.HasValue || !month.HasValue))
-            throw new InvalidOperationException("Ano e mês são obrigatórios.");
+            throw new BusinessRuleException("Ano e mês são obrigatórios.");
         if (year.HasValue && year is < 1900 or > 2100)
-            throw new InvalidOperationException("O ano deve estar entre 1900 e 2100.");
+            throw new BusinessRuleException("O ano deve estar entre 1900 e 2100.");
         if (month.HasValue && month is < 1 or > 12)
-            throw new InvalidOperationException("O mês deve estar entre 1 e 12.");
+            throw new BusinessRuleException("O mês deve estar entre 1 e 12.");
         if (month.HasValue && !year.HasValue)
-            throw new InvalidOperationException("Informe o ano ao filtrar por mês.");
+            throw new BusinessRuleException("Informe o ano ao filtrar por mês.");
     }
 }

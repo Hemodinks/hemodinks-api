@@ -1,3 +1,4 @@
+using HemodinksAPI.Domain.Exceptions;
 using HemodinksAPI.Application.Features.Pacientes.Commands;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
@@ -44,10 +45,10 @@ public partial class PacienteCommandHandlerTests
             {
                 var handler = new DeletePacienteCommandHandler(scoped, photos, files,
                     NullLogger<DeletePacienteCommandHandler>.Instance);
-                await Assert.ThrowsAsync<KeyNotFoundException>(() => handler.Handle(new DeletePacienteCommand
+                await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(new DeletePacienteCommand
                     { Id = local.Id, CurrentUserId = caller.Id, CurrentPerfilId = Perfil.MedicosId }, default));
                 foreach (var profile in new[] { Perfil.MedicosId, Perfil.AdministradorId, Perfil.SuperAdministradorId })
-                    await Assert.ThrowsAsync<KeyNotFoundException>(() => handler.Handle(new DeletePacienteCommand
+                    await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(new DeletePacienteCommand
                         { Id = remote.Id, CurrentUserId = caller.Id, CurrentPerfilId = profile }, default));
             }
             Assert.Equal(0, photos.Deletions);

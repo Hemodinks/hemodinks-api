@@ -5,6 +5,7 @@ using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -255,7 +256,7 @@ public partial class PacienteCommandHandlerTests
             new FakeProfilePhotoStorage(),
             NullLogger<CreatePacienteCommandHandler>.Instance);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreatePacienteCommand
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(new CreatePacienteCommand
         {
             NomePaciente = "Paciente Duplicado",
             DataNascimento = new DateTime(1990, 1, 1),
@@ -372,7 +373,7 @@ public partial class PacienteCommandHandlerTests
             new FakeProfilePhotoStorage(),
             NullLogger<CreatePacienteCommandHandler>.Instance);
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreatePacienteCommand
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(new CreatePacienteCommand
         {
             NomePaciente = "Paciente Manual",
             Email = "paciente.manual.sem.descricao@hemodinks.com",

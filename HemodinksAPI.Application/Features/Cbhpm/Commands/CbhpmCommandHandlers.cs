@@ -2,6 +2,7 @@ using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Cbhpm.Commands;
 
@@ -28,7 +29,7 @@ public class ImportCbhpmGeralCommandHandler : IRequestHandler<ImportCbhpmGeralCo
             var items = CbhpmImportRules.Normalize(request.Items);
             if (items.Count == 0)
             {
-                throw new InvalidOperationException("Nenhum procedimento CBHPM informado para importacao");
+                throw new BusinessRuleException("Nenhum procedimento CBHPM informado para importacao");
             }
 
             var codigos = items.Select(item => item.Codigo).ToList();
@@ -109,18 +110,18 @@ public static class CbhpmImportRules
 
         if (codigo.Length > 20)
         {
-            throw new InvalidOperationException($"Codigo CBHPM invalido: {codigo}");
+            throw new BusinessRuleException($"Codigo CBHPM invalido: {codigo}");
         }
 
         if (procedimento.Length > 1000)
         {
-            throw new InvalidOperationException($"Procedimento CBHPM excede 1000 caracteres: {codigo}");
+            throw new BusinessRuleException($"Procedimento CBHPM excede 1000 caracteres: {codigo}");
         }
 
         var porte = Trim(item.Porte);
         if (porte?.Length > 10)
         {
-            throw new InvalidOperationException($"Porte CBHPM invalido para o codigo {codigo}");
+            throw new BusinessRuleException($"Porte CBHPM invalido para o codigo {codigo}");
         }
 
         return new CbhpmImportItemDto

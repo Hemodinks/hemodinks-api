@@ -1,3 +1,5 @@
+using HemodinksAPI.Domain.Exceptions;
+
 using System.Net.Mail;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Data;
@@ -42,7 +44,7 @@ public static class EventEmailRules
     {
         var ev = await EventFeatureRules.ApplyScope(db, db.Events.AsNoTracking(), actor)
             .SingleOrDefaultAsync(item => item.Id == eventId && item.ClinicaId == actor.ClinicaId, ct)
-            ?? throw new KeyNotFoundException();
+            ?? throw new ResourceNotFoundException();
         EventFeatureRules.EnsureCanManageEvent(ev, actor);
         return ev;
     }

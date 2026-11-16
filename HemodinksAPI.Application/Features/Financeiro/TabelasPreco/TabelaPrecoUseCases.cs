@@ -3,6 +3,7 @@ using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
@@ -13,21 +14,21 @@ public sealed class SalvarConvenioProcedimentoPrecoCommandHandler(IFinanceFeatur
     {
         if (request.ConvenioId <= 0 || string.IsNullOrWhiteSpace(request.CbhpmCodigo))
         {
-            throw new InvalidOperationException("Convenio e codigo CBHPM sao obrigatorios.");
+            throw new BusinessRuleException("Convenio e codigo CBHPM sao obrigatorios.");
         }
 
         if (request.ValorNegociado < 0 || request.PercentualPrincipal < 0 || request.PercentualAuxiliar1 < 0 || request.PercentualAuxiliar2 < 0
             || request.VigenciaFinal < request.VigenciaInicio)
-            throw new InvalidOperationException("Valores ou vigencia do preco sao invalidos.");
+            throw new BusinessRuleException("Valores ou vigencia do preco sao invalidos.");
         var code = request.CbhpmCodigo.Trim();
         var overlaps = await db.ConvenioProcedimentoPrecos.AnyAsync(x => x.Id != request.Id
             && x.ConvenioId == request.ConvenioId && x.CbhpmCodigo == code && x.Ativo && request.Ativo
             && x.VigenciaInicio <= (request.VigenciaFinal ?? DateTime.MaxValue)
             && (x.VigenciaFinal == null || x.VigenciaFinal >= request.VigenciaInicio), ct);
-        if (overlaps) throw new InvalidOperationException("Ja existe preco ativo com vigencia sobreposta para o convenio e procedimento.");
+        if (overlaps) throw new BusinessRuleException("Ja existe preco ativo com vigencia sobreposta para o convenio e procedimento.");
         var item = request.Id.HasValue
             ? await db.ConvenioProcedimentoPrecos.SingleOrDefaultAsync(x => x.Id == request.Id, ct)
-                ?? throw new KeyNotFoundException("Preco nao encontrado.")
+                ?? throw new ResourceNotFoundException("Preco nao encontrado.")
             : new ConvenioProcedimentoPreco { ClinicaId = tenant.GetRequiredClinicaId() };
         item.ConvenioId = request.ConvenioId; item.CbhpmCodigo = code; item.ValorNegociado = request.ValorNegociado;
         item.PercentualPrincipal = request.PercentualPrincipal; item.PercentualAuxiliar1 = request.PercentualAuxiliar1;

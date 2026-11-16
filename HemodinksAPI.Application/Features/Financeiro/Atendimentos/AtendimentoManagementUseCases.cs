@@ -3,6 +3,7 @@ using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Services;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
@@ -14,7 +15,7 @@ public sealed class ObterAtendimentoQueryHandler(IFinanceFeatureDbContext db) : 
         if (request.CurrentPerfilId == Perfil.MedicosId)
             query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId || x.MedicoAuxiliar1Id == request.CurrentUserId || x.MedicoAuxiliar2Id == request.CurrentUserId);
         return FinanceiroMapper.ToDto(await query.SingleOrDefaultAsync(x => x.Id == request.Id, ct)
-            ?? throw new KeyNotFoundException("Atendimento nao encontrado."));
+            ?? throw new ResourceNotFoundException("Atendimento nao encontrado."));
     }
 }
 
@@ -35,12 +36,12 @@ public sealed class AtualizarAtendimentoCommandHandler(IFinanceFeatureDbContext 
         }
 
         var item = await query.SingleOrDefaultAsync(x => x.Id == request.Id, ct)
-            ?? throw new KeyNotFoundException("Atendimento nao encontrado.");
+            ?? throw new ResourceNotFoundException("Atendimento nao encontrado.");
         TipoCirurgiaRules.Validate(request.TipoCirurgia);
         await AtendimentoMedicalTeamRules.ValidateAsync(db, request.MedicoResponsavelId, request.MedicoAuxiliar1Id,
             request.MedicoAuxiliar2Id, request.CurrentPerfilId, request.CurrentUserId, ct);
         if (request.ValorGlosa < 0 || request.ValorGlosa > 0 && string.IsNullOrWhiteSpace(request.MotivoGlosa))
-            throw new InvalidOperationException("Informe um valor de glosa valido e o respectivo motivo.");
+            throw new BusinessRuleException("Informe um valor de glosa valido e o respectivo motivo.");
         var previousGlosa = item.ValorGlosa;
         var previousMotivoGlosa = item.MotivoGlosa;
         var previousDataProcedimento = item.DataProcedimento;
@@ -65,7 +66,7 @@ public sealed class AtualizarAtendimentoCommandHandler(IFinanceFeatureDbContext 
                     && glosa.DataGlosa == previousDataProcedimento));
             var requestedGlosa = request.ValorGlosa ?? 0m;
             if (requestedGlosa > faturamento.ValorApresentado)
-                throw new InvalidOperationException("A glosa informada no atendimento excede o valor apresentado.");
+                throw new BusinessRuleException("A glosa informada no atendimento excede o valor apresentado.");
             if (requestedGlosa > 0)
             {
                 glosaAtendimento ??= new Glosa
@@ -94,11 +95,11 @@ public sealed class AtualizarAtendimentoCommandHandler(IFinanceFeatureDbContext 
             foreach (var p in request.Procedimentos)
             {
                 if (p.Quantidade <= 0 || p.PesoPercentual < 0 || string.IsNullOrWhiteSpace(p.Descricao) && string.IsNullOrWhiteSpace(p.CbhpmCodigo))
-                    throw new InvalidOperationException("Procedimento invalido.");
+                    throw new BusinessRuleException("Procedimento invalido.");
                 var procedimento = await FinanceiroProcedimentoResolver.ResolveAsync(
                     db, p, request.ConvenioId, request.DataProcedimento, ct);
                 if (string.IsNullOrWhiteSpace(procedimento.Descricao))
-                    throw new InvalidOperationException("Descricao obrigatoria para procedimento sem cadastro CBHPM.");
+                    throw new BusinessRuleException("Descricao obrigatoria para procedimento sem cadastro CBHPM.");
                 item.Procedimentos.Add(new AtendimentoProcedimento
                 {
                     ClinicaId = item.ClinicaId,
@@ -130,8 +131,8 @@ public sealed class ExcluirAtendimentoCommandHandler(IFinanceFeatureDbContext db
         }
 
         var item = await query.SingleOrDefaultAsync(x => x.Id == request.Id, ct)
-            ?? throw new KeyNotFoundException("Atendimento nao encontrado.");
-        if (item.Faturamentos.Count > 0) throw new InvalidOperationException("Atendimento faturado nao pode ser excluido.");
+            ?? throw new ResourceNotFoundException("Atendimento nao encontrado.");
+        if (item.Faturamentos.Count > 0) throw new BusinessRuleException("Atendimento faturado nao pode ser excluido.");
         db.AtendimentosCirurgicos.Remove(item); await db.SaveChangesAsync(ct);
     }
 }

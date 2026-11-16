@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Features.Events;
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -38,7 +39,7 @@ public class AgendaRecipientQueryTests
     {
         await using var db = TestDbContextFactory.Create();
         var handler = new GetAgendaNotificationRecipientOptionsQueryHandler(db);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new()
+        await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(new()
         { CurrentUser = new(999, Perfil.AdministradorId, "Actor"), Page = page, PageSize = size, Profile = profile }, default));
     }
 }

@@ -6,6 +6,7 @@ using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Teams;
 
@@ -134,6 +135,6 @@ public sealed partial class TeamUseCases
         var normalized = value?.Trim();
         return !string.IsNullOrWhiteSpace(normalized) && normalized.Length <= maxLength
             ? normalized
-            : throw new InvalidOperationException(message);
+            : throw new BusinessRuleException(message);
     }
 }

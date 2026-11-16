@@ -1,5 +1,6 @@
 using FluentValidation;
 using HemodinksAPI.Application.Validation;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Events.Commands;
 
@@ -17,7 +18,7 @@ public sealed class UpdateEventCommandValidator : IRequestValidator<UpdateEventC
     {
         if (request.Id <= 0)
         {
-            throw new InvalidOperationException("Evento invalido.");
+            throw new BusinessRuleException("Evento invalido.");
         }
 
         EventRequestValidator.Validate(request.Request);
@@ -30,11 +31,11 @@ internal static class EventRequestValidator
     {
         if (request == null)
         {
-            throw new InvalidOperationException("Informe os dados do evento.");
+            throw new BusinessRuleException("Informe os dados do evento.");
         }
 
         var result = new EventPayloadValidator().Validate(request);
-        if (!result.IsValid) throw new InvalidOperationException(result.Errors[0].ErrorMessage);
+        if (!result.IsValid) throw new BusinessRuleException(result.Errors[0].ErrorMessage);
         EventFeatureRules.ValidateNotificationRequest(request);
     }
 }

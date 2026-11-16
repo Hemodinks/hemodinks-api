@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Security;
 
@@ -22,7 +23,7 @@ public sealed class NewPasswordPolicy(ICompromisedPasswordLookup lookup)
     public static void ValidateLength(string? candidate)
     {
         if (string.IsNullOrWhiteSpace(candidate) || candidate.Length < MinimumLength || candidate.Length > MaximumLength)
-            throw new InvalidOperationException("A nova senha deve ter entre 8 e 500 caracteres. Você pode usar uma frase-senha.");
+            throw new BusinessRuleException("A nova senha deve ter entre 8 e 500 caracteres. Você pode usar uma frase-senha.");
     }
 
     public void Validate(string? candidate)

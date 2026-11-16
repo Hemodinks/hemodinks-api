@@ -7,6 +7,7 @@ using HemodinksAPI.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -207,7 +208,7 @@ public partial class UserCommandHandlerTests
             Options.Create(new LicencaOptions()),
             NullLogger<CreateUserCommandHandler>.Instance);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
+        await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(new CreateUserCommand
         {
             Nome = "Medico Sem Crm",
             Email = "medico.sem.crm@email.com",
@@ -262,7 +263,7 @@ public partial class UserCommandHandlerTests
             Options.Create(new LicencaOptions()),
             NullLogger<CreateUserCommandHandler>.Instance);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
+        await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(new CreateUserCommand
         {
             Nome = "Paciente Teste",
             Email = "paciente@email.com",
@@ -286,7 +287,7 @@ public partial class UserCommandHandlerTests
             Options.Create(new LicencaOptions()),
             NullLogger<CreateUserCommandHandler>.Instance);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
+        await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(new CreateUserCommand
         {
             Nome = "Perfil Invalido",
             Email = "perfil.invalido@email.com",
@@ -314,7 +315,7 @@ public partial class UserCommandHandlerTests
             Options.Create(new LicencaOptions()),
             NullLogger<CreateUserCommandHandler>.Instance);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new CreateUserCommand
+        await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(new CreateUserCommand
         {
             Nome = "Usuario Duplicado",
             Email = "duplicado@email.com",

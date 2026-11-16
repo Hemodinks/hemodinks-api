@@ -1,4 +1,5 @@
 using System.IO.Compression;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Infrastructure.Storage;
 
@@ -32,7 +33,7 @@ internal static class PatientFileValidation
     {
         if (file.Length <= 0)
         {
-            throw new InvalidOperationException("Arquivo vazio");
+            throw new BusinessRuleException("Arquivo vazio");
         }
 
         if (file.Length > maxBytes)
@@ -45,13 +46,13 @@ internal static class PatientFileValidation
             || originalName.Length > 255
             || originalName.Any(char.IsControl))
         {
-            throw new InvalidOperationException("Nome do arquivo inválido.");
+            throw new BusinessRuleException("Nome do arquivo inválido.");
         }
 
         var extension = Path.GetExtension(originalName);
         if (string.IsNullOrWhiteSpace(extension) || !AllowedExtensions.TryGetValue(extension, out var contentType))
         {
-            throw new InvalidOperationException("Use arquivo PDF, DOC, DOCX, JPG, JPEG, PNG, XLS, XLSX, TXT, CSV, PPT ou PPTX");
+            throw new BusinessRuleException("Use arquivo PDF, DOC, DOCX, JPG, JPEG, PNG, XLS, XLSX, TXT, CSV, PPT ou PPTX");
         }
 
         if (!stream.CanSeek)
@@ -62,7 +63,7 @@ internal static class PatientFileValidation
         var actualLength = await MeasureAndInspectAsync(stream, extension, maxBytes, cancellationToken);
         if (actualLength <= 0)
         {
-            throw new InvalidOperationException("Arquivo vazio");
+            throw new BusinessRuleException("Arquivo vazio");
         }
 
         stream.Position = 0;
@@ -106,7 +107,7 @@ internal static class PatientFileValidation
 
             if (textFile && buffer.AsSpan(0, read).Contains((byte)0))
             {
-                throw new InvalidOperationException("O conteúdo do arquivo não corresponde ao tipo informado.");
+                throw new BusinessRuleException("O conteúdo do arquivo não corresponde ao tipo informado.");
             }
         }
 
@@ -134,7 +135,7 @@ internal static class PatientFileValidation
 
         if (!valid)
         {
-            throw new InvalidOperationException("O conteúdo do arquivo não corresponde à extensão informada.");
+            throw new BusinessRuleException("O conteúdo do arquivo não corresponde à extensão informada.");
         }
     }
 
@@ -145,7 +146,7 @@ internal static class PatientFileValidation
             using var archive = new ZipArchive(stream, ZipArchiveMode.Read, leaveOpen: true);
             if (archive.Entries.Count == 0 || archive.Entries.Count > 1000)
             {
-                throw new InvalidOperationException("Pacote Office inválido.");
+                throw new BusinessRuleException("Pacote Office inválido.");
             }
 
             var requiredFolder = extension.ToLowerInvariant() switch
@@ -153,7 +154,7 @@ internal static class PatientFileValidation
                 ".docx" => "word/",
                 ".xlsx" => "xl/",
                 ".pptx" => "ppt/",
-                _ => throw new InvalidOperationException("Pacote Office inválido.")
+                _ => throw new BusinessRuleException("Pacote Office inválido.")
             };
             var hasContentTypes = false;
             var hasApplicationFolder = false;
@@ -164,7 +165,7 @@ internal static class PatientFileValidation
                 expandedLength += entry.Length;
                 if (expandedLength > maxBytes * 10)
                 {
-                    throw new InvalidOperationException("Pacote Office excede o limite de conteúdo descompactado.");
+                    throw new BusinessRuleException("Pacote Office excede o limite de conteúdo descompactado.");
                 }
 
                 hasContentTypes |= entry.FullName.Equals("[Content_Types].xml", StringComparison.OrdinalIgnoreCase);
@@ -173,12 +174,12 @@ internal static class PatientFileValidation
 
             if (!hasContentTypes || !hasApplicationFolder)
             {
-                throw new InvalidOperationException("O conteúdo do arquivo não corresponde à extensão informada.");
+                throw new BusinessRuleException("O conteúdo do arquivo não corresponde à extensão informada.");
             }
         }
         catch (InvalidDataException)
         {
-            throw new InvalidOperationException("Pacote Office inválido.");
+            throw new BusinessRuleException("Pacote Office inválido.");
         }
     }
 
@@ -187,7 +188,7 @@ internal static class PatientFileValidation
         || extension.Equals(".xlsx", StringComparison.OrdinalIgnoreCase)
         || extension.Equals(".pptx", StringComparison.OrdinalIgnoreCase);
 
-    private static InvalidOperationException FileTooLarge(long maxBytes) =>
+    private static BusinessRuleException FileTooLarge(long maxBytes) =>
         new($"O arquivo deve ter no máximo {maxBytes / 1024 / 1024} MB");
 }
 

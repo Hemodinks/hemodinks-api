@@ -5,6 +5,7 @@ using HemodinksAPI.Application.Features.Faturamentos.Queries;
 using HemodinksAPI.Application.Features.Financeiro;
 using MediatR;
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Api;
 
@@ -165,7 +166,7 @@ public static class FaturamentoMedicoEndpointExtensions
             return invariantDate;
         }
 
-        throw new InvalidOperationException(
+        throw new BusinessRuleException(
             $"Parametro {parameterName} invalido. Use MM/yyyy, yyyy-MM ou yyyy-MM-dd.");
     }
 }

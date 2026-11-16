@@ -1,3 +1,5 @@
+using HemodinksAPI.Domain.Exceptions;
+
 namespace HemodinksAPI.Domain.Models;
 
 // Faixa permitida para o ano da data da consolidação (Paciente.DataAtendimento).
@@ -30,7 +32,7 @@ public static class DataConsolidacaoRules
         if (!dataConsolidacao.HasValue) return;
         var anoMaximo = AnoMaximo(agora);
         if (!IsConforme(dataConsolidacao.Value, anoMaximo))
-            throw new InvalidOperationException(MensagemForaDaFaixa(anoMaximo));
+            throw new BusinessRuleException(MensagemForaDaFaixa(anoMaximo));
     }
 
     // Edição: data legada inalterada é tolerada; data alterada precisa estar na faixa;
@@ -43,7 +45,7 @@ public static class DataConsolidacaoRules
         if (!novaData.HasValue)
         {
             if (dataAtual.HasValue)
-                throw new InvalidOperationException(MensagemApagarProibido(!IsConforme(dataAtual.Value, anoMaximo), anoMaximo));
+                throw new BusinessRuleException(MensagemApagarProibido(!IsConforme(dataAtual.Value, anoMaximo), anoMaximo));
             return;
         }
 

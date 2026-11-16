@@ -4,6 +4,7 @@ using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -112,7 +113,7 @@ public partial class UserCommandHandlerTests
 
         var handler = new ChangePasswordCommandHandler(TestPasswordPolicy.Instance, SensitiveIdentityTestSupport.Service(context));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(async () => await handler.Handle(new ChangePasswordCommand
+        await Assert.ThrowsAsync<BusinessRuleException>(async () => await handler.Handle(new ChangePasswordCommand
         {
             UserId = user.Id,
             CurrentUser = await SensitiveIdentityTestSupport.SeedActorAsync(context, user),

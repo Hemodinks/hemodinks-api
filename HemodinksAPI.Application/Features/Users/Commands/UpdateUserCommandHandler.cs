@@ -8,6 +8,7 @@ using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -62,7 +63,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
 
             if (user == null)
             {
-                throw new KeyNotFoundException("Usuario nao encontrado");
+                throw new ResourceNotFoundException("Usuario nao encontrado");
             }
 
             var effectivePerfilId = request.PerfilId;
@@ -107,7 +108,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
 
             if (emailAlreadyExists)
             {
-                throw new InvalidOperationException("Email ja cadastrado");
+                throw new BusinessRuleException("Email ja cadastrado");
             }
 
             var cpf = UserProfileRules.NormalizeCpf(effectiveCpf);
@@ -119,7 +120,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
 
                 if (cpfAlreadyExists)
                 {
-                    throw new InvalidOperationException("CPF ja cadastrado");
+                    throw new BusinessRuleException("CPF ja cadastrado");
                 }
             }
 
@@ -128,14 +129,14 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
             {
                 if (user.PerfilId != Perfil.PacientesId)
                 {
-                    throw new InvalidOperationException("Perfil Pacientes desativado para cadastro de usuarios");
+                    throw new BusinessRuleException("Perfil Pacientes desativado para cadastro de usuarios");
                 }
             }
             else if (perfilId == Perfil.EquipeId)
             {
                 if (user.PerfilId != Perfil.EquipeId)
                 {
-                    throw new InvalidOperationException("Perfil Equipe deve ser criado pelo gerenciamento de equipes");
+                    throw new BusinessRuleException("Perfil Equipe deve ser criado pelo gerenciamento de equipes");
                 }
             }
             else
@@ -148,7 +149,7 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
 
             if (perfil == null)
             {
-                throw new InvalidOperationException("Perfil invalido");
+                throw new BusinessRuleException("Perfil invalido");
             }
 
             var medicalRegistration = UserProfileRules.NormalizeAndValidateMedicalRegistration(effectiveCrm, effectiveCrmUf, perfilId);

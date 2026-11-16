@@ -8,6 +8,7 @@ using HemodinksAPI.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -47,8 +48,8 @@ public sealed partial class EventEmailNotificationTests
         var clinic = new ClinicaContext(); clinic.SetCurrent(2, "beta");
         var actor = new CurrentUserContext(other.Id, profile, other.Nome, 2);
         var handler = new EventEmailRequestHandlers(db, clinic);
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => handler.Handle(new GetEventEmailNotificationQuery(ev.Id, actor), default));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => handler.Handle(new QueueEventEmailNotificationCommand(ev.Id, actor), default));
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(new GetEventEmailNotificationQuery(ev.Id, actor), default));
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(new QueueEventEmailNotificationCommand(ev.Id, actor), default));
         Assert.Empty(db.EventEmailDeliveries);
     }
 
@@ -73,7 +74,7 @@ public sealed partial class EventEmailNotificationTests
         var (actor, ev, _) = await Seed(db);
         ev.IsCompleted = true; await db.SaveChangesAsync();
         Assert.False((await Handler(db).Handle(new GetEventEmailNotificationQuery(ev.Id, actor), default)).CanSend);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Handler(db).Handle(new QueueEventEmailNotificationCommand(ev.Id, actor), default));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => Handler(db).Handle(new QueueEventEmailNotificationCommand(ev.Id, actor), default));
     }
 
     [Theory]
@@ -174,8 +175,8 @@ public sealed partial class EventEmailNotificationTests
         var teamLogin = await AgendaSecurityTests.AddUser(db, "team", Perfil.EquipeId);
         db.Equipes.Add(new Equipe { ClinicaId = 1, Nome = "Private", UsuarioLoginId = teamLogin.Id });
         ev.UserId = teamLogin.Id; await db.SaveChangesAsync();
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => Handler(db).Handle(new GetEventEmailNotificationQuery(ev.Id, actor), default));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => Handler(db).Handle(new QueueEventEmailNotificationCommand(ev.Id, actor), default));
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => Handler(db).Handle(new GetEventEmailNotificationQuery(ev.Id, actor), default));
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => Handler(db).Handle(new QueueEventEmailNotificationCommand(ev.Id, actor), default));
     }
 
     [Theory]

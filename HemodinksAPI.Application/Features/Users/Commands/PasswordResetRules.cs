@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -16,7 +17,7 @@ internal static class PasswordResetRules
     {
         if (string.IsNullOrWhiteSpace(token))
         {
-            throw new InvalidOperationException("Token de reset obrigatorio");
+            throw new BusinessRuleException("Token de reset obrigatorio");
         }
 
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(token.Trim()));

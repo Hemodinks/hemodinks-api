@@ -6,6 +6,7 @@ using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
@@ -89,7 +90,7 @@ public sealed partial class FinanceiroFileUseCases(
         var clinicId = tenant.GetRequiredClinicaId();
         var entity = await db.FaturamentoHistoricoArquivos.AsNoTracking()
             .SingleOrDefaultAsync(item => item.Id == fileId && item.ClinicaId == clinicId, cancellationToken)
-            ?? throw new KeyNotFoundException("Arquivo do histórico não encontrado.");
+            ?? throw new ResourceNotFoundException("Arquivo do histórico não encontrado.");
         var stored = await storage.GetAsync(entity.Url, clinicId, cancellationToken)
             ?? throw new StoredFileUnavailableException(
                 "Arquivo do historico registrado nao foi localizado no armazenamento.");
@@ -106,7 +107,7 @@ public sealed partial class FinanceiroFileUseCases(
         var clinicId = tenant.GetRequiredClinicaId();
         var entity = await db.FaturamentoHistoricoArquivos
             .SingleOrDefaultAsync(item => item.Id == fileId && item.ClinicaId == clinicId, cancellationToken)
-            ?? throw new KeyNotFoundException("Arquivo do histórico não encontrado.");
+            ?? throw new ResourceNotFoundException("Arquivo do histórico não encontrado.");
         var url = entity.Url;
         db.FaturamentoHistoricoArquivos.Remove(entity);
         await db.SaveChangesAsync(cancellationToken);

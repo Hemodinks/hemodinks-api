@@ -1,4 +1,5 @@
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Licencas;
 
@@ -18,7 +19,7 @@ internal static class LicencaValueParser
             return LicencaPlanos.Completa;
         }
 
-        throw new InvalidOperationException("Plano de licenca invalido");
+        throw new BusinessRuleException("Plano de licenca invalido");
     }
 
     public static string NormalizeStatus(string value)
@@ -38,7 +39,7 @@ internal static class LicencaValueParser
             return LicencaStatus.Cancelada;
         }
 
-        throw new InvalidOperationException("Status de licenca invalido");
+        throw new BusinessRuleException("Status de licenca invalido");
     }
 
     public static string? SerializeFeatures(IEnumerable<string> features)
@@ -55,7 +56,7 @@ internal static class LicencaValueParser
 
         if (invalidFeature != null)
         {
-            throw new InvalidOperationException($"Feature de licenca invalida: {invalidFeature}");
+            throw new BusinessRuleException($"Feature de licenca invalida: {invalidFeature}");
         }
 
         return normalized.Count == 0 ? null : string.Join(';', normalized);

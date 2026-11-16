@@ -1,3 +1,4 @@
+using HemodinksAPI.Domain.Exceptions;
 using HemodinksAPI.Application.Features.Financeiro;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
@@ -99,15 +100,15 @@ public sealed class PacienteFinanceiroAuthorizationSqlServerTests
                 Query(id, foreignTeam.Id, foreignTeam.UsuarioLoginId)
             })
                 await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(query, default));
-            await Assert.ThrowsAsync<KeyNotFoundException>(() => handler.Handle(Query(foreignPatient.Id, team.Id), default));
-            await Assert.ThrowsAsync<KeyNotFoundException>(() => handler.Handle(Query(int.MaxValue, team.Id), default));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(Query(foreignPatient.Id, team.Id), default));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(Query(int.MaxValue, team.Id), default));
 
             // Existing profile rules remain effective; administrators still cannot cross tenants.
             foreach (var profile in new[] { Perfil.AdministradorId, Perfil.SuperAdministradorId, Perfil.ControllerId, Perfil.MedicosId, Perfil.PacientesId })
             {
                 var userId = profile == Perfil.PacientesId ? patients[0].UserId : doctorId;
                 Assert.Equal(150m, (await handler.Handle(new(id, userId, profile), default)).ValorApresentado);
-                await Assert.ThrowsAsync<KeyNotFoundException>(() => handler.Handle(new(foreignPatient.Id, userId, profile), default));
+                await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(new(foreignPatient.Id, userId, profile), default));
             }
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new(id, otherTeam.UsuarioLoginId, Perfil.MedicosId), default));
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new(id, denied.UserId, Perfil.PacientesId), default));
@@ -122,7 +123,7 @@ public sealed class PacienteFinanceiroAuthorizationSqlServerTests
 
             tenant.SetCurrent(otherClinic.Id, otherClinic.Slug);
             Assert.Equal(150m, (await handler.Handle(Query(foreignPatient.Id, foreignTeam.Id, foreignTeam.UsuarioLoginId), default)).ValorApresentado);
-            await Assert.ThrowsAsync<KeyNotFoundException>(() => handler.Handle(Query(id, foreignTeam.Id, foreignTeam.UsuarioLoginId), default));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(Query(id, foreignTeam.Id, foreignTeam.UsuarioLoginId), default));
             Assert.Empty(db.ChangeTracker.Entries());
         }
         finally

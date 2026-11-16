@@ -6,6 +6,7 @@ using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -402,17 +403,17 @@ public sealed class DataConsolidacaoRulesTests
     [Fact]
     public void ValidateUpdate_BlocksClearingAnyConsolidatedDate()
     {
-        var ex = Assert.Throws<InvalidOperationException>(() =>
+        var ex = Assert.Throws<BusinessRuleException>(() =>
             DataConsolidacaoRules.ValidateUpdate(new DateTime(2016, 1, 1), null, Agora));
         Assert.StartsWith("Não é permitido apagar a data de uma cirurgia já consolidada.", ex.Message);
 
-        var inRange = Assert.Throws<InvalidOperationException>(() =>
+        var inRange = Assert.Throws<BusinessRuleException>(() =>
             DataConsolidacaoRules.ValidateUpdate(new DateTime(2026, 1, 1), null, Agora));
         Assert.Equal(DataConsolidacaoRules.MensagemApagarProibidoBase, inRange.Message);
         DataConsolidacaoRules.ValidateUpdate(null, null, Agora);
         DataConsolidacaoRules.ValidateUpdate(new DateTime(2016, 1, 1), new DateTime(2016, 1, 1, 15, 0, 0), Agora);
         DataConsolidacaoRules.ValidateUpdate(new DateTime(2016, 1, 1), new DateTime(2026, 1, 1), Agora);
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<BusinessRuleException>(() =>
             DataConsolidacaoRules.ValidateUpdate(new DateTime(2016, 1, 1), new DateTime(2045, 1, 1), Agora));
     }
 

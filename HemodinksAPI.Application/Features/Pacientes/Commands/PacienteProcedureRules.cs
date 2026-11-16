@@ -1,5 +1,6 @@
 using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
@@ -86,7 +87,7 @@ internal static partial class PacienteRules
 
         if (codigo.Length > 20)
         {
-            throw new InvalidOperationException("Codigo CBHPM invalido");
+            throw new BusinessRuleException("Codigo CBHPM invalido");
         }
 
         var cbhpm = await cbhpmCache.GetByCodigoAsync(codigo, cancellationToken);
@@ -98,7 +99,7 @@ internal static partial class PacienteRules
 
         if (procedimento == null)
         {
-            throw new InvalidOperationException("Informe a descricao do procedimento para o codigo CBHPM nao cadastrado");
+            throw new BusinessRuleException("Informe a descricao do procedimento para o codigo CBHPM nao cadastrado");
         }
 
         ValidateManualProcedimento(procedimento, porte);
@@ -110,12 +111,12 @@ internal static partial class PacienteRules
     {
         if (procedimento.Length > 1000)
         {
-            throw new InvalidOperationException("Procedimento excede 1000 caracteres");
+            throw new BusinessRuleException("Procedimento excede 1000 caracteres");
         }
 
         if (porte?.Length > 10)
         {
-            throw new InvalidOperationException("Porte CBHPM invalido");
+            throw new BusinessRuleException("Porte CBHPM invalido");
         }
     }
 }

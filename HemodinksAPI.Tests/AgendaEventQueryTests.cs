@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Features.Events.Queries;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -20,7 +21,7 @@ public class AgendaEventQueryTests
         await using var db = TestDbContextFactory.Create();
         var reminders = new Reminders();
         var handler = new GetEventsQueryHandler(db, reminders);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => handler.Handle(new GetEventsQuery
+        await Assert.ThrowsAsync<BusinessRuleException>(() => handler.Handle(new GetEventsQuery
         {
             CurrentUser = new(1, Perfil.AdministradorId, "Actor"), UserId = owner,
             From = invalidRange ? DateTime.UtcNow.AddDays(1) : null, To = invalidRange ? DateTime.UtcNow : null

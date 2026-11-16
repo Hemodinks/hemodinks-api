@@ -10,6 +10,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -82,7 +83,7 @@ public sealed class LocalDiskPatientFileClinicPrefixTests : IDisposable
             Assert.NotNull(own);
 
         // Clínica B com registro apontando para o arquivo da Clínica A: 404 genérico e nada é apagado.
-        var ex = await Assert.ThrowsAsync<KeyNotFoundException>(() => storage.GetAsync(stored.Url, 8, CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<ResourceNotFoundException>(() => storage.GetAsync(stored.Url, 8, CancellationToken.None));
         Assert.Equal("Arquivo nao encontrado.", ex.Message);
         await storage.DeleteAsync(stored.Url, 8, CancellationToken.None);
         Assert.True(File.Exists(LocalPath(stored.Url)));
@@ -337,7 +338,7 @@ public sealed class AzureBlobPatientFileClinicPrefixTests
     [InlineData("clinicas/2/pacientes/2026/11/g.pdf")]
     public async Task GetAsync_BlobOfAnotherClinic_Returns404BeforeTouchingStorage(string url)
     {
-        var ex = await Assert.ThrowsAsync<KeyNotFoundException>(() => CreateStorage().GetAsync(url, 1, CancellationToken.None));
+        var ex = await Assert.ThrowsAsync<ResourceNotFoundException>(() => CreateStorage().GetAsync(url, 1, CancellationToken.None));
         Assert.Equal("Arquivo nao encontrado.", ex.Message);
     }
 

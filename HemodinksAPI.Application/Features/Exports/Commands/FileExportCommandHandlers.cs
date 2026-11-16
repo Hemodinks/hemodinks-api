@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Async;
 using HemodinksAPI.Domain.Models;
 using MediatR;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Exports.Commands;
 
@@ -42,24 +43,24 @@ public class RequestFileExportCommandHandler : IRequestHandler<RequestFileExport
 
         if (!AllowedResources.Contains(resource))
         {
-            throw new InvalidOperationException("Recurso de exportacao invalido");
+            throw new BusinessRuleException("Recurso de exportacao invalido");
         }
 
         if (!AllowedFormats.Contains(format))
         {
-            throw new InvalidOperationException("Formato de exportacao invalido. Use PDF ou XLSX.");
+            throw new BusinessRuleException("Formato de exportacao invalido. Use PDF ou XLSX.");
         }
 
         var reportType = string.IsNullOrWhiteSpace(request.ReportType) ? "completo" : request.ReportType.Trim().ToLowerInvariant();
         if (reportType is not ("completo" or "sintetico"))
-            throw new InvalidOperationException("Tipo de relatorio invalido. Use completo ou sintetico.");
+            throw new BusinessRuleException("Tipo de relatorio invalido. Use completo ou sintetico.");
         if (currentUser.ClinicaId <= 0 || currentUser.IsEquipe && !currentUser.EquipeId.HasValue)
             throw new UnauthorizedAccessException("Contexto de exportacao invalido.");
         if (resource == "faturamentos-medicos" && !(currentUser.IsAdministrador || currentUser.IsController || currentUser.IsMedico || currentUser.IsEquipe))
             throw new UnauthorizedAccessException("Sem permissao para exportar faturamentos medicos.");
         if (resource == "cbhpm" && (reportType != "completo" || request.Filters?.Keys.Any(key => string.Equals(key.Trim(), "tipoCirurgia", StringComparison.OrdinalIgnoreCase)
             || string.Equals(key.Trim(), "statusCirurgia", StringComparison.OrdinalIgnoreCase)) == true))
-            throw new InvalidOperationException("CBHPM nao possui classificacao cirurgica ou relatorio sintetico.");
+            throw new BusinessRuleException("CBHPM nao possui classificacao cirurgica ou relatorio sintetico.");
 
         var requestedAt = DateTime.UtcNow;
         var jobId = Guid.NewGuid();
@@ -102,7 +103,7 @@ public class RequestFileExportCommandHandler : IRequestHandler<RequestFileExport
     {
         if (string.IsNullOrWhiteSpace(value))
         {
-            throw new InvalidOperationException(errorMessage);
+            throw new BusinessRuleException(errorMessage);
         }
 
         return value.Trim().ToLowerInvariant();
@@ -119,7 +120,7 @@ public class RequestFileExportCommandHandler : IRequestHandler<RequestFileExport
         foreach (var item in filters)
         {
             if (string.IsNullOrWhiteSpace(item.Key) || !result.TryAdd(item.Key.Trim(), string.IsNullOrWhiteSpace(item.Value) ? null : item.Value.Trim()))
-                throw new InvalidOperationException("Filtros de exportacao invalidos ou duplicados.");
+                throw new BusinessRuleException("Filtros de exportacao invalidos ou duplicados.");
         }
         return result;
     }

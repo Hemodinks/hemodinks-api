@@ -1,3 +1,5 @@
+using HemodinksAPI.Domain.Exceptions;
+
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
@@ -39,7 +41,7 @@ public sealed class EventEmailRequestHandlers(IEventEmailFeatureDbContext db, IC
     {
         var actor = await RequireActorAsync(request.CurrentUser, ct);
         var ev = await EventEmailRules.RequireEventAsync(db, request.Id, actor, ct);
-        if (ev.IsCompleted) throw new InvalidOperationException("Eventos concluidos nao podem enviar notificacoes por email.");
+        if (ev.IsCompleted) throw new BusinessRuleException("Eventos concluidos nao podem enviar notificacoes por email.");
         var users = await EventEmailRules.EligibleRecipientsAsync(db, ev.Id, actor, ct);
         if (request.CopyToCreator)
         {

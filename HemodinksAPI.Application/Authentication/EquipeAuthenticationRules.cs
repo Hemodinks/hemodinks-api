@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Authentication;
 
@@ -10,7 +11,7 @@ public static class EquipeAuthenticationRules
     {
         var normalized = string.IsNullOrWhiteSpace(modo) ? EquipeModosIdentificacao.Pin : modo.Trim();
         return EquipeModosIdentificacao.Todos.FirstOrDefault(item => item.Equals(normalized, StringComparison.OrdinalIgnoreCase))
-            ?? throw new InvalidOperationException("Modo de identificacao da equipe invalido");
+            ?? throw new BusinessRuleException("Modo de identificacao da equipe invalido");
     }
 
     public static string GenerateChallengeToken()

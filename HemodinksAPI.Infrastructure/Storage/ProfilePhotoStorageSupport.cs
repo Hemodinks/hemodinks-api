@@ -1,3 +1,5 @@
+using HemodinksAPI.Domain.Exceptions;
+
 namespace HemodinksAPI.Infrastructure.Storage;
 
 internal static class ProfilePhotoStorageSupport
@@ -27,7 +29,7 @@ internal static class ProfilePhotoStorageSupport
                 return RequestedProfilePhotoChange.KeepCurrent();
             }
 
-            throw new InvalidOperationException("Foto de perfil invalida");
+            throw new BusinessRuleException("Foto de perfil invalida");
         }
 
         var parsedPhoto = ParseDataUrl(requestedPhoto);
@@ -51,7 +53,7 @@ internal static class ProfilePhotoStorageSupport
     {
         if (bytesLength > maxBytes)
         {
-            throw new InvalidOperationException($"A foto deve ter no maximo {maxBytes / 1024 / 1024} MB");
+            throw new BusinessRuleException($"A foto deve ter no maximo {maxBytes / 1024 / 1024} MB");
         }
     }
 
@@ -61,7 +63,7 @@ internal static class ProfilePhotoStorageSupport
 
         if (commaIndex <= 0)
         {
-            throw new InvalidOperationException("Foto de perfil invalida");
+            throw new BusinessRuleException("Foto de perfil invalida");
         }
 
         var header = dataUrl[..commaIndex];
@@ -69,14 +71,14 @@ internal static class ProfilePhotoStorageSupport
         if (!header.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
             || !header.EndsWith(";base64", StringComparison.OrdinalIgnoreCase))
         {
-            throw new InvalidOperationException("Foto de perfil invalida");
+            throw new BusinessRuleException("Foto de perfil invalida");
         }
 
         var contentType = header[5..^7];
 
         if (!AllowedContentTypes.TryGetValue(contentType, out var extension))
         {
-            throw new InvalidOperationException("Use uma foto PNG, JPG ou WEBP");
+            throw new BusinessRuleException("Use uma foto PNG, JPG ou WEBP");
         }
 
         try
@@ -88,7 +90,7 @@ internal static class ProfilePhotoStorageSupport
         }
         catch (FormatException ex)
         {
-            throw new InvalidOperationException("Foto de perfil invalida", ex);
+            throw new BusinessRuleException("Foto de perfil invalida", ex);
         }
     }
 }

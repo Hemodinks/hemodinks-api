@@ -1,5 +1,6 @@
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
@@ -15,7 +16,7 @@ internal static class FinanceiroManagementQueries
     public static void ValidatePage(int page, int pageSize)
     {
         if (page < 1 || pageSize is < 1 or > 100)
-            throw new InvalidOperationException("Pagina deve ser positiva e o tamanho deve estar entre 1 e 100.");
+            throw new BusinessRuleException("Pagina deve ser positiva e o tamanho deve estar entre 1 e 100.");
     }
 }
 

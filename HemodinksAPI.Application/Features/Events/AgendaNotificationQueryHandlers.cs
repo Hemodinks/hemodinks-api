@@ -2,6 +2,7 @@ using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Application.Data;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Events;
 
@@ -20,7 +21,7 @@ public sealed class GetAgendaNotificationRecipientOptionsQueryHandler
         CancellationToken cancellationToken)
     {
         var validation = new AgendaRecipientQueryValidator().Validate(request);
-        if (!validation.IsValid) throw new InvalidOperationException(validation.Errors[0].ErrorMessage);
+        if (!validation.IsValid) throw new BusinessRuleException(validation.Errors[0].ErrorMessage);
         var currentUser = request.CurrentUser;
         if (currentUser.IsPaciente)
         {

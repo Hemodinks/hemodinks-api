@@ -6,6 +6,7 @@ using HemodinksAPI.Application.Utils;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -27,7 +28,7 @@ public sealed class TemporaryAccessService(
         if (requester == null || !Perfil.IsAdministradorOuSuper(requester.PerfilId))
             throw new UnauthorizedAccessException("Sem permissão para gerar senha temporária.");
 
-        if (target == null) throw new KeyNotFoundException("Usuário não encontrado ou indisponível.");
+        if (target == null) throw new ResourceNotFoundException("Usuário não encontrado ou indisponível.");
 
         var requesterMembership = await GlobalIdentityService.EnsureForUserAsync(context, requester, ct);
         var membership = await GlobalIdentityService.EnsureForUserAsync(context, target, ct);
@@ -49,7 +50,7 @@ public sealed class TemporaryAccessService(
         var now = clock.GetUtcNow().UtcDateTime;
         var credential = await context.TemporaryAccessCredentials.SingleOrDefaultAsync(x => x.UsuarioGlobalId == global.Id, ct);
         if (credential != null && credential.CreatedAtUtc > now.AddSeconds(-30))
-            throw new InvalidOperationException("Aguarde 30 segundos antes de gerar outra senha temporária.");
+            throw new BusinessRuleException("Aguarde 30 segundos antes de gerar outra senha temporária.");
         if (credential == null)
         {
             credential = new TemporaryAccessCredential { UsuarioGlobalId = global.Id };
@@ -129,7 +130,7 @@ public sealed class TemporaryAccessService(
             throw new UnauthorizedAccessException("Sessão de recuperação inválida. Autentique-se novamente.");
         passwordPolicy.Validate(request.NovaSenha);
         if (hasher.VerifyPassword(request.NovaSenha, global.Senha) || hasher.VerifyPassword(request.NovaSenha, credential.PasswordHash))
-            throw new InvalidOperationException("A nova senha deve ser diferente das senhas anteriores.");
+            throw new BusinessRuleException("A nova senha deve ser diferente das senhas anteriores.");
         var now = clock.GetUtcNow().UtcDateTime;
         PasswordCommandMutations.ApplyNewPassword(user, hasher, request.NovaSenha, false, now);
         global.Senha = user.Senha;
@@ -161,7 +162,7 @@ public sealed class TemporaryAccessService(
         try { await context.SaveChangesAsync(ct); }
         catch (DbUpdateConcurrencyException)
         {
-            throw new InvalidOperationException("A recuperação foi alterada por outra operação. Tente novamente.");
+            throw new BusinessRuleException("A recuperação foi alterada por outra operação. Tente novamente.");
         }
     }
 }

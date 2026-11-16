@@ -16,6 +16,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging.Abstractions;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -290,7 +291,7 @@ public sealed partial class CpfProtectionTests
         }
 
         await using var clinicA = new AppDbContext(options, ClinicaContextFactory.CreateDefaultResolved(), TestCpfProtection.Instance);
-        var duplicate = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var duplicate = await Assert.ThrowsAsync<BusinessRuleException>(() =>
             HemodinksAPI.Application.Features.Pacientes.Commands.PacienteRules.NormalizeAndValidateCpfAsync(
                 clinicA, "529.982.247-25", null, CancellationToken.None));
         Assert.Equal("CPF ja cadastrado", duplicate.Message);
