@@ -1,0 +1,64 @@
+name: New Relic Observability
+
+# Aplica alertas, SLOs e dashboard versionados em observability/newrelic (#289).
+# plan so le o estado do New Relic; apply exige o environment production.
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: plan (somente leitura) ou apply
+        required: true
+        type: choice
+        default: plan
+        options:
+          - plan
+          - apply
+
+permissions:
+  contents: read
+
+concurrency:
+  group: newrelic-observability
+  cancel-in-progress: false
+
+jobs:
+  plan:
+    name: Plan
+    if: ${{ inputs.mode == 'plan' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Plan New Relic changes
+        env:
+          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          NEW_RELIC_ALERT_EMAIL: ${{ secrets.NEW_RELIC_ALERT_EMAIL }}
+          NEW_RELIC_ACCOUNT_ID: ${{ vars.NEW_RELIC_ACCOUNT_ID }}
+          NEW_RELIC_REGION: ${{ vars.NEW_RELIC_REGION }}
+          NEW_RELIC_BROWSER_APP_NAME: ${{ vars.NEW_RELIC_BROWSER_APP_NAME }}
+        run: python3 -B scripts/newrelic_observability.py plan
+
+  apply:
+    name: Apply
+    if: ${{ inputs.mode == 'apply' }}
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Apply New Relic changes
+        env:
+          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          NEW_RELIC_ALERT_EMAIL: ${{ secrets.NEW_RELIC_ALERT_EMAIL }}
+          NEW_RELIC_ACCOUNT_ID: ${{ vars.NEW_RELIC_ACCOUNT_ID }}
+          NEW_RELIC_REGION: ${{ vars.NEW_RELIC_REGION }}
+          NEW_RELIC_BROWSER_APP_NAME: ${{ vars.NEW_RELIC_BROWSER_APP_NAME }}
+        run: python3 -B scripts/newrelic_observability.py apply

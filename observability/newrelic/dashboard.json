@@ -1,0 +1,72 @@
+{
+  "name": "HemoDinks - Saude da producao",
+  "description": "Versionado em observability/newrelic (#289). Nao edite pela interface: a proxima aplicacao sobrescreve.",
+  "permissions": "PUBLIC_READ_ONLY",
+  "pages": [
+    {
+      "name": "API e banco",
+      "widgets": [
+        {
+          "title": "Requisicoes por minuto",
+          "visualization": "viz.line",
+          "layout": { "column": 1, "row": 1, "width": 4, "height": 3 },
+          "query": "SELECT rate(count(*), 1 minute) FROM Transaction WHERE appName = '{{APM_APP}}' AND request.uri NOT IN ('/livez', '/healthz', '/alive', '/health') TIMESERIES SINCE 1 day ago"
+        },
+        {
+          "title": "Taxa de 5xx (%)",
+          "visualization": "viz.line",
+          "layout": { "column": 5, "row": 1, "width": 4, "height": 3 },
+          "query": "SELECT percentage(count(*), WHERE httpResponseCode >= 500) FROM Transaction WHERE appName = '{{APM_APP}}' AND request.uri NOT IN ('/livez', '/healthz', '/alive', '/health') TIMESERIES SINCE 1 day ago"
+        },
+        {
+          "title": "503 de banco indisponivel",
+          "visualization": "viz.line",
+          "layout": { "column": 9, "row": 1, "width": 4, "height": 3 },
+          "query": "SELECT count(*) FROM Transaction WHERE appName = '{{APM_APP}}' AND httpResponseCode = 503 TIMESERIES SINCE 1 day ago"
+        },
+        {
+          "title": "Login - p95 (s)",
+          "visualization": "viz.line",
+          "layout": { "column": 1, "row": 4, "width": 6, "height": 3 },
+          "query": "SELECT percentile(duration, 95) FROM Transaction WHERE appName = '{{APM_APP}}' AND request.uri IN ('/api/users/authenticate', '/api/users/login-context', '/api/session/renovar', '/api/session/restaurar') TIMESERIES SINCE 1 day ago"
+        },
+        {
+          "title": "Rotas criticas - p95 por transacao (s)",
+          "visualization": "viz.bar",
+          "layout": { "column": 7, "row": 4, "width": 6, "height": 3 },
+          "query": "SELECT percentile(duration, 95) FROM Transaction WHERE appName = '{{APM_APP}}' AND (request.uri LIKE '/api/pacientes%' OR request.uri LIKE '/api/events%' OR request.uri LIKE '/api/faturamentos%') FACET name SINCE 1 day ago LIMIT 10"
+        },
+        {
+          "title": "Erros por classe",
+          "visualization": "viz.bar",
+          "layout": { "column": 1, "row": 7, "width": 6, "height": 3 },
+          "query": "SELECT count(*) FROM TransactionError WHERE appName = '{{APM_APP}}' FACET error.class SINCE 1 day ago LIMIT 10"
+        },
+        {
+          "title": "Usuarios online (snapshot)",
+          "visualization": "viz.line",
+          "layout": { "column": 7, "row": 7, "width": 6, "height": 3 },
+          "query": "SELECT max(numeric(UsuariosOnline)) AS 'Usuarios online', max(numeric(TotalSessoes)) AS 'Sessoes' FROM Log WHERE entity.name = '{{APM_APP}}' AND message LIKE 'ActiveSessionsSnapshot %' TIMESERIES 15 minutes SINCE 1 day ago"
+        }
+      ]
+    },
+    {
+      "name": "Front",
+      "requires": "BROWSER_APP",
+      "widgets": [
+        {
+          "title": "Erros JavaScript",
+          "visualization": "viz.line",
+          "layout": { "column": 1, "row": 1, "width": 6, "height": 3 },
+          "query": "SELECT count(*) FROM JavaScriptError WHERE appName = '{{BROWSER_APP}}' TIMESERIES SINCE 1 day ago"
+        },
+        {
+          "title": "Erros JavaScript por classe",
+          "visualization": "viz.bar",
+          "layout": { "column": 7, "row": 1, "width": 6, "height": 3 },
+          "query": "SELECT count(*) FROM JavaScriptError WHERE appName = '{{BROWSER_APP}}' FACET errorClass SINCE 1 day ago LIMIT 10"
+        }
+      ]
+    }
+  ]
+}
