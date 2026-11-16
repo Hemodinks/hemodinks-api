@@ -5,6 +5,7 @@ using HemodinksAPI.Application.Features.Sessions;
 using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Infrastructure.Security;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
@@ -30,7 +31,10 @@ internal static class SensitiveIdentityTestSupport
     public static SensitiveIdentityService Service(ISensitiveIdentityDbContext db, EmailConfirmationRecorder? sender = null) =>
         new(db, new PasswordHasher(), new NoOpLoginAccountProtection(),
             new SessionLifetimePolicy(new AuthenticationSessionOptions(), TimeProvider.System),
-            sender ?? new(), Options.Create(new SensitiveIdentityOptions()));
+            sender ?? new(), Options.Create(new SensitiveIdentityOptions()), CodeHasher);
+
+    // Mesma chave em todas as instâncias do teste, como o singleton da aplicação.
+    internal static readonly HmacEmailChangeCodeHasher CodeHasher = HmacEmailChangeCodeHasher.CreateEphemeral();
 
     public static CurrentUserContext Actor(AuthenticationSession s) =>
         new(s.UsuarioClinica.UserId, s.UsuarioClinica.User.PerfilId, "Test", s.UsuarioClinica.ClinicaId,

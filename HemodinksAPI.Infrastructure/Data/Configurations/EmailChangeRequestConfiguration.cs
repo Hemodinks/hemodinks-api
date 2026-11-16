@@ -12,6 +12,7 @@ public sealed class EmailChangeRequestConfiguration : IEntityTypeConfiguration<E
         builder.Property(x => x.NewEmail).HasMaxLength(255).IsRequired();
         builder.Property(x => x.CodeHash).HasMaxLength(64).IsRequired();
         builder.Property(x => x.UsedAt).IsConcurrencyToken();
+        builder.Property(x => x.ConfirmationAttempts).HasDefaultValue(0);
         builder.HasIndex(x => x.ExpiresAt);
     }
 }
