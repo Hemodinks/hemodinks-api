@@ -167,7 +167,7 @@ jobs:
         run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
 
       - name: Run automated tests
-        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --filter "FullyQualifiedName!~LoginBrowserTests" --verbosity normal --logger "trx;LogFileName=test-results.trx" --results-directory ./TestResults
+        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --filter "FullyQualifiedName!~LoginBrowserTests" --timeout 20m --verbosity normal --report-xunit-trx --report-xunit-trx-filename test-results.trx --results-directory ./TestResults
 
       - name: Require critical SQL tests and zero silent skips
         if: always()

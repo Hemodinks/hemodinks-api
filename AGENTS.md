@@ -28,6 +28,9 @@ dotnet test HemodinksAPI.slnx --filter "FullyQualifiedName!~LoginBrowserTests"  
 dotnet ef migrations add <Nome> -p HemodinksAPI.Infrastructure -s HemodinksAPI.Api
 ```
 
+Testes rodam no Microsoft.Testing.Platform (xUnit 4, `global.json`): TRX com `--report-xunit-trx --report-xunit-trx-filename <arquivo>`,
+limite com `--timeout`; `--logger`, `--blame-hang` e `--collect` do VSTest não existem.
+
 ## Não ler (gasta contexto e não ajuda)
 
 `Data/Migrations/*.Designer.cs`, `*ModelSnapshot.cs`, `bin/`, `obj/`, `TestResults/`, `artifacts/`, `logs/`, `out/`.
