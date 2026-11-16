@@ -136,6 +136,9 @@ class ValidationTests(unittest.TestCase):
         condition = nr.render(nr.load_config()["alerts"]["conditions"][0], VARIABLES)
         payload = nr.condition_input(condition)
         self.assertFalse(payload["expiration"]["openViolationOnExpiration"])
+        # NerdGraph: close_violations_on_expiration exige a duracao (BAD_USER_INPUT no primeiro apply).
+        if payload["expiration"]["closeViolationsOnExpiration"]:
+            self.assertGreater(payload["expiration"].get("expirationDuration", 0), 0)
         self.assertTrue(payload["runbookUrl"].endswith("#alerta-api-erros-5xx"))
         self.assertEqual({"CRITICAL", "WARNING"}, {term["priority"] for term in payload["terms"]})
 

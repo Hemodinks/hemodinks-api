@@ -10,7 +10,8 @@ Princípios:
   serverless acordado (#209). A saúde do banco é medida passivamente, no tráfego real (503 `database_unavailable`).
 - Alertas e widgets **não exibem** CPF, token, senha, e-mail, mensagem livre, URI com identificador nem dado de
   paciente. Esses atributos só podem aparecer em `WHERE`; o `validate` reprova `SELECT`/`FACET` com eles.
-- Falta de tráfego (madrugada, SQL pausado) não abre incidente: as condições não alertam por perda de sinal.
+- Falta de tráfego (madrugada, SQL pausado) não abre incidente: as condições não alertam por perda de sinal,
+  e um incidente aberto fecha sozinho após 1 h sem dados.
 
 ## SLOs
 

@@ -31,6 +31,7 @@ RUNBOOK = ROOT / "docs/observability-newrelic.md"
 RUNBOOK_URL = "https://github.com/Hemodinks/hemodinks-api/blob/main/docs/observability-newrelic.md"
 ENDPOINTS = {"US": "https://api.newrelic.com/graphql", "EU": "https://api.eu.newrelic.com/graphql"}
 DEFAULT_APM_APP = "Hemodinks API"
+EXPIRATION_SECONDS = 3600
 PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
 
 # Alertas e dashboards nao podem exibir CPF, token, senha, email, mensagem livre ou dado de paciente.
@@ -262,8 +263,10 @@ def condition_input(condition: dict) -> dict:
                    "aggregationDelay": 120},
         "terms": terms,
         "violationTimeLimitSeconds": 86400,
-        # Sem trafego (madrugada, SQL pausado) nao e incidente: nao abrir por perda de sinal.
-        "expiration": {"closeViolationsOnExpiration": True, "openViolationOnExpiration": False},
+        # Sem trafego (madrugada, SQL pausado) nao e incidente: nao abrir por perda de sinal e fechar o
+        # incidente aberto apos 1 h sem dados. A NerdGraph exige a duracao quando close=true.
+        "expiration": {"closeViolationsOnExpiration": True, "openViolationOnExpiration": False,
+                       "expirationDuration": EXPIRATION_SECONDS},
         "runbookUrl": f"{RUNBOOK_URL}#{condition['runbook']}",
     }
 
