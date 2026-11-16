@@ -17,7 +17,7 @@ public static class EmailChangeEmailTemplate
         Código de confirmação:
         {code}
 
-        Copie o código e cole na tela de alteração de email. Ele é válido por {FormatMinutes(validMinutes)} e pode ser usado uma única vez.
+        Digite o código na tela de alteração de email. Ele é válido por {FormatMinutes(validMinutes)} e pode ser usado uma única vez.
 
         Seu email atual só muda depois desta confirmação. Ao concluir, será necessário entrar novamente com o novo email.
 
@@ -56,13 +56,13 @@ public static class EmailChangeEmailTemplate
                           <h1 style="margin:0 0 16px;font-size:24px;line-height:1.25;color:#071928;">Confirme seu novo email</h1>
                           <p style="margin:0 0 22px;font-size:16px;line-height:1.6;color:#354052;">
                             Recebemos uma solicitação para usar este endereço como email de acesso ao Hemodinks.
-                            Para concluir, copie o código abaixo e cole na tela de alteração de email.
+                            Para concluir, digite o código abaixo na tela de alteração de email.
                           </p>
                           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 22px;">
                             <tr>
-                              <td style="padding:18px 20px;background:#f0f7f6;border:1px solid #b9dcd8;border-radius:12px;">
+                              <td align="center" style="padding:20px;background:#f0f7f6;border:1px solid #b9dcd8;border-radius:12px;text-align:center;">
                                 <p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;color:#4a5568;">Código de confirmação</p>
-                                <p style="margin:0;font-family:'Courier New',Courier,monospace;font-size:16px;font-weight:700;line-height:1.6;letter-spacing:1px;color:#071928;word-break:break-all;">{encodedCode}</p>
+                                <p style="margin:0;font-family:'Courier New',Courier,monospace;font-size:34px;font-weight:700;line-height:1.2;letter-spacing:10px;color:#071928;">{encodedCode}</p>
                               </td>
                             </tr>
                           </table>

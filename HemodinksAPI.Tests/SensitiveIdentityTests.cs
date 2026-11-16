@@ -33,7 +33,8 @@ public sealed class SensitiveIdentityTests
         Assert.Equal("recovery@example.com", global.Email);
         var stored = await db.EmailChangeRequests.SingleAsync();
         Assert.NotEqual(sender.Code, stored.CodeHash);
-        Assert.Equal(64, sender.Code.Length);
+        Assert.Matches("^[0-9]{6}$", sender.Code);
+        Assert.Equal(SensitiveIdentityTestSupport.CodeHasher.Hash(stored.Id, sender.Code), stored.CodeHash);
         await service.ConfirmEmailAsync(actor, pending.RequestId, sender.Code, default);
         Assert.Equal("new@example.com", global.Email);
         Assert.All(await db.Users.ToListAsync(), u => Assert.Equal("new@example.com", u.Email));

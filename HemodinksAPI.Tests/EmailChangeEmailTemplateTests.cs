@@ -7,7 +7,7 @@ namespace HemodinksAPI.Tests;
 
 public sealed class EmailChangeEmailTemplateTests
 {
-    private const string Code = "B94AF02875A2F76A2AF4EF7DB0238851E81B576DFA1A5D9494E70FF7E2D6C06B";
+    private const string Code = "482913";
 
     [Fact]
     public void CreateHtmlBody_UsesBrandedLayoutWithCodeAndValidity()

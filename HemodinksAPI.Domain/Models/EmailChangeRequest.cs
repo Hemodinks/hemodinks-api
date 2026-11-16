@@ -14,4 +14,6 @@ public sealed class EmailChangeRequest
     public string CodeHash { get; set; } = null!;
     public DateTime ExpiresAt { get; set; }
     public DateTime? UsedAt { get; set; }
+    // #322: tentativas de confirmação, reservadas antes de comparar o código; no limite a solicitação é invalidada.
+    public int ConfirmationAttempts { get; set; }
 }
