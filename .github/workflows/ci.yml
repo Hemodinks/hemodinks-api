@@ -99,6 +99,12 @@ jobs:
       - name: Test GitHub Actions pinned by SHA
         run: python3 -B -m unittest discover -s scripts/tests -p test_actions_pinned.py -v
 
+      # #289: alertas/SLOs/dashboard versionados; validacao offline, sem chave do New Relic.
+      - name: Validate New Relic observability config
+        run: |
+          python3 -B -m unittest discover -s scripts/tests -p test_newrelic_observability.py -v
+          python3 -B scripts/newrelic_observability.py validate
+
       - name: Start SQL Server for relational tests
         shell: bash
         run: |

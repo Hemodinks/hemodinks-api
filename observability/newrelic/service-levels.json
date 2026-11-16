@@ -1,0 +1,61 @@
+{
+  "entity": "{{APM_APP}}",
+  "serviceLevels": [
+    {
+      "name": "API - Disponibilidade",
+      "description": "Requisicoes da API sem resposta 5xx (sem probes de health).",
+      "validEvents": {
+        "from": "Transaction",
+        "where": "appName = '{{APM_APP}}' AND request.uri NOT IN ('/livez', '/healthz', '/alive', '/health')"
+      },
+      "badEvents": {
+        "from": "Transaction",
+        "where": "appName = '{{APM_APP}}' AND request.uri NOT IN ('/livez', '/healthz', '/alive', '/health') AND httpResponseCode >= 500"
+      },
+      "target": 99.5,
+      "windowDays": 28
+    },
+    {
+      "name": "Login - Latencia",
+      "description": "Login, contexto de login e renovacao de sessao respondidos em ate 2 s.",
+      "validEvents": {
+        "from": "Transaction",
+        "where": "appName = '{{APM_APP}}' AND request.uri IN ('/api/users/authenticate', '/api/users/login-context', '/api/session/renovar', '/api/session/restaurar')"
+      },
+      "goodEvents": {
+        "from": "Transaction",
+        "where": "appName = '{{APM_APP}}' AND request.uri IN ('/api/users/authenticate', '/api/users/login-context', '/api/session/renovar', '/api/session/restaurar') AND duration <= 2"
+      },
+      "target": 95,
+      "windowDays": 28
+    },
+    {
+      "name": "Rotas criticas - Latencia",
+      "description": "Pacientes, agenda e faturamento respondidos em ate 2 s.",
+      "validEvents": {
+        "from": "Transaction",
+        "where": "appName = '{{APM_APP}}' AND (request.uri LIKE '/api/pacientes%' OR request.uri LIKE '/api/events%' OR request.uri LIKE '/api/faturamentos%')"
+      },
+      "goodEvents": {
+        "from": "Transaction",
+        "where": "appName = '{{APM_APP}}' AND (request.uri LIKE '/api/pacientes%' OR request.uri LIKE '/api/events%' OR request.uri LIKE '/api/faturamentos%') AND duration <= 2"
+      },
+      "target": 95,
+      "windowDays": 28
+    },
+    {
+      "name": "Banco - Disponibilidade",
+      "description": "Requisicoes sem 503 database_unavailable, medido no trafego real (sem monitor sintetico, para nao impedir o auto-pause do SQL).",
+      "validEvents": {
+        "from": "Transaction",
+        "where": "appName = '{{APM_APP}}' AND request.uri NOT IN ('/livez', '/healthz', '/alive', '/health')"
+      },
+      "badEvents": {
+        "from": "Transaction",
+        "where": "appName = '{{APM_APP}}' AND request.uri NOT IN ('/livez', '/healthz', '/alive', '/health') AND httpResponseCode = 503"
+      },
+      "target": 99,
+      "windowDays": 28
+    }
+  ]
+}
