@@ -60,6 +60,11 @@ internal sealed class PasswordResetSecurityDbContext(DbContextOptions<PasswordRe
     public DbSet<AuthenticationSession> AuthenticationSessions => Set<AuthenticationSession>();
     public string? ComputeCpfLookupHash(string? cpf) => throw new NotSupportedException();
     public string[] ComputeCpfLookupHashCandidates(string? cpf) => throw new NotSupportedException();
+    // Mesma implementação da aplicação (AppDbContext).
+    public Task<bool> TryReserveEmailChangeConfirmationAttemptAsync(Guid requestId, int maxAttempts, CancellationToken cancellationToken) =>
+        EmailChangeAttemptOperations.TryReserveAsync(this, requestId, maxAttempts, cancellationToken);
+    public Task<bool> InvalidateExhaustedEmailChangeRequestAsync(Guid requestId, int maxAttempts, DateTime now, CancellationToken cancellationToken) =>
+        EmailChangeAttemptOperations.InvalidateExhaustedAsync(this, requestId, maxAttempts, now, cancellationToken);
     public Func<Task>? BeforeSensitiveSave { get; set; }
     public Func<Task>? BeforeCredentialSave { get; set; }
 

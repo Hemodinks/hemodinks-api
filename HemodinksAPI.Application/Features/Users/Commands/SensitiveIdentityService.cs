@@ -188,11 +188,8 @@ public sealed class SensitiveIdentityService(
     // mesmo com requisições paralelas. Sem vaga, recusa sem comparar o código.
     private async Task ReserveConfirmationAttemptAsync(Guid requestId, CancellationToken ct)
     {
-        var max = MaxConfirmationAttempts;
-        var reserved = await db.EmailChangeRequests
-            .Where(x => x.Id == requestId && x.UsedAt == null && x.ConfirmationAttempts < max)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.ConfirmationAttempts, x => x.ConfirmationAttempts + 1), ct);
-        if (reserved == 0) await ThrowAttemptFailureAsync(requestId, ct);
+        if (!await db.TryReserveEmailChangeConfirmationAttemptAsync(requestId, MaxConfirmationAttempts, ct))
+            await ThrowAttemptFailureAsync(requestId, ct);
     }
 
     private Task RejectWrongCodeAsync(Guid requestId, CancellationToken ct) => ThrowAttemptFailureAsync(requestId, ct);
@@ -201,10 +198,8 @@ public sealed class SensitiveIdentityService(
     private async Task ThrowAttemptFailureAsync(Guid requestId, CancellationToken ct)
     {
         var max = MaxConfirmationAttempts;
-        var invalidated = await db.EmailChangeRequests
-            .Where(x => x.Id == requestId && x.UsedAt == null && x.ConfirmationAttempts >= max)
-            .ExecuteUpdateAsync(s => s.SetProperty(x => x.UsedAt, lifetime.UtcNow), ct);
-        var exhausted = invalidated > 0 || await db.EmailChangeRequests.AsNoTracking()
+        var invalidated = await db.InvalidateExhaustedEmailChangeRequestAsync(requestId, max, lifetime.UtcNow, ct);
+        var exhausted = invalidated || await db.EmailChangeRequests.AsNoTracking()
             .AnyAsync(x => x.Id == requestId && x.ConfirmationAttempts >= max, ct);
         throw exhausted ? SensitiveIdentityException.EmailConfirmationAttemptsExceeded() : SensitiveIdentityException.Invalid();
     }
