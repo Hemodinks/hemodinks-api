@@ -10,7 +10,8 @@ permissions:
 jobs:
   login-e2e:
     name: Login browser scenarios (12 required)
-    runs-on: ubuntu-latest
+    # #296: fixado em 24.04; o Playwright do front ainda não instala o Chromium no Ubuntu 26.04 (ubuntu-latest).
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
       - name: Checkout API
