@@ -6,6 +6,7 @@ using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
@@ -18,10 +19,10 @@ public sealed partial class FinanceiroFileUseCases
     {
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (extension is not ".pdf" and not ".jpg" and not ".jpeg")
-            throw new InvalidOperationException("O comprovante deve estar no formato PDF ou JPG.");
+            throw new BusinessRuleException("O comprovante deve estar no formato PDF ou JPG.");
 
         var receipt = await db.Recebimentos.SingleOrDefaultAsync(item => item.Id == receiptId, cancellationToken)
-            ?? throw new KeyNotFoundException("Recebimento nao encontrado.");
+            ?? throw new ResourceNotFoundException("Recebimento nao encontrado.");
         var oldUrl = receipt.DocumentoComprovante;
         var stored = await storage.SaveAsync(file, receipt.ClinicaId, cancellationToken);
         receipt.DocumentoComprovante = stored.Url;
@@ -33,8 +34,8 @@ public sealed partial class FinanceiroFileUseCases
     public async Task<PrivateFileDownload> DownloadReceiptAsync(int receiptId, CancellationToken cancellationToken)
     {
         var receipt = await db.Recebimentos.AsNoTracking().SingleOrDefaultAsync(item => item.Id == receiptId, cancellationToken)
-            ?? throw new KeyNotFoundException("Recebimento nao encontrado.");
-        var storedUrl = receipt.DocumentoComprovante ?? throw new KeyNotFoundException("Comprovante nao encontrado.");
+            ?? throw new ResourceNotFoundException("Recebimento nao encontrado.");
+        var storedUrl = receipt.DocumentoComprovante ?? throw new ResourceNotFoundException("Comprovante nao encontrado.");
         var file = await storage.GetAsync(storedUrl, receipt.ClinicaId, cancellationToken)
             ?? throw new StoredFileUnavailableException(
                 "Comprovante registrado nao foi localizado no armazenamento.");
@@ -44,7 +45,7 @@ public sealed partial class FinanceiroFileUseCases
         {
             ".pdf" => ("application/pdf", ".pdf"),
             ".jpg" or ".jpeg" => ("image/jpeg", ".jpg"),
-            _ => throw new InvalidOperationException("O formato do comprovante armazenado não é suportado.")
+            _ => throw new BusinessRuleException("O formato do comprovante armazenado não é suportado.")
         };
         return new PrivateFileDownload
         {

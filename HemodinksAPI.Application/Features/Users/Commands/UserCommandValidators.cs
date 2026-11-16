@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Validation;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -16,7 +17,7 @@ public sealed class UpdateUserCommandValidator : IRequestValidator<UpdateUserCom
     {
         if (request.Id <= 0)
         {
-            throw new InvalidOperationException("Usuario invalido.");
+            throw new BusinessRuleException("Usuario invalido.");
         }
 
         UserCommandValidator.ValidateProfile(request);
@@ -29,12 +30,12 @@ public sealed class ChangePasswordCommandValidator : IRequestValidator<ChangePas
     {
         if (request.UserId <= 0)
         {
-            throw new InvalidOperationException("Usuario invalido.");
+            throw new BusinessRuleException("Usuario invalido.");
         }
 
         if (string.IsNullOrWhiteSpace(request.SenhaAtual))
         {
-            throw new InvalidOperationException("Informe a senha atual.");
+            throw new BusinessRuleException("Informe a senha atual.");
         }
 
         HemodinksAPI.Application.Security.NewPasswordPolicy.ValidateLength(request.NovaSenha);
@@ -57,12 +58,12 @@ internal static class UserCommandValidator
     {
         if (string.IsNullOrWhiteSpace(nome))
         {
-            throw new InvalidOperationException("Nome obrigatorio");
+            throw new BusinessRuleException("Nome obrigatorio");
         }
 
         if (string.IsNullOrWhiteSpace(email))
         {
-            throw new InvalidOperationException("Email obrigatorio");
+            throw new BusinessRuleException("Email obrigatorio");
         }
     }
 }

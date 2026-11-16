@@ -36,8 +36,6 @@ public sealed record EndpointErrorOptions
 
     public bool NotFoundUsesExceptionMessage { get; init; }
 
-    public bool ConcurrencyUsesExceptionMessage { get; init; }
-
     public string InternalServerErrorTitle { get; init; } = "Erro interno ao processar a requisicao";
 }
 

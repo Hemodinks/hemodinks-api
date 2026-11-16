@@ -1,5 +1,6 @@
 using HemodinksAPI.Application.Data;
 using MediatR;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Observacoes;
 
@@ -31,7 +32,7 @@ public class CreatePacienteObservacaoCommandHandler : IRequestHandler<CreatePaci
 
         if (destinatarioIds.Count == 0)
         {
-            throw new InvalidOperationException("Nao foi encontrado nenhum destinatario para a observacao.");
+            throw new BusinessRuleException("Nao foi encontrado nenhum destinatario para a observacao.");
         }
 
         var observacoes = destinatarioIds
@@ -42,7 +43,7 @@ public class CreatePacienteObservacaoCommandHandler : IRequestHandler<CreatePaci
 
         if (observacoes.Count == 0)
         {
-            throw new InvalidOperationException("Nao foi encontrado nenhum destinatario valido para a observacao.");
+            throw new BusinessRuleException("Nao foi encontrado nenhum destinatario valido para a observacao.");
         }
 
         _context.Observacoes.AddRange(observacoes);

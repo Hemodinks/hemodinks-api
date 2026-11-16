@@ -1,5 +1,6 @@
 using System.Text.Json;
 using HemodinksAPI.Application.Features.Pacientes.Commands;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -17,9 +18,9 @@ public sealed class PacienteDateValidationTests
         var create = JsonSerializer.Deserialize<CreatePacienteCommand>(json)!;
         var update = JsonSerializer.Deserialize<UpdatePacienteCommand>(json)!;
 
-        Assert.Equal(Error, Assert.Throws<InvalidOperationException>(() =>
+        Assert.Equal(Error, Assert.Throws<BusinessRuleException>(() =>
             new CreatePacienteCommandValidator().Validate(create)).Message);
-        Assert.Equal(Error, Assert.Throws<InvalidOperationException>(() =>
+        Assert.Equal(Error, Assert.Throws<BusinessRuleException>(() =>
             new UpdatePacienteCommandValidator().Validate(update)).Message);
     }
 

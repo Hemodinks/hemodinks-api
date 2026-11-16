@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
 using System.Text.RegularExpressions;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Clinics.Platform;
 
@@ -23,7 +24,7 @@ internal static class ClinicaPlatformRules
         var slug = RequireText(value, "Slug da clinica obrigatorio", 120).ToLowerInvariant();
         if (!SlugPattern.IsMatch(slug))
         {
-            throw new InvalidOperationException("Slug deve conter apenas letras minusculas, numeros e hifens");
+            throw new BusinessRuleException("Slug deve conter apenas letras minusculas, numeros e hifens");
         }
 
         return slug;
@@ -35,7 +36,7 @@ internal static class ClinicaPlatformRules
         if (plano.Equals(ClinicaPlanos.Trial, StringComparison.OrdinalIgnoreCase)) return ClinicaPlanos.Trial;
         if (plano.Equals(ClinicaPlanos.Completa, StringComparison.OrdinalIgnoreCase)) return ClinicaPlanos.Completa;
         if (plano.Equals(ClinicaPlanos.Parcial, StringComparison.OrdinalIgnoreCase)) return ClinicaPlanos.Parcial;
-        throw new InvalidOperationException("Plano deve ser Trial, Parcial ou Completa");
+        throw new BusinessRuleException("Plano deve ser Trial, Parcial ou Completa");
     }
 
     internal static string? NormalizeModulos(string plano, IEnumerable<string>? values)
@@ -45,14 +46,14 @@ internal static class ClinicaPlatformRules
         var requested = values?.Where(value => !string.IsNullOrWhiteSpace(value)).ToList() ?? [];
         var invalid = requested.FirstOrDefault(value =>
             !ClinicaModulos.Todos.Contains(value.Trim(), StringComparer.OrdinalIgnoreCase));
-        if (invalid != null) throw new InvalidOperationException($"Modulo invalido: {invalid}");
+        if (invalid != null) throw new BusinessRuleException($"Modulo invalido: {invalid}");
 
         var normalized = ClinicaModulos.Todos
             .Where(allowed => requested.Contains(allowed, StringComparer.OrdinalIgnoreCase))
             .ToList();
         if (normalized.Count == 0)
         {
-            throw new InvalidOperationException("Selecione ao menos um modulo para o plano Parcial");
+            throw new BusinessRuleException("Selecione ao menos um modulo para o plano Parcial");
         }
 
         return string.Join(',', normalized);
@@ -63,7 +64,7 @@ internal static class ClinicaPlatformRules
         var normalized = value?.Trim();
         if (string.IsNullOrWhiteSpace(normalized) || normalized.Length > maxLength)
         {
-            throw new InvalidOperationException(message);
+            throw new BusinessRuleException(message);
         }
 
         return normalized;
@@ -74,6 +75,6 @@ internal static class ClinicaPlatformRules
         var normalized = string.IsNullOrWhiteSpace(value) ? fallback : value.Trim();
         return normalized.Length <= maxLength
             ? normalized
-            : throw new InvalidOperationException($"Valor deve ter no maximo {maxLength} caracteres");
+            : throw new BusinessRuleException($"Valor deve ter no maximo {maxLength} caracteres");
     }
 }

@@ -2,6 +2,7 @@ using HemodinksAPI.Application.Security;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Utils;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
@@ -20,7 +21,7 @@ internal static partial class PacienteRules
 
         if (!CpfUtils.IsValid(cpf))
         {
-            throw new InvalidOperationException("CPF invalido");
+            throw new BusinessRuleException("CPF invalido");
         }
 
         var normalizedCpf = CpfUtils.Normalize(cpf)!;
@@ -30,7 +31,7 @@ internal static partial class PacienteRules
 
         if (cpfAlreadyExists)
         {
-            throw new InvalidOperationException("CPF ja cadastrado");
+            throw new BusinessRuleException("CPF ja cadastrado");
         }
 
         return normalizedCpf;
@@ -52,7 +53,7 @@ internal static partial class PacienteRules
 
         if (emailAlreadyExists)
         {
-            throw new InvalidOperationException("Email ja cadastrado");
+            throw new BusinessRuleException("Email ja cadastrado");
         }
 
         return resolvedEmail;
@@ -66,7 +67,7 @@ internal static partial class PacienteRules
     {
         if (string.IsNullOrWhiteSpace(email))
         {
-            throw new InvalidOperationException("Email obrigatorio");
+            throw new BusinessRuleException("Email obrigatorio");
         }
 
         var trimmedEmail = email.Trim();
@@ -75,7 +76,7 @@ internal static partial class PacienteRules
 
         if (emailAlreadyExists)
         {
-            throw new InvalidOperationException("Email ja cadastrado");
+            throw new BusinessRuleException("Email ja cadastrado");
         }
     }
 

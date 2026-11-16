@@ -7,6 +7,7 @@ using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
@@ -65,7 +66,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
 
             if (paciente == null)
             {
-                throw new KeyNotFoundException("Paciente nao encontrado");
+                throw new ResourceNotFoundException("Paciente nao encontrado");
             }
 
             if (!await PacienteCommandAccess.CanEditPacienteAsync(_context, paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId, cancellationToken))

@@ -3,6 +3,7 @@ using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Events.Commands;
 
@@ -60,7 +61,7 @@ public sealed class EventCommandHandler :
         var ev = await _context.Events.FirstOrDefaultAsync(item => item.Id == request.Id && item.ClinicaId == clinicaId, cancellationToken);
         if (ev == null)
         {
-            throw new KeyNotFoundException();
+            throw new ResourceNotFoundException();
         }
 
         EventFeatureRules.EnsureCanManageEvent(ev, request.CurrentUser);
@@ -97,7 +98,7 @@ public sealed class EventCommandHandler :
         var ev = await _context.Events.FirstOrDefaultAsync(item => item.Id == request.Id && item.ClinicaId == clinicaId, cancellationToken);
         if (ev == null)
         {
-            throw new KeyNotFoundException();
+            throw new ResourceNotFoundException();
         }
 
         EventFeatureRules.EnsureCanManageEvent(ev, request.CurrentUser);
@@ -115,7 +116,7 @@ public sealed class EventCommandHandler :
         var ev = await _context.Events.FirstOrDefaultAsync(item => item.Id == request.Id && item.ClinicaId == clinicaId, cancellationToken);
         if (ev == null)
         {
-            throw new KeyNotFoundException();
+            throw new ResourceNotFoundException();
         }
 
         EventFeatureRules.EnsureCanManageEvent(ev, request.CurrentUser);

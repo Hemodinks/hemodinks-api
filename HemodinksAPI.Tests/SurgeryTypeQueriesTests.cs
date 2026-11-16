@@ -6,6 +6,7 @@ using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -79,8 +80,8 @@ public sealed class SurgeryTypeQueriesTests
         Assert.Empty(hidden.PorTipoCirurgia);
         Assert.Null(await new GetPacienteByIdQueryHandler(db, NullLogger<GetPacienteByIdQueryHandler>.Instance)
             .Handle(new(remote.Id, 0, Perfil.SuperAdministradorId), default));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => patients.Handle(new() { TipoCirurgia = (TipoCirurgia)999 }, default));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => reportHandler.Handle(new(null, null, null, null, null)
+        await Assert.ThrowsAsync<BusinessRuleException>(() => patients.Handle(new() { TipoCirurgia = (TipoCirurgia)999 }, default));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => reportHandler.Handle(new(null, null, null, null, null)
             { TipoCirurgia = (TipoCirurgia)999 }, default));
         Assert.Empty(db.ChangeTracker.Entries());
         Assert.Equal(TipoCirurgia.Eletiva, (await db.Pacientes.AsNoTracking().SingleAsync(x => x.Id == patient.Id)).TipoCirurgia);

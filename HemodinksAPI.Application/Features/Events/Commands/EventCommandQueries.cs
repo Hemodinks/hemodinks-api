@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Data;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Events.Commands;
 
@@ -39,7 +40,7 @@ internal static class EventCommandQueries
 
         if (!ownerExists)
         {
-            throw new InvalidOperationException("Usuario responsavel pelo evento nao encontrado ou inativo.");
+            throw new BusinessRuleException("Usuario responsavel pelo evento nao encontrado ou inativo.");
         }
 
         return ownerUserId;
@@ -70,7 +71,7 @@ internal static class EventCommandQueries
 
         if (!isValidMedicalUser)
         {
-            throw new InvalidOperationException("Medico selecionado para notificacao nao encontrado ou inativo.");
+            throw new BusinessRuleException("Medico selecionado para notificacao nao encontrado ou inativo.");
         }
 
         return medicalUserId.Value;

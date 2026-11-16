@@ -1,6 +1,7 @@
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Services;
 using HemodinksAPI.Application.Features.Financeiro;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -151,7 +152,7 @@ public class FinanceiroCalculationsTests
             ]
         };
 
-        Assert.Throws<InvalidOperationException>(() =>
+        Assert.Throws<BusinessRuleException>(() =>
             FinanceiroCalculations.ReconcileAccountsWithRecognizedValue(faturamento, DateTime.UtcNow));
     }
 

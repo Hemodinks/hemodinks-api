@@ -2,6 +2,7 @@ using HemodinksAPI.Application.Features.Users.Commands;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -21,7 +22,7 @@ public sealed class PasswordResetSecurityPersistenceTests
         if (scenario == "used") token.UsedAt = DateTime.UtcNow.AddMinutes(-1);
         await db.SaveChangesAsync();
         var before = await Snapshot(db);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Handler(db).Handle(new ConfirmPasswordResetCommand
+        await Assert.ThrowsAsync<BusinessRuleException>(() => Handler(db).Handle(new ConfirmPasswordResetCommand
         {
             Token = scenario == "invalid" ? "wrong-token" : PasswordResetSecurityTestDatabase.Token,
             NovaSenha = scenario == "password" ? "short" : PasswordResetSecurityTestDatabase.NewPassword
@@ -68,7 +69,7 @@ public sealed class PasswordResetSecurityPersistenceTests
         await loaded.Task.WaitAsync(TimeSpan.FromSeconds(15));
         try { await Reset(winner); }
         finally { resume.TrySetResult(); }
-        await Assert.ThrowsAsync<InvalidOperationException>(() => losingReset);
+        await Assert.ThrowsAsync<BusinessRuleException>(() => losingReset);
         await using var verify = database.Open();
         var user = await verify.Users.SingleAsync();
         var global = await verify.UsuariosGlobais.SingleAsync();

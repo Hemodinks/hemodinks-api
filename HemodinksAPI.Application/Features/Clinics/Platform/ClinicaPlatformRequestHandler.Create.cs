@@ -5,6 +5,7 @@ using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 using Microsoft.EntityFrameworkCore;
 
+using HemodinksAPI.Domain.Exceptions;
 namespace HemodinksAPI.Application.Features.Clinics.Platform;
 
 public sealed partial class ClinicaPlatformRequestHandler
@@ -17,7 +18,7 @@ public sealed partial class ClinicaPlatformRequestHandler
         var validation = await createValidator.ValidateAsync(request, cancellationToken);
         if (!validation.IsValid)
         {
-        throw new InvalidOperationException(validation.Errors[0].ErrorMessage);
+        throw new BusinessRuleException(validation.Errors[0].ErrorMessage);
         }
 
         var nome = RequireText(request.Nome, "Nome da clinica obrigatorio", 120);
@@ -43,19 +44,19 @@ public sealed partial class ClinicaPlatformRequestHandler
         
         if (!MailAddress.TryCreate(adminEmail, out _))
         {
-        throw new InvalidOperationException("Email do administrador invalido");
+        throw new BusinessRuleException("Email do administrador invalido");
         }
         
         if (equipeEmail != null
         && (!MailAddress.TryCreate(equipeEmail, out _)
         || equipeEmail.Equals(adminEmail, StringComparison.OrdinalIgnoreCase)))
         {
-        throw new InvalidOperationException("Equipe inicial deve possuir email valido e diferente do administrador");
+        throw new BusinessRuleException("Equipe inicial deve possuir email valido e diferente do administrador");
         }
         
         if (request.LimiteUsuarios is <= 0)
         {
-        throw new InvalidOperationException("LimiteUsuarios deve ser maior que zero");
+        throw new BusinessRuleException("LimiteUsuarios deve ser maior que zero");
         }
         
         return await executionStrategy.ExecuteAsync(async operationCancellationToken =>

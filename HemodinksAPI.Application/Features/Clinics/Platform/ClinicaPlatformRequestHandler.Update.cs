@@ -4,6 +4,7 @@ using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Utils;
 using Microsoft.EntityFrameworkCore;
 
+using HemodinksAPI.Domain.Exceptions;
 namespace HemodinksAPI.Application.Features.Clinics.Platform;
 
 public sealed partial class ClinicaPlatformRequestHandler
@@ -17,7 +18,7 @@ public sealed partial class ClinicaPlatformRequestHandler
         var validation = await updateValidator.ValidateAsync(request, cancellationToken);
         if (!validation.IsValid)
         {
-        throw new InvalidOperationException(validation.Errors[0].ErrorMessage);
+        throw new BusinessRuleException(validation.Errors[0].ErrorMessage);
         }
 
         var administratorNewPassword = request.AdministradorNovaSenha;
@@ -40,7 +41,7 @@ public sealed partial class ClinicaPlatformRequestHandler
         if (equipeEmail != null
         && !MailAddress.TryCreate(equipeEmail, out _))
         {
-        throw new InvalidOperationException("Nova equipe deve possuir email valido");
+        throw new BusinessRuleException("Nova equipe deve possuir email valido");
         }
         
         var clinica = await context.Clinicas.FirstOrDefaultAsync(item => item.Id == id, cancellationToken);
@@ -63,7 +64,7 @@ public sealed partial class ClinicaPlatformRequestHandler
         var resultingCnpj = request.Cnpj ?? clinica.Cnpj;
         if (updatesClinicRegistration && !CnpjUtils.IsValid(resultingCnpj))
         {
-        throw new InvalidOperationException("Informe um CNPJ valido.");
+        throw new BusinessRuleException("Informe um CNPJ valido.");
         }
 
         var normalizedCnpj = updatesClinicRegistration
@@ -108,7 +109,7 @@ public sealed partial class ClinicaPlatformRequestHandler
         ? NormalizeModulos(nextPlan, request.ModulosLiberados)
         : previousPlan == ClinicaPlanos.Parcial
         ? NormalizeModulos(nextPlan, ClinicaModulos.Parse(clinica.ModulosLiberados))
-        : throw new InvalidOperationException("Selecione ao menos um modulo para o plano Parcial");
+        : throw new BusinessRuleException("Selecione ao menos um modulo para o plano Parcial");
         }
         else
         {
@@ -130,7 +131,7 @@ public sealed partial class ClinicaPlatformRequestHandler
         {
         if (request.LimiteUsuarios <= 0)
         {
-        throw new InvalidOperationException("LimiteUsuarios deve ser maior que zero");
+        throw new BusinessRuleException("LimiteUsuarios deve ser maior que zero");
         }
         
         clinica.LimiteUsuarios = request.LimiteUsuarios;

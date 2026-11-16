@@ -1,6 +1,7 @@
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 using Microsoft.Extensions.Options;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Infrastructure.Storage;
 
@@ -125,7 +126,7 @@ public class AzureBlobPatientFileStorage : IPatientFileStorage
         if (!PatientFileBlobPath.BelongsTo(location.BlobName, clinicaId))
         {
             _logger.LogWarning("Leitura de arquivo recusada: prefixo de clinica nao corresponde ao registro.");
-            throw new KeyNotFoundException("Arquivo nao encontrado.");
+            throw new ResourceNotFoundException("Arquivo nao encontrado.");
         }
 
         var readTimeout = BlobReadResilience.ResolveTimeout(_options.ReadTimeoutSeconds);

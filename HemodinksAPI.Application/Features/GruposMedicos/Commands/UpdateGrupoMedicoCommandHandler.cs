@@ -3,6 +3,7 @@ using HemodinksAPI.Application.Features.GruposMedicos.Queries;
 using HemodinksAPI.Application.Tenancy;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.GruposMedicos.Commands;
 
@@ -26,7 +27,7 @@ public class UpdateGrupoMedicoCommandHandler : IRequestHandler<UpdateGrupoMedico
 
         if (group == null)
         {
-            throw new KeyNotFoundException("Grupo medico nao encontrado.");
+            throw new ResourceNotFoundException("Grupo medico nao encontrado.");
         }
 
         var nome = request.Nome.Trim();

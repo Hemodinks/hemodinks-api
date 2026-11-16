@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Diagnostics;
 using System.Text.Json;
 using System.Xml.Linq;
+using HemodinksAPI.Domain.Exceptions;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Features.Clinics.Platform;
 using HemodinksAPI.Application.Features.Events.Queries;
@@ -206,7 +207,7 @@ public sealed class CriticalQuerySqlServerTests(ITestOutputHelper output)
                 .Handle(new(foreignPatient.Id, doctor.Id, Perfil.AdministradorId), default));
             Assert.Null(await agenda.Handle(new GetEventByIdQuery { Id = foreignEvent.Id,
                 CurrentUser = new(doctor.Id, Perfil.AdministradorId, "Synthetic", 1) }, default));
-            await Assert.ThrowsAsync<KeyNotFoundException>(() => details.Handle(new(foreignBill.Id, doctor.Id, Perfil.AdministradorId), default));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => details.Handle(new(foreignBill.Id, doctor.Id, Perfil.AdministradorId), default));
             var hiddenReport = await report.Handle(new(null, null, null, null, foreignPatient.Id), default);
             Assert.Equal(0m, hiddenReport.ValorApresentado);
             Assert.Equal(0m, hiddenReport.RecebimentosPeriodo);
@@ -298,7 +299,7 @@ public sealed class CriticalQuerySqlServerTests(ITestOutputHelper output)
             var hidden = await search.Handle(new(1, 5, null, null, null, null, null, unrelated.Id, Perfil.MedicosId), default);
             Assert.Equal(0, hidden.TotalItems);
             Assert.Empty(hidden.Items);
-            await Assert.ThrowsAsync<KeyNotFoundException>(() =>
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() =>
                 detail.Handle(new(bill.Id, unrelated.Id, Perfil.MedicosId), default));
             Assert.Empty(db.ChangeTracker.Entries());
         }

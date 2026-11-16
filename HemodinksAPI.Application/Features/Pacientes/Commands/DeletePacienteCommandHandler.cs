@@ -4,6 +4,7 @@ using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
@@ -48,7 +49,7 @@ public class DeletePacienteCommandHandler : IRequestHandler<DeletePacienteComman
 
             if (paciente == null)
             {
-                throw new KeyNotFoundException("Paciente nao encontrado");
+                throw new ResourceNotFoundException("Paciente nao encontrado");
             }
 
             var fotoPerfil = paciente.User.FotoPerfil;

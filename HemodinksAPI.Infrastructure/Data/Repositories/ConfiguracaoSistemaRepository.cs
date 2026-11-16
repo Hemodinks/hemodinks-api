@@ -2,6 +2,7 @@ using HemodinksAPI.Application.Features.ConfiguracoesSistema;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Infrastructure.Data.Repositories;
 
@@ -31,7 +32,7 @@ public sealed class ConfiguracaoSistemaRepository : IConfiguracaoSistemaReposito
         var clinica = await _context.Clinicas
             .AsNoTracking()
             .FirstOrDefaultAsync(item => item.Id == clinicaId, cancellationToken)
-            ?? throw new KeyNotFoundException("Clinica nao encontrada para a configuracao do sistema.");
+            ?? throw new ResourceNotFoundException("Clinica nao encontrada para a configuracao do sistema.");
 
         if (configuracao != null)
         {

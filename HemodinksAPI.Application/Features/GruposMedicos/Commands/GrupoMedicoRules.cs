@@ -2,6 +2,7 @@ using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.GruposMedicos.Queries;
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.GruposMedicos.Commands;
 
@@ -20,7 +21,7 @@ internal static class GrupoMedicoRules
 
         if (duplicateName)
         {
-            throw new InvalidOperationException("Ja existe um grupo medico com esse nome.");
+            throw new BusinessRuleException("Ja existe um grupo medico com esse nome.");
         }
 
         var validMedicalUsers = await context.Users
@@ -31,7 +32,7 @@ internal static class GrupoMedicoRules
 
         if (validMedicalUsers.Count != memberIds.Count)
         {
-            throw new InvalidOperationException("Selecione apenas medicos validos para o grupo.");
+            throw new BusinessRuleException("Selecione apenas medicos validos para o grupo.");
         }
     }
 

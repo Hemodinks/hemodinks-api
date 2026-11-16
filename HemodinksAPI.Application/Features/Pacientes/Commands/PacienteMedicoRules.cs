@@ -2,6 +2,7 @@ using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.GruposMedicos;
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
@@ -29,7 +30,7 @@ internal static partial class PacienteRules
 
             if (!medicoUserId.HasValue && string.IsNullOrWhiteSpace(medicoNome))
             {
-                throw new InvalidOperationException("Selecione um medico associado a equipe.");
+                throw new BusinessRuleException("Selecione um medico associado a equipe.");
             }
 
             if (medicoUserId.HasValue)
@@ -41,7 +42,7 @@ internal static partial class PacienteRules
 
                 if (scopedMedico == null)
                 {
-                    throw new InvalidOperationException("Medico invalido para o grupo do usuario.");
+                    throw new BusinessRuleException("Medico invalido para o grupo do usuario.");
                 }
 
                 return new ResolvedMedico(scopedMedico.Id, scopedMedico.Nome);
@@ -55,7 +56,7 @@ internal static partial class PacienteRules
 
             if (scopedMedicoPorNome == null)
             {
-                throw new InvalidOperationException("Medico invalido para o grupo do usuario.");
+                throw new BusinessRuleException("Medico invalido para o grupo do usuario.");
             }
 
             return new ResolvedMedico(scopedMedicoPorNome.Id, scopedMedicoPorNome.Nome);
@@ -73,7 +74,7 @@ internal static partial class PacienteRules
 
             if (medico == null)
             {
-                throw new InvalidOperationException("Medico invalido");
+                throw new BusinessRuleException("Medico invalido");
             }
 
             return new ResolvedMedico(medico.Id, medico.Nome);
@@ -92,7 +93,7 @@ internal static partial class PacienteRules
 
         if (medicoPorNome == null)
         {
-            throw new InvalidOperationException("Medico invalido");
+            throw new BusinessRuleException("Medico invalido");
         }
 
         return new ResolvedMedico(medicoPorNome.Id, medicoPorNome.Nome);

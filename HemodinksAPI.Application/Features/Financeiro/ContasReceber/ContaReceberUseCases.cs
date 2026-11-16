@@ -4,6 +4,7 @@ using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Services;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
@@ -14,7 +15,7 @@ public sealed class GerarContaReceberCommandHandler(IFinanceFeatureDbContext db,
         if (string.IsNullOrWhiteSpace(request.NumeroDocumento)
             || string.IsNullOrWhiteSpace(request.Descricao))
         {
-            throw new InvalidOperationException("Numero do documento e descricao sao obrigatorios.");
+            throw new BusinessRuleException("Numero do documento e descricao sao obrigatorios.");
         }
 
         var document = request.NumeroDocumento.Trim();
@@ -22,20 +23,20 @@ public sealed class GerarContaReceberCommandHandler(IFinanceFeatureDbContext db,
             .SingleOrDefaultAsync(x => x.FaturamentoId == request.FaturamentoId && x.NumeroDocumento == document, ct);
         if (existing != null) return FinanceiroMapper.ToDto(existing);
         var f = await db.Faturamentos.Include(x => x.AtendimentoCirurgico).ThenInclude(x => x.Paciente)
-            .SingleOrDefaultAsync(x => x.Id == request.FaturamentoId, ct) ?? throw new KeyNotFoundException("Faturamento nao encontrado.");
+            .SingleOrDefaultAsync(x => x.Id == request.FaturamentoId, ct) ?? throw new ResourceNotFoundException("Faturamento nao encontrado.");
         if (f.Status is FaturamentoStatus.Rascunho or FaturamentoStatus.Cancelado)
-            throw new InvalidOperationException("O faturamento precisa estar pronto para gerar conta.");
+            throw new BusinessRuleException("O faturamento precisa estar pronto para gerar conta.");
         var original = request.ValorOriginal ?? f.ValorApresentado;
         var availableAdjusted = f.DataRetorno.HasValue || f.ValorGlosado > 0
             ? f.ValorReconhecido
             : f.ValorApresentado;
         var adjusted = request.ValorAjustado ?? availableAdjusted;
-        if (original < 0 || adjusted < 0) throw new InvalidOperationException("Valores da conta sao invalidos.");
+        if (original < 0 || adjusted < 0) throw new BusinessRuleException("Valores da conta sao invalidos.");
         var existingTotals = await db.ContasReceber.Where(x => x.FaturamentoId == f.Id && x.Status != ContaReceberStatus.Cancelado)
             .Select(x => new { x.ValorOriginal, x.ValorAjustado }).ToListAsync(ct);
         if (existingTotals.Sum(x => x.ValorOriginal) + original > f.ValorApresentado
             || existingTotals.Sum(x => x.ValorAjustado) + adjusted > availableAdjusted)
-            throw new InvalidOperationException("A soma dos titulos excede o valor disponivel do faturamento.");
+            throw new BusinessRuleException("A soma dos titulos excede o valor disponivel do faturamento.");
         var account = new ContaReceber { ClinicaId = tenant.GetRequiredClinicaId(), Faturamento = f,
             ConvenioId = f.ConvenioId, Paciente = f.AtendimentoCirurgico.Paciente, NumeroDocumento = document,
             Descricao = request.Descricao.Trim(), Competencia = f.Competencia, DataEmissao = request.DataEmissao,
@@ -73,11 +74,11 @@ public sealed class RegistrarRecebimentoCommandHandler(IFinanceFeatureDbContext 
     {
         var account = await db.ContasReceber.Include(x => x.Paciente).Include(x => x.Recebimentos)
             .Include(x => x.Faturamento).ThenInclude(x => x.ContasReceber).ThenInclude(x => x.Recebimentos)
-            .SingleOrDefaultAsync(x => x.Id == request.ContaReceberId, ct) ?? throw new KeyNotFoundException("Conta nao encontrada.");
+            .SingleOrDefaultAsync(x => x.Id == request.ContaReceberId, ct) ?? throw new ResourceNotFoundException("Conta nao encontrada.");
         if (!account.RowVersion.SequenceEqual(request.RowVersion)) throw new DbUpdateConcurrencyException("A conta foi alterada por outro usuario.");
         FinanceiroCalculations.Recalculate(account, DateTime.UtcNow);
         if (account.Status == ContaReceberStatus.Cancelado || request.ValorRecebido <= 0 || request.ValorRecebido > account.SaldoAberto)
-            throw new InvalidOperationException("Recebimento invalido ou superior ao saldo aberto.");
+            throw new BusinessRuleException("Recebimento invalido ou superior ao saldo aberto.");
         account.Recebimentos.Add(new Recebimento { ClinicaId = tenant.GetRequiredClinicaId(), DataRecebimento = request.DataRecebimento,
             ValorRecebido = request.ValorRecebido, FormaRecebimento = request.FormaRecebimento,
             ReferenciaBancaria = request.ReferenciaBancaria?.Trim(), DocumentoComprovante = request.DocumentoComprovante?.Trim(),
@@ -95,9 +96,9 @@ public sealed class EstornarRecebimentoCommandHandler(IFinanceFeatureDbContext d
     {
         var receipt = await db.Recebimentos.Include(x => x.ContaReceber).ThenInclude(x => x.Paciente)
             .Include(x => x.ContaReceber).ThenInclude(x => x.Recebimentos).SingleOrDefaultAsync(x => x.Id == request.RecebimentoId, ct)
-            ?? throw new KeyNotFoundException("Recebimento nao encontrado.");
-        if (receipt.Estornado) throw new InvalidOperationException("Recebimento ja estornado.");
-        if (string.IsNullOrWhiteSpace(request.MotivoEstorno)) throw new InvalidOperationException("Motivo do estorno e obrigatorio.");
+            ?? throw new ResourceNotFoundException("Recebimento nao encontrado.");
+        if (receipt.Estornado) throw new BusinessRuleException("Recebimento ja estornado.");
+        if (string.IsNullOrWhiteSpace(request.MotivoEstorno)) throw new BusinessRuleException("Motivo do estorno e obrigatorio.");
         receipt.Estornado = true; receipt.DataEstorno = DateTime.UtcNow; receipt.UsuarioEstornoId = request.UsuarioEstornoId;
         receipt.MotivoEstorno = request.MotivoEstorno.Trim();
         FinanceiroCalculations.Recalculate(receipt.ContaReceber, DateTime.UtcNow); receipt.ContaReceber.DataAtualizacao = DateTime.UtcNow;

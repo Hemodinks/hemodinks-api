@@ -4,6 +4,7 @@ using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Services;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
@@ -14,9 +15,9 @@ public sealed class CriarFaturamentoCommandHandler(IFinanceFeatureDbContext db, 
     {
         var atendimento = await db.AtendimentosCirurgicos.Include(x => x.Paciente).Include(x => x.Procedimentos)
             .SingleOrDefaultAsync(x => x.Id == request.AtendimentoCirurgicoId, ct)
-            ?? throw new KeyNotFoundException("Atendimento nao encontrado.");
+            ?? throw new ResourceNotFoundException("Atendimento nao encontrado.");
         if (atendimento.Status == AtendimentoCirurgicoStatus.Cancelado)
-            throw new InvalidOperationException("Nao e possivel faturar atendimento cancelado.");
+            throw new BusinessRuleException("Nao e possivel faturar atendimento cancelado.");
         var faturamento = new Faturamento
         {
             ClinicaId = tenant.GetRequiredClinicaId(), AtendimentoCirurgico = atendimento, ConvenioId = atendimento.ConvenioId,
@@ -40,7 +41,7 @@ public sealed class CriarFaturamentoCommandHandler(IFinanceFeatureDbContext db, 
         {
             var presentedTotal = faturamento.Itens.Sum(x => x.ValorApresentado);
             if (requestedGlosa > presentedTotal)
-                throw new InvalidOperationException("A glosa informada no atendimento excede o valor apresentado.");
+                throw new BusinessRuleException("A glosa informada no atendimento excede o valor apresentado.");
             faturamento.Glosas.Add(new Glosa
             {
                 ClinicaId = faturamento.ClinicaId,
@@ -87,7 +88,7 @@ public sealed class AtualizarStatusFaturamentoCommandHandler(IFinanceFeatureDbCo
     public async Task<FaturamentoDto> Handle(AtualizarStatusFaturamentoCommand request, CancellationToken ct)
     {
         var faturamento = await ListarFaturamentosQueryHandler.Full(db.Faturamentos).SingleOrDefaultAsync(x => x.Id == request.Id, ct)
-            ?? throw new KeyNotFoundException("Faturamento nao encontrado.");
+            ?? throw new ResourceNotFoundException("Faturamento nao encontrado.");
         if (!faturamento.RowVersion.SequenceEqual(request.RowVersion)) throw new DbUpdateConcurrencyException("O faturamento foi alterado por outro usuario.");
         var allowed = faturamento.Status switch
         {
@@ -96,7 +97,7 @@ public sealed class AtualizarStatusFaturamentoCommandHandler(IFinanceFeatureDbCo
             FaturamentoStatus.Enviado => request.Status is FaturamentoStatus.EmAnalise or FaturamentoStatus.Cancelado,
             _ => request.Status == faturamento.Status
         };
-        if (!allowed) throw new InvalidOperationException($"Transicao de {faturamento.Status} para {request.Status} nao permitida.");
+        if (!allowed) throw new BusinessRuleException($"Transicao de {faturamento.Status} para {request.Status} nao permitida.");
         faturamento.Status = request.Status;
         if (request.Status == FaturamentoStatus.Enviado && faturamento.DataEnvio == null) faturamento.DataEnvio = DateTime.UtcNow;
         faturamento.DataAtualizacao = DateTime.UtcNow;
@@ -110,11 +111,11 @@ public sealed class RegistrarGlosaCommandHandler(IFinanceFeatureDbContext db, IC
     public async Task<FaturamentoDto> Handle(RegistrarGlosaCommand request, CancellationToken ct)
     {
         var f = await ListarFaturamentosQueryHandler.Full(db.Faturamentos).SingleOrDefaultAsync(x => x.Id == request.FaturamentoId, ct)
-            ?? throw new KeyNotFoundException("Faturamento nao encontrado.");
+            ?? throw new ResourceNotFoundException("Faturamento nao encontrado.");
         if (request.ValorGlosado <= 0 || f.ValorGlosado + request.ValorGlosado > f.ValorApresentado)
-            throw new InvalidOperationException("Valor da glosa excede o valor apresentado disponivel.");
+            throw new BusinessRuleException("Valor da glosa excede o valor apresentado disponivel.");
         if (request.FaturamentoItemId.HasValue && f.Itens.All(x => x.Id != request.FaturamentoItemId))
-            throw new InvalidOperationException("Item nao pertence ao faturamento.");
+            throw new BusinessRuleException("Item nao pertence ao faturamento.");
         f.Glosas.Add(new Glosa { ClinicaId = tenant.GetRequiredClinicaId(), FaturamentoItemId = request.FaturamentoItemId,
             CodigoMotivo = request.CodigoMotivo?.Trim(), DescricaoMotivo = request.DescricaoMotivo.Trim(),
             ValorGlosado = request.ValorGlosado, DataGlosa = request.DataGlosa, Observacao = request.Observacao?.Trim() });
@@ -133,18 +134,18 @@ public sealed class RegistrarRetornoFaturamentoCommandHandler(IFinanceFeatureDbC
     public async Task<FaturamentoDto> Handle(RegistrarRetornoFaturamentoCommand request, CancellationToken ct)
     {
         var f = await ListarFaturamentosQueryHandler.Full(db.Faturamentos).SingleOrDefaultAsync(x => x.Id == request.Id, ct)
-            ?? throw new KeyNotFoundException("Faturamento nao encontrado.");
+            ?? throw new ResourceNotFoundException("Faturamento nao encontrado.");
         if (!f.RowVersion.SequenceEqual(request.RowVersion)) throw new DbUpdateConcurrencyException("O faturamento foi alterado por outro usuario.");
-        if (f.Glosas.Any(x => x.Recursos.Count > 0)) throw new InvalidOperationException("Retorno nao pode ser substituido depois de iniciado um recurso de glosa.");
+        if (f.Glosas.Any(x => x.Recursos.Count > 0)) throw new BusinessRuleException("Retorno nao pode ser substituido depois de iniciado um recurso de glosa.");
         db.Glosas.RemoveRange(f.Glosas);
         f.Glosas.Clear();
         foreach (var result in request.Itens)
         {
             var item = f.Itens.SingleOrDefault(x => x.Id == result.FaturamentoItemId)
-                ?? throw new InvalidOperationException("Item do retorno nao pertence ao faturamento.");
+                ?? throw new BusinessRuleException("Item do retorno nao pertence ao faturamento.");
             if (result.ValorGlosado < 0 || result.ValorAprovado < 0
                 || result.ValorGlosado + result.ValorAprovado != item.ValorApresentado)
-                throw new InvalidOperationException("Aprovado mais glosado deve ser igual ao valor apresentado do item.");
+                throw new BusinessRuleException("Aprovado mais glosado deve ser igual ao valor apresentado do item.");
             item.ValorGlosado = result.ValorGlosado; item.ValorAprovado = result.ValorAprovado;
             item.MotivoGlosa = result.MotivoGlosa?.Trim(); item.DataAtualizacao = DateTime.UtcNow;
             item.Status = result.ValorGlosado == 0 ? FaturamentoItemStatus.Aprovado
@@ -171,9 +172,9 @@ public sealed class RegistrarRecursoGlosaCommandHandler(IFinanceFeatureDbContext
         var g = await db.Glosas.Include(x => x.Recursos).Include(x => x.Faturamento).ThenInclude(x => x.AtendimentoCirurgico).ThenInclude(x => x.Paciente)
             .Include(x => x.Faturamento).ThenInclude(x => x.Itens).Include(x => x.Faturamento).ThenInclude(x => x.Glosas).ThenInclude(x => x.Recursos)
             .Include(x => x.Faturamento).ThenInclude(x => x.ContasReceber).ThenInclude(x => x.Recebimentos)
-            .SingleOrDefaultAsync(x => x.Id == request.GlosaId, ct) ?? throw new KeyNotFoundException("Glosa nao encontrada.");
+            .SingleOrDefaultAsync(x => x.Id == request.GlosaId, ct) ?? throw new ResourceNotFoundException("Glosa nao encontrada.");
         if (request.ValorRecorrido <= 0 || request.ValorRecorrido > g.ValorGlosado || request.ValorRecuperado < 0 || request.ValorRecuperado > request.ValorRecorrido)
-            throw new InvalidOperationException("Valores do recurso sao invalidos.");
+            throw new BusinessRuleException("Valores do recurso sao invalidos.");
         g.Recursos.Add(new RecursoGlosa { ClinicaId = tenant.GetRequiredClinicaId(), DataEnvio = request.DataEnvio,
             Justificativa = request.Justificativa.Trim(), ValorRecorrido = request.ValorRecorrido,
             DataResposta = request.DataResposta, ValorRecuperado = request.ValorRecuperado, Status = request.Status,

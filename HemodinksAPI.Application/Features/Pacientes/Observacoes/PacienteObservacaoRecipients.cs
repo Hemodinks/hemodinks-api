@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Observacoes;
 
@@ -24,7 +25,7 @@ internal static class PacienteObservacaoRecipients
 
         if (parent == null)
         {
-            throw new InvalidOperationException("Observacao de origem nao encontrada.");
+            throw new BusinessRuleException("Observacao de origem nao encontrada.");
         }
 
         if (parent.AutorUserId == request.CurrentUserId)
@@ -56,7 +57,7 @@ internal static class PacienteObservacaoRecipients
 
             if (medicalIds.Count == 0)
             {
-                throw new InvalidOperationException("Selecione ao menos um medico vinculado ao paciente antes de enviar observacoes.");
+                throw new BusinessRuleException("Selecione ao menos um medico vinculado ao paciente antes de enviar observacoes.");
             }
 
             return await context.Users

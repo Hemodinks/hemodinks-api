@@ -1,4 +1,5 @@
 using FluentValidation;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Events;
 
@@ -23,7 +24,7 @@ internal static class EventScheduleRules
     public static void Validate(EventRequest request)
     {
         var result = new EventScheduleValidator().Validate(request);
-        if (!result.IsValid) throw new InvalidOperationException(result.Errors[0].ErrorMessage);
+        if (!result.IsValid) throw new BusinessRuleException(result.Errors[0].ErrorMessage);
     }
 }
 

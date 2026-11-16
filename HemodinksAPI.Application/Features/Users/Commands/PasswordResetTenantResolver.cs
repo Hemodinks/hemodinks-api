@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Tenancy;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -23,7 +24,7 @@ public sealed class PasswordResetTenantResolver(
 
         if (tokenClinic == null)
         {
-            throw new InvalidOperationException("Token de reset invalido ou expirado");
+            throw new BusinessRuleException("Token de reset invalido ou expirado");
         }
 
         clinicaContext.SetCurrent(tokenClinic.ClinicaId, tokenClinic.Slug);

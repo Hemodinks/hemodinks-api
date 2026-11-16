@@ -4,6 +4,7 @@ using HemodinksAPI.Infrastructure.Security;
 using HemodinksAPI.Infrastructure.Seeders;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.Extensions.Configuration;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -42,7 +43,7 @@ public class NewPasswordPolicyTests
     public void InvalidInput_DoesNotReachLookup(string? password)
     {
         var lookup = new RecordingLookup();
-        Assert.Throws<InvalidOperationException>(() => new NewPasswordPolicy(lookup).Validate(password));
+        Assert.Throws<BusinessRuleException>(() => new NewPasswordPolicy(lookup).Validate(password));
         Assert.Null(lookup.Candidate);
     }
 
@@ -54,7 +55,7 @@ public class NewPasswordPolicyTests
         policy.Validate(new string('z', 8));
         policy.Validate(new string('z', 500));
         lookup.Candidate = null;
-        Assert.Throws<InvalidOperationException>(() => policy.Validate(new string('z', 501)));
+        Assert.Throws<BusinessRuleException>(() => policy.Validate(new string('z', 501)));
         Assert.Null(lookup.Candidate);
     }
 
