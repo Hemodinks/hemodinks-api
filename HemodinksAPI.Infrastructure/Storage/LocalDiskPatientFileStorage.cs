@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Options;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Infrastructure.Storage;
 
@@ -80,7 +81,7 @@ public class LocalDiskPatientFileStorage : IPatientFileStorage
         {
             // 404 genérico: não revela que o arquivo existe em outra clínica.
             _logger.LogWarning("Leitura de arquivo recusada: prefixo de clinica nao corresponde ao registro.");
-            throw new KeyNotFoundException("Arquivo nao encontrado.");
+            throw new ResourceNotFoundException("Arquivo nao encontrado.");
         }
 
         var physicalPath = LocalStoragePathHelper.GetPhysicalPath(_localOptions, StorageFolder, relativePath);

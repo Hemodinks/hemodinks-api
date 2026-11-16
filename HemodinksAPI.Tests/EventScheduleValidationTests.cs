@@ -2,6 +2,7 @@ using System.Text.Json;
 using HemodinksAPI.Application.Features.Events;
 using HemodinksAPI.Application.Features.Events.Commands;
 using HemodinksAPI.Application.Tenancy;
+using HemodinksAPI.Domain.Exceptions;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.Data.Sqlite;
@@ -81,11 +82,11 @@ public sealed class EventScheduleValidationTests
 
     private static void AssertInvalid(EventRequest request, string message)
     {
-        Assert.Equal(message, Assert.Throws<InvalidOperationException>(() =>
+        Assert.Equal(message, Assert.Throws<BusinessRuleException>(() =>
             new CreateEventCommandValidator().Validate(new() { Request = request })).Message);
-        Assert.Equal(message, Assert.Throws<InvalidOperationException>(() =>
+        Assert.Equal(message, Assert.Throws<BusinessRuleException>(() =>
             new UpdateEventCommandValidator().Validate(new() { Id = 1, Request = request })).Message);
-        Assert.Equal(message, Assert.Throws<InvalidOperationException>(() =>
+        Assert.Equal(message, Assert.Throws<BusinessRuleException>(() =>
             EventFeatureRules.ApplyRequest(new Event(), request, 1, null, true)).Message);
     }
 }

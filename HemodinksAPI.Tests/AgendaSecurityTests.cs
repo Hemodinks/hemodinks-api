@@ -6,6 +6,7 @@ using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -95,14 +96,14 @@ public sealed class AgendaSecurityTests
     {
         var request = new EventRequest { Title = "Event", Start = DateTime.UtcNow, End = DateTime.UtcNow.AddHours(1),
             NotificationMessage = "Message", NotificationUserIds = [id] };
-        Assert.Throws<InvalidOperationException>(() => new CreateEventCommandValidator().Validate(new() { Request = request }));
-        Assert.Throws<InvalidOperationException>(() => new UpdateEventCommandValidator().Validate(new() { Id = 1, Request = request }));
+        Assert.Throws<BusinessRuleException>(() => new CreateEventCommandValidator().Validate(new() { Request = request }));
+        Assert.Throws<BusinessRuleException>(() => new UpdateEventCommandValidator().Validate(new() { Id = 1, Request = request }));
     }
 
     [Fact]
     public void Validation_RejectsNullRecipientCollections()
     {
-        Assert.Throws<InvalidOperationException>(() => EventFeatureRules.ValidateNotificationRequest(
+        Assert.Throws<BusinessRuleException>(() => EventFeatureRules.ValidateNotificationRequest(
             new EventRequest { NotificationUserIds = null! }));
     }
 

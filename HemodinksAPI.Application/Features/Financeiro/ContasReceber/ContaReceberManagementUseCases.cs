@@ -4,6 +4,7 @@ using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Services;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
@@ -11,7 +12,7 @@ public sealed class ObterContaReceberQueryHandler(IFinanceFeatureDbContext db) :
 {
     public async Task<ContaReceberDto> Handle(ObterContaReceberQuery request, CancellationToken ct) => FinanceiroMapper.ToDto(
         await FinanceiroManagementQueries.FullConta(db.ContasReceber.AsNoTracking()).SingleOrDefaultAsync(x => x.Id == request.Id, ct)
-        ?? throw new KeyNotFoundException("Conta nao encontrada."));
+        ?? throw new ResourceNotFoundException("Conta nao encontrada."));
 }
 
 public sealed class AtualizarContaReceberCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<AtualizarContaReceberCommand, ContaReceberDto>
@@ -19,10 +20,10 @@ public sealed class AtualizarContaReceberCommandHandler(IFinanceFeatureDbContext
     public async Task<ContaReceberDto> Handle(AtualizarContaReceberCommand request, CancellationToken ct)
     {
         var item = await FinanceiroManagementQueries.FullConta(db.ContasReceber).SingleOrDefaultAsync(x => x.Id == request.Id, ct)
-            ?? throw new KeyNotFoundException("Conta nao encontrada.");
+            ?? throw new ResourceNotFoundException("Conta nao encontrada.");
         if (!item.RowVersion.SequenceEqual(request.RowVersion)) throw new DbUpdateConcurrencyException("A conta foi alterada por outro usuario.");
-        if (item.Recebimentos.Any(x => !x.Estornado)) throw new InvalidOperationException("Titulo com recebimento ativo nao pode ter valores alterados.");
-        if (request.ValorOriginal < 0 || request.ValorAjustado < 0) throw new InvalidOperationException("Valores invalidos.");
+        if (item.Recebimentos.Any(x => !x.Estornado)) throw new BusinessRuleException("Titulo com recebimento ativo nao pode ter valores alterados.");
+        if (request.ValorOriginal < 0 || request.ValorAjustado < 0) throw new BusinessRuleException("Valores invalidos.");
         item.NumeroDocumento = request.NumeroDocumento.Trim(); item.Descricao = request.Descricao.Trim(); item.DataEmissao = request.DataEmissao;
         item.DataVencimento = request.DataVencimento; item.ValorOriginal = request.ValorOriginal; item.ValorAjustado = request.ValorAjustado;
         item.Observacao = request.Observacao?.Trim(); item.DataAtualizacao = DateTime.UtcNow;
@@ -35,10 +36,10 @@ public sealed class CancelarContaReceberCommandHandler(IFinanceFeatureDbContext 
     public async Task<ContaReceberDto> Handle(CancelarContaReceberCommand request, CancellationToken ct)
     {
         var item = await FinanceiroManagementQueries.FullConta(db.ContasReceber).SingleOrDefaultAsync(x => x.Id == request.Id, ct)
-            ?? throw new KeyNotFoundException("Conta nao encontrada.");
+            ?? throw new ResourceNotFoundException("Conta nao encontrada.");
         if (!item.RowVersion.SequenceEqual(request.RowVersion)) throw new DbUpdateConcurrencyException("A conta foi alterada por outro usuario.");
-        if (item.Recebimentos.Any(x => !x.Estornado)) throw new InvalidOperationException("Estorne os recebimentos antes de cancelar o titulo.");
-        if (string.IsNullOrWhiteSpace(request.Motivo)) throw new InvalidOperationException("Motivo obrigatorio.");
+        if (item.Recebimentos.Any(x => !x.Estornado)) throw new BusinessRuleException("Estorne os recebimentos antes de cancelar o titulo.");
+        if (string.IsNullOrWhiteSpace(request.Motivo)) throw new BusinessRuleException("Motivo obrigatorio.");
         item.Status = ContaReceberStatus.Cancelado; item.SaldoAberto = 0; item.Observacao = $"{item.Observacao}\nCancelamento: {request.Motivo.Trim()}".Trim();
         item.DataAtualizacao = DateTime.UtcNow; await db.SaveChangesAsync(ct); return FinanceiroMapper.ToDto(item);
     }
@@ -49,7 +50,7 @@ public sealed class ExcluirConvenioProcedimentoPrecoCommandHandler(IFinanceFeatu
     public async Task Handle(ExcluirConvenioProcedimentoPrecoCommand request, CancellationToken ct)
     {
         var item = await db.ConvenioProcedimentoPrecos.SingleOrDefaultAsync(x => x.Id == request.Id, ct)
-            ?? throw new KeyNotFoundException("Preco nao encontrado.");
+            ?? throw new ResourceNotFoundException("Preco nao encontrado.");
         item.Ativo = false; item.DataAtualizacao = DateTime.UtcNow; await db.SaveChangesAsync(ct);
     }
 }

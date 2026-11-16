@@ -2,6 +2,7 @@ using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Services;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Events.Queries;
 
@@ -50,7 +51,7 @@ public sealed class GetEventsQueryHandler
     public async Task<IReadOnlyList<EventDto>> Handle(GetEventsQuery request, CancellationToken cancellationToken)
     {
         var validation = new EventQueryValidator().Validate(request);
-        if (!validation.IsValid) throw new InvalidOperationException(validation.Errors[0].ErrorMessage);
+        if (!validation.IsValid) throw new BusinessRuleException(validation.Errors[0].ErrorMessage);
         await _reminderProcessor.ProcessDueRemindersAsync(cancellationToken);
 
         var query = EventFeatureRules.ApplyScope(_context, _context.Events.AsNoTracking(), request.CurrentUser);

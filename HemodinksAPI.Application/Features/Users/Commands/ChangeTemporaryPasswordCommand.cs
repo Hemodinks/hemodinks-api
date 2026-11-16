@@ -3,6 +3,7 @@ using FluentValidation;
 using HemodinksAPI.Application.Authorization;
 using HemodinksAPI.Application.Validation;
 using MediatR;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -25,7 +26,7 @@ public sealed class ChangeTemporaryPasswordCommandValidator : AbstractValidator<
     void IRequestValidator<ChangeTemporaryPasswordCommand>.Validate(ChangeTemporaryPasswordCommand request)
     {
         var result = Validate(request);
-        if (!result.IsValid) throw new InvalidOperationException(result.Errors[0].ErrorMessage);
+        if (!result.IsValid) throw new BusinessRuleException(result.Errors[0].ErrorMessage);
     }
 }
 

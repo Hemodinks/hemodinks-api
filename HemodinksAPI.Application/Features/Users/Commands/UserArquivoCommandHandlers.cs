@@ -4,6 +4,7 @@ using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -37,12 +38,12 @@ public class UploadUserArquivoCommandHandler : IRequestHandler<UploadUserArquivo
 
             if (user == null)
             {
-                throw new KeyNotFoundException("Usuario nao encontrado");
+                throw new ResourceNotFoundException("Usuario nao encontrado");
             }
 
             if (user.PerfilId != Perfil.MedicosId)
             {
-                throw new InvalidOperationException("Documentos de cadastro estao disponiveis apenas para medicos");
+                throw new BusinessRuleException("Documentos de cadastro estao disponiveis apenas para medicos");
             }
 
             var storedFile = await _patientFileStorage.SaveAsync(request.File, user.ClinicaId, cancellationToken);
@@ -102,7 +103,7 @@ public class DeleteUserArquivoCommandHandler : IRequestHandler<DeleteUserArquivo
 
             if (arquivo == null)
             {
-                throw new KeyNotFoundException("Arquivo nao encontrado");
+                throw new ResourceNotFoundException("Arquivo nao encontrado");
             }
 
             var fileUrl = arquivo.Url;

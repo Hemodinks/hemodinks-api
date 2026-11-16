@@ -4,6 +4,7 @@ using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
@@ -33,7 +34,7 @@ public class UploadPacienteArquivoCommandHandler : IRequestHandler<UploadPacient
 
             if (paciente == null)
             {
-                throw new KeyNotFoundException("Paciente nao encontrado");
+                throw new ResourceNotFoundException("Paciente nao encontrado");
             }
 
             if (!await PacienteCommandAccess.CanManagePacienteArquivoAsync(_context, paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId, cancellationToken))
@@ -94,7 +95,7 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
 
             if (arquivo == null)
             {
-                throw new KeyNotFoundException("Arquivo nao encontrado");
+                throw new ResourceNotFoundException("Arquivo nao encontrado");
             }
 
             if (!await PacienteCommandAccess.CanManagePacienteArquivoAsync(_context, arquivo.Paciente, request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId, cancellationToken))

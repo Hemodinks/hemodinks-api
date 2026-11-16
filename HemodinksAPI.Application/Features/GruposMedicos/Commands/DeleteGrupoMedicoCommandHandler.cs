@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Data;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.GruposMedicos.Commands;
 
@@ -20,7 +21,7 @@ public class DeleteGrupoMedicoCommandHandler : IRequestHandler<DeleteGrupoMedico
 
         if (group == null)
         {
-            throw new KeyNotFoundException("Grupo medico nao encontrado.");
+            throw new ResourceNotFoundException("Grupo medico nao encontrado.");
         }
 
         _context.GruposMedicos.Remove(group);

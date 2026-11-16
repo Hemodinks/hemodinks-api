@@ -1,4 +1,5 @@
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Domain.Services;
 
@@ -7,7 +8,7 @@ public static class FinanceiroCalculations
     public static decimal CalculatePresentedValue(decimal quantidade, decimal pesoPercentual, decimal valorUnitario)
     {
         if (quantidade <= 0 || pesoPercentual < 0 || valorUnitario < 0)
-            throw new InvalidOperationException("Quantidade, peso e valor do item devem ser validos.");
+            throw new BusinessRuleException("Quantidade, peso e valor do item devem ser validos.");
 
         return decimal.Round(quantidade * valorUnitario * pesoPercentual / 100m, 2, MidpointRounding.AwayFromZero);
     }
@@ -57,7 +58,7 @@ public static class FinanceiroCalculations
                 ? remaining
                 : decimal.Round(faturamento.ValorReconhecido * account.ValorOriginal / originalTotal, 2, MidpointRounding.AwayFromZero);
             if (adjusted < account.Recebimentos.Where(x => !x.Estornado).Sum(x => x.ValorRecebido))
-                throw new InvalidOperationException("O valor reconhecido nao pode ficar abaixo do total ja recebido.");
+                throw new BusinessRuleException("O valor reconhecido nao pode ficar abaixo do total ja recebido.");
             account.ValorAjustado = adjusted;
             remaining -= adjusted;
             Recalculate(account, utcNow);

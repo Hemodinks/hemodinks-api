@@ -3,6 +3,7 @@ using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -33,7 +34,7 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand>
 
             if (user == null)
             {
-                throw new KeyNotFoundException("Usuario nao encontrado");
+                throw new ResourceNotFoundException("Usuario nao encontrado");
             }
 
             if (request.CurrentUser != null)

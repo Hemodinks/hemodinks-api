@@ -1,5 +1,6 @@
 using HemodinksAPI.Application.Validation;
 using HemodinksAPI.Domain.Models;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
@@ -21,7 +22,7 @@ public sealed class UpdatePacienteCommandValidator : IRequestValidator<UpdatePac
     {
         if (request.Id <= 0)
         {
-            throw new InvalidOperationException("Paciente invalido.");
+            throw new BusinessRuleException("Paciente invalido.");
         }
 
         PacienteCommandValidator.Validate(request);
@@ -47,7 +48,7 @@ internal static class PacienteCommandValidator
         if (dataSolicitacao.HasValue && dataConsolidacao.HasValue
             && dataSolicitacao.Value.Date > dataConsolidacao.Value.Date)
         {
-            throw new InvalidOperationException("A data da consolidação não pode ser anterior à data da solicitação.");
+            throw new BusinessRuleException("A data da consolidação não pode ser anterior à data da solicitação.");
         }
     }
 
@@ -55,12 +56,12 @@ internal static class PacienteCommandValidator
     {
         if (string.IsNullOrWhiteSpace(nomePaciente))
         {
-            throw new InvalidOperationException("Nome do paciente obrigatorio");
+            throw new BusinessRuleException("Nome do paciente obrigatorio");
         }
 
-        if (diagnostico?.Trim().Length > 100) throw new InvalidOperationException("Diagnostico excede 100 caracteres");
-        if (tratamentoMedico?.Trim().Length > 100) throw new InvalidOperationException("Tratamento medico excede 100 caracteres");
-        if (opmeFornecedor?.Trim().Length > 255) throw new InvalidOperationException("Fornecedor OPME excede 255 caracteres");
+        if (diagnostico?.Trim().Length > 100) throw new BusinessRuleException("Diagnostico excede 100 caracteres");
+        if (tratamentoMedico?.Trim().Length > 100) throw new BusinessRuleException("Tratamento medico excede 100 caracteres");
+        if (opmeFornecedor?.Trim().Length > 255) throw new BusinessRuleException("Fornecedor OPME excede 255 caracteres");
 
     }
 }

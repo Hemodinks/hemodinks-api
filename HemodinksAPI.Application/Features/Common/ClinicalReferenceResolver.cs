@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Common;
 
@@ -33,7 +34,7 @@ internal static class ClinicalReferenceResolver
         {
             var nome = TrimAndValidateOptional(hospitalNome, 255, "Hospital excede 255 caracteres");
             if (nome == null)
-                throw new InvalidOperationException("Hospital invalido");
+                throw new BusinessRuleException("Hospital invalido");
 
             hospital = await context.Hospitais
                 .FirstOrDefaultAsync(item => item.Nome == nome, cancellationToken);
@@ -46,7 +47,7 @@ internal static class ClinicalReferenceResolver
         }
 
         if (hospital == null)
-            throw new InvalidOperationException("Hospital invalido");
+            throw new BusinessRuleException("Hospital invalido");
 
         return new ResolvedHospital(hospital.Id, hospital.Nome, hospital);
     }
@@ -82,7 +83,7 @@ internal static class ClinicalReferenceResolver
         }
 
         if (convenio == null)
-            throw new InvalidOperationException("Convenio invalido");
+            throw new BusinessRuleException("Convenio invalido");
 
         return new ResolvedConvenio(convenio.IdConvenio, convenio.DescricaoConvenio, convenio);
     }
@@ -122,7 +123,7 @@ internal static class ClinicalReferenceResolver
         }
 
         if (fornecedor == null)
-            throw new InvalidOperationException("Fornecedor OPME invalido");
+            throw new BusinessRuleException("Fornecedor OPME invalido");
 
         return new ResolvedOpmeFornecedor(fornecedor.IdFornecedor, fornecedor.Fornecedor, fornecedor);
     }
@@ -131,7 +132,7 @@ internal static class ClinicalReferenceResolver
     {
         var normalized = string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         if (normalized?.Length > maxLength)
-            throw new InvalidOperationException(errorMessage);
+            throw new BusinessRuleException(errorMessage);
 
         return normalized;
     }

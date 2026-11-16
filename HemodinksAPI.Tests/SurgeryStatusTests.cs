@@ -9,6 +9,7 @@ using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -71,8 +72,8 @@ public sealed class SurgeryStatusTests : ApiEndpointTestBase
             StatusCirurgia = StatusCirurgia.NaoConsolidada }, default);
         Assert.Equal("pending", Assert.Single(billedPending.Items).NomePaciente);
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() => patients.Handle(new() { StatusCirurgia = (StatusCirurgia)999 }, default));
-        await Assert.ThrowsAsync<InvalidOperationException>(() => billing.Handle(new() { StatusCirurgia = (StatusCirurgia)999 }, default));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => patients.Handle(new() { StatusCirurgia = (StatusCirurgia)999 }, default));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => billing.Handle(new() { StatusCirurgia = (StatusCirurgia)999 }, default));
     }
 
     [Fact]

@@ -3,6 +3,7 @@ using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
@@ -61,7 +62,7 @@ public sealed class ObterPacienteFinanceiroResumoQueryHandler(IFinanceFeatureDbC
     public async Task<PacienteFinanceiroResumoDto> Handle(ObterPacienteFinanceiroResumoQuery request, CancellationToken ct)
     {
         var paciente = await db.Pacientes.AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.PacienteId, ct)
-            ?? throw new KeyNotFoundException("Paciente nao encontrado.");
+            ?? throw new ResourceNotFoundException("Paciente nao encontrado.");
         if (request.CurrentPerfilId == Perfil.EquipeId)
         {
             var equipeValida = request.CurrentEquipeId.HasValue && await patientScope.Equipes.AsNoTracking()

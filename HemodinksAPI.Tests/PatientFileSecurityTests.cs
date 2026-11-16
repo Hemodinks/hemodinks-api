@@ -3,6 +3,7 @@ using HemodinksAPI.Application.Storage;
 using HemodinksAPI.Infrastructure.Storage;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -15,7 +16,7 @@ public sealed class PatientFileSecurityTests : IDisposable
     {
         var content = "not-a-pdf"u8.ToArray();
 
-        var exception = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
             CreateStorage().SaveAsync(CreateFile("laudo.pdf", content), 1, CancellationToken.None));
 
         Assert.Contains("não corresponde", exception.Message, StringComparison.OrdinalIgnoreCase);
@@ -29,7 +30,7 @@ public sealed class PatientFileSecurityTests : IDisposable
         var file = new UploadedFile("laudo.pdf", "application/pdf", 10,
             () => new MemoryStream(content, writable: false));
 
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<BusinessRuleException>(() =>
             CreateStorage(maxBytes: 1024).SaveAsync(file, 1, CancellationToken.None));
     }
 
@@ -44,7 +45,7 @@ public sealed class PatientFileSecurityTests : IDisposable
         }
 
         var bytes = content.ToArray();
-        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+        await Assert.ThrowsAsync<BusinessRuleException>(() =>
             CreateStorage().SaveAsync(CreateFile("report.docx", bytes), 1, CancellationToken.None));
     }
 

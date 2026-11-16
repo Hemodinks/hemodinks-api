@@ -3,6 +3,7 @@ using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Licencas;
 
@@ -122,12 +123,12 @@ public class LicencaService : ILicencaService
 
         if (user == null)
         {
-            throw new KeyNotFoundException("Usuario nao encontrado");
+            throw new ResourceNotFoundException("Usuario nao encontrado");
         }
 
         if (user.PerfilId != Perfil.MedicosId)
         {
-            throw new InvalidOperationException("Licenca de uso esta disponivel apenas para medicos");
+            throw new BusinessRuleException("Licenca de uso esta disponivel apenas para medicos");
         }
 
         licenca = LicencaMutations.CreateTrial(user.Id, user.ClinicaId, now, _options.TrialDays);

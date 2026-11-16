@@ -157,6 +157,9 @@ deploy para `main`, o workflow:
 Se o secret do GitHub nao estiver configurado, o deploy continua sem alterar
 uma configuracao New Relic que ja exista no Container App.
 
+SLOs, alertas, rota de notificacao e dashboard ficam versionados em
+`observability/newrelic/`; runbooks e aplicacao em `docs/observability-newrelic.md` (#289).
+
 Consultas NRQL para acompanhar producao sem entrar no HemoDinks:
 
 ```sql

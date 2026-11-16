@@ -1,0 +1,60 @@
+{
+  "policy": {
+    "name": "HemoDinks API - Producao",
+    "incidentPreference": "PER_CONDITION"
+  },
+  "notification": {
+    "destinationName": "HemoDinks - Email de alertas",
+    "channelName": "HemoDinks - Email de alertas",
+    "workflowName": "HemoDinks API - Producao"
+  },
+  "conditions": [
+    {
+      "name": "API - Erros 5xx",
+      "runbook": "alerta-api-erros-5xx",
+      "description": "Respostas 5xx da API em producao (sem probes de health).",
+      "query": "SELECT count(*) FROM Transaction WHERE appName = '{{APM_APP}}' AND httpResponseCode >= 500 AND request.uri NOT IN ('/livez', '/healthz', '/alive', '/health')",
+      "aggregationWindow": 300,
+      "threshold": 5,
+      "thresholdDuration": 600,
+      "warningThreshold": 2
+    },
+    {
+      "name": "API - Login lento (p95)",
+      "runbook": "alerta-login-lento",
+      "description": "p95 de login, contexto de login e renovacao de sessao acima de 3 s.",
+      "query": "SELECT percentile(duration, 95) FROM Transaction WHERE appName = '{{APM_APP}}' AND request.uri IN ('/api/users/authenticate', '/api/users/login-context', '/api/session/renovar', '/api/session/restaurar')",
+      "aggregationWindow": 300,
+      "threshold": 3,
+      "thresholdDuration": 900
+    },
+    {
+      "name": "Banco - Indisponivel (503)",
+      "runbook": "alerta-banco-indisponivel",
+      "description": "Respostas 503 sustentadas (database_unavailable). O resume do SQL serverless gera poucas; volume alto e falha real.",
+      "query": "SELECT count(*) FROM Transaction WHERE appName = '{{APM_APP}}' AND httpResponseCode = 503",
+      "aggregationWindow": 300,
+      "threshold": 20,
+      "thresholdDuration": 600
+    },
+    {
+      "name": "Functions e filas - Falha de integracao",
+      "runbook": "alerta-functions-filas",
+      "description": "Erros da API ao publicar em fila ou chamar Azure Functions (Storage/reset). A execucao dentro da Function nao e observavel no New Relic.",
+      "query": "SELECT count(*) FROM TransactionError WHERE appName = '{{APM_APP}}' AND error.class IN ('Azure.RequestFailedException', 'System.Net.Http.HttpRequestException', 'System.Threading.Tasks.TaskCanceledException')",
+      "aggregationWindow": 300,
+      "threshold": 3,
+      "thresholdDuration": 600
+    },
+    {
+      "name": "Front - Erros JavaScript",
+      "runbook": "alerta-front-erros-js",
+      "description": "Erros JavaScript do hemodinks-front (New Relic Browser, front #262).",
+      "requires": "BROWSER_APP",
+      "query": "SELECT count(*) FROM JavaScriptError WHERE appName = '{{BROWSER_APP}}'",
+      "aggregationWindow": 300,
+      "threshold": 20,
+      "thresholdDuration": 900
+    }
+  ]
+}

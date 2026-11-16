@@ -2,6 +2,7 @@ using HemodinksAPI.Application.Features.Events;
 using HemodinksAPI.Application.Services;
 using HemodinksAPI.Domain.Models;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -160,7 +161,7 @@ public sealed partial class EventEmailNotificationTests
         Assert.False(preview.CanSend);
         Assert.False(preview.CreatorCopy!.CanSend);
         Assert.Equal("event_completed", preview.CreatorCopy.UnavailableReason);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => Handler(db).Handle(new QueueEventEmailNotificationCommand(ev.Id, actor, true), default));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => Handler(db).Handle(new QueueEventEmailNotificationCommand(ev.Id, actor, true), default));
         Assert.Empty(await db.EventEmailDeliveries.ToListAsync());
     }
 
@@ -185,8 +186,8 @@ public sealed partial class EventEmailNotificationTests
         var (_, ev, _) = await Seed(db);
         var outsider = await AgendaSecurityTests.AddUser(db, "outsider", Perfil.ControllerId);
         var actor = new HemodinksAPI.Application.Authorization.CurrentUserContext(outsider.Id, outsider.PerfilId, outsider.Nome);
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => Handler(db).Handle(new GetEventEmailNotificationQuery(ev.Id, actor, true), default));
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => Handler(db).Handle(new QueueEventEmailNotificationCommand(ev.Id, actor, true), default));
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => Handler(db).Handle(new GetEventEmailNotificationQuery(ev.Id, actor, true), default));
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => Handler(db).Handle(new QueueEventEmailNotificationCommand(ev.Id, actor, true), default));
         Assert.Empty(await db.EventEmailDeliveries.ToListAsync());
     }
 

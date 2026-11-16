@@ -11,6 +11,7 @@ using HemodinksAPI.Domain.Utils;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -87,7 +88,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
 
             if (existingUser?.Ativo == true)
             {
-                throw new InvalidOperationException("Email ja cadastrado");
+                throw new BusinessRuleException("Email ja cadastrado");
             }
 
             var cpf = UserProfileRules.NormalizeCpf(request.Cpf);
@@ -99,7 +100,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
 
                 if (cpfAlreadyExists)
                 {
-                    throw new InvalidOperationException("CPF ja cadastrado");
+                    throw new BusinessRuleException("CPF ja cadastrado");
                 }
             }
 
@@ -111,7 +112,7 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
 
             if (perfil == null)
             {
-                throw new InvalidOperationException("Perfil invalido");
+                throw new BusinessRuleException("Perfil invalido");
             }
 
             var medicalRegistration = UserProfileRules.NormalizeAndValidateMedicalRegistration(request.Crm, request.CrmUf, perfilId);

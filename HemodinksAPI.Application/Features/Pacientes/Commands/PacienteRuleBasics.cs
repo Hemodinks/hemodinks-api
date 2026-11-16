@@ -1,3 +1,5 @@
+using HemodinksAPI.Domain.Exceptions;
+
 namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
 internal static partial class PacienteRules
@@ -6,7 +8,7 @@ internal static partial class PacienteRules
     {
         if (string.IsNullOrWhiteSpace(nome))
         {
-            throw new InvalidOperationException("Nome do paciente obrigatorio");
+            throw new BusinessRuleException("Nome do paciente obrigatorio");
         }
     }
 
@@ -25,7 +27,7 @@ internal static partial class PacienteRules
         var trimmed = TrimOptional(value);
         if (trimmed?.Length > maxLength)
         {
-            throw new InvalidOperationException(errorMessage);
+            throw new BusinessRuleException(errorMessage);
         }
 
         return trimmed;

@@ -1,4 +1,5 @@
 using HemodinksAPI.Application.Validation;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.GruposMedicos.Commands;
 
@@ -16,7 +17,7 @@ public sealed class UpdateGrupoMedicoCommandValidator : IRequestValidator<Update
     {
         if (request.Id <= 0)
         {
-            throw new InvalidOperationException("Grupo medico invalido.");
+            throw new BusinessRuleException("Grupo medico invalido.");
         }
 
         GrupoMedicoCommandValidator.Validate(request.Nome, request.MedicoUserIds);
@@ -29,17 +30,17 @@ internal static class GrupoMedicoCommandValidator
     {
         if (string.IsNullOrWhiteSpace(nome))
         {
-            throw new InvalidOperationException("Nome do grupo medico obrigatorio.");
+            throw new BusinessRuleException("Nome do grupo medico obrigatorio.");
         }
 
         if (nome.Trim().Length > 255)
         {
-            throw new InvalidOperationException("Nome do grupo medico excede 255 caracteres.");
+            throw new BusinessRuleException("Nome do grupo medico excede 255 caracteres.");
         }
 
         if (medicoUserIds == null || medicoUserIds.Count == 0)
         {
-            throw new InvalidOperationException("Selecione ao menos um medico para o grupo.");
+            throw new BusinessRuleException("Selecione ao menos um medico para o grupo.");
         }
     }
 }

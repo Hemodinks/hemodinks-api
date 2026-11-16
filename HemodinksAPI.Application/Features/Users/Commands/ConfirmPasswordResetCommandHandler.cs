@@ -4,6 +4,7 @@ using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Utils;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Users.Commands;
 
@@ -46,12 +47,12 @@ public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswor
         var resetToken = await PasswordCommandQueries.GetValidResetTokenAsync(_context, request.Token, now, cancellationToken);
         if (resetToken == null)
         {
-            throw new InvalidOperationException("Token de reset invalido ou expirado");
+            throw new BusinessRuleException("Token de reset invalido ou expirado");
         }
 
         var membership = await GlobalIdentityService.EnsureForUserAsync(_context, resetToken.User, cancellationToken);
         if (membership.UsuarioGlobal.TemporaryPasswordRecovery)
-            throw new InvalidOperationException("Token de reset invalido ou expirado");
+            throw new BusinessRuleException("Token de reset invalido ou expirado");
 
         PasswordCommandMutations.ApplyNewPassword(resetToken.User, _passwordHasher, request.NovaSenha, requirePasswordChange: false, now);
         await GlobalIdentityService.SynchronizePasswordAsync(_context, resetToken.UserId, resetToken.User.Senha, cancellationToken);
@@ -67,7 +68,7 @@ public class ConfirmPasswordResetCommandHandler : IRequestHandler<ConfirmPasswor
         catch (DbUpdateConcurrencyException)
         {
             _logger.LogWarning("Conflito ao confirmar recuperacao de senha para usuario {UserId}", resetToken.UserId);
-            throw new InvalidOperationException("Token de reset invalido ou expirado");
+            throw new BusinessRuleException("Token de reset invalido ou expirado");
         }
 
         _logger.LogInformation("Senha redefinida e sessoes anteriores revogadas para usuario {UserId}", resetToken.UserId);

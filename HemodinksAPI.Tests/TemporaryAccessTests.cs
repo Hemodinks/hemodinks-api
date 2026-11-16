@@ -6,6 +6,7 @@ using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.Utils;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -185,7 +186,7 @@ public sealed class TemporaryAccessTests
     public void FluentValidator_RejectsInvalidPassword(string password, string confirmation)
     {
         IRequestValidator<ChangeTemporaryPasswordCommand> validator = new ChangeTemporaryPasswordCommandValidator();
-        Assert.Throws<InvalidOperationException>(() => validator.Validate(new() { NovaSenha = password, Confirmacao = confirmation }));
+        Assert.Throws<BusinessRuleException>(() => validator.Validate(new() { NovaSenha = password, Confirmacao = confirmation }));
     }
 
     [Fact]
@@ -197,7 +198,7 @@ public sealed class TemporaryAccessTests
         var actor = await AddUser(db, 100);
         var target = await AddUser(db, 101, Perfil.MedicosId, 2);
         await db.SaveChangesAsync();
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock()).GenerateAsync(target.Id, Actor(actor), default));
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock()).GenerateAsync(target.Id, Actor(actor), default));
         Assert.Empty(db.TemporaryAccessCredentials);
     }
 
@@ -229,7 +230,7 @@ public sealed class TemporaryAccessTests
         var user = await AddUser(db, 100);
         var service = new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock());
         var response = await service.GenerateAsync(user.Id, Actor(user), default);
-        await Assert.ThrowsAsync<InvalidOperationException>(() => service.GenerateAsync(user.Id, Actor(user), default));
+        await Assert.ThrowsAsync<BusinessRuleException>(() => service.GenerateAsync(user.Id, Actor(user), default));
         Assert.True(Hasher.VerifyPassword(response.SenhaTemporaria!, (await db.TemporaryAccessCredentials.SingleAsync()).PasswordHash));
     }
 }

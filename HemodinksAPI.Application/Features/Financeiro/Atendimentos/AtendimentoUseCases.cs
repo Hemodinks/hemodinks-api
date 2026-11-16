@@ -4,6 +4,7 @@ using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
@@ -15,14 +16,14 @@ public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, 
         var clinicaId = tenant.GetRequiredClinicaId();
         TipoCirurgiaRules.Validate(request.TipoCirurgia);
         if (request.DataProcedimento == default || request.Procedimentos.Count == 0)
-            throw new InvalidOperationException("Data e ao menos um procedimento sao obrigatorios.");
+            throw new BusinessRuleException("Data e ao menos um procedimento sao obrigatorios.");
         if (request.ValorGlosa < 0 || request.ValorGlosa > 0 && string.IsNullOrWhiteSpace(request.MotivoGlosa))
-            throw new InvalidOperationException("Informe um valor de glosa valido e o respectivo motivo.");
+            throw new BusinessRuleException("Informe um valor de glosa valido e o respectivo motivo.");
         var medicoResponsavelId = request.MedicoResponsavelId;
         await AtendimentoMedicalTeamRules.ValidateAsync(db, medicoResponsavelId, request.MedicoAuxiliar1Id,
             request.MedicoAuxiliar2Id, request.CurrentPerfilId, request.CurrentUserId, ct);
         var paciente = await db.Pacientes.SingleOrDefaultAsync(x => x.Id == request.PacienteId, ct)
-            ?? throw new KeyNotFoundException("Paciente nao encontrado.");
+            ?? throw new ResourceNotFoundException("Paciente nao encontrado.");
         var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
             ? await ClinicalReferenceResolver.ResolveHospitalAsync(db, clinicaId, request.HospitalId, request.Hospital, ct)
             : null;
@@ -50,12 +51,12 @@ public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, 
         foreach (var input in request.Procedimentos)
         {
             if (input.Quantidade <= 0 || input.PesoPercentual < 0)
-                throw new InvalidOperationException("Quantidade e peso do procedimento sao invalidos.");
+                throw new BusinessRuleException("Quantidade e peso do procedimento sao invalidos.");
             int? convenioId = convenio?.Id > 0 ? convenio.Id : null;
             var procedimento = await FinanceiroProcedimentoResolver.ResolveAsync(
                 db, input, convenioId, request.DataProcedimento, ct);
             if (string.IsNullOrWhiteSpace(procedimento.Descricao))
-                throw new InvalidOperationException("Descricao obrigatoria para procedimento sem cadastro CBHPM.");
+                throw new BusinessRuleException("Descricao obrigatoria para procedimento sem cadastro CBHPM.");
             atendimento.Procedimentos.Add(new AtendimentoProcedimento
             {
                 ClinicaId = clinicaId, CbhpmCodigo = procedimento.Codigo,

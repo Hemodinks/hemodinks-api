@@ -4,6 +4,7 @@ using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
+using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
@@ -43,7 +44,7 @@ public partial class PacienteCommandHandlerTests
         var command = new DeletePacienteCommand { Id = patient.Id, CurrentUserId = caller.Id, CurrentPerfilId = profile };
         if (profile == Perfil.MedicosId && !related && !sameGroup)
         {
-            await Assert.ThrowsAsync<KeyNotFoundException>(() => handler.Handle(command, default));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(command, default));
             Assert.True(await db.Users.AnyAsync(x => x.Id == patientUser.Id));
             Assert.True(await db.Pacientes.AnyAsync(x => x.Id == patient.Id));
             Assert.Equal("private-photo", (await db.Users.SingleAsync(x => x.Id == patientUser.Id)).FotoPerfil);
@@ -83,7 +84,7 @@ public partial class PacienteCommandHandlerTests
         var photos = new FakeProfilePhotoStorage();
         var files = new FakePatientFileStorage();
         var handler = new DeletePacienteCommandHandler(db, photos, files, NullLogger<DeletePacienteCommandHandler>.Instance);
-        await Assert.ThrowsAsync<KeyNotFoundException>(() => handler.Handle(new DeletePacienteCommand
+        await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(new DeletePacienteCommand
             { Id = patientId, CurrentUserId = 999, CurrentPerfilId = profile }, default));
         Assert.True(await db.Pacientes.IgnoreQueryFilters().AnyAsync(x => x.Id == patientId && x.ClinicaId == 2));
         Assert.True(await db.Users.IgnoreQueryFilters().AnyAsync(x => x.Id == userId && x.ClinicaId == 2));
