@@ -10,8 +10,7 @@ permissions:
 jobs:
   login-e2e:
     name: Login browser scenarios (12 required)
-    # #296: fixado em 24.04; o Playwright do front ainda não instala o Chromium no Ubuntu 26.04 (ubuntu-latest).
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
       - name: Checkout API
@@ -23,9 +22,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Hemodinks/hemodinks-front
-          # Includes Front #162 and the legal-bootstrap readiness fix (Front #189).
+          # Includes Front #162, the legal-bootstrap readiness fix (Front #189) and
+          # Playwright 1.65.1, which supports Ubuntu 26.04 on ubuntu-latest (Front #271, API #296).
           # Keep the integration pair reviewable and reproducible.
-          ref: e697dae7ef03f697d15fdc0ad8dbbaaf76b981f7
+          ref: c3d63d060d78b1505c01700525f58e6733ba6640
           path: .integration/frontend
           persist-credentials: false
 
