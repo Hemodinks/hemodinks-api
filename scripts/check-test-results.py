@@ -29,7 +29,8 @@ def check(path, suite):
         raise ValueError("TRX contains no executed tests")
     if any(result.get("outcome") != "Passed" for result in results):
         raise ValueError("TRX contains failed, skipped or incomplete tests")
-    names = [result.get("testName") for result in results]
+    # O TRX do xUnit 4 (Microsoft.Testing.Platform) escapa aspas de argumentos: (scenario: \"pin\").
+    names = [(result.get("testName") or "").replace('\\"', '"') for result in results]
     ids = [result.get("testId") for result in results]
     if any(not test_id for test_id in ids) or len(set(ids)) != len(ids):
         raise ValueError("TRX contains missing or duplicate test IDs")

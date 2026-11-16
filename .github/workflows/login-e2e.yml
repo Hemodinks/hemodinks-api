@@ -57,7 +57,7 @@ jobs:
       - name: Run login browser scenarios
         env:
           HEMODINKS_E2E_FRONT_PATH: ${{ github.workspace }}/.integration/frontend
-        run: dotnet test HemodinksAPI.Tests/HemodinksAPI.Tests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~LoginBrowserTests" --logger "trx;LogFileName=login-e2e.trx" --results-directory TestResults/login-e2e
+        run: dotnet test HemodinksAPI.Tests/HemodinksAPI.Tests.csproj --configuration Release --no-build --no-restore --filter "FullyQualifiedName~LoginBrowserTests" --report-xunit-trx --report-xunit-trx-filename login-e2e.trx --results-directory TestResults/login-e2e
 
       - name: Require all browser scenarios without skips
         if: always()
