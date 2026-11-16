@@ -178,8 +178,30 @@ class NerdGraph:
         except urllib.error.HTTPError as error:
             raise RuntimeError(f"NerdGraph HTTP {error.code}") from None
         if payload.get("errors"):
-            raise RuntimeError("NerdGraph: " + "; ".join(e.get("message", "?") for e in payload["errors"]))
+            raise RuntimeError(describe_errors(document, payload["errors"]))
         return payload["data"]
+
+
+def operation_name(document: str) -> str:
+    """Primeiro campo da operacao (ex.: alertsPolicyCreate), para saber qual chamada falhou."""
+    body = document[document.find("{") + 1:]
+    match = re.search(r"\b([A-Za-z]\w*)\s*[({]", body)
+    kind = "mutation" if document.lstrip().startswith("mutation") else "query"
+    return f"{kind} {match.group(1) if match else '?'}"
+
+
+def describe_errors(document: str, errors: list[dict]) -> str:
+    """Mensagem, caminho e detalhes de validacao da NerdGraph. Nunca inclui as variaveis enviadas."""
+    parts = []
+    for error in errors:
+        detail = error.get("message", "?")
+        if error.get("path"):
+            detail += f" em {'.'.join(str(p) for p in error['path'])}"
+        if error.get("extensions"):
+            # No GitHub Actions, valores de secrets que aparecam aqui ja sao mascarados no log.
+            detail += f" {json.dumps(error['extensions'], ensure_ascii=False)[:800]}"
+        parts.append(detail)
+    return f"NerdGraph ({operation_name(document)}): " + "; ".join(parts)
 
 
 Q_POLICIES = """query($accountId: Int!, $name: String) { actor { account(id: $accountId) { alerts {

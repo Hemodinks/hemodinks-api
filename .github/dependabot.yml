@@ -16,12 +16,26 @@ updates:
 
   # NuGet (#286): versões centrais em Directory.Packages.props. Minor/patch num PR semanal;
   # major em PR próprio, para revisão isolada. O gate de vulnerabilidades roda no CI.
+  # O Dependabot não regenera os packages.lock.json: veja docs/nuget-vulnerability-gate.md.
   - package-ecosystem: nuget
     directory: /
     target-branch: developer
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # Major de pacotes da plataforma acompanha o TargetFramework (.NET 10 LTS); sobe junto, por decisão explícita.
+      - dependency-name: "Microsoft.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "System.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Aspire.*"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "dotnet-ef"
+        update-types: ["version-update:semver-major"]
+      # MediatR 13+ tem licença comercial (AGENTS.md regra 7: sem dependência paga).
+      - dependency-name: "MediatR"
+        versions: [">=13.0.0"]
     groups:
       nuget-minor-patch:
         patterns:
