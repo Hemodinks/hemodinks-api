@@ -41,6 +41,7 @@ public static class CpfProtectionServiceCollectionExtensions
             }
 
             services.AddSingleton<ICpfProtector>(provider => CreateEphemeral(provider.GetRequiredService<ILoggerFactory>()));
+            services.AddSingleton<IEmailChangeCodeHasher>(_ => HmacEmailChangeCodeHasher.CreateEphemeral());
         }
         else
         {
@@ -56,6 +57,8 @@ public static class CpfProtectionServiceCollectionExtensions
                 provider.GetRequiredService<ILoggerFactory>(),
                 previousCertificates,
                 previousLookupHashKeys));
+            // #322: chave do código de alteração de email derivada da chave de hash atual (HKDF).
+            services.AddSingleton<IEmailChangeCodeHasher>(_ => HmacEmailChangeCodeHasher.FromLookupHashKey(lookupHashKey));
         }
 
         if (!options.HasCertificate && (options.PreviousCertificates.Count > 0 || options.PreviousLookupHashKeys.Count > 0))

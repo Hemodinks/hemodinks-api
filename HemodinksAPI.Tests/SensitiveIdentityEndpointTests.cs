@@ -42,7 +42,8 @@ public sealed class SensitiveIdentityEndpointTests : ApiEndpointTestBase
         Assert.False(confirm.Headers.Contains("Set-Cookie"));
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/session/clinicas")).StatusCode);
         var logged = string.Join("\n", logs.Messages);
-        Assert.DoesNotContain(sender.Code, logged);
+        // Código curto (#322): procura o código como token isolado, não dentro de ids ou números maiores.
+        Assert.DoesNotMatch($"(?<![0-9A-Za-z]){sender.Code}(?![0-9A-Za-z])", logged);
         Assert.DoesNotContain(proofHash, logged);
         Assert.DoesNotContain(client.DefaultRequestHeaders.Authorization!.Parameter!, logged);
         Assert.DoesNotContain(TestPasswords.Valid, logged);

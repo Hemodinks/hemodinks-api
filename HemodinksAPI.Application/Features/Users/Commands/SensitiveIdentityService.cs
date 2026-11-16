@@ -17,15 +17,19 @@ namespace HemodinksAPI.Application.Features.Users.Commands;
 public sealed class SensitiveIdentityOptions
 {
     public int EmailConfirmationMinutes { get; set; } = 10;
+    // #322: código curto exige limite de tentativas; esgotado, a solicitação é invalidada.
+    public int EmailConfirmationMaxAttempts { get; set; } = 5;
 }
 
 public sealed record EmailChangeStarted(Guid RequestId, DateTime ExpiresAt);
 
 public sealed class SensitiveIdentityService(
     ISensitiveIdentityDbContext db, IPasswordHasher hasher, ILoginAccountProtection protection,
-    SessionLifetimePolicy lifetime, IEmailChangeNotificationSender sender, IOptions<SensitiveIdentityOptions> options)
+    SessionLifetimePolicy lifetime, IEmailChangeNotificationSender sender, IOptions<SensitiveIdentityOptions> options,
+    IEmailChangeCodeHasher codeHasher)
 {
     private const int MaximumCurrentPasswordLength = 1024;
+    internal const int EmailCodeDigits = 6;
 
     private async Task<AuthenticationSession> RequireSessionAsync(CurrentUserContext? actor, CancellationToken ct)
     {
@@ -82,13 +86,14 @@ public sealed class SensitiveIdentityService(
         if (email.Length > 255 || !MailAddress.TryCreate(email, out var address) || address.Address != email)
             throw new SensitiveIdentityException("invalid_new_email", "Informe um endereço de email válido.");
         await EnsureAvailableAsync(session.UsuarioGlobalId, email, ct);
-        var code = PasswordResetRules.GenerateToken();
+        var code = GenerateEmailCode();
+        var requestId = Guid.NewGuid();
         var pending = new EmailChangeRequest
         {
-            Id = Guid.NewGuid(), SessionId = session.Id, UsuarioGlobalId = session.UsuarioGlobalId,
+            Id = requestId, SessionId = session.Id, UsuarioGlobalId = session.UsuarioGlobalId,
             UsuarioClinicaId = session.UsuarioClinicaId, ClinicaId = actor.ClinicaId,
             SecurityVersion = session.SecurityVersion, ContextVersion = session.ContextVersion,
-            NewEmail = email, CodeHash = HashCode(code),
+            NewEmail = email, CodeHash = codeHasher.Hash(requestId, code),
             ExpiresAt = lifetime.UtcNow.AddMinutes(options.Value.EmailConfirmationMinutes)
         };
         // Send before persisting: a failed delivery cannot leave a usable request.
@@ -106,9 +111,12 @@ public sealed class SensitiveIdentityService(
     {
         var session = await RequireSessionAsync(actor, ct);
         var pending = await RequireRequestAsync(session, requestId, ct);
-        if (code.Length != 64 || !CryptographicOperations.FixedTimeEquals(
-            Convert.FromHexString(pending.CodeHash), Convert.FromHexString(HashCode(code))))
-            throw SensitiveIdentityException.Invalid();
+        // Reserva a tentativa ANTES de comparar: requisições paralelas não somam palpites além do limite.
+        await ReserveConfirmationAttemptAsync(pending.Id, ct);
+        var normalized = NormalizeEmailCode(code);
+        if (normalized == null || !CryptographicOperations.FixedTimeEquals(
+            Convert.FromHexString(pending.CodeHash), Convert.FromHexString(codeHasher.Hash(pending.Id, normalized))))
+            await RejectWrongCodeAsync(pending.Id, ct);
         await EnsureAvailableAsync(session.UsuarioGlobalId, pending.NewEmail, ct);
         // Explicit global identity scope, never clinic-administrator authority over other identities.
         var users = await db.Users.Where(u => db.UsuariosClinicas.Any(m => m.UserId == u.Id
@@ -162,5 +170,37 @@ public sealed class SensitiveIdentityService(
         catch (DbUpdateException) { throw new SensitiveIdentityException("identity_change_conflict", "A alteração não foi concluída. Atualize os dados e tente novamente."); }
     }
 
-    private static string HashCode(string code) => PasswordResetRules.HashToken("email-change:" + code);
+    // Uniforme em 000000..999999 (RandomNumberGenerator.GetInt32 não tem viés de módulo).
+    internal static string GenerateEmailCode() =>
+        RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6", System.Globalization.CultureInfo.InvariantCulture);
+
+    // Aceita o código colado com espaços; qualquer outro formato conta como tentativa errada.
+    internal static string? NormalizeEmailCode(string? code)
+    {
+        if (string.IsNullOrEmpty(code) || code.Length > 32) return null;
+        var digits = string.Concat(code.Where(c => !char.IsWhiteSpace(c)));
+        return digits.Length == EmailCodeDigits && digits.All(char.IsAsciiDigit) ? digits : null;
+    }
+
+    private int MaxConfirmationAttempts => Math.Max(1, options.Value.EmailConfirmationMaxAttempts);
+
+    // Incremento atômico com teto no WHERE: no máximo MaxConfirmationAttempts comparações por solicitação,
+    // mesmo com requisições paralelas. Sem vaga, recusa sem comparar o código.
+    private async Task ReserveConfirmationAttemptAsync(Guid requestId, CancellationToken ct)
+    {
+        if (!await db.TryReserveEmailChangeConfirmationAttemptAsync(requestId, MaxConfirmationAttempts, ct))
+            await ThrowAttemptFailureAsync(requestId, ct);
+    }
+
+    private Task RejectWrongCodeAsync(Guid requestId, CancellationToken ct) => ThrowAttemptFailureAsync(requestId, ct);
+
+    // Esgotado o limite, a solicitação é invalidada (UsedAt) e um novo código é exigido.
+    private async Task ThrowAttemptFailureAsync(Guid requestId, CancellationToken ct)
+    {
+        var max = MaxConfirmationAttempts;
+        var invalidated = await db.InvalidateExhaustedEmailChangeRequestAsync(requestId, max, lifetime.UtcNow, ct);
+        var exhausted = invalidated || await db.EmailChangeRequests.AsNoTracking()
+            .AnyAsync(x => x.Id == requestId && x.ConfirmationAttempts >= max, ct);
+        throw exhausted ? SensitiveIdentityException.EmailConfirmationAttemptsExceeded() : SensitiveIdentityException.Invalid();
+    }
 }

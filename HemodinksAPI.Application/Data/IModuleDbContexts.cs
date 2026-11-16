@@ -198,6 +198,10 @@ public interface IPlatformPasswordResetDbContext : IPasswordResetOperationsDbCon
 public interface ISensitiveIdentityDbContext : IPlatformPasswordResetDbContext
 {
     DbSet<EmailChangeRequest> EmailChangeRequests { get; }
+
+    // #322: atômicas; retornam false quando a condição não vale mais (sem vaga / já invalidada).
+    Task<bool> TryReserveEmailChangeConfirmationAttemptAsync(Guid requestId, int maxAttempts, CancellationToken cancellationToken);
+    Task<bool> InvalidateExhaustedEmailChangeRequestAsync(Guid requestId, int maxAttempts, DateTime now, CancellationToken cancellationToken);
 }
 
 public interface IUserFeatureDbContext :

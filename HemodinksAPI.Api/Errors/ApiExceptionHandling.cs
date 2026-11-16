@@ -74,7 +74,8 @@ internal static class ApiExceptionResults
                 {
                     "email_confirmation_unavailable" => StatusCodes.Status503ServiceUnavailable,
                     "individual_identity_required" or "identity_revalidation_failed" => StatusCodes.Status403Forbidden,
-                    "identity_change_conflict" or "email_change_unavailable" or "email_confirmation_required" => StatusCodes.Status409Conflict,
+                    "identity_change_conflict" or "email_change_unavailable" or "email_confirmation_required"
+                        or "email_confirmation_attempts_exceeded" => StatusCodes.Status409Conflict,
                     _ => StatusCodes.Status400BadRequest
                 }),
             HemodinksAPI.Application.Security.CompromisedPasswordException compromised => Results.BadRequest(

@@ -22,6 +22,9 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+    <!-- #321: o Microsoft.Testing.Platform nao tem blame-hang; o xUnit nomeia testes acima de 5 min
+         e o CI encerra a execucao com a opcao timeout. -->
+    <None Include="xunit.runner.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="..\scripts\audit-patient-user-clinic-relationships.sql" Link="scripts\audit-patient-user-clinic-relationships.sql" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 

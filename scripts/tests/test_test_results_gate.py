@@ -18,14 +18,15 @@ SCENARIOS = ("individual", "selection", "pin", "invalid-pin", "anonymous",
 
 
 class TestResultsGateTests(unittest.TestCase):
-    def run_gate(self, outcomes, *, exists=True, suite="login-e2e", duplicate_ids=False):
+    def run_gate(self, outcomes, *, exists=True, suite="login-e2e", duplicate_ids=False, escaped=False):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "results.trx"
             if exists:
                 root = ET.Element("TestRun", xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010")
                 results = ET.SubElement(root, "Results")
+                quote = '\\"' if escaped else '"'
                 for index, (scenario, outcome) in enumerate(outcomes):
-                    name = (f'HemodinksAPI.Tests.LoginBrowserTests.Browser_UsesRealApi(scenario: "{scenario}")'
+                    name = (f'HemodinksAPI.Tests.LoginBrowserTests.Browser_UsesRealApi(scenario: {quote}{scenario}{quote})'
                             if suite == "login-e2e" else scenario)
                     ET.SubElement(results, "UnitTestResult", testName=name, outcome=outcome,
                                   testId=f"test-{0 if duplicate_ids else index}")
@@ -69,6 +70,13 @@ class TestResultsGateTests(unittest.TestCase):
     def test_api_allows_truncated_theory_display_names_with_distinct_ids(self):
         cases = [(s, "Passed") for s in gate.SQL_REQUIRED] + [("LongInlineData(...)", "Passed")] * 2
         self.assertEqual(0, self.run_gate(cases, suite="api").returncode)
+
+    def test_xunit4_escaped_theory_names_are_recognized(self):
+        # TRX do xUnit 4 (Microsoft.Testing.Platform): (scenario: \"pin\") (#321).
+        self.assertEqual(0, self.run_gate([(s, "Passed") for s in SCENARIOS], escaped=True).returncode)
+        self.assertNotEqual(0, self.run_gate([(s, "Passed") for s in SCENARIOS[:-1]], escaped=True).returncode)
+        self.assertNotEqual(0, self.run_gate(
+            [(s, "NotExecuted" if s == "pin" else "Passed") for s in SCENARIOS], escaped=True).returncode)
 
     def test_duplicate_ids_fail_even_with_all_required_names(self):
         self.assertNotEqual(0, self.run_gate([(s, "Passed") for s in SCENARIOS], duplicate_ids=True).returncode)
