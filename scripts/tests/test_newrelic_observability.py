@@ -208,6 +208,15 @@ class PlannerTests(unittest.TestCase):
         self.assertIn("condition.terms.0.operator", message)
         self.assertEqual("query actor", nr.operation_name(nr.Q_POLICIES))
 
+    def test_notification_create_error_is_reported_instead_of_none(self):
+        result = {"destination": None, "error": {"__typename": "AiNotificationsResponseError",
+                                                 "description": "Destination already exists", "type": "ENTITY_IN_USE"}}
+        with self.assertRaisesRegex(RuntimeError, "destino nao criado: .*Destination already exists"):
+            nr.created_or_raise(result, "destination", "destino")
+        self.assertEqual({"id": "d1"}, nr.created_or_raise({"destination": {"id": "d1"}}, "destination", "destino"))
+        for document in (nr.M_DESTINATION_CREATE, nr.M_CHANNEL_CREATE):
+            self.assertIn("error { __typename", document)
+
     def test_plan_and_apply_require_credentials(self):
         with mock.patch.dict(os.environ, {"NEW_RELIC_API_KEY": "", "NEW_RELIC_ACCOUNT_ID": ""}):
             self.assertEqual(2, nr.main(["plan"]))
