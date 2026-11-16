@@ -1,5 +1,7 @@
 using System.Net;
 using System.Net.Mail;
+using System.Net.Mime;
+using System.Text;
 using HemodinksAPI.Infrastructure.PasswordReset;
 using Microsoft.Extensions.Options;
 
@@ -48,21 +50,37 @@ public class SmtpPasswordResetNotificationSender : IPasswordResetNotificationTra
         return PasswordResetNotificationDispatchStatus.Sent;
     }
 
-    public async Task SendConfirmationAsync(string newEmail, string code, CancellationToken cancellationToken)
+    public async Task SendConfirmationAsync(string newEmail, string code, int validMinutes, CancellationToken cancellationToken)
     {
         if (!IsSmtpEnabled()) throw new InvalidOperationException("SMTP unavailable.");
         ValidateOptions(requireResetUrl: false);
-        using var message = new MailMessage
-        {
-            From = new MailAddress(_emailOptions.FromEmail!, _emailOptions.FromName ?? "Hemodinks"),
-            Subject = "Confirmação de alteração de email - Hemodinks",
-            Body = "Para confirmar seu novo email no Hemodinks, copie este código na tela de alteração: " + code
-                + "\nSe você não solicitou a alteração, ignore esta mensagem.",
-            IsBodyHtml = false
-        };
-        message.To.Add(new MailAddress(newEmail));
+        using var message = CreateEmailChangeMessage(newEmail, code, validMinutes);
         using var client = CreateClient();
         await client.SendMailAsync(message, cancellationToken);
+        _logger.LogInformation(
+            "Email de confirmação de alteração de email enviado para {MaskedEmail}",
+            HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(newEmail));
+    }
+
+    // Texto + HTML (multipart/alternative) em UTF-8, por causa da acentuação.
+    internal MailMessage CreateEmailChangeMessage(string newEmail, string code, int validMinutes)
+    {
+        var fromName = string.IsNullOrWhiteSpace(_emailOptions.FromName) ? "Hemodinks" : _emailOptions.FromName.Trim();
+        var message = new MailMessage
+        {
+            From = new MailAddress(_emailOptions.FromEmail!.Trim(), fromName),
+            Subject = EmailChangeEmailTemplate.Subject,
+            SubjectEncoding = Encoding.UTF8,
+            Body = EmailChangeEmailTemplate.CreatePlainTextBody(code, validMinutes),
+            BodyEncoding = Encoding.UTF8,
+            IsBodyHtml = false
+        };
+        message.AlternateViews.Add(AlternateView.CreateAlternateViewFromString(
+            EmailChangeEmailTemplate.CreateHtmlBody(code, validMinutes, _emailOptions.BrandLogoUrl),
+            Encoding.UTF8,
+            MediaTypeNames.Text.Html));
+        message.To.Add(new MailAddress(newEmail));
+        return message;
     }
 
     private bool IsSmtpEnabled()

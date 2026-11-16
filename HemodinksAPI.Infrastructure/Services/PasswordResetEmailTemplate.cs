@@ -80,7 +80,7 @@ public static class PasswordResetEmailTemplate
             """;
     }
 
-    private static string CreateBrandMarkup(string? brandLogoUrl)
+    internal static string CreateBrandMarkup(string? brandLogoUrl)
     {
         var trimmedLogoUrl = brandLogoUrl?.Trim();
         if (Uri.TryCreate(trimmedLogoUrl, UriKind.Absolute, out var logoUri)

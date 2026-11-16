@@ -93,7 +93,7 @@ public sealed class SensitiveIdentityService(
         };
         // Send before persisting: a failed delivery cannot leave a usable request.
         // A later persistence failure may deliver an unusable code, never change the address.
-        try { await sender.SendConfirmationAsync(email, code, ct); }
+        try { await sender.SendConfirmationAsync(email, code, options.Value.EmailConfirmationMinutes, ct); }
         catch (OperationCanceledException) when (ct.IsCancellationRequested) { throw; }
         catch { throw new SensitiveIdentityException("email_confirmation_unavailable", "Não foi possível enviar a confirmação. Tente novamente mais tarde."); }
         if (lifetime.Failure(session.CreatedAt, session.LastActivityAt) != null) throw SensitiveIdentityException.Invalid();
