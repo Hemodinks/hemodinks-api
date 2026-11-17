@@ -96,12 +96,12 @@ public sealed class PlatformActiveSessionsQueryHandler(
 
     public const int RecentWindowHours = 8;
     private const int MaxRecentUsers = 200;
-    private const int MaxRecentSessionsScanned = 2000;
 
     /// <summary>
     /// Usuarios com atividade nas ultimas <see cref="RecentWindowHours"/> horas que nao tem sessao ativa agora
-    /// (logout, ociosidade ou expiracao). Uma linha por usuario, da sessao mais recente (#331).
-    /// Usuario, vinculo ou clinica desativados nao aparecem.
+    /// (logout, ociosidade, expiracao ou nova versao de seguranca). Uma linha por usuario, da sessao mais
+    /// recente (#331). Mesmos filtros de vinculo de <see cref="ActiveSessions"/>, exceto tempo, revogacao e
+    /// versao de sessao: usuario, vinculo, clinica ou equipe invalidos nao aparecem.
     /// </summary>
     private async Task<List<object>> ListRecentlyOnlineAsync(
         IQueryable<AuthenticationSession> active,
@@ -111,18 +111,38 @@ public sealed class PlatformActiveSessionsQueryHandler(
         var recentCutoff = now.AddHours(-RecentWindowHours);
         var onlineUsers = active.Select(session => session.UsuarioGlobalId);
 
-        var rows = await context.AuthenticationSessions.AsNoTracking()
+        var recent = context.AuthenticationSessions.AsNoTracking()
             .Where(session => session.LastActivityAt > recentCutoff
                 && session.LastActivityAt <= now
                 && session.UsuarioGlobalId == session.UsuarioClinica.UsuarioGlobalId
                 && session.UsuarioClinica.Ativo
                 && session.UsuarioClinica.UsuarioGlobal.Ativo
                 && session.UsuarioClinica.User.Ativo
+                && session.UsuarioClinica.User.ClinicaId == session.UsuarioClinica.ClinicaId
                 && session.UsuarioClinica.Clinica.Ativa
-                && !onlineUsers.Contains(session.UsuarioGlobalId))
+                && (session.EquipeId == null
+                    ? session.UsuarioClinica.User.PerfilId != Perfil.EquipeId
+                    : session.UsuarioClinica.User.PerfilId == Perfil.EquipeId
+                        && context.Equipes.Any(team => team.Id == session.EquipeId
+                            && team.ClinicaId == session.UsuarioClinica.ClinicaId
+                            && team.UsuarioLoginId == session.UsuarioClinica.UserId
+                            && team.Ativa))
+                && !onlineUsers.Contains(session.UsuarioGlobalId));
+
+        // Limite por usuario (nao por sessao): quem tem muitas sessoes curtas nao esconde os demais.
+        var users = await recent
+            .GroupBy(session => session.UsuarioGlobalId)
+            .Select(group => new { UsuarioGlobalId = group.Key, Last = group.Max(session => session.LastActivityAt) })
+            .OrderByDescending(item => item.Last)
+            .ThenBy(item => item.UsuarioGlobalId)
+            .Take(MaxRecentUsers)
+            .Select(item => item.UsuarioGlobalId)
+            .ToListAsync(cancellationToken);
+
+        var rows = await recent
+            .Where(session => users.Contains(session.UsuarioGlobalId))
             .OrderByDescending(session => session.LastActivityAt)
             .ThenBy(session => session.Id)
-            .Take(MaxRecentSessionsScanned)
             .Select(session => new
             {
                 session.UsuarioGlobalId,
@@ -139,7 +159,6 @@ public sealed class PlatformActiveSessionsQueryHandler(
 
         return rows
             .DistinctBy(row => row.UsuarioGlobalId)
-            .Take(MaxRecentUsers)
             .Select(row => (object)new
             {
                 usuarioGlobalId = row.UsuarioGlobalId,

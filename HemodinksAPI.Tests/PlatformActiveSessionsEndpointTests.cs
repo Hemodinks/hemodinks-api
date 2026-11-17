@@ -164,6 +164,8 @@ public sealed class PlatformActiveSessionsEndpointTests : ApiEndpointTestBase
         Assert.DoesNotContain("Admin Nove Horas", names);
         Assert.DoesNotContain("Usuario Inativo", names);
         Assert.DoesNotContain("Vinculo Inativo", names);
+        // Login de Equipe sem equipe valida nunca contaria como online: tambem nao e "recente".
+        Assert.DoesNotContain("Login Equipe Sem Equipe", names);
         // Uma linha por usuario (Admin Revogado tem duas sessoes recentes), da mais recente.
         Assert.Equal(names.Count, names.Distinct().Count());
         var revoked = recent.Single(item => item.GetProperty("nome").GetString() == "Admin Revogado");
