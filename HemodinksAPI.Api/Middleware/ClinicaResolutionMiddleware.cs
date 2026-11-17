@@ -52,8 +52,8 @@ public sealed class ClinicaResolutionMiddleware
         {
             logger.LogWarning(
                 "Clinica nao resolvida para {Method} {Path}. Header {HeaderName} ausente/invalido e nenhum fallback aplicavel.",
-                httpContext.Request.Method,
-                httpContext.Request.Path,
+                LogSanitizer.Clean(httpContext.Request.Method),
+                LogSanitizer.Clean(httpContext.Request.Path.Value),
                 ClinicaResolutionService.ClinicaSlugHeaderName);
 
             httpContext.Response.StatusCode = StatusCodes.Status400BadRequest;

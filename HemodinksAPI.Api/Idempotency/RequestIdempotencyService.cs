@@ -117,9 +117,9 @@ public sealed class RequestIdempotencyService
             {
                 _logger.LogWarning(
                     cleanupException,
-                    "Falha ao remover registro de idempotencia incompleto para {Operation}/{Scope}",
-                    operation,
-                    normalizedScope);
+                    // #328: o escopo pode ser o e-mail (reset de senha); so a operacao vai para o log.
+                    "Falha ao remover registro de idempotencia incompleto para {Operation}",
+                    operation);
             }
 
             throw;
