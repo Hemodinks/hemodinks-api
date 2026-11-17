@@ -136,6 +136,47 @@ public sealed class PlatformActiveSessionsEndpointTests : ApiEndpointTestBase
     }
 
     [Fact]
+    public async Task SuperAdministrator_SeesRecentlyOnlineUsers_OncePerUser_WithoutActiveOnes()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var startup = factory.CreateClient();
+        var seed = await SeedAsync(factory);
+
+        using var client = CreateBearerClient(factory, seed.SuperAdminToken);
+        using var response = await client.GetAsync(Route);
+        var body = await response.Content.ReadAsStringAsync();
+        using var json = JsonDocument.Parse(body);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(PlatformActiveSessionsQueryHandler.RecentWindowHours, json.RootElement.GetProperty("janelaRecenteHoras").GetInt32());
+        var recent = json.RootElement.GetProperty("recentes").EnumerateArray().ToList();
+        var names = recent.Select(item => item.GetProperty("nome").GetString()).ToList();
+
+        // Logout, ociosidade, expiracao absoluta e versao antiga: estiveram online e nao estao mais.
+        Assert.Contains("Admin Revogado", names);
+        Assert.Contains("Admin Ocioso", names);
+        Assert.Contains("Admin Expirado", names);
+        Assert.Contains("Admin Versao Antiga", names);
+        // Online agora (mesmo com sessao antiga revogada) fica so em items.
+        Assert.DoesNotContain("SuperAdmin Online", names);
+        Assert.DoesNotContain("Medico Beta Online", names);
+        // Fora da janela de 8 h ou desativados.
+        Assert.DoesNotContain("Admin Nove Horas", names);
+        Assert.DoesNotContain("Usuario Inativo", names);
+        Assert.DoesNotContain("Vinculo Inativo", names);
+        // Uma linha por usuario (Admin Revogado tem duas sessoes recentes), da mais recente.
+        Assert.Equal(names.Count, names.Distinct().Count());
+        var revoked = recent.Single(item => item.GetProperty("nome").GetString() == "Admin Revogado");
+        Assert.True(revoked.GetProperty("ultimaAtividade").GetDateTime() > DateTime.UtcNow.AddMinutes(-30));
+
+        var ultimas = recent.Select(item => item.GetProperty("ultimaAtividade").GetDateTime()).ToList();
+        Assert.Equal(ultimas.OrderByDescending(value => value), ultimas);
+        Assert.DoesNotContain(SecretRefreshHash, body);
+        Assert.DoesNotContain(SessionIp, body);
+        Assert.DoesNotContain("@example.com", body);
+    }
+
+    [Fact]
     public async Task PageSize_IsClamped()
     {
         using var factory = new HemodinksApiFactory();
@@ -280,13 +321,17 @@ public sealed class PlatformActiveSessionsEndpointTests : ApiEndpointTestBase
         var inactiveUser = await AddMembershipAsync(context, Clinica.DefaultId, Perfil.AdministradorId, "Usuario Inativo");
         var inactiveMembership = await AddMembershipAsync(context, Clinica.DefaultId, Perfil.AdministradorId, "Vinculo Inativo");
         var teamLoginWithoutTeam = await AddMembershipAsync(context, Clinica.DefaultId, Perfil.EquipeId, "Login Equipe Sem Equipe");
+        var nineHoursAgo = await AddMembershipAsync(context, Clinica.DefaultId, Perfil.AdministradorId, "Admin Nove Horas");
         inactiveUser.User.Ativo = false;
         inactiveMembership.Ativo = false;
 
         context.AuthenticationSessions.AddRange(
             NewSession(superAdmin, now.AddMinutes(-20), now.AddMinutes(-1)),
             NewSession(betaDoctor, now.AddHours(-2), now.AddMinutes(-5)),
+            NewSession(superAdmin, now.AddHours(-6), now.AddHours(-5), revokedAt: now.AddHours(-5)),
+            NewSession(revoked, now.AddHours(-3), now.AddHours(-2), revokedAt: now.AddHours(-2)),
             NewSession(revoked, now.AddMinutes(-10), now.AddMinutes(-1), revokedAt: now.AddMinutes(-1)),
+            NewSession(nineHoursAgo, now.AddHours(-10), now.AddHours(-9), revokedAt: now.AddHours(-9)),
             NewSession(idle, now.AddHours(-1), now.AddMinutes(-31)),
             NewSession(expired, now.AddHours(-13), now.AddMinutes(-1)),
             NewSession(stale, now.AddMinutes(-10), now.AddMinutes(-1), securityVersion: Guid.NewGuid()),

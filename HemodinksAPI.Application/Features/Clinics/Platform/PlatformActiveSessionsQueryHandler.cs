@@ -77,17 +77,82 @@ public sealed class PlatformActiveSessionsQueryHandler(
             navegador = UserAgentSummary.Describe(row.UserAgent)
         }).ToList();
 
+        var recentes = await ListRecentlyOnlineAsync(query, now, cancellationToken);
+
         return PlatformUseCaseResult.Ok(new
         {
             geradoEm = now,
             janelaOciosidadeMinutos = options.IdleTimeoutMinutes,
+            janelaRecenteHoras = RecentWindowHours,
             usuariosOnline,
             totalSessoes,
             porClinica,
             pagina,
             tamanhoPagina,
-            items
+            items,
+            recentes
         });
+    }
+
+    public const int RecentWindowHours = 8;
+    private const int MaxRecentUsers = 200;
+    private const int MaxRecentSessionsScanned = 2000;
+
+    /// <summary>
+    /// Usuarios com atividade nas ultimas <see cref="RecentWindowHours"/> horas que nao tem sessao ativa agora
+    /// (logout, ociosidade ou expiracao). Uma linha por usuario, da sessao mais recente (#331).
+    /// Usuario, vinculo ou clinica desativados nao aparecem.
+    /// </summary>
+    private async Task<List<object>> ListRecentlyOnlineAsync(
+        IQueryable<AuthenticationSession> active,
+        DateTime now,
+        CancellationToken cancellationToken)
+    {
+        var recentCutoff = now.AddHours(-RecentWindowHours);
+        var onlineUsers = active.Select(session => session.UsuarioGlobalId);
+
+        var rows = await context.AuthenticationSessions.AsNoTracking()
+            .Where(session => session.LastActivityAt > recentCutoff
+                && session.LastActivityAt <= now
+                && session.UsuarioGlobalId == session.UsuarioClinica.UsuarioGlobalId
+                && session.UsuarioClinica.Ativo
+                && session.UsuarioClinica.UsuarioGlobal.Ativo
+                && session.UsuarioClinica.User.Ativo
+                && session.UsuarioClinica.Clinica.Ativa
+                && !onlineUsers.Contains(session.UsuarioGlobalId))
+            .OrderByDescending(session => session.LastActivityAt)
+            .ThenBy(session => session.Id)
+            .Take(MaxRecentSessionsScanned)
+            .Select(session => new
+            {
+                session.UsuarioGlobalId,
+                Nome = session.UsuarioClinica.UsuarioGlobal.Nome,
+                Perfil = session.UsuarioClinica.User.Perfil.Nome,
+                session.UsuarioClinica.ClinicaId,
+                Clinica = session.UsuarioClinica.Clinica.Nome,
+                ViaEquipe = session.EquipeId != null,
+                session.CreatedAt,
+                session.LastActivityAt,
+                session.UserAgent
+            })
+            .ToListAsync(cancellationToken);
+
+        return rows
+            .DistinctBy(row => row.UsuarioGlobalId)
+            .Take(MaxRecentUsers)
+            .Select(row => (object)new
+            {
+                usuarioGlobalId = row.UsuarioGlobalId,
+                nome = row.Nome,
+                perfil = row.Perfil,
+                clinicaId = row.ClinicaId,
+                clinica = row.Clinica,
+                viaEquipe = row.ViaEquipe,
+                inicio = row.CreatedAt,
+                ultimaAtividade = row.LastActivityAt,
+                navegador = UserAgentSummary.Describe(row.UserAgent)
+            })
+            .ToList();
     }
 
     /// <summary>
