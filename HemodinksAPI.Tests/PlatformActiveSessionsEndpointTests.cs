@@ -126,6 +126,10 @@ public sealed class PlatformActiveSessionsEndpointTests : ApiEndpointTestBase
         var beta = json.RootElement.GetProperty("items").EnumerateArray()
             .Single(item => item.GetProperty("nome").GetString() == "Medico Beta Online");
         Assert.Equal("Chrome · Windows", beta.GetProperty("navegador").GetString());
+        // Contrato: instantes em UTC com "Z" (o banco devolve Kind Unspecified).
+        Assert.EndsWith("Z", beta.GetProperty("inicio").GetString());
+        Assert.EndsWith("Z", beta.GetProperty("ultimaAtividade").GetString());
+        Assert.EndsWith("Z", json.RootElement.GetProperty("geradoEm").GetString());
 
         Assert.DoesNotContain(SecretRefreshHash, body);
         Assert.DoesNotContain(SessionIp, body);
@@ -396,8 +400,9 @@ public sealed class PlatformActiveSessionsEndpointTests : ApiEndpointTestBase
         UsuarioClinicaId = membership.Id,
         SecurityVersion = securityVersion ?? membership.UsuarioGlobal.SecurityVersion,
         RefreshTokenHash = SecretRefreshHash + Guid.NewGuid().ToString("N"),
-        CreatedAt = createdAt,
-        LastActivityAt = lastActivityAt,
+        // Como o SQL Server devolve datetime2: sem fuso (Kind Unspecified).
+        CreatedAt = DateTime.SpecifyKind(createdAt, DateTimeKind.Unspecified),
+        LastActivityAt = DateTime.SpecifyKind(lastActivityAt, DateTimeKind.Unspecified),
         RevokedAt = revokedAt,
         CreatedByIp = SessionIp,
         UserAgent = DistinctiveUserAgent

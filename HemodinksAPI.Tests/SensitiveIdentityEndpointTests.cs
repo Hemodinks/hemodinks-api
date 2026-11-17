@@ -51,6 +51,94 @@ public sealed class SensitiveIdentityEndpointTests : ApiEndpointTestBase
     }
 
     [Fact]
+    public async Task SensitiveIdentity_AfterEmailChange_NewEmailLogsInWithSamePassword()
+    {
+        var sender = new EmailConfirmationRecorder();
+        using var factory = new HemodinksApiFactory(s => s.AddSingleton<IEmailChangeNotificationSender>(sender));
+        using var client = factory.CreateClient();
+        await AuthenticateAsync(client);
+        var requested = await client.PostAsJsonAsync("/api/users/email/change", new { senhaAtual = TestPasswords.Valid, novoEmail = "novo.login@example.com" });
+        requested.EnsureSuccessStatusCode();
+        var pending = (await requested.Content.ReadFromJsonAsync<EmailChangeStarted>())!;
+        (await client.PostAsJsonAsync("/api/users/email/change/confirm", new { requestId = pending.RequestId, code = sender.Code })).EnsureSuccessStatusCode();
+
+        using var fresh = factory.CreateClient();
+        var context = await fresh.PostAsJsonAsync("/api/users/login-context", new { email = "novo.login@example.com", senha = TestPasswords.Valid });
+        Assert.Equal(HttpStatusCode.OK, context.StatusCode);
+        await AuthenticateAsync(fresh, email: "novo.login@example.com");
+        (await fresh.GetAsync("/api/session/clinicas")).EnsureSuccessStatusCode();
+
+        using var old = factory.CreateClient();
+        var oldEmail = await old.PostAsJsonAsync("/api/users/login-context", new { email = "gmarcone@gmail.com", senha = TestPasswords.Valid });
+        Assert.Equal(HttpStatusCode.Unauthorized, oldEmail.StatusCode);
+    }
+
+    [Fact]
+    public async Task SensitiveIdentity_TrustedConfirmation_KeepsHolderSignedInWithNewSession()
+    {
+        var sender = new EmailConfirmationRecorder();
+        using var factory = new HemodinksApiFactory(s => s.AddSingleton<IEmailChangeNotificationSender>(sender));
+        using var client = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { HandleCookies = false });
+        await AuthenticateAsync(client);
+        var oldBearer = client.DefaultRequestHeaders.Authorization!;
+        var requested = await client.PostAsJsonAsync("/api/users/email/change", new { senhaAtual = TestPasswords.Valid, novoEmail = "continua@example.com" });
+        requested.EnsureSuccessStatusCode();
+        var pending = (await requested.Content.ReadFromJsonAsync<EmailChangeStarted>())!;
+
+        using var confirmRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users/email/change/confirm")
+        { Content = JsonContent.Create(new { requestId = pending.RequestId, code = sender.Code }) };
+        confirmRequest.Headers.Add("X-Session-Refresh", "1");
+        confirmRequest.Headers.Add("Origin", "https://hemodinks.gestao-saude.tec.br");
+        using var confirm = await client.SendAsync(confirmRequest);
+        confirm.EnsureSuccessStatusCode();
+        var body = await confirm.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.Equal("identity_changed", body.GetProperty("code").GetString());
+        Assert.True(body.GetProperty("sessionRenewed").GetBoolean());
+        // A resposta não carrega token: a sessão nova só é obtida pelo cookie HttpOnly via /restaurar.
+        Assert.False(body.TryGetProperty("token", out _));
+        var cookie = Assert.Single(confirm.Headers.GetValues("Set-Cookie"));
+        Assert.Contains("httponly", cookie, StringComparison.OrdinalIgnoreCase);
+
+        // Todas as sessões antigas continuam encerradas.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/session/clinicas")).StatusCode);
+
+        client.DefaultRequestHeaders.Authorization = null;
+        using var restoreRequest = new HttpRequestMessage(HttpMethod.Post, "/api/session/restaurar") { Content = JsonContent.Create(new { }) };
+        restoreRequest.Headers.Add("Cookie", cookie.Split(';')[0]);
+        restoreRequest.Headers.Add("X-Session-Refresh", "1");
+        restoreRequest.Headers.Add("Origin", "https://hemodinks.gestao-saude.tec.br");
+        using var restored = await client.SendAsync(restoreRequest);
+        restored.EnsureSuccessStatusCode();
+        var identity = (await restored.Content.ReadFromJsonAsync<AuthenticateUserResponse>())!;
+        Assert.Equal("continua@example.com", identity.Email);
+        Assert.NotEqual(oldBearer.Parameter, identity.Token);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", identity.Token);
+        (await client.GetAsync("/api/session/clinicas")).EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task SensitiveIdentity_UntrustedConfirmation_ChangesEmailWithoutIssuingSession()
+    {
+        var sender = new EmailConfirmationRecorder();
+        using var factory = new HemodinksApiFactory(s => s.AddSingleton<IEmailChangeNotificationSender>(sender));
+        using var client = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { HandleCookies = false });
+        await AuthenticateAsync(client);
+        var requested = await client.PostAsJsonAsync("/api/users/email/change", new { senhaAtual = TestPasswords.Valid, novoEmail = "sem-sessao@example.com" });
+        var pending = (await requested.Content.ReadFromJsonAsync<EmailChangeStarted>())!;
+
+        using var confirmRequest = new HttpRequestMessage(HttpMethod.Post, "/api/users/email/change/confirm")
+        { Content = JsonContent.Create(new { requestId = pending.RequestId, code = sender.Code }) };
+        confirmRequest.Headers.Add("X-Session-Refresh", "1");
+        confirmRequest.Headers.Add("Origin", "https://attacker.example");
+        using var confirm = await client.SendAsync(confirmRequest);
+        confirm.EnsureSuccessStatusCode();
+        var body = await confirm.Content.ReadFromJsonAsync<System.Text.Json.JsonElement>();
+        Assert.False(body.GetProperty("sessionRenewed").GetBoolean());
+        Assert.False(confirm.Headers.Contains("Set-Cookie"));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/session/clinicas")).StatusCode);
+    }
+
+    [Fact]
     public async Task SensitiveIdentity_ClinicRoundTripInvalidatesPendingEmailProof()
     {
         var sender = new EmailConfirmationRecorder();

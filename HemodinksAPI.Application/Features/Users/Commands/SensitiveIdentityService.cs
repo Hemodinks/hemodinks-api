@@ -107,7 +107,11 @@ public sealed class SensitiveIdentityService(
         return new(pending.Id, pending.ExpiresAt);
     }
 
-    public async Task ConfirmEmailAsync(CurrentUserContext actor, Guid requestId, string code, CancellationToken ct)
+    /// <summary>
+    /// Troca o email, invalida todas as sessões e devolve a nova versão de segurança, para que o endpoint
+    /// possa abrir uma sessão nova só para o titular que acabou de provar senha e posse do novo email (#335).
+    /// </summary>
+    public async Task<Guid> ConfirmEmailAsync(CurrentUserContext actor, Guid requestId, string code, CancellationToken ct)
     {
         var session = await RequireSessionAsync(actor, ct);
         var pending = await RequireRequestAsync(session, requestId, ct);
@@ -128,6 +132,7 @@ public sealed class SensitiveIdentityService(
         pending.UsedAt = lifetime.UtcNow;
         await InvalidateAsync(session, ct);
         await SaveAsync(ct);
+        return session.UsuarioGlobal.SecurityVersion;
     }
 
     public async Task CancelEmailAsync(CurrentUserContext actor, Guid requestId, CancellationToken ct)
