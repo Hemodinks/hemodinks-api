@@ -30,6 +30,7 @@ public static partial class UserEndpointExtensions
             var securityVersion = await identity.ConfirmEmailAsync(actor, body.RequestId, body.Code, ct);
             // Todas as sessões já foram revogadas. Só quem acabou de provar senha e posse do novo email recebe
             // uma sessão nova, e só em requisição confiável (mesma regra do login/renovação) (#335).
+            // Decisão consciente: o limite absoluto (12 h) recomeça, pois senha + código equivalem a um login completo.
             var renewed = SessionRequestSecurity.IsTrusted(http, configuration)
                 && await TryRenewSessionAsync(actor, securityVersion, http, sessions, cookie, logger, ct);
             return Results.Ok(renewed
