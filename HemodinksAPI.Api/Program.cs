@@ -204,8 +204,8 @@ app.Use(async (context, next) =>
     var clinicId = context.User.FindFirstValue(ClinicaClaimTypes.ClinicaId);
 
     using (LogContext.PushProperty("RequestId", context.TraceIdentifier))
-    using (LogContext.PushProperty("RequestMethod", context.Request.Method))
-    using (LogContext.PushProperty("RequestPath", context.Request.Path.Value ?? string.Empty))
+    using (LogContext.PushProperty("RequestMethod", LogSanitizer.Clean(context.Request.Method)))
+    using (LogContext.PushProperty("RequestPath", LogSanitizer.Clean(context.Request.Path.Value)))
     using (LogContext.PushProperty("UserId", userId ?? string.Empty))
     using (LogContext.PushProperty("GlobalUserId", globalUserId ?? string.Empty))
     using (LogContext.PushProperty("ClinicId", clinicId ?? string.Empty))

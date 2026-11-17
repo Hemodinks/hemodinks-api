@@ -24,8 +24,8 @@ internal sealed class ApiExceptionHandlingMiddleware(
                 ApiExceptionResults.IsExpected(exception) ? LogLevel.Warning : LogLevel.Error,
                 exception,
                 "Erro ao processar {Method} {Path} [request_id: {RequestId}]",
-                context.Request.Method,
-                context.Request.Path,
+                LogSanitizer.Clean(context.Request.Method),
+                LogSanitizer.Clean(context.Request.Path.Value),
                 context.TraceIdentifier);
 
             context.Response.Clear();
