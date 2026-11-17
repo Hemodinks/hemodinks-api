@@ -157,7 +157,9 @@ internal static class DatabaseStartupInitializer
             var source = existingUsers.FirstOrDefault();
             if (source == null)
             {
-                logger.LogWarning("Superadministrador configurado nao encontrado: {Email}", email);
+                logger.LogWarning(
+                    "Superadministrador configurado nao encontrado: {MaskedEmail}",
+                    HemodinksAPI.Application.Security.SensitiveDataMasking.MaskEmail(email));
                 continue;
             }
 

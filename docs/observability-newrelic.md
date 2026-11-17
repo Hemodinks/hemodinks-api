@@ -117,4 +117,6 @@ Fazer após a primeira aplicação e registrar abaixo.
 
 | Data | Quem | Passo | Resultado |
 | --- | --- | --- | --- |
-| _pendente_ | | primeira aplicação + teste de workflow | |
+| 2026-11-16 | Mantenedor | Primeira aplicação (`mode: apply`) e segunda rodada `mode: plan` | Políticas, 5 condições, 4 SLOs e dashboard criados; a segunda rodada só listou `ok`/`atualizar`, sem duplicatas. |
+| 2026-11-16 | Mantenedor | **Test workflow** | Não disponível: o botão exige um incidente anterior na conta. Substituído pelo passo seguinte. |
+| 2026-11-16/17 | Mantenedor | Condição NRQL temporária `TESTE disparo - apagar` na política `HemoDinks API - Producao` (`count(*)` de `Transaction` do app `Hemodinks API` acima de 0 por 1 min), seguida de tráfego real | O e-mail de incidente chegou em 2026-11-17 às 08:52 (BRT). A rota condição → workflow → destino de e-mail está confirmada. A condição temporária deve ser apagada após o teste. |
