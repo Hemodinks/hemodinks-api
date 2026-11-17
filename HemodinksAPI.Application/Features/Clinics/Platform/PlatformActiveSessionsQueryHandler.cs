@@ -72,8 +72,8 @@ public sealed class PlatformActiveSessionsQueryHandler(
             clinicaId = row.ClinicaId,
             clinica = row.Clinica,
             viaEquipe = row.ViaEquipe,
-            inicio = row.CreatedAt,
-            ultimaAtividade = row.LastActivityAt,
+            inicio = AsUtc(row.CreatedAt),
+            ultimaAtividade = AsUtc(row.LastActivityAt),
             navegador = UserAgentSummary.Describe(row.UserAgent)
         }).ToList();
 
@@ -81,7 +81,7 @@ public sealed class PlatformActiveSessionsQueryHandler(
 
         return PlatformUseCaseResult.Ok(new
         {
-            geradoEm = now,
+            geradoEm = AsUtc(now),
             janelaOciosidadeMinutos = options.IdleTimeoutMinutes,
             janelaRecenteHoras = RecentWindowHours,
             usuariosOnline,
@@ -96,6 +96,10 @@ public sealed class PlatformActiveSessionsQueryHandler(
 
     public const int RecentWindowHours = 8;
     private const int MaxRecentUsers = 200;
+
+    // O banco guarda UTC sem fuso (Kind Unspecified ao ler): serializa com "Z" para o cliente
+    // nao interpretar como hora local (#284 do front).
+    private static DateTime AsUtc(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc);
 
     /// <summary>
     /// Usuarios com atividade nas ultimas <see cref="RecentWindowHours"/> horas que nao tem sessao ativa agora
@@ -167,8 +171,8 @@ public sealed class PlatformActiveSessionsQueryHandler(
                 clinicaId = row.ClinicaId,
                 clinica = row.Clinica,
                 viaEquipe = row.ViaEquipe,
-                inicio = row.CreatedAt,
-                ultimaAtividade = row.LastActivityAt,
+                inicio = AsUtc(row.CreatedAt),
+                ultimaAtividade = AsUtc(row.LastActivityAt),
                 navegador = UserAgentSummary.Describe(row.UserAgent)
             })
             .ToList();
