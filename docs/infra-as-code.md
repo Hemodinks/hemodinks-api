@@ -22,15 +22,16 @@ Nunca usar modo `Complete`: o servidor SQL é compartilhado com um banco de outr
 
 | Fora do Bicep | Motivo | Onde é gerido |
 | --- | --- | --- |
-| Container App `hemodinks-api-prod` | Imagem, revisões, tráfego blue/green e variáveis mudam a cada deploy; algumas variáveis ainda não usam `secretRef` | `publish-container.yml`, [runbook blue/green](production-blue-green-runbook.md) |
+| Container App `hemodinks-api-prod` | Imagem, revisões, tráfego blue/green e variáveis mudam a cada deploy; segredos via `secretRef` impostos pelo deploy ([deployment.md](deployment.md#azure-container-apps)) | `publish-container.yml`, [runbook blue/green](production-blue-green-runbook.md) |
 | App settings das Functions | Contêm connection strings e chaves | Portal / CLI (ver [deployment.md](deployment.md#workers-function-app)) |
 | `config/web` das Functions (regras de IP) | Dono é o workflow da #224; dois donos gerariam drift | `functions-network-restriction.yml` |
 | Regras de firewall de IP pessoal (`ClientIPAddress_*`, `QueryEditor*`) | Temporárias e dado pessoal em repo público | Portal; remover quando não forem mais usadas |
 | Banco de outro projeto no mesmo servidor SQL | Não é da HemoDinks | — |
 | Automation (start/stop), alertas de cota, workbook, Speech, portfólio | Fora do escopo do issue; podem entrar depois | Portal |
 
-Para trazer o Container App para o Bicep, primeiro todas as variáveis com segredo precisam virar
-`secretRef`; depois imagem e tráfego entram como parâmetros lidos do estado atual.
+Para trazer o Container App para o Bicep, todas as variáveis com segredo precisam estar em `secretRef`
+(o deploy impõe isso desde a correção da storage e da function key); depois imagem e tráfego entram como
+parâmetros lidos do estado atual.
 
 ## Dados que não ficam no repositório
 

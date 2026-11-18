@@ -62,16 +62,24 @@ if [ "$candidate_revision" = "$previous_revision" ]; then
   exit 0
 fi
 
-# CPF em repouso (#227): a API nao sobe sem estes secrets fora de Development/Testing.
-# As variaveis nao sao copiadas da revisao ativa; a candidata sempre as referencia por secretRef.
+# Variaveis com segredo: nunca sao copiadas da revisao ativa (um "value" em texto puro morre aqui);
+# a candidata sempre as referencia por secretRef. CPF em repouso (#227): a API nao sobe sem eles.
+# Storage e function key das Functions: antes ficavam como value legivel por qualquer Reader (#288).
+secret_env_json='[
+  {"name": "CpfProtection__CertificateBase64", "secretRef": "cpf-protection-certificate"},
+  {"name": "CpfProtection__CertificatePassword", "secretRef": "cpf-protection-certificate-password"},
+  {"name": "CpfProtection__LookupHashKey", "secretRef": "cpf-protection-lookup-hash-key"},
+  {"name": "AzureStorage__ConnectionString", "secretRef": "azurestorage-connectionstring"},
+  {"name": "StorageFunctions__FunctionKey", "secretRef": "storagefunctions-functionkey"}
+]'
 # Confere so os nomes (nunca os valores) e falha antes de qualquer mutacao.
 secret_names="$(az containerapp secret list \
   --name "$API_NAME" \
   --resource-group "$API_RESOURCE_GROUP" \
   --query "[].name" -o tsv)"
-for required_secret in cpf-protection-certificate cpf-protection-certificate-password cpf-protection-lookup-hash-key; do
+for required_secret in $(jq -r '.[].secretRef' <<<"$secret_env_json"); do
   if ! grep -qx -- "$required_secret" <<<"$secret_names"; then
-    echo "::error::Container App secret '$required_secret' is missing. Configure CPF protection secrets before deploying (docs/issue-227-cpf-em-repouso.md)."
+    echo "::error::Container App secret '$required_secret' is missing. Configure it before deploying (docs/deployment.md#azure-container-apps)."
     exit 10
   fi
 done
@@ -110,6 +118,7 @@ containers="$(jq \
   --arg commit "$GITHUB_SHA" \
   --arg new_relic_enabled "$new_relic_enabled" \
   --argjson environment "$environment_json" \
+  --argjson secret_env "$secret_env_json" \
   --argjson port "$target_port" '
     .properties.template.containers
     | .[0].image = $image
@@ -121,9 +130,7 @@ containers="$(jq \
             and .name != "Database__RunMaintenanceOnStartup"
             and .name != "Database__SchemaManagedByDeployment"
             and .name != "EventReminders__RunHostedProcessor"
-            and .name != "CpfProtection__CertificateBase64"
-            and .name != "CpfProtection__CertificatePassword"
-            and .name != "CpfProtection__LookupHashKey"
+            and (.name as $name | ($secret_env | map(.name) | index($name)) == null)
             and ($new_relic_enabled != "true" or (
               .name != "CORECLR_ENABLE_PROFILING"
               and .name != "NEW_RELIC_LICENSE_KEY"
@@ -141,11 +148,9 @@ containers="$(jq \
             {name: "Database__RunMigrationsOnStartup", value: "false"},
             {name: "Database__RunMaintenanceOnStartup", value: "false"},
             {name: "Database__SchemaManagedByDeployment", value: "true"},
-            {name: "EventReminders__RunHostedProcessor", value: "false"},
-            {name: "CpfProtection__CertificateBase64", secretRef: "cpf-protection-certificate"},
-            {name: "CpfProtection__CertificatePassword", secretRef: "cpf-protection-certificate-password"},
-            {name: "CpfProtection__LookupHashKey", secretRef: "cpf-protection-lookup-hash-key"}
+            {name: "EventReminders__RunHostedProcessor", value: "false"}
           ]
+        + $secret_env
         + (if $new_relic_enabled == "true" then [
             {name: "CORECLR_ENABLE_PROFILING", value: "1"},
             {name: "NEW_RELIC_LICENSE_KEY", secretRef: "new-relic-license-key"},
@@ -215,18 +220,13 @@ if existing_candidate_json="$(az containerapp revision show \
     echo "::error::Existing candidate proxy policy differs from the approved preflight. Reuse and promotion are blocked."
     exit 8
   fi
-  if ! jq -e '
+  if ! jq -e --argjson secret_env "$secret_env_json" '
     [.properties.template.containers[0].env[]?
-      | select(.name == "CpfProtection__CertificateBase64" or .name == "CpfProtection__CertificatePassword"
-          or .name == "CpfProtection__LookupHashKey")
+      | select(.name as $name | ($secret_env | map(.name) | index($name)) != null)
       | {name, secretRef}]
-    | sort_by(.name) == [
-        {name: "CpfProtection__CertificateBase64", secretRef: "cpf-protection-certificate"},
-        {name: "CpfProtection__CertificatePassword", secretRef: "cpf-protection-certificate-password"},
-        {name: "CpfProtection__LookupHashKey", secretRef: "cpf-protection-lookup-hash-key"}
-      ]
+    | sort_by(.name) == ($secret_env | sort_by(.name))
   ' <<<"$existing_candidate_json" >/dev/null; then
-    echo "::error::Existing candidate does not reference the CPF protection secrets. Delete or deactivate it and rerun the deploy."
+    echo "::error::Existing candidate does not reference the required secrets (CPF protection, storage, function key). Delete or deactivate it and rerun the deploy."
     exit 8
   fi
   echo "::notice::Reusing existing candidate revision '$candidate_revision'."
