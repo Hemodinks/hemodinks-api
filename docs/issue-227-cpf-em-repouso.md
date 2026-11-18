@@ -144,6 +144,10 @@ e ajustar `AnonymizeProductionCopy.sql`, que hoje anonimiza `Cpf` e limpa a cifr
 - O reconciliador roda só no startup, para não manter o Azure SQL serverless acordado. Uma linha gravada pela
   imagem anterior durante a janela blue/green fica sem hash até o próximo deploy. Nesse intervalo a busca
   não a encontra, mas a unicidade continua correta, porque também compara a coluna legada.
+  - *Atualização (18/11/2026):* o reconciliador não conecta mais no instante do arranque. Ele espera a
+    primeira conexão real ao banco (tráfego, `/api/warmup` ou `/healthz`) e mais 2 minutos. Se o banco estiver
+    indisponível, tenta de novo depois de 30 s e de 60 s. Antes, 56% das réplicas falhavam com timeout
+    enquanto o SQL serverless retomava, e o próprio reconciliador acordava o banco.
 - Não há mais busca por parte do CPF, por decisão de produto. O `hemodinks-front` deve orientar a busca
   pelo CPF completo.
 - A rotação só termina no startup de uma revisão (o reconciliador não roda periodicamente). Até lá o
