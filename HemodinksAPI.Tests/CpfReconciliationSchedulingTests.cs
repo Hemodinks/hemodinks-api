@@ -123,9 +123,9 @@ public sealed class CpfReconciliationSchedulingTests
     [Fact]
     public async Task Real_connection_failure_is_classified_as_unavailability_with_matched_type()
     {
-        // Nada escuta na porta 1: o SqlClient falha localmente, sem chamada externa.
+        // Nada escuta na porta 1: o TCP e recusado antes do TLS, sem chamada externa.
         await using var connection = new Microsoft.Data.SqlClient.SqlConnection(
-            "Server=tcp:127.0.0.1,1;Database=x;User Id=u;Password=Not-A-Real-Password;Connect Timeout=2;Encrypt=False");
+            "Server=tcp:127.0.0.1,1;Database=x;User Id=u;Password=Not-A-Real-Password;Connect Timeout=2;Encrypt=True");
         var sql = await Assert.ThrowsAsync<Microsoft.Data.SqlClient.SqlException>(() => connection.OpenAsync());
 
         Assert.True(CpfProtectionReconciliationService.TryGetUnavailability(
