@@ -96,9 +96,11 @@ jobs:
           HEMODINKS_SQL_ENTRA_ADMIN_OBJECT_ID: ${{ secrets.HEMODINKS_SQL_ENTRA_ADMIN_OBJECT_ID }}
         run: |
           # O JSON tem valores das propriedades: fica so no runner (sem artifact, sem cat).
+          # ProviderNoRbac: sem ele a ARM exige permissao de escrita em cada recurso; a identidade so le.
           az deployment sub what-if \
             --location brazilsouth \
             --name "infra-what-if-${GITHUB_RUN_ID}" \
+            --validation-level ProviderNoRbac \
             --template-file infra/main.bicep \
             --parameters infra/main.bicepparam \
             --no-pretty-print --output json > "$RUNNER_TEMP/whatif.json"
