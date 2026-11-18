@@ -64,6 +64,8 @@ continua apenas para o `docker-compose` local; versoes antigas da imagem no GHCR
 ## Azure Container Apps
 
 Crie primeiro os recursos no Azure Portal ou Azure CLI; depois conecte os workflows do GitHub.
+Ambiente, SQL, Storage, Functions e Static Web App estao descritos em Bicep (`infra/`); drift, what-if e recriacao
+de ambiente: [infra-as-code.md](infra-as-code.md).
 
 Container Apps recomendados:
 

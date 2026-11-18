@@ -1,0 +1,107 @@
+name: Infra what-if
+
+# Issue #288: compara infra/ (Bicep) com o Azure de producao. Somente leitura: nunca aplica.
+# Setup da identidade e do Environment "infra-what-if": docs/infra-as-code.md
+
+on:
+  pull_request:
+    branches:
+      - main
+      - developer
+    paths:
+      - infra/**
+      - scripts/infra_what_if.py
+      - scripts/tests/test_infra_what_if.py
+      - .github/workflows/infra-what-if.yml
+  schedule:
+    # Toda segunda, 08:17 UTC: detecta drift feito fora do PR (portal/CLI).
+    - cron: '17 8 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: infra-what-if-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Bicep build and lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Test what-if evaluator
+        run: python3 -B -m unittest discover -s scripts/tests -p test_infra_what_if.py -v
+
+      - name: Build and lint
+        run: |
+          az bicep install
+          az bicep build --file infra/main.bicep --stdout > /dev/null
+          az bicep lint --file infra/main.bicep
+
+  what-if:
+    name: What-if against production (read-only)
+    needs: build
+    # PR de fork nao recebe OIDC nem secrets; so roda para branches deste repositorio.
+    if: ${{ github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Environment sem aprovacao: a identidade dele so le (role customizada, ver docs/infra-as-code.md).
+    environment: infra-what-if
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check configuration
+        id: config
+        env:
+          CLIENT_ID: ${{ secrets.INFRA_WHATIF_AZURE_CLIENT_ID }}
+        run: |
+          if [ -z "$CLIENT_ID" ]; then
+            echo "::warning::Environment infra-what-if sem INFRA_WHATIF_AZURE_CLIENT_ID; what-if nao executado (docs/infra-as-code.md)."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Log in to Azure
+        if: ${{ steps.config.outputs.enabled == 'true' }}
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.INFRA_WHATIF_AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: What-if
+        if: ${{ steps.config.outputs.enabled == 'true' }}
+        env:
+          AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          HEMODINKS_SQL_SERVER_NAME: ${{ secrets.HEMODINKS_SQL_SERVER_NAME }}
+          HEMODINKS_SQL_ADMIN_LOGIN: ${{ secrets.HEMODINKS_SQL_ADMIN_LOGIN }}
+          HEMODINKS_STORAGE_ACCOUNT_NAME: ${{ secrets.HEMODINKS_STORAGE_ACCOUNT_NAME }}
+          HEMODINKS_SQL_ENTRA_ADMIN_LOGIN: ${{ secrets.HEMODINKS_SQL_ENTRA_ADMIN_LOGIN }}
+          HEMODINKS_SQL_ENTRA_ADMIN_OBJECT_ID: ${{ secrets.HEMODINKS_SQL_ENTRA_ADMIN_OBJECT_ID }}
+        run: |
+          # O JSON tem valores das propriedades: fica so no runner (sem artifact, sem cat).
+          # ProviderNoRbac: sem ele a ARM exige permissao de escrita em cada recurso; a identidade so le.
+          az deployment sub what-if \
+            --location brazilsouth \
+            --name "infra-what-if-${GITHUB_RUN_ID}" \
+            --validation-level ProviderNoRbac \
+            --template-file infra/main.bicep \
+            --parameters infra/main.bicepparam \
+            --no-pretty-print --output json > "$RUNNER_TEMP/whatif.json"
+          python3 -B scripts/infra_what_if.py "$RUNNER_TEMP/whatif.json"
