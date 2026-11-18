@@ -62,6 +62,7 @@ export HEMODINKS_SQL_ENTRA_ADMIN_LOGIN=<login-entra>
 export HEMODINKS_SQL_ENTRA_ADMIN_OBJECT_ID=<object-id-entra>
 
 az deployment sub what-if --location brazilsouth --name infra-what-if-local \
+  --validation-level ProviderNoRbac \
   --template-file infra/main.bicep --parameters infra/main.bicepparam \
   --no-pretty-print --output json > whatif.json
 python3 -B scripts/infra_what_if.py whatif.json   # 0 = sem drift, 1 = drift, 2 = erro
@@ -94,8 +95,15 @@ do `HemodinksDB` de 30 para 60 numa cópia fez o avaliador retornar 1 apontando 
   Imprime só tipo, nome e caminho das diferenças, nunca valores; o JSON não vira artifact.
   Sem configuração o job termina com aviso, sem falhar.
 - PR de fork não roda o what-if (não recebe OIDC).
+- `--validation-level ProviderNoRbac`: no modo padrão a ARM exige permissão de **escrita** em cada recurso
+  do template (falha com `Microsoft.Resources/deployments/write`, `Microsoft.Sql/servers/write` etc.).
+  Com esse nível a checagem de RBAC de escrita é pulada e basta leitura. Não remover.
 
-### Setup único (requer aprovação: cria identidade e atribuição de role no Azure)
+### Setup único (feito em 2026-11-18)
+
+Estado atual: role `HemoDinks Infra What-If`, app registration `github-actions-hemodinks-infra-what-if`
+(credencial federada só para o Environment `infra-what-if`) atribuída na assinatura, e os 6 Environment
+secrets abaixo. Os passos ficam como referência para recriar.
 
 A identidade de deploy (`github-actions-hemodinks-api-prod`) tem escrita e só aceita `main` e o
 Environment `production`. O what-if roda em PR, então usa uma identidade **separada e somente leitura**.
@@ -107,23 +115,27 @@ Environment `production`. O what-if roda em PR, então usa uma identidade **sepa
    cat > role.json <<EOF
    {
      "Name": "HemoDinks Infra What-If",
-     "Description": "Leitura e what-if de deployments; sem escrita.",
+     "Description": "Leitura e what-if de deployments para o workflow infra-what-if (#288). Sem escrita e sem leitura de Container Apps.",
      "Actions": [
        "*/read",
        "Microsoft.Resources/deployments/whatIf/action",
        "Microsoft.Resources/deployments/validate/action"
      ],
-     "NotActions": [],
+     "NotActions": [
+       "Microsoft.App/containerApps/read",
+       "Microsoft.App/containerApps/revisions/read",
+       "Microsoft.App/jobs/read"
+     ],
      "AssignableScopes": ["/subscriptions/$SUB"]
    }
    EOF
    az role definition create --role-definition @role.json
    ```
 
-   `*/read` não lista chaves de storage, app settings nem secrets de Container App (exigem ações `list*`/`POST`),
-   mas **lê variáveis de ambiente de Container App gravadas como `value`**. Por isso toda variável com segredo
-   precisa estar em `secretRef` antes de conceder esta role. Se o primeiro what-if falhar com `AuthorizationFailed`, a mensagem nomeia a ação que falta; acrescente
-   só ela.
+   `*/read` não lista chaves de storage, app settings nem secrets (exigem ações `list*`/`POST`), mas leria
+   variáveis de ambiente de Container App gravadas como `value`. Como o Container App não está no Bicep,
+   a leitura de Container Apps fica em `NotActions`. Se o what-if falhar com `AuthorizationFailed`, a
+   mensagem nomeia a ação que falta; acrescente só ela, e nunca uma ação `write`.
 
 2. App registration + service principal, credencial federada e atribuição:
 
@@ -136,6 +148,7 @@ Environment `production`. O what-if roda em PR, então usa uma identidade **sepa
      "subject": "repo:Hemodinks/hemodinks-api:environment:infra-what-if",
      "audiences": ["api://AzureADTokenExchange"]
    }'
+   # Role recém-criada demora a propagar pelo nome; se falhar, use o ID dela em --role.
    az role assignment create --assignee "$APP_ID" --role "HemoDinks Infra What-If" --scope "/subscriptions/$SUB"
    ```
 
