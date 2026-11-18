@@ -3,6 +3,7 @@ using HemodinksAPI.Application.Features.Common;
 using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.HostedServices;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace HemodinksAPI.Api;
@@ -17,6 +18,7 @@ public static partial class ApiServiceCollectionExtensions
             throw new InvalidOperationException("ConnectionStrings:DefaultConnection must be configured.");
         }
 
+        services.TryAddSingleton<DatabaseAvailabilitySignal>();
         services.AddSingleton<DatabaseConnectionTimingInterceptor>();
         services.AddDbContext<AppDbContext>((provider, options) =>
             options.UseSqlServer(defaultConnection, sqlOptions =>

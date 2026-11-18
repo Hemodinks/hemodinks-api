@@ -9,7 +9,10 @@ namespace HemodinksAPI.Infrastructure.Data;
 // Observes connection opens EF Core already performs: no extra queries, no database wake-ups.
 // Logs carry only durations, the context type and SQL error numbers: never connection strings,
 // server/database names, SQL text or exception messages.
-public sealed class DatabaseConnectionTimingInterceptor(ILogger<DatabaseConnectionTimingInterceptor> logger)
+// A successful open also marks the database as available for background work waiting on real traffic.
+public sealed class DatabaseConnectionTimingInterceptor(
+    ILogger<DatabaseConnectionTimingInterceptor> logger,
+    DatabaseAvailabilitySignal? availability = null)
     : DbConnectionInterceptor
 {
     public const string MeterName = "Hemodinks.Database";
@@ -42,6 +45,7 @@ public sealed class DatabaseConnectionTimingInterceptor(ILogger<DatabaseConnecti
     internal void RecordOpened(TimeSpan duration, string? context)
     {
         OpenDuration.Record(duration.TotalMilliseconds, new KeyValuePair<string, object?>("outcome", "opened"));
+        availability?.MarkAvailable();
         if (duration >= SlowOpenThreshold)
             logger.LogWarning(
                 "DatabaseConnectionOpenSlow: {DatabaseConnectionOpenMs} ms in {DbContextType}",

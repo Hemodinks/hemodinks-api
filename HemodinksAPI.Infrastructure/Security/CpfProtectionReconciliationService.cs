@@ -1,5 +1,6 @@
 using HemodinksAPI.Application.Security;
 using HemodinksAPI.Infrastructure.Data;
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 
 namespace HemodinksAPI.Infrastructure.Security;
@@ -12,6 +13,8 @@ namespace HemodinksAPI.Infrastructure.Security;
 public sealed class CpfProtectionReconciliationService(
     IServiceScopeFactory scopeFactory,
     CpfProtectionRuntimeInfo runtimeInfo,
+    DatabaseAvailabilitySignal databaseAvailability,
+    CpfReconciliationSchedule schedule,
     ILogger<CpfProtectionReconciliationService> logger) : BackgroundService
 {
     private const int BatchSize = 500;
@@ -31,21 +34,29 @@ public sealed class CpfProtectionReconciliationService(
 
         try
         {
-            using var scope = scopeFactory.CreateScope();
-            var context = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
-            var protector = scope.ServiceProvider.GetRequiredService<ICpfProtector>();
-            if (protector is DataProtectionCpfProtector dataProtection)
+            // Nunca conecta por conta propria: espera o banco responder a trafego real (#209) e deixa as
+            // primeiras requisicoes do usuario terminarem antes de varrer os CPFs.
+            await databaseAvailability.WaitAsync(stoppingToken);
+            await Task.Delay(schedule.StartDelay, stoppingToken);
+
+            for (var attempt = 1; ; attempt++)
             {
-                var rotation = dataProtection.PrepareCertificateRotation();
-                if (rotation.RetiringKeys > 0)
+                try
                 {
-                    logger.LogInformation(
-                        "Protecao de CPF: {RetiringKeys} chaves de certificado anterior no anel; chave nova criada: {CreatedKey}",
-                        rotation.RetiringKeys, rotation.CreatedKey);
+                    await RunOnceAsync(stoppingToken);
+                    return;
+                }
+                catch (Exception ex) when (attempt <= schedule.RetryDelays.Count
+                    && !stoppingToken.IsCancellationRequested
+                    && TryGetUnavailability(ex, out var cause, out var sqlErrorNumber))
+                {
+                    // Indisponibilidade passageira (ex.: SQL serverless retomando): so tipo e numero do erro.
+                    logger.LogWarning(
+                        "Reconciliacao de CPF adiada: banco indisponivel na tentativa {Attempt}; {ErrorType} {SqlErrorNumber}",
+                        attempt, cause.GetType().Name, sqlErrorNumber);
+                    await Task.Delay(schedule.RetryDelays[attempt - 1], stoppingToken);
                 }
             }
-
-            await ReconcileAsync(context, protector, logger, stoppingToken);
         }
         catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
         {
@@ -55,6 +66,49 @@ public sealed class CpfProtectionReconciliationService(
             // Leitura segue na coluna legada; falha aqui degrada so unicidade/busca por hash ate o proximo startup.
             logger.LogError(ex, "Falha na reconciliacao da protecao de CPF");
         }
+    }
+
+    private async Task RunOnceAsync(CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var context = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        var protector = scope.ServiceProvider.GetRequiredService<ICpfProtector>();
+        if (protector is DataProtectionCpfProtector dataProtection)
+        {
+            var rotation = dataProtection.PrepareCertificateRotation();
+            if (rotation.RetiringKeys > 0)
+            {
+                logger.LogInformation(
+                    "Protecao de CPF: {RetiringKeys} chaves de certificado anterior no anel; chave nova criada: {CreatedKey}",
+                    rotation.RetiringKeys, rotation.CreatedKey);
+            }
+        }
+
+        await ReconcileAsync(context, protector, logger, cancellationToken);
+    }
+
+    internal static bool TryGetUnavailability(Exception exception, out Exception cause, out int? sqlErrorNumber)
+    {
+        for (var current = exception; current is not null; current = current.InnerException)
+        {
+            if (current is SqlException sql && SqlAvailabilityErrors.IsUnavailable(sql.Number, sql.Class))
+            {
+                cause = sql;
+                sqlErrorNumber = sql.Number;
+                return true;
+            }
+
+            if (current is TimeoutException)
+            {
+                cause = current;
+                sqlErrorNumber = null;
+                return true;
+            }
+        }
+
+        cause = exception;
+        sqlErrorNumber = null;
+        return false;
     }
 
     internal static async Task<CpfReconciliationResult> ReconcileAsync(
@@ -188,3 +242,11 @@ public sealed class CpfProtectionReconciliationService(
 }
 
 public sealed record CpfReconciliationResult(int Checked, int Updated, int Unreadable, int Failed, int PendingReprotection);
+
+/// <summary>Espera apos o banco ficar disponivel e intervalos entre novas tentativas da reconciliacao.</summary>
+public sealed record CpfReconciliationSchedule(TimeSpan StartDelay, IReadOnlyList<TimeSpan> RetryDelays)
+{
+    public static CpfReconciliationSchedule Default { get; } =
+        // 2 min: a varredura fica fora do login e das primeiras telas de quem acordou o banco.
+        new(TimeSpan.FromMinutes(2), [TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(60)]);
+}

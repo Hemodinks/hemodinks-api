@@ -5,6 +5,7 @@ using HemodinksAPI.Infrastructure.Data;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.DataProtection.Repositories;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 using Microsoft.Extensions.Hosting;
 
 namespace HemodinksAPI.Infrastructure.Security;
@@ -70,6 +71,8 @@ public static class CpfProtectionServiceCollectionExtensions
         services.AddSingleton(new CpfProtectionRuntimeInfo(
             UsesEphemeralKeys: !options.HasCertificate,
             ReconcileOnStartup: options.ReconcileOnStartup ?? !environment.IsEnvironment("Testing")));
+        services.TryAddSingleton<DatabaseAvailabilitySignal>();
+        services.TryAddSingleton(CpfReconciliationSchedule.Default);
         services.AddHostedService<CpfProtectionReconciliationService>();
 
         return services;
