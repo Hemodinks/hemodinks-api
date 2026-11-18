@@ -7,7 +7,8 @@ namespace HemodinksAPI.Infrastructure.Data;
 public sealed class SqlDatabaseReadinessProbe(
     ISqlConnectionFactory connections,
     Func<AppDbContext> schemaContextFactory,
-    ILogger<SqlDatabaseReadinessProbe>? logger = null) : IDatabaseReadinessProbe
+    ILogger<SqlDatabaseReadinessProbe>? logger = null,
+    DatabaseAvailabilitySignal? availability = null) : IDatabaseReadinessProbe
 {
     public async Task<DatabaseReadinessResult> CheckAsync(bool validateSchema, CancellationToken cancellationToken)
     {
@@ -27,6 +28,8 @@ public sealed class SqlDatabaseReadinessProbe(
             command.CommandTimeout = 3;
             await command.ExecuteScalarAsync(cancellationToken);
             queryMs = phaseTimer.Elapsed.TotalMilliseconds;
+            // Warmup e /healthz ja acordaram o banco: libera o trabalho de fundo que espera por ele.
+            availability?.MarkAvailable();
 
             IReadOnlyList<string> pendingMigrations = [];
             // Resolve EF only for deployments that still require runtime schema validation.
