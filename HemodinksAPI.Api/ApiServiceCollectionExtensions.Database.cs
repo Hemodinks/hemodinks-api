@@ -1,6 +1,7 @@
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Common;
 using HemodinksAPI.Infrastructure.Data;
+using HemodinksAPI.Infrastructure.HostedServices;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
@@ -30,6 +31,9 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<HemodinksAPI.Application.Features.Clinics.IPublicClinicDirectory, SqlPublicClinicDirectory>();
         services.AddScoped<IDatabaseReadinessProbe, SqlDatabaseReadinessProbe>();
         services.AddScoped<Func<AppDbContext>>(provider => () => provider.GetRequiredService<AppDbContext>());
+        // Monta o modelo do EF no arranque, sem tocar o banco, para o primeiro login nao pagar esse custo.
+        if (configuration.GetValue<bool?>("Warmup:DataModelOnStartup") ?? true)
+            services.AddHostedService<DataModelWarmupHostedService>();
 
         services.AddScoped<IUserFeatureDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IUserDbContext>(provider => provider.GetRequiredService<AppDbContext>());
