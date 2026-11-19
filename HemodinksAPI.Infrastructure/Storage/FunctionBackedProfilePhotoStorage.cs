@@ -20,8 +20,9 @@ public class FunctionBackedProfilePhotoStorage : IProfilePhotoStorage
 
     public async Task<string?> SaveAsync(string? fotoPerfil, string? currentFotoPerfil, CancellationToken cancellationToken)
     {
-        // #293: valida antes da Function para foto invalida continuar 400 com mensagem de negocio
-        // (erro da Function vira falha interna, 500 sem o corpo da resposta).
+        // #293: valida antes da Function para foto invalida continuar 400 com mensagem de negocio.
+        // Se a Function recusar por regra (ex.: limite configurado menor que o da API), ela devolve 400
+        // com a mensagem e o StorageFunctionClient a repassa como BusinessRuleException.
         ProfilePhotoStorageSupport.EvaluateRequestedChange(fotoPerfil, currentFotoPerfil, _options.MaxBytes);
 
         var response = await _storageFunctionClient.PostJsonAsync<RemoteProfilePhotoSaveRequest, RemoteProfilePhotoSaveResponse>(

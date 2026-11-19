@@ -29,7 +29,7 @@ internal static class ProfilePhotoStorageSupport
                 return RequestedProfilePhotoChange.KeepCurrent();
             }
 
-            throw new BusinessRuleException("Foto de perfil invalida");
+            throw new BusinessRuleException(UnreadablePhotoMessage);
         }
 
         var parsedPhoto = ParseDataUrl(requestedPhoto);
@@ -49,12 +49,27 @@ internal static class ProfilePhotoStorageSupport
         return value.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase);
     }
 
+    internal const string UnreadablePhotoMessage =
+        "Não foi possível ler a foto enviada. Selecione a imagem novamente (PNG, JPG ou WEBP).";
+
+    internal const string UnsupportedFormatMessage =
+        "Formato de imagem não aceito. Use uma foto PNG, JPG ou WEBP.";
+
     private static void ValidateSize(int bytesLength, long maxBytes)
     {
         if (bytesLength > maxBytes)
         {
-            throw new BusinessRuleException($"A foto deve ter no maximo {maxBytes / 1024 / 1024} MB");
+            throw new BusinessRuleException(
+                $"A foto selecionada tem {FormatMegabytes(bytesLength)} e o limite é {FormatMegabytes(maxBytes)}. "
+                + "Reduza ou comprima a imagem e envie novamente.");
         }
+    }
+
+    // Arredonda para cima: 2 MB + 1 byte aparece como "2,1 MB", nunca como "2 MB" (igual ao limite).
+    internal static string FormatMegabytes(long bytes)
+    {
+        var tenths = Math.Ceiling(bytes / (1024d * 1024d) * 10) / 10;
+        return $"{tenths.ToString("0.#", System.Globalization.CultureInfo.GetCultureInfo("pt-BR"))} MB";
     }
 
     private static ParsedProfilePhoto ParseDataUrl(string dataUrl)
@@ -63,7 +78,7 @@ internal static class ProfilePhotoStorageSupport
 
         if (commaIndex <= 0)
         {
-            throw new BusinessRuleException("Foto de perfil invalida");
+            throw new BusinessRuleException(UnreadablePhotoMessage);
         }
 
         var header = dataUrl[..commaIndex];
@@ -71,14 +86,14 @@ internal static class ProfilePhotoStorageSupport
         if (!header.StartsWith("data:", StringComparison.OrdinalIgnoreCase)
             || !header.EndsWith(";base64", StringComparison.OrdinalIgnoreCase))
         {
-            throw new BusinessRuleException("Foto de perfil invalida");
+            throw new BusinessRuleException(UnreadablePhotoMessage);
         }
 
         var contentType = header[5..^7];
 
         if (!AllowedContentTypes.TryGetValue(contentType, out var extension))
         {
-            throw new BusinessRuleException("Use uma foto PNG, JPG ou WEBP");
+            throw new BusinessRuleException(UnsupportedFormatMessage);
         }
 
         try
@@ -90,7 +105,7 @@ internal static class ProfilePhotoStorageSupport
         }
         catch (FormatException ex)
         {
-            throw new BusinessRuleException("Foto de perfil invalida", ex);
+            throw new BusinessRuleException(UnreadablePhotoMessage, ex);
         }
     }
 }
