@@ -91,6 +91,14 @@ public class CreateUserCommandHandler : IRequestHandler<CreateUserCommand, Creat
                 throw new BusinessRuleException("Email ja cadastrado");
             }
 
+            // Reaproveitar cadastro inativo sobrescreve perfil, nome e senha e reativa a identidade global:
+            // mesma regra da edição, só outro SuperAdministrador pode fazer isso com quem é SuperAdministrador.
+            if (existingUser != null
+                && await SuperAdministradorProtection.IsProtectedFromAsync(_context, existingUser, request.CurrentUser, cancellationToken))
+            {
+                throw new UnauthorizedAccessException("Somente outro SuperAdministrador pode reativar este cadastro");
+            }
+
             var cpf = UserProfileRules.NormalizeCpf(request.Cpf);
             if (cpf != null)
             {

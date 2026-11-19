@@ -18,9 +18,13 @@ public sealed partial class IgnoreQueryFiltersAllowlistTests
             ["HemodinksAPI.Application/Features/Users/Commands/ResolveLoginClinicsCommandHandler.cs"] = new(3,
                 "Login anônimo: ainda não existe ClinicaId no contexto. Busca usuários ativos pelo e-mail, os vínculos "
                 + "desses usuários e as credenciais temporárias válidas, para listar as clínicas em que a senha confere."),
-            ["HemodinksAPI.Application/Features/Users/Commands/TemporaryAccessService.cs"] = new(3,
-                "Senha temporária é global: verificar se o alvo é SuperAdministrador em qualquer clínica (sem expor dados) "
-                + "e, ao concluir a troca, liberar PrecisaTrocarSenha em todos os vínculos da mesma identidade global."),
+            ["HemodinksAPI.Application/Features/Users/Commands/TemporaryAccessService.cs"] = new(1,
+                "Senha temporária é global: ao concluir a troca, liberar PrecisaTrocarSenha em todos os vínculos "
+                + "da mesma identidade global."),
+            ["HemodinksAPI.Application/Features/Users/Commands/SuperAdministradorProtection.cs"] = new(2,
+                "Hierarquia global (movido de TemporaryAccessService): saber se o alvo é SuperAdministrador em qualquer "
+                + "clínica, por e-mail normalizado ou UsuarioGlobalId, devolvendo só um booleano. Usado na edição, "
+                + "exclusão e senha temporária para que perfil inferior não altere a identidade global de um SuperAdministrador."),
             ["HemodinksAPI.Application/Features/Users/Commands/PasswordCommandMutations.cs"] = new(2,
                 "Revogação global de credenciais: invalida tokens de redefinição de todos os vínculos da mesma "
                 + "identidade global, restrito por UsuarioGlobalId."),
