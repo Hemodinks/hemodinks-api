@@ -94,7 +94,7 @@ ConnectionStrings__DefaultConnection=<Azure SQL>
 JwtSettings__SecretKey=<segredo forte>
 JwtSettings__Issuer=HemodinksAPI
 JwtSettings__Audience=HemodinksAPI
-AzureStorage__ConnectionString=<Azure Storage>
+AzureStorage__ConnectionString=<secretRef azurestorage-connectionstring>
 AzureStorage__ContainerName=profile-photos
 AzureStorage__PatientFilesContainerName=patient-files
 Cors__AllowedOrigins__0=https://hemodinks.gestao-saude.tec.br
@@ -124,6 +124,24 @@ variaveis acima como `secretRef` em toda revisao candidata e falha (codigo 10), 
 algum desses secrets nao existir. Backup, rotacao
 (`CpfProtection__PreviousCertificates__0__*` e `CpfProtection__PreviousLookupHashKeys__0`, so durante a
 troca) e rollback: [issue-227-cpf-em-repouso.md](issue-227-cpf-em-repouso.md).
+
+Pelo mesmo motivo, a connection string do Storage e a function key das Functions tambem sao sempre gravadas
+como `secretRef` (#288). Antes elas eram copiadas como `value`, legivel por qualquer pessoa com leitura no recurso.
+Crie ou atualize estes secrets **antes** do deploy; sem eles o deploy falha com codigo 10, sem mutacao:
+
+| Secret do Container App | Conteudo | Variavel na revisao |
+| --- | --- | --- |
+| `azurestorage-connectionstring` | Connection string da storage de producao | `AzureStorage__ConnectionString` |
+| `storagefunctions-functionkey` | Host key da Function App `hemodinks-workers-production` | `StorageFunctions__FunctionKey` |
+
+Rotacao sem indisponibilidade:
+
+1. Storage: descubra qual chave (key1/key2) esta em uso, passe **todos** os consumidores (secret acima, app
+   settings da Function App) para a connection string da outra chave e so depois use **Rotate key** na antiga.
+2. Function key: crie uma host key nova (ex.: `hemodinks-api`), grave-a no secret acima e, depois do deploy
+   e de testar uploads, renove ou apague a chave antiga.
+3. Alterar o valor de um secret nao reinicia a revisao ativa: rode o deploy (ou reinicie a revisao) para a
+   API ler o valor novo.
 
 ### New Relic APM na API
 
