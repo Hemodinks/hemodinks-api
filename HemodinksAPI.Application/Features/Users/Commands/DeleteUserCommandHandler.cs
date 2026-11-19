@@ -44,8 +44,8 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand>
                     throw new UnauthorizedAccessException("Sem permissao para excluir usuario");
                 }
 
-                if (user.PerfilId == Perfil.SuperAdministradorId
-                    && !request.CurrentUser.IsSuperAdministrador)
+                // Inclui quem é SuperAdministrador em outra clínica (identidade global).
+                if (await SuperAdministradorProtection.IsProtectedFromAsync(_context, user, request.CurrentUser, cancellationToken))
                 {
                     throw new UnauthorizedAccessException("Somente outro SuperAdministrador pode excluir este cadastro");
                 }

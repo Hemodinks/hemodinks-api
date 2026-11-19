@@ -206,6 +206,7 @@ RULES = [
     "Médicos enxergam pacientes, faturamentos, atendimentos, arquivos, observações e eventos conforme seu vínculo e seus grupos médicos.",
     "O Administrador permanece restrito à própria clínica, inclusive nas rotas de plataforma; somente o SuperAdministrador cria, desativa e alterna entre clínicas.",
     "O perfil `Equipe` usa identidade coletiva; operações sensíveis exigem equipe ativa e operador identificado no token e são auditadas.",
+    "Cadastro de quem é SuperAdministrador (nesta ou em outra clínica) só é alterado, inativado, reativado, excluído ou recebe senha temporária por outro SuperAdministrador; perfis inferiores apenas consultam (`403`). O próprio titular continua editando o seu cadastro.",
 ]
 
 

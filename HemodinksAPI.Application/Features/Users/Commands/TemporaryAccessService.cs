@@ -36,10 +36,7 @@ public sealed class TemporaryAccessService(
         // Global credentials can affect every membership: inspect hierarchy without exposing other tenants.
         var hasHigherPrivilege = requester.PerfilId != Perfil.SuperAdministradorId
             && (target.PerfilId == Perfil.SuperAdministradorId
-                || await context.Users.IgnoreQueryFilters().AnyAsync(x => x.PerfilId == Perfil.SuperAdministradorId
-                    && x.Email.Trim().ToLower() == global.Email, ct)
-                || await context.UsuariosClinicas.IgnoreQueryFilters()
-                .AnyAsync(x => x.UsuarioGlobalId == global.Id && x.User.PerfilId == Perfil.SuperAdministradorId, ct));
+                || await SuperAdministradorProtection.IsSuperAdministradorInAnyClinicAsync(context, global.Email, global.Id, ct));
         if (!requesterMembership.Ativo || !requesterMembership.UsuarioGlobal.Ativo || !membership.Ativo || !global.Ativo || hasHigherPrivilege)
         {
             Audit(requesterMembership.UsuarioGlobalId, target, "TemporaryPassword.GenerationDenied", clock.GetUtcNow().UtcDateTime, actor.Id, false);
