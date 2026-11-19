@@ -39,7 +39,21 @@ public sealed class ProfilePhotoStorageLimitTests
         var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
             storage.SaveAsync(dataUrl, null, CancellationToken.None));
 
-        Assert.Equal("A foto deve ter no maximo 2 MB", exception.Message);
+        Assert.Equal(
+            "A foto selecionada tem 2,1 MB e o limite é 2 MB. Reduza ou comprima a imagem e envie novamente.",
+            exception.Message);
+    }
+
+    [Fact]
+    public async Task SaveAsync_OversizedPhoto_ReportsActualSizeAndLimit()
+    {
+        var storage = CreateStorage(Path.Combine(Path.GetTempPath(), $"hemodinks-photo-test-{Guid.NewGuid():N}"));
+        var dataUrl = CreatePngDataUrl((int)(2.4 * 1024 * 1024));
+
+        var exception = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            storage.SaveAsync(dataUrl, null, CancellationToken.None));
+
+        Assert.StartsWith("A foto selecionada tem 2,4 MB e o limite é 2 MB.", exception.Message);
     }
 
     private static LocalDiskProfilePhotoStorage CreateStorage(string rootPath)
@@ -58,9 +72,9 @@ public sealed class ProfilePhotoStorageLimitTests
     // #293: o caminho de producao (Function) precisa rejeitar com regra de negocio (400) antes do POST;
     // erro devolvido pela Function seria falha interna (500).
     [Theory]
-    [InlineData("data:image/gif;base64,R0lGODlh", "Use uma foto PNG, JPG ou WEBP")]
-    [InlineData("nao-e-data-url", "Foto de perfil invalida")]
-    [InlineData("data:image/png;base64,@@@", "Foto de perfil invalida")]
+    [InlineData("data:image/gif;base64,R0lGODlh", "Formato de imagem não aceito. Use uma foto PNG, JPG ou WEBP.")]
+    [InlineData("nao-e-data-url", "Não foi possível ler a foto enviada. Selecione a imagem novamente (PNG, JPG ou WEBP).")]
+    [InlineData("data:image/png;base64,@@@", "Não foi possível ler a foto enviada. Selecione a imagem novamente (PNG, JPG ou WEBP).")]
     public async Task FunctionBacked_InvalidPhoto_IsRejectedBeforeCallingFunction(string photo, string message)
     {
         var factory = new CountingHttpClientFactory();
@@ -85,6 +99,39 @@ public sealed class ProfilePhotoStorageLimitTests
         Assert.Equal(0, factory.Calls);
     }
 
+    // Function com limite menor que o da API (caso real de 19/11/2026): a recusa da Function precisa chegar
+    // ao usuario como regra de negocio (400 com a mensagem), nao como 500 generico.
+    [Fact]
+    public async Task FunctionBacked_FunctionRejectsByBusinessRule_SurfacesMessageAsBusinessRule()
+    {
+        const string functionMessage =
+            "A foto selecionada tem 1,5 MB e o limite é 1 MB. Reduza ou comprima a imagem e envie novamente.";
+        var factory = new CountingHttpClientFactory(System.Net.HttpStatusCode.BadRequest,
+            $$"""{"message":"{{functionMessage}}"}""");
+        var storage = CreateFunctionBackedStorage(factory);
+
+        var error = await Assert.ThrowsAsync<BusinessRuleException>(() =>
+            storage.SaveAsync(CreatePngDataUrl(1024), null, CancellationToken.None));
+
+        Assert.Equal(functionMessage, error.Message);
+        Assert.Equal(1, factory.Calls);
+    }
+
+    [Theory]
+    [InlineData(System.Net.HttpStatusCode.InternalServerError, """{"message":"detalhe interno"}""")]
+    [InlineData(System.Net.HttpStatusCode.BadRequest, "texto sem json")]
+    [InlineData(System.Net.HttpStatusCode.BadRequest, """{"error":"sem campo message"}""")]
+    [InlineData(System.Net.HttpStatusCode.Unauthorized, """{"message":"chave invalida"}""")]
+    public async Task FunctionBacked_OtherFunctionFailures_RemainInternalErrors(
+        System.Net.HttpStatusCode status, string body)
+    {
+        var factory = new CountingHttpClientFactory(status, body);
+        var storage = CreateFunctionBackedStorage(factory);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            storage.SaveAsync(CreatePngDataUrl(1024), null, CancellationToken.None));
+    }
+
     private static FunctionBackedProfilePhotoStorage CreateFunctionBackedStorage(CountingHttpClientFactory factory)
     {
         var photoOptions = Options.Create(new ProfilePhotoStorageOptions());
@@ -98,20 +145,22 @@ public sealed class ProfilePhotoStorageLimitTests
             photoOptions);
     }
 
-    private sealed class CountingHttpClientFactory : IHttpClientFactory
+    private sealed class CountingHttpClientFactory(
+        System.Net.HttpStatusCode status = System.Net.HttpStatusCode.BadRequest,
+        string body = "") : IHttpClientFactory
     {
         public int Calls { get; private set; }
 
         public HttpClient CreateClient(string name)
         {
             Calls++;
-            return new HttpClient(new RejectingHandler());
+            return new HttpClient(new RejectingHandler(status, body));
         }
 
-        private sealed class RejectingHandler : HttpMessageHandler
+        private sealed class RejectingHandler(System.Net.HttpStatusCode status, string body) : HttpMessageHandler
         {
             protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
-                Task.FromResult(new HttpResponseMessage(System.Net.HttpStatusCode.BadRequest));
+                Task.FromResult(new HttpResponseMessage(status) { Content = new StringContent(body) });
         }
     }
 }

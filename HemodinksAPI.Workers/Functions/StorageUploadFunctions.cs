@@ -2,6 +2,7 @@ using System.Net;
 using System.Text.Json;
 using System.Text;
 using HemodinksAPI.Application.Storage;
+using HemodinksAPI.Domain.Exceptions;
 using Microsoft.Azure.Functions.Worker;
 using Microsoft.Azure.Functions.Worker.Http;
 using Microsoft.Extensions.Logging;
@@ -42,10 +43,26 @@ public class StorageUploadFunctions
             cancellationToken)
             ?? throw new InvalidOperationException("Payload de upload de foto de perfil invalido.");
 
-        var fotoPerfil = await _profilePhotoStorage.SaveAsync(
-            payload.FotoPerfil,
-            payload.CurrentFotoPerfil,
-            cancellationToken);
+        string? fotoPerfil;
+        try
+        {
+            fotoPerfil = await _profilePhotoStorage.SaveAsync(
+                payload.FotoPerfil,
+                payload.CurrentFotoPerfil,
+                cancellationToken);
+        }
+        catch (BusinessRuleException ex)
+        {
+            // Recusa por regra (tamanho, formato) volta como 400 com a mensagem para a API repassar ao usuario,
+            // em vez de 500 generico. Mensagem de regra nao contem dado do arquivo.
+            _logger.LogWarning("Upload de foto de perfil recusado por regra de negocio.");
+            var rejected = request.CreateResponse(HttpStatusCode.BadRequest);
+            rejected.Headers.Add("Content-Type", "application/json; charset=utf-8");
+            await rejected.WriteStringAsync(
+                JsonSerializer.Serialize(new { message = ex.Message }, JsonOptions),
+                cancellationToken);
+            return rejected;
+        }
 
         _logger.LogInformation("Upload de foto de perfil processado pela Function.");
 

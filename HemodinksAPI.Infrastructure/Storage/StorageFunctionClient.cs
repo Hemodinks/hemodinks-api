@@ -1,5 +1,6 @@
 using System.Net.Http.Json;
 using System.Text;
+using HemodinksAPI.Domain.Exceptions;
 using Microsoft.Extensions.Options;
 
 namespace HemodinksAPI.Infrastructure.Storage;
@@ -40,12 +41,7 @@ public class StorageFunctionClient
             request,
             cancellationToken);
 
-        if (!response.IsSuccessStatusCode)
-        {
-            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new InvalidOperationException(
-                $"Falha ao chamar a storage function ({(int)response.StatusCode} {response.ReasonPhrase}): {errorBody}");
-        }
+        await EnsureSuccessAsync(response, cancellationToken);
 
         var result = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: cancellationToken);
         if (result == null)
@@ -82,15 +78,48 @@ public class StorageFunctionClient
             HttpCompletionOption.ResponseHeadersRead,
             cancellationToken);
 
-        if (!response.IsSuccessStatusCode)
-        {
-            var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
-            throw new InvalidOperationException(
-                $"Falha ao chamar a storage function ({(int)response.StatusCode} {response.ReasonPhrase}): {errorBody}");
-        }
+        await EnsureSuccessAsync(response, cancellationToken);
 
         var result = await response.Content.ReadFromJsonAsync<TResponse>(cancellationToken: cancellationToken);
         return result ?? throw new InvalidOperationException("A storage function retornou uma resposta vazia.");
+    }
+
+    // 400 com { message } e recusa por regra de negocio da Function (tamanho, formato): vira BusinessRuleException
+    // para a API responder 400 com a mensagem. Qualquer outra falha continua erro interno (500 generico ao usuario).
+    private static async Task EnsureSuccessAsync(HttpResponseMessage response, CancellationToken cancellationToken)
+    {
+        if (response.IsSuccessStatusCode)
+        {
+            return;
+        }
+
+        var errorBody = await response.Content.ReadAsStringAsync(cancellationToken);
+        if (response.StatusCode == System.Net.HttpStatusCode.BadRequest
+            && TryReadBusinessMessage(errorBody) is { } businessMessage)
+        {
+            throw new BusinessRuleException(businessMessage);
+        }
+
+        throw new InvalidOperationException(
+            $"Falha ao chamar a storage function ({(int)response.StatusCode} {response.ReasonPhrase}): {errorBody}");
+    }
+
+    private static string? TryReadBusinessMessage(string body)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(body);
+            return document.RootElement.ValueKind == System.Text.Json.JsonValueKind.Object
+                && document.RootElement.TryGetProperty("message", out var message)
+                && message.ValueKind == System.Text.Json.JsonValueKind.String
+                && !string.IsNullOrWhiteSpace(message.GetString())
+                ? message.GetString()
+                : null;
+        }
+        catch (System.Text.Json.JsonException)
+        {
+            return null;
+        }
     }
 
     private HttpClient CreateClient()
