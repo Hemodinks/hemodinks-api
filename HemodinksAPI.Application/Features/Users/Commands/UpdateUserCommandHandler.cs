@@ -78,8 +78,8 @@ public class UpdateUserCommandHandler : IRequestHandler<UpdateUserCommand, UserD
                 throw new UnauthorizedAccessException("Sem permissao para atualizar usuario");
             }
 
-            if (user.PerfilId == Perfil.SuperAdministradorId
-                && request.CurrentUser?.IsSuperAdministrador != true)
+            // Inclui quem é SuperAdministrador em outra clínica: nome e identidade são globais.
+            if (await SuperAdministradorProtection.IsProtectedFromAsync(_context, user, request.CurrentUser, cancellationToken))
             {
                 throw new UnauthorizedAccessException("Somente outro SuperAdministrador pode alterar este cadastro");
             }
