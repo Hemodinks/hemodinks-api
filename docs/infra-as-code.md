@@ -10,7 +10,7 @@ semana; nada é aplicado por workflow. A aplicação controlada é a fase 3 do i
 | --- | --- | --- |
 | `modules/sql.bicep` | `rg-hemodinks-prod` | Servidor Azure SQL, admin Entra, regras de firewall de serviço (`AllowAllWindowsAzureIps`, Render), bancos `HemodinksDB` e `HemodinksDBConfirmation` (serverless, oferta gratuita), PITR de 7 dias |
 | `modules/container-environment.bicep` | `hemodinks-containers-prod` | Ambiente do Container Apps (Consumption) |
-| `modules/storage.bicep` | `hemodinks-workers-production_group` | Storage account de produção, retenção de exclusão de blobs/contêineres (30 dias) e os seis contêineres |
+| `modules/storage.bicep` | `hemodinks-workers-production_group` | Storage account de produção, retenção de exclusão de blobs/contêineres (30 dias), os seis contêineres e as filas `file-export-jobs` e `password-reset-emails` dos gatilhos das Functions (precisam existir mesmo com `AsyncQueues` desligado na API, senão o controlador de escala registra "Error querying for queue scale status"; criadas em 19/11/2026) |
 | `modules/function-plan.bicep` + `modules/function-app.bicep` | workers prod/homologação (plano de prod fica em `rg-hemodinks-prod`) | Planos Flex Consumption, Function Apps e Application Insights |
 | `modules/static-web-app.bicep` | `rg-hemodinks-prod` | Static Web App do `hemodinks-front` |
 

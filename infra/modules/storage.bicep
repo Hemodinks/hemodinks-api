@@ -71,6 +71,30 @@ resource blob 'Microsoft.Storage/storageAccounts/blobServices@2023-05-01' = {
   }
 }
 
+// Filas dos gatilhos das Functions (GenerateFileExport, SendPasswordResetEmail). Precisam existir mesmo com
+// AsyncQueues desligado na API: sem elas o controlador de escala do Flex Consumption registra
+// "Error querying for queue scale status" a cada poucos minutos. Nomes iguais a AsyncQueueNames.
+var queues = [
+  'file-export-jobs'
+  'password-reset-emails'
+]
+
+// Serviço de fila existente: só as filas são declaradas, sem mudar a configuração do serviço.
+resource queueService 'Microsoft.Storage/storageAccounts/queueServices@2023-05-01' existing = {
+  parent: account
+  name: 'default'
+}
+
+resource storageQueues 'Microsoft.Storage/storageAccounts/queueServices/queues@2023-05-01' = [
+  for name in queues: {
+    parent: queueService
+    name: name
+    properties: {
+      metadata: {}
+    }
+  }
+]
+
 resource blobContainers 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-05-01' = [
   for name in containers: {
     parent: blob
