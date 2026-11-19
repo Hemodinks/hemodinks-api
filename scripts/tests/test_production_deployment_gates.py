@@ -308,9 +308,15 @@ class PublishRevisionReuseTests(unittest.TestCase):
     CPF_ENV = [{"name": "CpfProtection__CertificateBase64", "secretRef": "cpf-protection-certificate"},
                {"name": "CpfProtection__CertificatePassword", "secretRef": "cpf-protection-certificate-password"},
                {"name": "CpfProtection__LookupHashKey", "secretRef": "cpf-protection-lookup-hash-key"}]
+    # #288: Storage e function key deixam de ser copiadas como value da revisao ativa.
+    STORAGE_SECRETS = ("azurestorage-connectionstring", "storagefunctions-functionkey")
+    STORAGE_ENV = [{"name": "AzureStorage__ConnectionString", "secretRef": "azurestorage-connectionstring"},
+                   {"name": "StorageFunctions__FunctionKey", "secretRef": "storagefunctions-functionkey"}]
+    REQUIRED_SECRETS = CPF_SECRETS + STORAGE_SECRETS
+    REQUIRED_ENV = CPF_ENV + STORAGE_ENV
 
     def run_step(self, step, *, same_revision=True, color="blue", mismatch=None,
-                 scenario="healthy", already_current="true", cpf_secrets=CPF_SECRETS, existing_candidate_env=None,
+                 scenario="healthy", already_current="true", cpf_secrets=REQUIRED_SECRETS, existing_candidate_env=None,
                  active_extra_env=()):
         script = deploy_step_script(step)
         bash = (shutil.which("bash") if os.name != "nt" else
@@ -439,6 +445,25 @@ az() {
         self.assertIn({"name": "CpfProtection__PreviousLookupHashKeys__0",
                        "secretRef": "cpf-protection-previous-lookup-hash-key"}, env)
 
+    def test_new_candidate_replaces_plaintext_storage_values_with_secret_references(self):
+        plaintext = [{"name": "AzureStorage__ConnectionString",
+                      "value": "DefaultEndpointsProtocol=https;AccountName=x;AccountKey=plain-storage-key"},
+                     {"name": "StorageFunctions__FunctionKey", "value": "plain-function-key"},
+                     {"name": "AzureStorage__ContainerName", "value": "profile-photos"}]
+        result, output, mutations = self.run_step("Create candidate revision with zero traffic",
+                                                  same_revision=False, active_extra_env=plaintext)
+        self.assertEqual(0, result.returncode, result.stderr)
+        env = self.candidate_env()
+        names = [entry["name"] for entry in env]
+        self.assertEqual(len(names), len(set(names)), "variavel duplicada")
+        for expected in self.STORAGE_ENV:
+            self.assertIn(expected, env)
+        patch = json.dumps(self.last_patch)
+        self.assertNotIn("plain-storage-key", patch)
+        self.assertNotIn("plain-function-key", patch)
+        # Variaveis sem segredo continuam sendo copiadas da revisao ativa.
+        self.assertIn({"name": "AzureStorage__ContainerName", "value": "profile-photos"}, env)
+
     def test_new_candidate_limits_new_relic_log_forwarding_and_enables_session_snapshot(self):
         stale = [{"name": "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_LOG_LEVEL_DENYLIST", "value": ""},
                  {"name": "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_INCLUDE", "value": "UserId"}]
@@ -460,10 +485,10 @@ az() {
         self.assertFalse(included & {"UserId", "GlobalUserId", "RequestPath", "UserEmail", "UserName"})
         self.assertEqual("true", env["ActiveSessionsSnapshot__Enabled"])
 
-    def test_missing_cpf_secret_blocks_deploy_before_any_mutation(self):
-        for missing in self.CPF_SECRETS:
+    def test_missing_required_secret_blocks_deploy_before_any_mutation(self):
+        for missing in self.REQUIRED_SECRETS:
             with self.subTest(missing=missing):
-                secrets = tuple(s for s in self.CPF_SECRETS if s != missing)
+                secrets = tuple(s for s in self.REQUIRED_SECRETS if s != missing)
                 result, output, mutations = self.run_step("Create candidate revision with zero traffic",
                                                           same_revision=False, cpf_secrets=secrets)
                 self.assertEqual(10, result.returncode, result.stderr)
@@ -477,19 +502,23 @@ az() {
         self.assertEqual("", mutations)
         self.assertIn("already_current=true", output)
 
-    def test_existing_candidate_is_reused_only_with_cpf_secret_references(self):
+    def test_existing_candidate_is_reused_only_with_required_secret_references(self):
         result, output, mutations = self.run_step("Create candidate revision with zero traffic",
-                                                  same_revision=False, existing_candidate_env=self.CPF_ENV)
+                                                  same_revision=False, existing_candidate_env=self.REQUIRED_ENV)
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertNotIn("patch", mutations)
         self.assertIn("revision label add", mutations)
 
-        for broken in ([], self.CPF_ENV[:2], [{**self.CPF_ENV[0], "secretRef": "other"}, *self.CPF_ENV[1:]]):
+        plaintext_storage = [{"name": "AzureStorage__ConnectionString", "value": "AccountKey=plain"},
+                             self.STORAGE_ENV[1]]
+        for broken in ([], self.CPF_ENV[:2], [{**self.CPF_ENV[0], "secretRef": "other"}, *self.CPF_ENV[1:]],
+                       self.CPF_ENV, self.CPF_ENV + plaintext_storage,
+                       self.CPF_ENV + [{**self.STORAGE_ENV[0], "secretRef": "other"}, self.STORAGE_ENV[1]]):
             with self.subTest(env=[e["name"] for e in broken]):
                 result, output, mutations = self.run_step("Create candidate revision with zero traffic",
                                                           same_revision=False, existing_candidate_env=broken)
                 self.assertEqual(8, result.returncode, result.stderr)
-                self.assertIn("does not reference the CPF protection secrets", result.stdout)
+                self.assertIn("does not reference the required secrets", result.stdout)
                 self.assertNotIn("patch", mutations)
                 self.assertNotIn("revision label", mutations)
                 self.assertNotIn("ingress traffic", mutations)
