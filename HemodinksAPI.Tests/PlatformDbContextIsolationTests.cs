@@ -1,7 +1,9 @@
+using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace HemodinksAPI.Tests;
 
@@ -31,6 +33,31 @@ public sealed class PlatformDbContextIsolationTests
         Assert.Single(await requestContext.Users.ToListAsync());
         Assert.Equal(Clinica.DefaultId, requestTenant.ClinicaId);
         Assert.False(requestTenant.IsPlatformScope);
+    }
+
+    // #294/#359: interfaces de escopo de plataforma nunca no contexto de tenant da requisicao.
+    public static TheoryData<Type> PlatformScopedInterfaces =>
+    [
+        typeof(IPlatformSessionMonitorDbContext),
+        typeof(ISensitiveIdentityDbContext),
+        typeof(ITemporaryAccessDbContext),
+        typeof(IPlatformPasswordResetDbContext),
+        typeof(IPlatformTeamDbContext),
+        typeof(IPlatformClinicDbContext),
+        typeof(ISessionDbContext),
+    ];
+
+    [Theory]
+    [MemberData(nameof(PlatformScopedInterfaces))]
+    public void Platform_scoped_interface_is_only_implemented_and_resolved_by_platform_context(Type contract)
+    {
+        Assert.False(contract.IsAssignableFrom(typeof(AppDbContext)), $"{contract.Name} no AppDbContext de tenant");
+        Assert.True(contract.IsAssignableFrom(typeof(PlatformDbContext)));
+
+        using var factory = new HemodinksApiFactory();
+        using var scope = factory.Services.CreateScope();
+
+        Assert.IsType<PlatformDbContext>(scope.ServiceProvider.GetRequiredService(contract));
     }
 
     private static User CreateUser(int clinicaId, string email)
