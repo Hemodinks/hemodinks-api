@@ -75,6 +75,8 @@ def enabled(item: dict, variables: dict) -> bool:
 
 def projection_clauses(query: str) -> list[str]:
     """Trechos de SELECT e FACET de uma NRQL (o WHERE pode citar atributos sensiveis)."""
+    # Quebra de linha ou tab apos SELECT/antes de FROM nao pode esconder a projecao (#360).
+    query = re.sub(r"\s+", " ", query)
     upper = query.upper()
     clauses = []
     select = upper.find("SELECT ")
@@ -108,8 +110,7 @@ def replica_unsafe_aggregations(query: str) -> list[str]:
     """Funcoes do SELECT que somam o snapshot repetido por replica (vazio se seguro)."""
     if not SNAPSHOT_QUERY.search(query):
         return []
-    # Quebra de linha ou tab apos SELECT nao pode esconder a agregacao.
-    select = projection_clauses(re.sub(r"\s+", " ", query))[:1]
+    select = projection_clauses(query)[:1]
     functions = re.findall(r"\b(\w+)\s*\(", re.sub(r"'[^']*'", "''", select[0])) if select else []
     return sorted({f.lower() for f in functions} - SNAPSHOT_AGGREGATIONS - {"numeric"})
 
