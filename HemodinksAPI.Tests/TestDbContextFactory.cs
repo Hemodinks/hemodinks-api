@@ -21,6 +21,20 @@ internal static class TestDbContextFactory
         return context;
     }
 
+    // Servicos de escopo de plataforma (senha, acesso temporario, sessao, clinicas) recebem o
+    // PlatformDbContext em producao; o AppDbContext de tenant nao implementa essas interfaces (#359).
+    public static PlatformDbContext CreatePlatform()
+    {
+        var options = new DbContextOptionsBuilder<AppDbContext>()
+            .UseInMemoryDatabase(Guid.NewGuid().ToString())
+            .Options;
+
+        var context = new PlatformDbContext(options, TestCpfProtection.Instance);
+        context.Database.EnsureCreated();
+
+        return context;
+    }
+
     public static RelationalCbhpmTestDbContextLease CreateRelationalCbhpm()
     {
         var connection = new SqliteConnection("Data Source=:memory:");

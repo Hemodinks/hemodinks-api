@@ -7,7 +7,9 @@ using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using HemodinksAPI.Infrastructure.HostedServices;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 namespace HemodinksAPI.Tests;
@@ -282,6 +284,22 @@ public sealed class PlatformActiveSessionsEndpointTests : ApiEndpointTestBase
 
         Assert.False(await service.TryRecordOnceAsync(CancellationToken.None));
         Assert.Empty(logger.Entries);
+    }
+
+    [Theory]
+    [InlineData(null, false)]
+    [InlineData("false", false)]
+    [InlineData("true", true)]
+    public void SnapshotService_IsRegisteredOnlyWhenEnabled(string? setting, bool expected)
+    {
+        using var baseFactory = new HemodinksApiFactory();
+        using var factory = setting is null
+            ? baseFactory
+            : baseFactory.WithWebHostBuilder(builder => builder.UseSetting("ActiveSessionsSnapshot:Enabled", setting));
+
+        var registered = factory.Services.GetServices<IHostedService>().OfType<ActiveSessionsSnapshotHostedService>().Any();
+
+        Assert.Equal(expected, registered);
     }
 
     private sealed record SnapshotLogEntry(LogLevel Level, int EventId, string Message, IReadOnlyDictionary<string, object?> Properties);

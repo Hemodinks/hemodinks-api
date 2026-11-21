@@ -159,7 +159,7 @@ public sealed class CriticalQuerySqlServerTests(ITestOutputHelper output)
                 Assert.Equal(PlatformResultKind.Ok, result.Kind);
                 Assert.Equal(2, Assert.IsType<List<ClinicaPlatformResponse>>(result.Value).Count);
             });
-            var scopedClinics = new ClinicaPlatformRequestHandler(null!, db, null!, null!, null!, null!, null!, null!, null!);
+            var scopedClinics = new ClinicaPlatformRequestHandler(null!, platform, null!, null!, null!, null!, null!, null!, null!);
             var clinicResult = await scopedClinics.ListClinicas(new(null, null, Perfil.AdministradorId,
                 1, null, null, null, null, null), default);
             Assert.Equal(1, Assert.Single(Assert.IsType<List<ClinicaPlatformResponse>>(clinicResult.Value)).Id);

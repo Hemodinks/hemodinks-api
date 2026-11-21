@@ -75,6 +75,8 @@ def enabled(item: dict, variables: dict) -> bool:
 
 def projection_clauses(query: str) -> list[str]:
     """Trechos de SELECT e FACET de uma NRQL (o WHERE pode citar atributos sensiveis)."""
+    # Quebra de linha ou tab apos SELECT/antes de FROM nao pode esconder a projecao (#360).
+    query = re.sub(r"\s+", " ", query)
     upper = query.upper()
     clauses = []
     select = upper.find("SELECT ")
@@ -94,6 +96,23 @@ def sensitive_projection(query: str) -> list[str]:
         # Aliases entre aspas ('Usuarios online') nao sao atributos.
         found += SENSITIVE.findall(re.sub(r"'[^']*'", "''", clause))
     return found
+
+
+# Cada replica ativa registra o mesmo snapshot global de sessoes (#294): somar ou contar
+# multiplica o valor pelo numero de replicas/revisoes. Lista fechada: so latest/max/min
+# (e numeric) no SELECT; qualquer outra funcao (sum, count, average, percentile...) e recusada.
+SNAPSHOT_QUERY = re.compile(
+    r"ActiveSessionsSnapshot|\b(UsuariosOnline|TotalSessoes|SnapshotUsuarios|SnapshotSessoes)\b")
+SNAPSHOT_AGGREGATIONS = {"latest", "max", "min"}
+
+
+def replica_unsafe_aggregations(query: str) -> list[str]:
+    """Funcoes do SELECT que somam o snapshot repetido por replica (vazio se seguro)."""
+    if not SNAPSHOT_QUERY.search(query):
+        return []
+    select = projection_clauses(query)[:1]
+    functions = re.findall(r"\b(\w+)\s*\(", re.sub(r"'[^']*'", "''", select[0])) if select else []
+    return sorted({f.lower() for f in functions} - SNAPSHOT_AGGREGATIONS - {"numeric"})
 
 
 def runbook_anchors(path: Path = RUNBOOK) -> set[str]:
@@ -158,6 +177,9 @@ def validate(config: dict, anchors: set[str] | None = None) -> list[str]:
             errors.append(f"{label}: placeholder desconhecido {sorted(unknown)}")
         if sensitive_projection(query):
             errors.append(f"{label}: SELECT/FACET expoe atributo sensivel {sorted(set(sensitive_projection(query)))}")
+        unsafe = replica_unsafe_aggregations(query)
+        if unsafe:
+            errors.append(f"{label}: snapshot de sessoes repete por replica; use latest/max/min, nao {unsafe}")
     return errors
 
 

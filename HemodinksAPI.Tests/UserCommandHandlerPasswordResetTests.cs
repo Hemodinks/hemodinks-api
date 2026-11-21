@@ -91,7 +91,7 @@ public partial class UserCommandHandlerTests
     [Fact]
     public async Task ConfirmPasswordReset_WhenTokenIsValid_ChangesPassword()
     {
-        await using var context = TestDbContextFactory.Create();
+        await using var context = TestDbContextFactory.CreatePlatform();
         var hasher = new PasswordHasher();
         var user = CreateUser(
             id: 9,
