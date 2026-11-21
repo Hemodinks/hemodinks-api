@@ -9,10 +9,16 @@ namespace HemodinksAPI.Infrastructure.Data;
 /// o estado tenant mutavel do contexto usado pela requisicao.
 /// </summary>
 /// <remarks>
-/// <see cref="IPlatformSessionMonitorDbContext"/> e implementada so aqui (#294): registrar a interface
-/// com o <see cref="AppDbContext"/> da requisicao nem compila, em vez de devolver dados de um tenant.
+/// As interfaces de escopo de plataforma sao implementadas so aqui (#294, #359): registra-las com o
+/// <see cref="AppDbContext"/> da requisicao nem compila, em vez de devolver vazio ou dados de um tenant.
 /// </remarks>
-public sealed class PlatformDbContext : AppDbContext, IPlatformSessionMonitorDbContext
+public sealed class PlatformDbContext : AppDbContext,
+    IPlatformSessionMonitorDbContext,
+    ISensitiveIdentityDbContext,
+    ITemporaryAccessDbContext,
+    IPlatformPasswordResetDbContext,
+    IPlatformClinicDbContext,
+    ISessionDbContext
 {
     public PlatformDbContext(DbContextOptions<AppDbContext> options, ICpfProtector? cpfProtector = null)
         : base(options, ClinicaContextFactory.CreatePlatform(), cpfProtector)

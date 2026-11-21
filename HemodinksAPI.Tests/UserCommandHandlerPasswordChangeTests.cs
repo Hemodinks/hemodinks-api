@@ -13,7 +13,7 @@ public partial class UserCommandHandlerTests
     [Fact]
     public async Task ChangePassword_WhenCurrentPasswordIsValid_UpdatesHashAndClearsChangeFlag()
     {
-        await using var context = TestDbContextFactory.Create();
+        await using var context = TestDbContextFactory.CreatePlatform();
         var hasher = new PasswordHasher();
         var user = CreateUser(
             id: 42,
@@ -44,7 +44,7 @@ public partial class UserCommandHandlerTests
     [Fact]
     public async Task ChangePassword_WhenCurrentUserDoesNotMatchRouteUser_ThrowsUnauthorizedAccessException()
     {
-        await using var context = TestDbContextFactory.Create();
+        await using var context = TestDbContextFactory.CreatePlatform();
         var handler = new ChangePasswordCommandHandler(TestPasswordPolicy.Instance, SensitiveIdentityTestSupport.Service(context));
 
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new ChangePasswordCommand
@@ -59,7 +59,7 @@ public partial class UserCommandHandlerTests
     [Fact]
     public async Task ChangePassword_WhenCurrentPasswordIsInvalid_ThrowsInvalidOperationException()
     {
-        await using var context = TestDbContextFactory.Create();
+        await using var context = TestDbContextFactory.CreatePlatform();
         var hasher = new PasswordHasher();
         var user = CreateUser(
             id: 11,
@@ -85,7 +85,7 @@ public partial class UserCommandHandlerTests
     [Fact]
     public async Task ChangePassword_WhenNewPasswordIsRetiredSharedCredential_ThrowsInvalidOperationException()
     {
-        await using var context = TestDbContextFactory.Create();
+        await using var context = TestDbContextFactory.CreatePlatform();
         var hasher = new PasswordHasher();
         var handler = new ChangePasswordCommandHandler(TestPasswordPolicy.Instance, SensitiveIdentityTestSupport.Service(context));
 
@@ -101,7 +101,7 @@ public partial class UserCommandHandlerTests
     [Fact]
     public async Task ChangePassword_WhenNewPasswordMatchesCurrentPassword_ThrowsInvalidOperationException()
     {
-        await using var context = TestDbContextFactory.Create();
+        await using var context = TestDbContextFactory.CreatePlatform();
         var hasher = new PasswordHasher();
         var user = CreateUser(
             id: 10,
@@ -125,7 +125,7 @@ public partial class UserCommandHandlerTests
     [Fact]
     public async Task ResetUserPassword_WhenUserExists_GeneratesUniqueTemporaryPasswordAndRequiresPasswordChange()
     {
-        await using var context = TestDbContextFactory.Create();
+        await using var context = TestDbContextFactory.CreatePlatform();
         var hasher = new PasswordHasher();
         var user = CreateUser(
             id: 7,
@@ -159,7 +159,7 @@ public partial class UserCommandHandlerTests
     [Fact]
     public async Task ResetUserPassword_WhenUserDoesNotExist_ThrowsKeyNotFoundException()
     {
-        await using var context = TestDbContextFactory.Create();
+        await using var context = TestDbContextFactory.CreatePlatform();
         var handler = new ResetUserPasswordCommandHandler(
             new TemporaryAccessService(TestPasswordPolicy.Instance, context, new PasswordHasher(), TimeProvider.System));
 

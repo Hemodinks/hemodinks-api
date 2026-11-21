@@ -10,8 +10,6 @@ namespace HemodinksAPI.Infrastructure.Data;
 /// Contexto de banco de dados da aplicação
 /// </summary>
 public partial class AppDbContext : DbContext,
-    ISensitiveIdentityDbContext,
-    ITemporaryAccessDbContext,
     IUserFeatureDbContext,
     IPatientFeatureDbContext,
     ICbhpmFeatureDbContext,
@@ -28,9 +26,6 @@ public partial class AppDbContext : DbContext,
     IProfileDirectoryDbContext,
     IPasswordCredentialDbContext,
     IPasswordResetOperationsDbContext,
-    IPlatformPasswordResetDbContext,
-    IPlatformClinicDbContext,
-    ISessionDbContext,
     ILegalAcceptanceDbContext,
     IPrivacyPreferenceDbContext
 {

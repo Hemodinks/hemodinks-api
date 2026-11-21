@@ -31,7 +31,7 @@ public sealed class TemporaryAccessTests
     [InlineData(true)]
     public async Task PasswordPolicy_CompletionFailurePreservesRecovery(bool unavailable)
     {
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreatePlatform();
         var user = await AddUser(db, 100);
         var normal = new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock());
         var generated = await normal.GenerateAsync(user.Id, Actor(user), default);
@@ -65,7 +65,7 @@ public sealed class TemporaryAccessTests
     [InlineData(Perfil.SuperAdministradorId)]
     public async Task AuthorizedAdministrator_GeneratesOnlyHashAndAudits(int profile)
     {
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreatePlatform();
         var actor = await AddUser(db, 100, profile);
         var target = await AddUser(db, 101, Perfil.MedicosId);
         var clock = new Clock();
@@ -87,7 +87,7 @@ public sealed class TemporaryAccessTests
     [InlineData(Perfil.AdministradorId, Perfil.MedicosId, 2)]
     public async Task UnauthorizedGeneration_IsDenied(int actorProfile, int targetProfile, int tenant)
     {
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreatePlatform();
         var actor = await AddUser(db, 100, actorProfile);
         var target = await AddUser(db, 101, targetProfile);
         var caller = Actor(actor) with { ClinicaId = tenant };
@@ -101,7 +101,7 @@ public sealed class TemporaryAccessTests
     [InlineData(301, false)]
     public async Task Credential_UsesBackendClockAndExpiresAtBoundary(int seconds, bool valid)
     {
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreatePlatform();
         var user = await AddUser(db, 100);
         var clock = new Clock();
         var service = new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, clock);
@@ -121,7 +121,7 @@ public sealed class TemporaryAccessTests
     [Fact]
     public async Task Regeneration_RevokesPreviousPasswordAndSessions()
     {
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreatePlatform();
         var user = await AddUser(db, 100);
         var clock = new Clock();
         var service = new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, clock);
@@ -143,7 +143,7 @@ public sealed class TemporaryAccessTests
     [Fact]
     public async Task RevokedCredential_AndOtherAccountCannotAuthenticate()
     {
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreatePlatform();
         var user = await AddUser(db, 100);
         var other = await AddUser(db, 101);
         var service = new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock());
@@ -160,7 +160,7 @@ public sealed class TemporaryAccessTests
     [Fact]
     public async Task Completion_RequiresConsumptionAndVersion_ThenRestoresPersonalLogin()
     {
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreatePlatform();
         var user = await AddUser(db, 100);
         var service = new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock());
         var generated = await service.GenerateAsync(user.Id, Actor(user), default);
@@ -226,7 +226,7 @@ public sealed class TemporaryAccessTests
     [Fact]
     public async Task ImmediateRegeneration_IsThrottledWithoutReplacingCredential()
     {
-        await using var db = TestDbContextFactory.Create();
+        await using var db = TestDbContextFactory.CreatePlatform();
         var user = await AddUser(db, 100);
         var service = new TemporaryAccessService(TestPasswordPolicy.Instance, db, Hasher, new Clock());
         var response = await service.GenerateAsync(user.Id, Actor(user), default);

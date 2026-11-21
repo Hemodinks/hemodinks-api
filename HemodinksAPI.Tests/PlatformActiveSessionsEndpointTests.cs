@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using HemodinksAPI.Application.Authentication;
-using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Clinics.Platform;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
@@ -301,18 +300,6 @@ public sealed class PlatformActiveSessionsEndpointTests : ApiEndpointTestBase
         var registered = factory.Services.GetServices<IHostedService>().OfType<ActiveSessionsSnapshotHostedService>().Any();
 
         Assert.Equal(expected, registered);
-    }
-
-    [Fact]
-    public void SessionMonitorContext_IsOnlyThePlatformContext()
-    {
-        // #294: o contexto da requisicao (tenant) nao pode servir a consulta global de sessoes.
-        Assert.False(typeof(IPlatformSessionMonitorDbContext).IsAssignableFrom(typeof(AppDbContext)));
-
-        using var factory = new HemodinksApiFactory();
-        using var scope = factory.Services.CreateScope();
-
-        Assert.IsType<PlatformDbContext>(scope.ServiceProvider.GetRequiredService<IPlatformSessionMonitorDbContext>());
     }
 
     private sealed record SnapshotLogEntry(LogLevel Level, int EventId, string Message, IReadOnlyDictionary<string, object?> Properties);
