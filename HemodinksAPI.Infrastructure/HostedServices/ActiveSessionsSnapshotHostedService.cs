@@ -11,6 +11,8 @@ public sealed record ActiveSessionsSnapshotOptions(TimeSpan Interval, TimeSpan R
 /// Registra periodicamente um resumo agregado das sessoes ativas para observabilidade externa
 /// (encaminhamento de logs do agente New Relic). So contagens e ClinicaId: nunca nome, e-mail,
 /// perfil, IP ou navegador. A lista nominal continua restrita ao SuperAdministrador na aplicacao.
+/// Cada replica ativa (e cada revisao no blue/green) registra o mesmo snapshot global: consultas
+/// devem usar latest/max/min, nunca sum/count/average. scripts/newrelic_observability.py barra isso (#294).
 /// </summary>
 public sealed class ActiveSessionsSnapshotHostedService(
     IServiceProvider services,

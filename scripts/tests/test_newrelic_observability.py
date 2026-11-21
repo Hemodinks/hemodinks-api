@@ -112,6 +112,30 @@ class ValidationTests(unittest.TestCase):
             with self.subTest(query=query):
                 self.assertEqual([], nr.sensitive_projection(query))
 
+    def test_session_snapshot_rejects_aggregations_that_add_replicas(self):
+        for query in ("SELECT sum(numeric(UsuariosOnline)) FROM Log TIMESERIES",
+                      "SELECT count(*) FROM Log WHERE message LIKE 'ActiveSessionsSnapshot %'",
+                      "SELECT average(numeric(SnapshotSessoes)) FROM Log FACET SnapshotClinicaId",
+                      "SELECT latest(numeric(TotalSessoes)), SUM(numeric(UsuariosOnline)) FROM Log",
+                      "SELECT\n  sum(numeric(UsuariosOnline))\nFROM Log",
+                      "SELECT\tpercentile(numeric(TotalSessoes), 95) FROM Log"):
+            with self.subTest(query=query):
+                self.assertTrue(nr.replica_unsafe_aggregations(query))
+
+    def test_session_snapshot_accepts_idempotent_aggregations(self):
+        for query in ("SELECT max(numeric(UsuariosOnline)) AS 'sum(x)' FROM Log TIMESERIES",
+                      "SELECT latest(numeric(SnapshotUsuarios)) FROM Log WHERE message LIKE 'ActiveSessionsSnapshotClinica%' FACET SnapshotClinicaId",
+                      "SELECT min(numeric(TotalSessoes)) FROM Log",
+                      "SELECT count(*) FROM Transaction WHERE appName = 'Hemodinks API'"):
+            with self.subTest(query=query):
+                self.assertEqual([], nr.replica_unsafe_aggregations(query))
+
+    def test_validate_rejects_summed_session_snapshot(self):
+        config = copy.deepcopy(nr.load_config())
+        config["dashboard"]["pages"][0]["widgets"][0]["query"] = (
+            "SELECT sum(numeric(UsuariosOnline)) FROM Log WHERE entity.name = '{{APM_APP}}'")
+        self.assertIn("snapshot de sessoes repete por replica", "\n".join(nr.validate(config)))
+
     def test_validate_rejects_broken_definitions(self):
         config = nr.load_config()
         broken = copy.deepcopy(config)
