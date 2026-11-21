@@ -96,6 +96,24 @@ def sensitive_projection(query: str) -> list[str]:
     return found
 
 
+# Cada replica ativa registra o mesmo snapshot global de sessoes (#294): somar ou contar
+# multiplica o valor pelo numero de replicas/revisoes. Lista fechada: so latest/max/min
+# (e numeric) no SELECT; qualquer outra funcao (sum, count, average, percentile...) e recusada.
+SNAPSHOT_QUERY = re.compile(
+    r"ActiveSessionsSnapshot|\b(UsuariosOnline|TotalSessoes|SnapshotUsuarios|SnapshotSessoes)\b")
+SNAPSHOT_AGGREGATIONS = {"latest", "max", "min"}
+
+
+def replica_unsafe_aggregations(query: str) -> list[str]:
+    """Funcoes do SELECT que somam o snapshot repetido por replica (vazio se seguro)."""
+    if not SNAPSHOT_QUERY.search(query):
+        return []
+    # Quebra de linha ou tab apos SELECT nao pode esconder a agregacao.
+    select = projection_clauses(re.sub(r"\s+", " ", query))[:1]
+    functions = re.findall(r"\b(\w+)\s*\(", re.sub(r"'[^']*'", "''", select[0])) if select else []
+    return sorted({f.lower() for f in functions} - SNAPSHOT_AGGREGATIONS - {"numeric"})
+
+
 def runbook_anchors(path: Path = RUNBOOK) -> set[str]:
     anchors = set()
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -158,6 +176,9 @@ def validate(config: dict, anchors: set[str] | None = None) -> list[str]:
             errors.append(f"{label}: placeholder desconhecido {sorted(unknown)}")
         if sensitive_projection(query):
             errors.append(f"{label}: SELECT/FACET expoe atributo sensivel {sorted(set(sensitive_projection(query)))}")
+        unsafe = replica_unsafe_aggregations(query)
+        if unsafe:
+            errors.append(f"{label}: snapshot de sessoes repete por replica; use latest/max/min, nao {unsafe}")
     return errors
 
 
