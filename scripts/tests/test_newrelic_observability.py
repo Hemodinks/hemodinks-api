@@ -101,7 +101,10 @@ class ValidationTests(unittest.TestCase):
                       "SELECT latest(cpf) FROM Log",
                       "SELECT count(*) FROM JavaScriptError FACET errorMessage SINCE 1 day ago",
                       "SELECT uniques(request.headers.authorization) FROM Transaction",
-                      "SELECT count(*) FROM Log FACET userEmail LIMIT 5"):
+                      "SELECT count(*) FROM Log FACET userEmail LIMIT 5",
+                      "SELECT\nmessage FROM Log",
+                      "SELECT\tlatest(cpf)\nFROM Log",
+                      "SELECT count(*) FROM Log FACET\n  userEmail\nSINCE 1 day ago"):
             with self.subTest(query=query):
                 self.assertTrue(nr.sensitive_projection(query))
 
