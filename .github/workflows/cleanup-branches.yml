@@ -1,0 +1,108 @@
+name: Cleanup branches
+
+# Apaga branches remotas que ja estao na main e as obsoletas listadas abaixo.
+# Disparo manual; por padrao so simula (dry_run). Nunca toca em main, developer,
+# branches protegidas ou branches com PR aberto.
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Só listar o que seria apagado, sem apagar"
+        type: boolean
+        default: true
+      incluir_pendentes:
+        description: "Incluir as branches pendentes de decisão (PENDING_BRANCHES)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cleanup-branches
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Cleanup branches
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: read
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      REPO: ${{ github.repository }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      INCLUDE_PENDING: ${{ inputs.incluir_pendentes }}
+      # Revisadas em 22/11/2026: commits fora da main, mas conteudo antigo ou ja superado.
+      OBSOLETE_BRANCHES: >-
+        dev-local
+        saas-multiclinica
+        dev-local-api
+        merge-dev-local-api-into-developer
+        codex/issue-198-pitr-readiness
+        feat/surgery-type-em-autorizacao
+        dependabot/nuget/developer/MediatR-15.0.0
+        dependabot/nuget/developer/Microsoft.Extensions.Caching.Abstractions-11.0.0
+        dependabot/nuget/developer/Swashbuckle.AspNetCore-11.0.1
+        dependabot/nuget/developer/multi-7107c522e6
+        dependabot/nuget/developer/xunit.runner.visualstudio-4.0.1
+      # Precisam de decisao antes de apagar; so entram com incluir_pendentes.
+      PENDING_BRANCHES: >-
+        fix/issue-209-finops
+    steps:
+      - name: Delete merged and obsolete branches
+        shell: bash
+        run: |
+          set -euo pipefail
+          in_list() { printf '%s\n' $2 | grep -qxF -- "$1"; }
+
+          default_branch=$(gh api "repos/$REPO" --jq .default_branch)
+          open_heads=$(gh api --paginate "repos/$REPO/pulls?state=open&per_page=100" --jq '.[] | select(.head.repo.full_name == env.REPO) | .head.ref')
+          extra="$OBSOLETE_BRANCHES"
+          if [ "$INCLUDE_PENDING" = "true" ]; then extra="$extra $PENDING_BRANCHES"; fi
+
+          deleted=0; kept=0
+          {
+            echo "## Limpeza de branches (dry_run=$DRY_RUN)"
+            echo
+            echo "| Branch | Motivo | Ação |"
+            echo "| --- | --- | --- |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          while IFS=$'\t' read -r branch protected; do
+            reason=""
+            if [ "$branch" = "$default_branch" ] || [ "$branch" = "developer" ] || [ "$protected" = "true" ]; then
+              continue
+            fi
+            if [ -n "$open_heads" ] && in_list "$branch" "$open_heads"; then
+              echo "| \`$branch\` | PR aberto | mantida |" >> "$GITHUB_STEP_SUMMARY"
+              kept=$((kept+1)); continue
+            fi
+            encoded=$(printf '%s' "$branch" | jq -sRr @uri)
+            if in_list "$branch" "$extra"; then
+              reason="obsoleta (lista revisada)"
+            else
+              ahead=$(gh api "repos/$REPO/compare/$default_branch...$encoded" --jq .ahead_by)
+              if [ "$ahead" = "0" ]; then reason="já está na $default_branch"; fi
+            fi
+            if [ -z "$reason" ]; then kept=$((kept+1)); continue; fi
+
+            if [ "$DRY_RUN" = "true" ]; then
+              action="seria apagada"
+            else
+              gh api -X DELETE "repos/$REPO/git/refs/heads/$encoded" >/dev/null
+              action="apagada"
+            fi
+            deleted=$((deleted+1))
+            echo "$action: $branch ($reason)"
+            echo "| \`$branch\` | $reason | $action |" >> "$GITHUB_STEP_SUMMARY"
+          done < <(gh api --paginate "repos/$REPO/branches?per_page=100" --jq '.[] | "\(.name)\t\(.protected)"')
+
+          {
+            echo
+            echo "Total: $deleted para apagar/apagadas, $kept mantidas (fora as protegidas)."
+          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Total: $deleted para apagar/apagadas, $kept mantidas."
