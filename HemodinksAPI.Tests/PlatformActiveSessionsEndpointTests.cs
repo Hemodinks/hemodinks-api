@@ -38,6 +38,7 @@ public sealed class PlatformActiveSessionsEndpointTests : ApiEndpointTestBase
     [InlineData(Perfil.MedicosId)]
     [InlineData(Perfil.ControllerId)]
     [InlineData(Perfil.PacientesId)]
+    [InlineData(Perfil.EquipeId)]
     public async Task NonSuperAdministrator_IsForbidden_EvenForOwnClinic(int profileId)
     {
         using var factory = new HemodinksApiFactory();
