@@ -284,6 +284,61 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.AuditoriaClinica", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Acao")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int>("ClinicaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("DataUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("EquipeOperadorId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IpTruncado")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("Recurso")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("RecursoId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Sucesso")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataUtc");
+
+                    b.HasIndex("ClinicaId", "DataUtc");
+
+                    b.HasIndex("ClinicaId", "Recurso", "RecursoId", "DataUtc");
+
+                    b.ToTable("AuditoriasClinica", (string)null);
+                });
+
             modelBuilder.Entity("HemodinksAPI.Domain.Models.AuditoriaPlataforma", b =>
                 {
                     b.Property<long>("Id")
@@ -3130,6 +3185,17 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("AtendimentoCirurgico");
+
+                    b.Navigation("Clinica");
+                });
+
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.AuditoriaClinica", b =>
+                {
+                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
+                        .WithMany()
+                        .HasForeignKey("ClinicaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Clinica");
                 });

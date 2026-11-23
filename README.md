@@ -352,6 +352,12 @@ medicos, agenda e usuarios tambem dependem do modulo contratado no plano `Parcia
 | `POST` | `/api/pacientes/{id}/observacoes/marcar-lidas` | Adm, Méd, Ctrl, SA, Eq |
 | `GET` | `/api/pacientes/{id}/resumo-financeiro` | Autenticado |
 
+### Auditoria de pacientes
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/auditoria-clinica` | Adm, SA |
+
 ### Atendimentos cirúrgicos
 
 | Método | Rota | Acesso |

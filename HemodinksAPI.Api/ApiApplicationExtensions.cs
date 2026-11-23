@@ -31,6 +31,7 @@ public static partial class ApiApplicationExtensions
         app.MapConfiguracaoSistemaEndpoints();
         app.MapUserEndpoints();
         app.MapPacienteEndpoints();
+        app.MapAuditoriaClinicaEndpoints();
         app.MapFaturamentoMedicoEndpoints();
         app.MapFinanceiroEndpoints();
         app.MapLicencaEndpoints();
