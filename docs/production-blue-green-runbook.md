@@ -233,6 +233,15 @@ confirmado, o alvo passa a ser `CURRENT`, a revisao substituida passa a ser
 `PREVIOUS`, e quaisquer outras revisoes ativas com zero trafego sao desativadas.
 O rollback nao executa ou desfaz migrations e nao exclui revisoes.
 
+Trava de credencial (#204): antes de qualquer label ou troca de trafego, o
+workflow le o template do alvo e exige que todo `ConnectionStrings__DefaultConnection`
+venha de `secretRef` com o prefixo `RUNTIME_SQL_SECRET_PREFIX`
+(`connectionstrings-runtime-`). Alvo com o secret legado administrativo
+`connectionstrings-defaultconnection`, outro secret, valor inline ou sem a
+variavel e recusado (exit 9) sem alterar Producao. So nomes de secret sao lidos,
+nunca valores. Uma revisao antiga com o secret legado deixa de servir de rollback:
+republicar ou trocar o secret dela para o de runtime e tarefa operacional do #204.
+
 ## Diagnostico
 
 Smoke test:

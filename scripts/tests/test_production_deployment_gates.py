@@ -300,6 +300,90 @@ curl() {
         self.assertNotIn("result=passed", output)
 
 
+class RollbackRuntimeCredentialTests(unittest.TestCase):
+    """#204: rollback never targets a revision whose SQL connection is not the restricted runtime secret."""
+
+    TRAFFIC = [
+        {"revisionName": "app--current", "label": "blue", "weight": 100},
+        {"revisionName": "app--previous", "label": "green", "weight": 0},
+    ]
+    REVISIONS = [
+        {"name": "app--current", "properties": {"active": True, "healthState": "Healthy"}},
+        {"name": "app--previous", "properties": {"active": True, "healthState": "Healthy"}},
+    ]
+
+    @staticmethod
+    def template(*db_entries, extra_container=None):
+        env = [{"name": "ASPNETCORE_ENVIRONMENT", "value": "Production"}, *db_entries]
+        containers = [{"name": "api", "env": env}]
+        if extra_container is not None:
+            containers.append(extra_container)
+        return {"containers": containers}
+
+    def run_validation(self, target_template):
+        source = ROLLBACK.read_text(encoding="utf-8").replace("\r\n", "\n")
+        section = source.split("      - name: Validate target and select revision", 1)
+        self.assertEqual(2, len(section), "Rollback validation step must be present")
+        match = re.search(r"        run: \|\n((?:          .*\n|\n)+)", section[1])
+        self.assertIsNotNone(match)
+        script = textwrap.dedent(match.group(1))
+        prefix = re.search(r"^  RUNTIME_SQL_SECRET_PREFIX: (\S+)$", source, re.M)
+        self.assertIsNotNone(prefix, "Runtime SQL secret prefix must be pinned in the workflow env")
+        bash = shutil.which("bash") if os.name != "nt" else str(Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git/bin/bash.exe")
+        self.assertTrue(bash and Path(bash).exists(), "Bash is required for offline rollback tests")
+        jq = shutil.which("jq")
+        self.assertTrue(jq, "jq is required to execute the real workflow checks")
+        stubs = '''
+az() {
+  case "$*" in
+    "containerapp show"*"--query name -o tsv") echo hemodinks-api-prod ;;
+    "containerapp show"*"activeRevisionsMode"*) echo Multiple ;;
+    "containerapp show"*"ingress.traffic"*) printf '%s' "$TRAFFIC" ;;
+    "containerapp show"*"ingress.fqdn"*) echo hemodinks-api-prod.region.azurecontainerapps.io ;;
+    "containerapp revision list"*) printf '%s' "$REVISIONS" ;;
+    "containerapp revision show"*"--revision app--previous"*) printf '%s' "$TARGET_TEMPLATE" ;;
+    *) echo "Unexpected Azure command: $*" >&2; exit 99 ;;
+  esac
+}
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "output"
+            env = dict(os.environ, API_NAME="hemodinks-api-prod", API_RESOURCE_GROUP="offline-group",
+                       REQUESTED_REVISION="", RUNTIME_SQL_SECRET_PREFIX=prefix.group(1),
+                       TRAFFIC=json.dumps(self.TRAFFIC), REVISIONS=json.dumps(self.REVISIONS),
+                       TARGET_TEMPLATE=json.dumps(target_template), GITHUB_OUTPUT=output.as_posix(),
+                       PATH=os.pathsep.join([str(Path(jq).parent), os.environ.get("PATH", "")]))
+            result = subprocess.run([bash, "-e", "-c", stubs + script], env=env,
+                                    capture_output=True, text=True, timeout=20)
+            return result, output.read_text() if output.exists() else ""
+
+    def test_runtime_secret_target_is_allowed(self):
+        result, output = self.run_validation(self.template(
+            {"name": "ConnectionStrings__DefaultConnection", "secretRef": "connectionstrings-runtime-prod-v2"}))
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn("target_revision=app--previous", output)
+
+    def test_legacy_or_unsafe_sql_credentials_block_rollback_before_any_mutation(self):
+        runtime = {"name": "ConnectionStrings__DefaultConnection", "secretRef": "connectionstrings-runtime-prod-v2"}
+        legacy = {"name": "ConnectionStrings__DefaultConnection", "secretRef": "connectionstrings-defaultconnection"}
+        cases = {
+            "legacy administrative secret": self.template(legacy),
+            "inline connection string": self.template(
+                {"name": "ConnectionStrings__DefaultConnection", "value": "Server=x;User ID=admin;Password=unused"}),
+            "missing connection": self.template(),
+            "second container with legacy secret": self.template(
+                runtime, extra_container={"name": "sidecar", "env": [legacy]}),
+            "no containers": {"containers": []},
+        }
+        for name, target_template in cases.items():
+            with self.subTest(name):
+                result, output = self.run_validation(target_template)
+                self.assertEqual(9, result.returncode, result.stdout + result.stderr)
+                self.assertEqual("", output, "No target may be emitted when the credential is rejected")
+                self.assertIn("Production traffic was not changed", result.stdout)
+                self.assertNotIn("Password=unused", result.stdout + result.stderr)
+
+
 class PublishRevisionReuseTests(unittest.TestCase):
     SHA = "a" * 40
     IMAGE = "ghcr.io/hemodinks/hemodinks-api@sha256:" + "b" * 64
