@@ -68,6 +68,15 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<IIdempotencyRequestStore, EfIdempotencyRequestStore>();
         services.AddScoped<IPlatformAuditWriter, EfPlatformAuditWriter>();
         services.AddScoped<PlatformAuditService>();
+        services.AddScoped<IClinicAuditWriter, EfClinicAuditWriter>();
+        // Retencao da trilha de pacientes (#368): desligada sem AuditoriaClinica:RetencaoDias positivo.
+        var clinicAuditRetentionDays = configuration.GetValue<int?>("AuditoriaClinica:RetencaoDias") ?? 0;
+        if (clinicAuditRetentionDays > 0)
+        {
+            services.AddSingleton(new ClinicAuditRetentionOptions(clinicAuditRetentionDays,
+                TimeSpan.FromHours(Math.Max(1, configuration.GetValue<int?>("AuditoriaClinica:IntervaloHoras") ?? 24))));
+            services.AddHostedService<ClinicAuditRetentionHostedService>();
+        }
         services.AddScoped<PlatformAuditRecorder>();
         services.AddScoped<ClinicaPlatformRequestHandler>();
         services.AddScoped<ClinicaPlatformTeamRequestHandler>();

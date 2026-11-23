@@ -1,5 +1,5 @@
 -- Issue #184: logical integrity of an isolated, quiescent restored copy ONLY.
--- Schema contract: 20261111154833_Schema_ProtectCpfAtRest and the current EF model.
+-- Schema contract: 20261123163221_Schema_AuditoriaClinica and the current EF model.
 -- Run in a dedicated connection after setting SESSION_CONTEXT key
 -- Restore184ExpectedDatabase to the exact restored database name (nvarchar).
 -- Require database SELECT + VIEW DEFINITION. Execute with a client that exits on
@@ -32,7 +32,7 @@ BEGIN TRY
         THROW 51841, 'Restore verification refused: required current schema is missing or incompatible.', 1;
     DECLARE @currentSchema bit;
     EXEC sys.sp_executesql
-        N'SELECT @valid = CASE WHEN MAX(MigrationId) = N''20261111154833_Schema_ProtectCpfAtRest'' THEN 1 ELSE 0 END FROM dbo.__EFMigrationsHistory;',
+        N'SELECT @valid = CASE WHEN MAX(MigrationId) = N''20261123163221_Schema_AuditoriaClinica'' THEN 1 ELSE 0 END FROM dbo.__EFMigrationsHistory;',
         N'@valid bit OUTPUT', @valid = @currentSchema OUTPUT;
     IF COALESCE(@currentSchema, 0) <> 1
         THROW 51841, 'Restore verification refused: required current schema is missing or incompatible.', 1;
@@ -60,6 +60,7 @@ BEGIN TRY
 (N'FK_AtendimentosCirurgicos_Users_ClinicaId_MedicoAuxiliar1Id', N'AtendimentosCirurgicos', N'Users', N'ClinicaId,MedicoAuxiliar1Id', N'ClinicaId,Id'),
 (N'FK_AtendimentosCirurgicos_Users_ClinicaId_MedicoAuxiliar2Id', N'AtendimentosCirurgicos', N'Users', N'ClinicaId,MedicoAuxiliar2Id', N'ClinicaId,Id'),
 (N'FK_AtendimentosCirurgicos_Users_ClinicaId_MedicoResponsavelId', N'AtendimentosCirurgicos', N'Users', N'ClinicaId,MedicoResponsavelId', N'ClinicaId,Id'),
+(N'FK_AuditoriasClinica_Clinicas_ClinicaId', N'AuditoriasClinica', N'Clinicas', N'ClinicaId', N'Id'),
 (N'FK_AuditoriasPlataforma_Clinicas_ClinicaId', N'AuditoriasPlataforma', N'Clinicas', N'ClinicaId', N'Id'),
 (N'FK_AuditoriasPlataforma_UsuariosGlobais_UsuarioGlobalId', N'AuditoriasPlataforma', N'UsuariosGlobais', N'UsuarioGlobalId', N'Id'),
 (N'FK_AuthenticationSessions_UsuariosClinicas_UsuarioClinicaId', N'AuthenticationSessions', N'UsuariosClinicas', N'UsuarioClinicaId', N'Id'),

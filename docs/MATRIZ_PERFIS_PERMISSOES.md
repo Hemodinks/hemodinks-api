@@ -1,6 +1,6 @@
 # Matriz de perfis e permissões
 
-Atualizado em 12/11/2026. Gerado por `scripts/generate_permissions_matrix.py` (não edite à mão).
+Atualizado em 23/11/2026. Gerado por `scripts/generate_permissions_matrix.py` (não edite à mão).
 
 Esta documentação descreve o comportamento efetivamente aplicado na API e a visibilidade atual da interface. As permissões sempre acumulam estas restrições:
 
@@ -54,6 +54,7 @@ Esta é a fonte de verdade para segurança. Ocultar um botão na interface não 
 | Pendências de cadastro de pacientes (ano da consolidação) | R clínica | R · escopo | — | R clínica | R clínica | — |
 | Arquivos de pacientes | CRD | CRD · escopo | R próprios | CRD | CRD | CRD · escopo |
 | Observações de pacientes | CRU | CRU · escopo | — | CRU | CRU | CRU · escopo |
+| Auditoria de pacientes (`/api/auditoria-clinica`) | R clínica | — | — | — | R clínica ativa | — |
 | Faturamento médico | R clínica | R · escopo | — | R clínica | R clínica | R · escopo |
 | Histórico de arquivos do faturamento | CRD | R · escopo | — | CRD | CRD | R · escopo |
 | Atendimentos cirúrgicos | CRUD | CRUD · escopo | — | CRUD | CRUD | — |

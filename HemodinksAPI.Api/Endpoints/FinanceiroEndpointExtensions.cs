@@ -189,7 +189,8 @@ public static class FinanceiroEndpointExtensions
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
             return Results.Ok(await mediator.Send(new ObterPacienteFinanceiroResumoQuery(id, user.Id, user.PerfilId)
                 { CurrentEquipeId = user.EquipeId }, ct));
-        }).WithTags("Pacientes").RequireAuthorization(LicencaPolicies.PacientesVisualizar);
+        }).WithTags("Pacientes").RequireAuthorization(LicencaPolicies.PacientesVisualizar)
+            .WithPacienteAudit("paciente.resumo-financeiro");
     }
 }
 internal sealed class FinanceiroAuditFilter(PlatformAuditService audit, IClinicaContext tenant,

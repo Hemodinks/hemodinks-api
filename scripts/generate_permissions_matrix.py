@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
-UPDATED = "12/11/2026"
+UPDATED = "23/11/2026"
 
 CSS = r"""
     :root {
@@ -160,6 +160,7 @@ API_MATRIX = [
     ("Pendências de cadastro de pacientes (ano da consolidação)", ["R clínica", "~R · escopo", NO, "R clínica", "R clínica", NO]),
     ("Arquivos de pacientes", ["CRD", "~CRD · escopo", "~R próprios", "CRD", "CRD", "~CRD · escopo"]),
     ("Observações de pacientes", ["CRU", "~CRU · escopo", NO, "CRU", "CRU", "~CRU · escopo"]),
+    ("Auditoria de pacientes (`/api/auditoria-clinica`)", ["R clínica", NO, NO, NO, "R clínica ativa", NO]),
     ("Faturamento médico", ["R clínica", "~R · escopo", NO, "R clínica", "R clínica", "~R · escopo"]),
     ("Histórico de arquivos do faturamento", ["CRD", "~R · escopo", NO, "CRD", "CRD", "~R · escopo"]),
     ("Atendimentos cirúrgicos", ["CRUD", "~CRUD · escopo", NO, "CRUD", "CRUD", NO]),
