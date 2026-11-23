@@ -203,6 +203,37 @@ public sealed class ClinicAuditTrailTests : ApiEndpointTestBase
     }
 
     [Fact]
+    public async Task Consulta_ResolveNomeSoDeUsuarioDaPropriaClinica()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+        int betaAdminId, defaultUserId;
+        using (var scope = factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            betaAdminId = await db.Users.Where(u => u.ClinicaId == beta.Id && u.Nome == beta.AdminName).Select(u => u.Id).SingleAsync();
+            defaultUserId = await db.Users.Where(u => u.ClinicaId == Clinica.DefaultId).Select(u => u.Id).FirstAsync();
+            var own = Row(beta.Id, "paciente.ler", "301");
+            own.UsuarioId = betaAdminId;
+            var foreign = Row(beta.Id, "paciente.editar", "302");
+            foreign.UsuarioId = defaultUserId;
+            db.AuditoriasClinica.AddRange(own, foreign);
+            await db.SaveChangesAsync();
+        }
+
+        await AuthenticateAsync(client, beta.Slug);
+        using var json = await ReadJsonAsync(await client.GetAsync("/api/auditoria-clinica?page=1&pageSize=10"));
+        var items = json.RootElement.GetProperty("items").EnumerateArray().ToList();
+        var ownItem = items.Single(item => item.GetProperty("recursoId").GetString() == "301");
+        var foreignItem = items.Single(item => item.GetProperty("recursoId").GetString() == "302");
+        Assert.Equal(beta.AdminName, ownItem.GetProperty("usuarioNome").GetString());
+        Assert.Equal(JsonValueKind.Null, foreignItem.GetProperty("usuarioNome").ValueKind);
+        Assert.Equal(JsonValueKind.Null, ownItem.GetProperty("equipeOperadorNome").ValueKind);
+    }
+
+    [Fact]
     public async Task FalhaAoGravarAuditoria_NaoAfetaNemDetalhaRespostaAoCliente()
     {
         using var factory = new HemodinksApiFactory(services =>

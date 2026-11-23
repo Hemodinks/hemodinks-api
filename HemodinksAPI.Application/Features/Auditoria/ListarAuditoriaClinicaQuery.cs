@@ -10,7 +10,8 @@ public sealed record ListarAuditoriaClinicaQuery(int Page, int PageSize, string?
     : IRequest<PagedResult<AuditoriaClinicaItemDto>>;
 
 public sealed record AuditoriaClinicaItemDto(long Id, DateTime DataUtc, int? UsuarioId, int? EquipeOperadorId,
-    string Acao, string Recurso, string? RecursoId, int StatusCode, bool Sucesso, string? IpTruncado);
+    string Acao, string Recurso, string? RecursoId, int StatusCode, bool Sucesso, string? IpTruncado,
+    string? UsuarioNome = null, string? EquipeOperadorNome = null);
 
 // O filtro global de tenant limita a trilha a clinica do usuario autenticado (#368).
 public sealed class ListarAuditoriaClinicaQueryHandler(IClinicAuditDbContext db)
@@ -30,8 +31,11 @@ public sealed class ListarAuditoriaClinicaQueryHandler(IClinicAuditDbContext db)
         var total = await query.CountAsync(ct);
         var items = await query.OrderByDescending(item => item.DataUtc).ThenByDescending(item => item.Id)
             .Skip((request.Page - 1) * request.PageSize).Take(request.PageSize)
+            // Nomes resolvidos na leitura e sob o filtro de tenant: usuario de outra clinica ou removido vem nulo.
             .Select(item => new AuditoriaClinicaItemDto(item.Id, item.DataUtc, item.UsuarioId, item.EquipeOperadorId,
-                item.Acao, item.Recurso, item.RecursoId, item.StatusCode, item.Sucesso, item.IpTruncado))
+                item.Acao, item.Recurso, item.RecursoId, item.StatusCode, item.Sucesso, item.IpTruncado,
+                db.Users.Where(user => user.Id == item.UsuarioId).Select(user => user.Nome).FirstOrDefault(),
+                db.EquipeOperadores.Where(op => op.Id == item.EquipeOperadorId).Select(op => op.User.Nome).FirstOrDefault()))
             .ToListAsync(ct);
         return new PagedResult<AuditoriaClinicaItemDto>(items, request.Page, request.PageSize, total);
     }

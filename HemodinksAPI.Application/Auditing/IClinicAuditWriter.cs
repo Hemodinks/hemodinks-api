@@ -23,4 +23,7 @@ public interface IClinicAuditWriter
 public interface IClinicAuditDbContext
 {
     DbSet<AuditoriaClinica> AuditoriasClinica { get; }
+    // So para exibir nomes na consulta (sob o mesmo filtro de tenant); a trilha guarda apenas ids.
+    DbSet<User> Users { get; }
+    DbSet<EquipeOperador> EquipeOperadores { get; }
 }
