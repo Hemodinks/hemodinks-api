@@ -41,6 +41,7 @@ public sealed class DownloadPacienteArquivoQueryHandler
         var arquivo = await _context.PacienteArquivos
             .AsNoTracking()
             .Where(item => item.Id == request.ArquivoId
+                && item.ExcluidoEm == null
                 && item.PacienteId == request.PacienteId
                 && accessiblePatientIds.Contains(item.PacienteId))
             .Select(item => new

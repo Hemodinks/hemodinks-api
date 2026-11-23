@@ -59,7 +59,7 @@ internal static class FaturamentoMedicoProjection
             FotoPerfil = p.User.FotoPerfil,
             DataNascimento = p.User.DataNascimento,
             Ativo = p.User.Ativo,
-            ArquivosCount = p.Arquivos.Count,
+            ArquivosCount = p.Arquivos.Count(a => a.ExcluidoEm == null),
             Faturamento = PacienteMapper.ToFaturamentoDto(p.FaturamentoMedico)
         };
     }

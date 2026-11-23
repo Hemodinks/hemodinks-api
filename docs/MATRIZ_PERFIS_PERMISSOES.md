@@ -91,6 +91,7 @@ O perfil `Equipe` possui um fluxo de autenticação próprio e não deve ser cri
 - Usuários somente podem ser excluídos por Administrador ou SuperAdministrador.
 - Pacientes não são excluídos fisicamente: `DELETE` inativa o cadastro e preserva prontuário e arquivos (guarda legal). Só Administrador e SuperAdministrador inativam, listam inativos (`situacao=inativos`) e reativam; os demais perfis não enxergam pacientes inativos. Inativar também desliga o login do titular (perfil Paciente); reativar religa apenas se foi a inativação que o desligou.
 - Atendimentos cirúrgicos sem faturamento são cancelados logicamente pelo `DELETE` (status Cancelado, autor, data e motivo opcional): registro, procedimentos e arquivos são preservados, saem das listas e não aceitam alteração nem novos arquivos; só o Administrador os lista com `incluirCancelados=true`. Atendimento faturado continua sem poder ser cancelado.
+- Excluir arquivo de paciente ou de atendimento é exclusão lógica: o arquivo some de listas, contagens e download, mas a linha e o arquivo no storage são preservados (guarda do prontuário). As permissões para excluir não mudaram.
 - Eventos podem ser excluídos pelo proprietário; Administrador e SuperAdministrador gerenciam todos os eventos da clínica.
 
 ## Menu atual da interface

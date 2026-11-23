@@ -11,7 +11,7 @@ internal static class FinanceiroMapper
         x.ValorGlosa, x.MotivoGlosa, x.Observacao, x.Status, x.DataCadastro, x.DataAtualizacao,
         x.Procedimentos.OrderBy(p => p.Ordem).Select(p => new AtendimentoProcedimentoDto(p.Id, p.CbhpmCodigo,
             p.CbhpmPorte, p.Descricao, p.Quantidade, p.PesoPercentual, p.ValorReferencia, p.ValorNegociado, p.Ordem)).ToList(),
-        x.Arquivos.OrderByDescending(a => a.DataUpload).Select(a => new AtendimentoArquivoDto(
+        x.Arquivos.Where(a => a.ExcluidoEm == null).OrderByDescending(a => a.DataUpload).Select(a => new AtendimentoArquivoDto(
             a.Id, a.NomeOriginal, a.ContentType, a.TamanhoBytes, a.Url, a.DataUpload)).ToList())
         { TipoCirurgia = x.TipoCirurgia, CanceladoEm = x.CanceladoEm, MotivoCancelamento = x.MotivoCancelamento };
 

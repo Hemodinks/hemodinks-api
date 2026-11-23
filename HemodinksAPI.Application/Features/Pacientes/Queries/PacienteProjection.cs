@@ -59,7 +59,7 @@ internal static class PacienteProjection
             FotoPerfil = p.User.FotoPerfil,
             DataNascimento = p.User.DataNascimento,
             Ativo = p.User.Ativo,
-            ArquivosCount = p.Arquivos.Count,
+            ArquivosCount = p.Arquivos.Count(a => a.ExcluidoEm == null),
             Faturamento = p.FaturamentoMedico == null ? null : new PacienteFaturamentoDto
             {
                 Id = p.FaturamentoMedico.Id,

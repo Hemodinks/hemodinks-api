@@ -48,9 +48,10 @@ internal static class PacienteMapper
             FotoPerfil = paciente.User.FotoPerfil,
             DataNascimento = paciente.User.DataNascimento,
             Ativo = paciente.User.Ativo,
-            ArquivosCount = paciente.Arquivos.Count,
+            ArquivosCount = paciente.Arquivos.Count(arquivo => arquivo.ExcluidoEm == null),
             Faturamento = ToFaturamentoDto(paciente.FaturamentoMedico),
             Arquivos = paciente.Arquivos
+                .Where(arquivo => arquivo.ExcluidoEm == null)
                 .OrderByDescending(arquivo => arquivo.DataUpload)
                 .Select(ToArquivoDto)
                 .ToList()

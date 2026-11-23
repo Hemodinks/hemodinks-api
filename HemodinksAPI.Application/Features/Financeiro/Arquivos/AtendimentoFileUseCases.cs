@@ -63,7 +63,8 @@ public sealed partial class FinanceiroFileUseCases
         await EnsurePacienteAtivoAsync(atendimentoId, user, cancellationToken);
         var entity = await db.AtendimentoArquivos.AsNoTracking()
             .Include(item => item.AtendimentoCirurgico)
-            .SingleOrDefaultAsync(item => item.Id == fileId && item.AtendimentoCirurgicoId == atendimentoId, cancellationToken)
+            .SingleOrDefaultAsync(item => item.Id == fileId && item.AtendimentoCirurgicoId == atendimentoId
+                && item.ExcluidoEm == null, cancellationToken)
             ?? throw new ResourceNotFoundException("Arquivo nao encontrado.");
         EnsureMedicalAccess(entity.AtendimentoCirurgico, user, "Sem permissao para baixar este arquivo.");
         var stored = await storage.GetAsync(entity.Url, entity.ClinicaId, cancellationToken)
@@ -80,14 +81,16 @@ public sealed partial class FinanceiroFileUseCases
     {
         await EnsurePacienteAtivoAsync(atendimentoId, user, cancellationToken);
         var entity = await db.AtendimentoArquivos.Include(item => item.AtendimentoCirurgico)
-            .SingleOrDefaultAsync(item => item.Id == fileId && item.AtendimentoCirurgicoId == atendimentoId, cancellationToken)
+            .SingleOrDefaultAsync(item => item.Id == fileId && item.AtendimentoCirurgicoId == atendimentoId
+                && item.ExcluidoEm == null, cancellationToken)
             ?? throw new ResourceNotFoundException("Arquivo nao encontrado.");
         EnsureMedicalAccess(entity.AtendimentoCirurgico, user, "Sem permissao para excluir este arquivo.");
-        var url = entity.Url;
-        var clinicaId = entity.ClinicaId;
-        db.AtendimentoArquivos.Remove(entity);
+        // Exclusao logica: linha e storage preservados (guarda do prontuario); o arquivo some da aplicacao.
+        var now = DateTime.UtcNow;
+        entity.ExcluidoEm = now;
+        entity.ExcluidoPorUserId = user.Id;
+        entity.AtendimentoCirurgico.DataAtualizacao = now;
         await db.SaveChangesAsync(cancellationToken);
-        await storage.DeleteAsync(url, clinicaId, cancellationToken);
     }
 
     // #369: atendimento e arquivos de paciente inativado so para o Administrador (resposta igual a inexistente).
