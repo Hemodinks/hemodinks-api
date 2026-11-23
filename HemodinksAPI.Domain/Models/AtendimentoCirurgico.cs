@@ -30,6 +30,10 @@ public class AtendimentoCirurgico : IClinicaOwnedEntity
     public AtendimentoCirurgicoStatus Status { get; set; } = AtendimentoCirurgicoStatus.Planejado;
     public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
     public DateTime? DataAtualizacao { get; set; }
+    // Cancelamento logico via DELETE: o registro, procedimentos e arquivos sao preservados (prontuario).
+    public DateTime? CanceladoEm { get; set; }
+    public int? CanceladoPorUserId { get; set; }
+    public string? MotivoCancelamento { get; set; }
     public ICollection<AtendimentoProcedimento> Procedimentos { get; set; } = new List<AtendimentoProcedimento>();
     public ICollection<Faturamento> Faturamentos { get; set; } = new List<Faturamento>();
     public ICollection<AtendimentoArquivo> Arquivos { get; set; } = new List<AtendimentoArquivo>();

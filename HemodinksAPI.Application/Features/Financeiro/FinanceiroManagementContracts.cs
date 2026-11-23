@@ -11,7 +11,8 @@ public record AtualizarAtendimentoCommand(int Id, DateTime DataProcedimento, int
     decimal? ValorGlosa, string? MotivoGlosa, string? Observacao, List<AtendimentoProcedimentoInput> Procedimentos,
     int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<AtendimentoDto>
 { public TipoCirurgia? TipoCirurgia { get; init; } }
-public record ExcluirAtendimentoCommand(int Id, int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest;
+// DELETE de atendimento e cancelamento logico (nada e apagado); so para atendimento sem faturamento.
+public record ExcluirAtendimentoCommand(int Id, int CurrentUserId = 0, int CurrentPerfilId = 0, string? Motivo = null) : IRequest;
 public record ObterFaturamentoQuery(int Id, int CurrentUserId, int CurrentPerfilId) : IRequest<FaturamentoDto>;
 public record AtualizarFaturamentoCommand(int Id, string? NumeroGuia, string? NumeroLote, DateTime Competencia,
     string? Observacao, byte[] RowVersion) : IRequest<FaturamentoDto>;

@@ -42,6 +42,7 @@ public sealed class AtualizarAtendimentoCommandHandler(IFinanceFeatureDbContext 
 
         var item = await query.SingleOrDefaultAsync(x => x.Id == request.Id, ct)
             ?? throw new ResourceNotFoundException("Atendimento nao encontrado.");
+        if (item.CanceladoEm.HasValue) throw new BusinessRuleException("Atendimento cancelado nao pode ser alterado.");
         TipoCirurgiaRules.Validate(request.TipoCirurgia);
         await AtendimentoMedicalTeamRules.ValidateAsync(db, request.MedicoResponsavelId, request.MedicoAuxiliar1Id,
             request.MedicoAuxiliar2Id, request.CurrentPerfilId, request.CurrentUserId, ct);
@@ -138,7 +139,16 @@ public sealed class ExcluirAtendimentoCommandHandler(IFinanceFeatureDbContext db
         var item = await query.SingleOrDefaultAsync(x => x.Id == request.Id, ct)
             ?? throw new ResourceNotFoundException("Atendimento nao encontrado.");
         if (item.Faturamentos.Count > 0) throw new BusinessRuleException("Atendimento faturado nao pode ser excluido.");
-        db.AtendimentosCirurgicos.Remove(item); await db.SaveChangesAsync(ct);
+        if (item.CanceladoEm.HasValue) return;
+        var motivo = request.Motivo?.Trim();
+        if (motivo?.Length > 500) throw new BusinessRuleException("O motivo do cancelamento deve ter no maximo 500 caracteres.");
+        var now = DateTime.UtcNow;
+        item.Status = AtendimentoCirurgicoStatus.Cancelado;
+        item.CanceladoEm = now;
+        item.CanceladoPorUserId = request.CurrentUserId;
+        item.MotivoCancelamento = string.IsNullOrEmpty(motivo) ? null : motivo;
+        item.DataAtualizacao = now;
+        await db.SaveChangesAsync(ct);
     }
 }
 

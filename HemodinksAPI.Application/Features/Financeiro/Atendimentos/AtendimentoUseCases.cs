@@ -84,6 +84,9 @@ public sealed class ListarAtendimentosQueryHandler(IFinanceFeatureDbContext db) 
         if (request.CurrentPerfilId == Perfil.MedicosId)
             query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId || x.MedicoAuxiliar1Id == request.CurrentUserId || x.MedicoAuxiliar2Id == request.CurrentUserId);
         if (!Perfil.IsAdministradorOuSuper(request.CurrentPerfilId)) query = query.Where(x => x.Paciente.Ativo);
+        // Atendimento cancelado via DELETE sai das listas; so o Administrador pode pedir para incluir.
+        if (!(request.IncluirCancelados && Perfil.IsAdministradorOuSuper(request.CurrentPerfilId)))
+            query = query.Where(x => x.CanceladoEm == null);
         if (request.PacienteId.HasValue) query = query.Where(x => x.PacienteId == request.PacienteId);
         TipoCirurgiaRules.Validate(request.TipoCirurgia);
         if (request.TipoCirurgia.HasValue) query = query.Where(x => x.TipoCirurgia == request.TipoCirurgia);

@@ -15,18 +15,12 @@ public sealed partial class FinanceiroFileUseCases
     public async Task DeleteAtendimentoAsync(
         int id,
         CurrentUserContext user,
+        string? motivo,
         CancellationToken cancellationToken)
     {
         await EnsurePacienteAtivoAsync(id, user, cancellationToken);
-        var files = await db.AtendimentoArquivos.AsNoTracking()
-            .Where(item => item.AtendimentoCirurgicoId == id)
-            .Select(item => new { item.Url, item.ClinicaId })
-            .ToListAsync(cancellationToken);
-        await sender.Send(new ExcluirAtendimentoCommand(id, user.Id, user.PerfilId), cancellationToken);
-        foreach (var file in files)
-        {
-            await storage.DeleteAsync(file.Url, file.ClinicaId, cancellationToken);
-        }
+        // Cancelamento logico: arquivos do atendimento ficam no storage (guarda do prontuario).
+        await sender.Send(new ExcluirAtendimentoCommand(id, user.Id, user.PerfilId, motivo), cancellationToken);
     }
 
     public async Task<AtendimentoArquivoDto> UploadAtendimentoFileAsync(
@@ -39,6 +33,8 @@ public sealed partial class FinanceiroFileUseCases
         var atendimento = await db.AtendimentosCirurgicos.SingleOrDefaultAsync(item => item.Id == atendimentoId, cancellationToken)
             ?? throw new ResourceNotFoundException("Atendimento nao encontrado.");
         EnsureMedicalAccess(atendimento, user, "Sem permissao para anexar arquivos ao atendimento.");
+        if (atendimento.CanceladoEm.HasValue)
+            throw new BusinessRuleException("Atendimento cancelado nao recebe novos arquivos.");
 
         var stored = await storage.SaveAsync(file, atendimento.ClinicaId, cancellationToken);
         var entity = new AtendimentoArquivo
