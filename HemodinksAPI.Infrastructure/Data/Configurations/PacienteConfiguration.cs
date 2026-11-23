@@ -28,6 +28,11 @@ internal sealed class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
             .HasDefaultValue(true)
             .HasSentinel(true);
 
+        // Default no banco para escritores antigos (blue/green); false e tambem o sentinela padrao.
+        entity.Property(e => e.LoginBloqueadoNaInativacao)
+            .IsRequired()
+            .HasDefaultValue(false);
+
         entity.HasIndex(e => new { e.ClinicaId, e.Ativo });
 
         entity.Property(e => e.TipoCirurgia)
