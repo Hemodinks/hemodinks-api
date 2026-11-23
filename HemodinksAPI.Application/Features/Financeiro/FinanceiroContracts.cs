@@ -33,8 +33,9 @@ public record RegistrarRecursoGlosaCommand(int GlosaId, DateTime? DataEnvio, str
     decimal ValorRecorrido, DateTime? DataResposta, decimal ValorRecuperado, RecursoGlosaStatus Status, string? Observacao) : IRequest<FaturamentoDto>;
 public record GerarContaReceberCommand(int FaturamentoId, string NumeroDocumento, string Descricao,
     DateTime DataEmissao, DateTime DataVencimento, decimal? ValorOriginal, decimal? ValorAjustado, string? Observacao) : IRequest<ContaReceberDto>;
+// Sem DocumentoComprovante: o caminho de storage so entra pelo upload do comprovante (#268).
 public record RegistrarRecebimentoCommand(int ContaReceberId, DateTime DataRecebimento, decimal ValorRecebido,
-    FormaRecebimento FormaRecebimento, string? ReferenciaBancaria, string? DocumentoComprovante,
+    FormaRecebimento FormaRecebimento, string? ReferenciaBancaria,
     string? Observacao, int UsuarioCadastroId, byte[] RowVersion) : IRequest<ContaReceberDto>;
 public record EstornarRecebimentoCommand(int RecebimentoId, string MotivoEstorno, int UsuarioEstornoId) : IRequest<ContaReceberDto>;
 public record ListarAtendimentosQuery(int? PacienteId = null, int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<List<AtendimentoDto>>

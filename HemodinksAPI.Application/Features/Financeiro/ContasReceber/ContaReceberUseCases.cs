@@ -81,7 +81,7 @@ public sealed class RegistrarRecebimentoCommandHandler(IFinanceFeatureDbContext 
             throw new BusinessRuleException("Recebimento invalido ou superior ao saldo aberto.");
         account.Recebimentos.Add(new Recebimento { ClinicaId = tenant.GetRequiredClinicaId(), DataRecebimento = request.DataRecebimento,
             ValorRecebido = request.ValorRecebido, FormaRecebimento = request.FormaRecebimento,
-            ReferenciaBancaria = request.ReferenciaBancaria?.Trim(), DocumentoComprovante = request.DocumentoComprovante?.Trim(),
+            ReferenciaBancaria = request.ReferenciaBancaria?.Trim(),
             Observacao = request.Observacao?.Trim(), UsuarioCadastroId = request.UsuarioCadastroId });
         FinanceiroCalculations.Recalculate(account, DateTime.UtcNow); account.DataAtualizacao = DateTime.UtcNow;
         FinanceiroCalculations.RecalculatePaymentStatus(account.Faturamento);
