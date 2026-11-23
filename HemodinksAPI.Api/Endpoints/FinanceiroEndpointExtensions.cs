@@ -13,10 +13,11 @@ public static class FinanceiroEndpointExtensions
     {
         var atendimentos = app.MapGroup("/api/atendimentos-cirurgicos").WithTags("Atendimentos cirurgicos").RequireAuthorization()
             .AddEndpointFilter<FinanceiroAuditFilter>();
-        atendimentos.MapGet("/", async (int? pacienteId, TipoCirurgia? tipoCirurgia, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
+        atendimentos.MapGet("/", async (int? pacienteId, TipoCirurgia? tipoCirurgia, bool? incluirCancelados, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
-            return Results.Ok(await mediator.Send(new ListarAtendimentosQuery(pacienteId, user.Id, user.PerfilId) { TipoCirurgia = tipoCirurgia }, ct));
+            return Results.Ok(await mediator.Send(new ListarAtendimentosQuery(pacienteId, user.Id, user.PerfilId)
+                { TipoCirurgia = tipoCirurgia, IncluirCancelados = incluirCancelados == true }, ct));
         })
             .RequireAuthorization("AtendimentoVisualizar");
         atendimentos.MapPost("/", async (CriarAtendimentoCommand command, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
@@ -39,11 +40,12 @@ public static class FinanceiroEndpointExtensions
                 command with { Id = id, CurrentUserId = user.Id, CurrentPerfilId = user.PerfilId },
                 ct));
         }).RequireAuthorization("AtendimentoGerenciar");
-        atendimentos.MapDelete("/{id:int}", async (int id, ClaimsPrincipal principal,
+        // DELETE cancela logicamente (nada e apagado); motivo opcional na query string.
+        atendimentos.MapDelete("/{id:int}", async (int id, string? motivo, ClaimsPrincipal principal,
             FinanceiroFileUseCases files, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
-            await files.DeleteAtendimentoAsync(id, user, ct);
+            await files.DeleteAtendimentoAsync(id, user, motivo, ct);
             return Results.NoContent();
         }).RequireAuthorization("AtendimentoGerenciar");
         atendimentos.MapPost("/{id:int}/arquivos", async (int id, IFormFile arquivo,

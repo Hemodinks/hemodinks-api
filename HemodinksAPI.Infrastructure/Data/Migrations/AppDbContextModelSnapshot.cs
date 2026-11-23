@@ -127,6 +127,12 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<DateTime?>("CanceladoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CanceladoPorUserId")
+                        .HasColumnType("int");
+
                     b.Property<int>("ClinicaId")
                         .HasColumnType("int");
 
@@ -159,6 +165,10 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.Property<int?>("MedicoResponsavelId")
                         .HasColumnType("int");
+
+                    b.Property<string>("MotivoCancelamento")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("MotivoGlosa")
                         .HasMaxLength(1000)
