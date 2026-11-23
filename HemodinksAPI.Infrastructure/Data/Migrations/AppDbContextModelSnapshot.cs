@@ -2206,6 +2206,11 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Property<int?>("InativadoPorUserId")
                         .HasColumnType("int");
 
+                    b.Property<bool>("LoginBloqueadoNaInativacao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
                     b.Property<string>("Medico")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");

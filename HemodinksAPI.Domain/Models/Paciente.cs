@@ -57,6 +57,8 @@ public class Paciente : IClinicaOwnedEntity
     public bool Ativo { get; set; } = true;
     public DateTime? InativadoEm { get; set; }
     public int? InativadoPorUserId { get; set; }
+    // Login do titular desligado pela propria inativacao; so entao a reativacao o religa.
+    public bool LoginBloqueadoNaInativacao { get; set; }
     public FaturamentoMedico? FaturamentoMedico { get; set; }
     public ICollection<PacienteProcedimento> Procedimentos { get; set; } = new List<PacienteProcedimento>();
     public ICollection<PacienteArquivo> Arquivos { get; set; } = new List<PacienteArquivo>();

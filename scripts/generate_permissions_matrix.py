@@ -283,7 +283,7 @@ O perfil `Equipe` possui um fluxo de autenticação próprio e não deve ser cri
 
 - A exclusão de clínica é lógica: a clínica é desativada e seus dados são preservados (somente SuperAdministrador).
 - Usuários somente podem ser excluídos por Administrador ou SuperAdministrador.
-- Pacientes não são excluídos fisicamente: `DELETE` inativa o cadastro e preserva prontuário e arquivos (guarda legal). Só Administrador e SuperAdministrador inativam, listam inativos (`situacao=inativos`) e reativam; os demais perfis não enxergam pacientes inativos.
+- Pacientes não são excluídos fisicamente: `DELETE` inativa o cadastro e preserva prontuário e arquivos (guarda legal). Só Administrador e SuperAdministrador inativam, listam inativos (`situacao=inativos`) e reativam; os demais perfis não enxergam pacientes inativos. Inativar também desliga o login do titular (perfil Paciente); reativar religa apenas se foi a inativação que o desligou.
 - Eventos podem ser excluídos pelo proprietário; Administrador e SuperAdministrador gerenciam todos os eventos da clínica.
 
 ## Menu atual da interface

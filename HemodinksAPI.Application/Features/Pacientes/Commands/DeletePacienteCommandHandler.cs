@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
 using MediatR;
@@ -28,6 +29,7 @@ public class DeletePacienteCommandHandler : IRequestHandler<DeletePacienteComman
 
         // Filtro global de tenant: paciente de outra clinica nao e encontrado (404).
         var paciente = await _context.Pacientes
+            .Include(p => p.User)
             .AsTracking()
             .FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken)
             ?? throw new ResourceNotFoundException("Paciente nao encontrado");
@@ -37,9 +39,21 @@ public class DeletePacienteCommandHandler : IRequestHandler<DeletePacienteComman
             return;
         }
 
+        var now = _timeProvider.GetUtcNow().UtcDateTime;
         paciente.Ativo = false;
-        paciente.InativadoEm = _timeProvider.GetUtcNow().UtcDateTime;
+        paciente.InativadoEm = now;
         paciente.InativadoPorUserId = request.CurrentUserId;
+
+        // Paciente inativado nao enxerga mais o proprio cadastro: o login do titular e desligado (o vinculo
+        // inativo derruba sessoes e refresh na proxima requisicao). So login de perfil Paciente e afetado.
+        if (paciente.User.PerfilId == Perfil.PacientesId && paciente.User.Ativo)
+        {
+            paciente.User.Ativo = false;
+            paciente.User.DataAtualizacao = now;
+            paciente.LoginBloqueadoNaInativacao = true;
+            await GlobalIdentityService.SynchronizeUserAsync(_context, paciente.User, cancellationToken);
+        }
+
         await _context.SaveChangesAsync(cancellationToken);
     }
 }
@@ -60,6 +74,7 @@ public class ReativarPacienteCommandHandler(IPatientFeatureDbContext context) : 
         }
 
         var paciente = await context.Pacientes
+            .Include(p => p.User)
             .AsTracking()
             .FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken)
             ?? throw new ResourceNotFoundException("Paciente nao encontrado");
@@ -72,6 +87,16 @@ public class ReativarPacienteCommandHandler(IPatientFeatureDbContext context) : 
         paciente.Ativo = true;
         paciente.InativadoEm = null;
         paciente.InativadoPorUserId = null;
+
+        // Religa o login apenas se foi a inativacao que o desligou; login desativado por outro motivo continua.
+        if (paciente.LoginBloqueadoNaInativacao)
+        {
+            paciente.User.Ativo = true;
+            paciente.User.DataAtualizacao = DateTime.UtcNow;
+            paciente.LoginBloqueadoNaInativacao = false;
+            await GlobalIdentityService.SynchronizeUserAsync(context, paciente.User, cancellationToken);
+        }
+
         await context.SaveChangesAsync(cancellationToken);
     }
 }
