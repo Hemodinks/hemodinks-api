@@ -64,7 +64,8 @@ public class ReativarPacienteCommand : IRequest
     public int CurrentPerfilId { get; set; }
 }
 
-public class ReativarPacienteCommandHandler(IPatientFeatureDbContext context) : IRequestHandler<ReativarPacienteCommand>
+public class ReativarPacienteCommandHandler(IPatientFeatureDbContext context, TimeProvider? timeProvider = null)
+    : IRequestHandler<ReativarPacienteCommand>
 {
     public async Task Handle(ReativarPacienteCommand request, CancellationToken cancellationToken)
     {
@@ -84,16 +85,24 @@ public class ReativarPacienteCommandHandler(IPatientFeatureDbContext context) : 
             return;
         }
 
+        var inativadoEm = paciente.InativadoEm;
         paciente.Ativo = true;
         paciente.InativadoEm = null;
         paciente.InativadoPorUserId = null;
 
-        // Religa o login apenas se foi a inativacao que o desligou; login desativado por outro motivo continua.
-        if (paciente.LoginBloqueadoNaInativacao)
+        // Religa o login so se o usuario continua exatamente como a inativacao o deixou: desligado, perfil
+        // Paciente e sem nenhuma alteracao depois (DataAtualizacao gravada junto com InativadoEm). Se alguem
+        // mexeu no usuario nesse meio-tempo (religou, desligou por outro motivo, editou), o login fica como esta.
+        var untouchedSinceInactivation = paciente.LoginBloqueadoNaInativacao
+            && !paciente.User.Ativo
+            && paciente.User.PerfilId == Perfil.PacientesId
+            && inativadoEm.HasValue
+            && paciente.User.DataAtualizacao == inativadoEm;
+        paciente.LoginBloqueadoNaInativacao = false;
+        if (untouchedSinceInactivation)
         {
             paciente.User.Ativo = true;
-            paciente.User.DataAtualizacao = DateTime.UtcNow;
-            paciente.LoginBloqueadoNaInativacao = false;
+            paciente.User.DataAtualizacao = (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
             await GlobalIdentityService.SynchronizeUserAsync(context, paciente.User, cancellationToken);
         }
 

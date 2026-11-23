@@ -65,6 +65,59 @@ public sealed class PacienteInativacaoLoginTests : ApiEndpointTestBase
         Assert.False(membership.Ativo);
     }
 
+    [Theory]
+    [InlineData("religado-e-desligado-por-outro-motivo")]
+    [InlineData("perfil-alterado")]
+    public async Task Reativar_NaoReligaLoginAlteradoDuranteAInativacao(string scenario)
+    {
+        using var factory = new HemodinksApiFactory();
+        using var startup = factory.CreateClient();
+        var (patientId, _) = await SeedPatientWithLoginAsync(factory, userActive: true);
+        using var admin = factory.CreateClient();
+        await AuthenticateAsync(admin);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/pacientes/{patientId}")).StatusCode);
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var patient = await db.Pacientes.Include(p => p.User).SingleAsync(p => p.Id == patientId);
+            // Simula outra acao administrativa sobre o usuario enquanto o paciente esta inativo.
+            patient.User.DataAtualizacao = patient.InativadoEm!.Value.AddMinutes(5);
+            if (scenario == "perfil-alterado") patient.User.PerfilId = Perfil.MedicosId;
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsync($"/api/pacientes/{patientId}/reativacao", null)).StatusCode);
+        var (user, membership, reactivated) = await ReadStateAsync(factory, patientId);
+        Assert.True(reactivated.Ativo);
+        Assert.False(reactivated.LoginBloqueadoNaInativacao);
+        Assert.False(user.Ativo);
+        Assert.False(membership.Ativo);
+    }
+
+    [Fact]
+    public async Task ClinicaB_NaoInativaPacienteDaClinicaA_NemTocaLoginOuVinculo()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var startup = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+        var (patientId, token) = await SeedPatientWithLoginAsync(factory, userActive: true);
+
+        using var betaAdmin = factory.CreateClient();
+        await AuthenticateAsync(betaAdmin, beta.Slug);
+        Assert.Equal(HttpStatusCode.NotFound, (await betaAdmin.DeleteAsync($"/api/pacientes/{patientId}")).StatusCode);
+
+        var (user, membership, patient) = await ReadStateAsync(factory, patientId);
+        Assert.True(patient.Ativo);
+        Assert.False(patient.LoginBloqueadoNaInativacao);
+        Assert.True(user.Ativo);
+        Assert.True(membership.Ativo);
+        using var titular = factory.CreateClient();
+        titular.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        Assert.Equal(HttpStatusCode.OK, (await titular.GetAsync($"/api/pacientes/{patientId}")).StatusCode);
+    }
+
     [Fact]
     public async Task Inativar_NaoDesligaLoginDeUsuarioQueNaoEPaciente()
     {
