@@ -12,7 +12,15 @@ internal static class FaturamentoMedicoScope
         int currentUserId,
         int? equipeId = null)
     {
-        if (Perfil.IsAdministradorOuSuper(perfilId) || perfilId == Perfil.ControllerId)
+        if (Perfil.IsAdministradorOuSuper(perfilId))
+        {
+            return query;
+        }
+
+        // #369: paciente inativado so e visivel ao Administrador.
+        query = query.Where(p => p.Ativo);
+
+        if (perfilId == Perfil.ControllerId)
         {
             return query;
         }

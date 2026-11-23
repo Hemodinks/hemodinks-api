@@ -2156,6 +2156,11 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("Ativo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("Autorizacao")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
@@ -2193,6 +2198,12 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("nvarchar(255)");
 
                     b.Property<int?>("HospitalId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("InativadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("InativadoPorUserId")
                         .HasColumnType("int");
 
                     b.Property<string>("Medico")
@@ -2286,6 +2297,8 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.HasIndex("UserId")
                         .IsUnique();
+
+                    b.HasIndex("ClinicaId", "Ativo");
 
                     b.HasIndex("ClinicaId", "Data");
 

@@ -12,6 +12,9 @@ public sealed class ObterAtendimentoQueryHandler(IFinanceFeatureDbContext db) : 
     public async Task<AtendimentoDto> Handle(ObterAtendimentoQuery request, CancellationToken ct)
     {
         var query = FinanceiroManagementQueries.FullAtendimento(db.AtendimentosCirurgicos.AsNoTracking());
+        // #369: atendimento de paciente inativado so e visivel ao Administrador.
+        if (!Perfil.IsAdministradorOuSuper(request.CurrentPerfilId))
+            query = query.Where(x => x.Paciente.Ativo);
         if (request.CurrentPerfilId == Perfil.MedicosId)
             query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId || x.MedicoAuxiliar1Id == request.CurrentUserId || x.MedicoAuxiliar2Id == request.CurrentUserId);
         return FinanceiroMapper.ToDto(await query.SingleOrDefaultAsync(x => x.Id == request.Id, ct)
@@ -28,6 +31,8 @@ public sealed class AtualizarAtendimentoCommandHandler(IFinanceFeatureDbContext 
             .Include(x => x.Faturamentos).ThenInclude(x => x.Glosas).ThenInclude(x => x.Recursos)
             .Include(x => x.Faturamentos).ThenInclude(x => x.ContasReceber).ThenInclude(x => x.Recebimentos)
             .AsQueryable();
+        if (!Perfil.IsAdministradorOuSuper(request.CurrentPerfilId))
+            query = query.Where(x => x.Paciente.Ativo);
         if (request.CurrentPerfilId == Perfil.MedicosId)
         {
             query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId

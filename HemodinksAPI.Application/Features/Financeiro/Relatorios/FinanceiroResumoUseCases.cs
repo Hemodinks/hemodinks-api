@@ -63,6 +63,9 @@ public sealed class ObterPacienteFinanceiroResumoQueryHandler(IFinanceFeatureDbC
     {
         var paciente = await db.Pacientes.AsNoTracking().SingleOrDefaultAsync(x => x.Id == request.PacienteId, ct)
             ?? throw new ResourceNotFoundException("Paciente nao encontrado.");
+        // #369: paciente inativado so e visivel ao Administrador (mesma resposta de inexistente).
+        if (!paciente.Ativo && !Perfil.IsAdministradorOuSuper(request.CurrentPerfilId))
+            throw new ResourceNotFoundException("Paciente nao encontrado.");
         if (request.CurrentPerfilId == Perfil.EquipeId)
         {
             var equipeValida = request.CurrentEquipeId.HasValue && await patientScope.Equipes.AsNoTracking()

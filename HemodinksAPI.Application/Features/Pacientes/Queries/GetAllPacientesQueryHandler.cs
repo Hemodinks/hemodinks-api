@@ -25,6 +25,20 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
+    // #369: listas e buscas padrao mostram so ativos; inativos/todos apenas para o Administrador.
+    private static IQueryable<Paciente> ApplySituacao(IQueryable<Paciente> query, string? situacao, int perfilId)
+    {
+        var normalized = situacao?.Trim().ToLowerInvariant();
+        if (!Perfil.IsAdministradorOuSuper(perfilId) || string.IsNullOrEmpty(normalized) || normalized == "ativos")
+            return query.Where(p => p.Ativo);
+        return normalized switch
+        {
+            "inativos" => query.Where(p => !p.Ativo),
+            "todos" => query,
+            _ => throw new HemodinksAPI.Domain.Exceptions.BusinessRuleException("Situacao invalida. Use ativos, inativos ou todos.")
+        };
+    }
+
     public async Task<PagedResult<PacienteDto>> Handle(GetAllPacientesQuery request, CancellationToken cancellationToken)
     {
         try
@@ -46,6 +60,7 @@ public class GetAllPacientesQueryHandler : IRequestHandler<GetAllPacientesQuery,
             StatusCirurgiaRules.Validate(request.StatusCirurgia);
             if (request.StatusCirurgia.HasValue) query = query.Where(p => p.StatusCirurgia == request.StatusCirurgia);
             query = PacienteAccess.ApplyScope(_context, query, request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId);
+            query = ApplySituacao(query, request.Situacao, request.CurrentPerfilId);
             if (request.PendenciaDataConsolidacao)
                 query = DataConsolidacaoPendencias.Apply(query, request.CurrentPerfilId, request.CurrentUserId,
                     DataConsolidacaoRules.AnoMaximo(_timeProvider.GetUtcNow()));

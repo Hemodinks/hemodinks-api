@@ -61,6 +61,7 @@ internal static class UserQueryAccess
 
         var canAccessPatientPhoto = await context.Pacientes
             .AsNoTracking()
+            .Where(paciente => paciente.Ativo) // #369: inativado so para o Administrador.
             .Where(paciente =>
                 (paciente.MedicoUserId.HasValue && accessibleMedicalUserIds.Contains(paciente.MedicoUserId.Value))
                 || (paciente.MedicoAuxiliar1UserId.HasValue && accessibleMedicalUserIds.Contains(paciente.MedicoAuxiliar1UserId.Value))

@@ -1,6 +1,4 @@
 using HemodinksAPI.Application.Data;
-using HemodinksAPI.Application.Storage;
-using HemodinksAPI.Application.Features.Pacientes.Queries;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -8,68 +6,72 @@ using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Pacientes.Commands;
 
+// #369: DELETE /api/pacientes/{id} so inativa. Nenhuma linha, arquivo ou foto e removido: o prontuario
+// tem guarda legal (Lei 13.787/2018, Res. CFM 1.821/2007). Remocao fisica fica para rotina administrativa.
 public class DeletePacienteCommandHandler : IRequestHandler<DeletePacienteCommand>
 {
     private readonly IPatientFeatureDbContext _context;
-    private readonly IProfilePhotoStorage _profilePhotoStorage;
-    private readonly IPatientFileStorage _patientFileStorage;
-    private readonly ILogger<DeletePacienteCommandHandler> _logger;
+    private readonly TimeProvider _timeProvider;
 
-    public DeletePacienteCommandHandler(
-        IPatientFeatureDbContext context,
-        IProfilePhotoStorage profilePhotoStorage,
-        IPatientFileStorage patientFileStorage,
-        ILogger<DeletePacienteCommandHandler> logger)
+    public DeletePacienteCommandHandler(IPatientFeatureDbContext context, TimeProvider? timeProvider = null)
     {
         _context = context;
-        _profilePhotoStorage = profilePhotoStorage;
-        _patientFileStorage = patientFileStorage;
-        _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     public async Task Handle(DeletePacienteCommand request, CancellationToken cancellationToken)
     {
-        try
+        if (!Perfil.IsAdministradorOuSuper(request.CurrentPerfilId))
         {
-            if (request.CurrentPerfilId is not (
-                Perfil.AdministradorId
-                or Perfil.SuperAdministradorId
-                or Perfil.MedicosId))
-            {
-                throw new UnauthorizedAccessException("Sem permissao para excluir paciente");
-            }
-
-            var query = _context.Pacientes
-                .Include(p => p.User)
-                .Include(p => p.Arquivos);
-            var paciente = await PacienteAccess.ApplyScope(
-                    _context, query, request.CurrentPerfilId, request.CurrentUserId)
-                .AsTracking()
-                .FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken);
-
-            if (paciente == null)
-            {
-                throw new ResourceNotFoundException("Paciente nao encontrado");
-            }
-
-            var fotoPerfil = paciente.User.FotoPerfil;
-            var fileUrls = paciente.Arquivos.Select(arquivo => arquivo.Url).ToList();
-            var clinicaId = paciente.ClinicaId;
-
-            _context.Users.Remove(paciente.User);
-            await _context.SaveChangesAsync(cancellationToken);
-
-            await _profilePhotoStorage.DeleteAsync(fotoPerfil, cancellationToken);
-
-            foreach (var fileUrl in fileUrls)
-            {
-                await _patientFileStorage.DeleteAsync(fileUrl, clinicaId, cancellationToken);
-            }
+            throw new UnauthorizedAccessException("Sem permissao para inativar paciente");
         }
-        catch (Exception ex)
+
+        // Filtro global de tenant: paciente de outra clinica nao e encontrado (404).
+        var paciente = await _context.Pacientes
+            .AsTracking()
+            .FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken)
+            ?? throw new ResourceNotFoundException("Paciente nao encontrado");
+
+        if (!paciente.Ativo)
         {
-            _logger.LogError(ex, "Erro ao excluir paciente: {PacienteId}", request.Id);
-            throw;
+            return;
         }
+
+        paciente.Ativo = false;
+        paciente.InativadoEm = _timeProvider.GetUtcNow().UtcDateTime;
+        paciente.InativadoPorUserId = request.CurrentUserId;
+        await _context.SaveChangesAsync(cancellationToken);
+    }
+}
+
+public class ReativarPacienteCommand : IRequest
+{
+    public int Id { get; set; }
+    public int CurrentPerfilId { get; set; }
+}
+
+public class ReativarPacienteCommandHandler(IPatientFeatureDbContext context) : IRequestHandler<ReativarPacienteCommand>
+{
+    public async Task Handle(ReativarPacienteCommand request, CancellationToken cancellationToken)
+    {
+        if (!Perfil.IsAdministradorOuSuper(request.CurrentPerfilId))
+        {
+            throw new UnauthorizedAccessException("Sem permissao para reativar paciente");
+        }
+
+        var paciente = await context.Pacientes
+            .AsTracking()
+            .FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken)
+            ?? throw new ResourceNotFoundException("Paciente nao encontrado");
+
+        if (paciente.Ativo)
+        {
+            return;
+        }
+
+        paciente.Ativo = true;
+        paciente.InativadoEm = null;
+        paciente.InativadoPorUserId = null;
+        await context.SaveChangesAsync(cancellationToken);
     }
 }

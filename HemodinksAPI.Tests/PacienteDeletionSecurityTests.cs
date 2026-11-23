@@ -3,94 +3,131 @@ using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Tests;
 
+// #369: DELETE de paciente so inativa; nada de linha, arquivo ou foto e removido.
 public partial class PacienteCommandHandlerTests
 {
     [Theory]
-    [InlineData(Perfil.MedicosId, false, false)]
-    [InlineData(Perfil.MedicosId, true, false)]
-    [InlineData(Perfil.MedicosId, false, true)]
-    [InlineData(Perfil.AdministradorId, false, false)]
-    [InlineData(Perfil.SuperAdministradorId, false, false)]
-    public async Task DeletePaciente_EnforcesMedicalScopeBeforeDeletingStorage(int profile, bool related, bool sameGroup)
+    [InlineData(Perfil.MedicosId)]
+    [InlineData(Perfil.ControllerId)]
+    [InlineData(Perfil.EquipeId)]
+    [InlineData(Perfil.PacientesId)]
+    public async Task InativarPaciente_PerfilNaoAdministrador_E_Negado_SemAlterarNada(int profile)
     {
         await using var db = TestDbContextFactory.Create();
-        var owner = DeletionUser("owner", Perfil.MedicosId);
-        var caller = DeletionUser("caller", profile);
-        var patientUser = DeletionUser("patient", Perfil.PacientesId);
-        patientUser.FotoPerfil = "private-photo";
-        db.Users.AddRange(owner, caller, patientUser);
-        await db.SaveChangesAsync();
-        var patient = new Paciente { UserId = patientUser.Id, NomePaciente = "Private patient",
-            MedicoUserId = related ? caller.Id : owner.Id };
-        patient.Arquivos.Add(DeletionFile(Clinica.DefaultId));
-        db.Pacientes.Add(patient);
-        if (sameGroup)
-        {
-            var group = new GrupoMedico { Nome = "Shared group" };
-            db.GrupoMedicoUsuarios.AddRange(
-                new GrupoMedicoUsuario { GrupoMedico = group, UserId = caller.Id },
-                new GrupoMedicoUsuario { GrupoMedico = group, UserId = owner.Id });
-        }
-        await db.SaveChangesAsync();
-        var photoStorage = new FakeProfilePhotoStorage();
-        var fileStorage = new FakePatientFileStorage();
-        var handler = new DeletePacienteCommandHandler(db, photoStorage, fileStorage,
-            NullLogger<DeletePacienteCommandHandler>.Instance);
-        var command = new DeletePacienteCommand { Id = patient.Id, CurrentUserId = caller.Id, CurrentPerfilId = profile };
-        if (profile == Perfil.MedicosId && !related && !sameGroup)
-        {
-            await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(command, default));
-            Assert.True(await db.Users.AnyAsync(x => x.Id == patientUser.Id));
-            Assert.True(await db.Pacientes.AnyAsync(x => x.Id == patient.Id));
-            Assert.Equal("private-photo", (await db.Users.SingleAsync(x => x.Id == patientUser.Id)).FotoPerfil);
-            Assert.True(await db.PacienteArquivos.AnyAsync(x => x.PacienteId == patient.Id));
-            Assert.Equal(0, photoStorage.Deletions);
-            Assert.Equal(0, fileStorage.Deletions);
-        }
-        else
-        {
-            await handler.Handle(command, default);
-            Assert.False(await db.Users.AnyAsync(x => x.Id == patientUser.Id));
-            Assert.Equal(1, photoStorage.Deletions);
-            Assert.Equal(1, fileStorage.Deletions);
-        }
+        var (patient, patientUser) = await SeedDeletionPatientAsync(db);
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => new DeletePacienteCommandHandler(db)
+            .Handle(new DeletePacienteCommand { Id = patient.Id, CurrentUserId = 1, CurrentPerfilId = profile }, default));
+
+        db.ChangeTracker.Clear();
+        Assert.True((await db.Pacientes.SingleAsync(x => x.Id == patient.Id)).Ativo);
+        Assert.Equal("private-photo", (await db.Users.SingleAsync(x => x.Id == patientUser.Id)).FotoPerfil);
     }
 
     [Theory]
     [InlineData(Perfil.AdministradorId)]
     [InlineData(Perfil.SuperAdministradorId)]
+    public async Task InativarPaciente_Administrador_PreservaProntuarioArquivosEFoto_E_ReativacaoRestaura(int profile)
+    {
+        await using var db = TestDbContextFactory.Create();
+        var (patient, patientUser) = await SeedDeletionPatientAsync(db);
+        var now = new DateTime(2026, 11, 23, 15, 0, 0, DateTimeKind.Utc);
+
+        await new DeletePacienteCommandHandler(db, new FixedTime(now))
+            .Handle(new DeletePacienteCommand { Id = patient.Id, CurrentUserId = 77, CurrentPerfilId = profile }, default);
+        // Idempotente: inativar de novo nao altera data nem autor.
+        await new DeletePacienteCommandHandler(db, new FixedTime(now.AddDays(1)))
+            .Handle(new DeletePacienteCommand { Id = patient.Id, CurrentUserId = 88, CurrentPerfilId = profile }, default);
+
+        db.ChangeTracker.Clear();
+        var inactive = await db.Pacientes.SingleAsync(x => x.Id == patient.Id);
+        Assert.False(inactive.Ativo);
+        Assert.Equal(now, inactive.InativadoEm);
+        Assert.Equal(77, inactive.InativadoPorUserId);
+        Assert.True(await db.Users.AnyAsync(x => x.Id == patientUser.Id && x.FotoPerfil == "private-photo"));
+        Assert.True(await db.PacienteArquivos.AnyAsync(x => x.PacienteId == patient.Id));
+
+        await new ReativarPacienteCommandHandler(db)
+            .Handle(new ReativarPacienteCommand { Id = patient.Id, CurrentPerfilId = profile }, default);
+        db.ChangeTracker.Clear();
+        var reactivated = await db.Pacientes.SingleAsync(x => x.Id == patient.Id);
+        Assert.True(reactivated.Ativo);
+        Assert.Null(reactivated.InativadoEm);
+        Assert.Null(reactivated.InativadoPorUserId);
+    }
+
+    [Theory]
     [InlineData(Perfil.MedicosId)]
-    public async Task DeletePaciente_OtherClinic_DoesNotTouchDataOrStorage(int profile)
+    [InlineData(Perfil.ControllerId)]
+    public async Task ReativarPaciente_PerfilNaoAdministrador_E_Negado(int profile)
+    {
+        await using var db = TestDbContextFactory.Create();
+        var (patient, _) = await SeedDeletionPatientAsync(db);
+        patient.Ativo = false;
+        await db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => new ReativarPacienteCommandHandler(db)
+            .Handle(new ReativarPacienteCommand { Id = patient.Id, CurrentPerfilId = profile }, default));
+        db.ChangeTracker.Clear();
+        Assert.False((await db.Pacientes.SingleAsync(x => x.Id == patient.Id)).Ativo);
+    }
+
+    [Theory]
+    [InlineData(Perfil.AdministradorId)]
+    [InlineData(Perfil.SuperAdministradorId)]
+    public async Task InativarEReativar_PacienteDeOutraClinica_404_SemAlterar(int profile)
     {
         var options = new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(Guid.NewGuid().ToString()).Options;
-        int patientId, userId;
+        int activeId, inactiveId;
         await using (var seed = new PlatformDbContext(options))
         {
-            var user = DeletionUser("remote", Perfil.PacientesId);
-            user.ClinicaId = 2;
-            user.FotoPerfil = "private-photo";
-            var patient = new Paciente { ClinicaId = 2, User = user, NomePaciente = "Remote patient" };
-            patient.Arquivos.Add(DeletionFile(2));
-            seed.Pacientes.Add(patient);
+            var activeUser = DeletionUser("remote-active", Perfil.PacientesId);
+            activeUser.ClinicaId = 2;
+            var inactiveUser = DeletionUser("remote-inactive", Perfil.PacientesId);
+            inactiveUser.ClinicaId = 2;
+            var active = new Paciente { ClinicaId = 2, User = activeUser, NomePaciente = "Remote active" };
+            var inactive = new Paciente { ClinicaId = 2, User = inactiveUser, NomePaciente = "Remote inactive", Ativo = false };
+            active.Arquivos.Add(DeletionFile(2));
+            seed.Pacientes.AddRange(active, inactive);
             await seed.SaveChangesAsync();
-            patientId = patient.Id; userId = user.Id;
+            activeId = active.Id; inactiveId = inactive.Id;
         }
-        await using var db = new AppDbContext(options, ClinicaContextFactory.CreateDefaultResolved());
-        var photos = new FakeProfilePhotoStorage();
-        var files = new FakePatientFileStorage();
-        var handler = new DeletePacienteCommandHandler(db, photos, files, NullLogger<DeletePacienteCommandHandler>.Instance);
-        await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(new DeletePacienteCommand
-            { Id = patientId, CurrentUserId = 999, CurrentPerfilId = profile }, default));
-        Assert.True(await db.Pacientes.IgnoreQueryFilters().AnyAsync(x => x.Id == patientId && x.ClinicaId == 2));
-        Assert.True(await db.Users.IgnoreQueryFilters().AnyAsync(x => x.Id == userId && x.ClinicaId == 2));
-        Assert.True(await db.PacienteArquivos.IgnoreQueryFilters().AnyAsync(x => x.PacienteId == patientId && x.ClinicaId == 2));
-        Assert.Equal(0, photos.Deletions);
-        Assert.Equal(0, files.Deletions);
+
+        await using (var db = new AppDbContext(options, ClinicaContextFactory.CreateDefaultResolved()))
+        {
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => new DeletePacienteCommandHandler(db).Handle(
+                new DeletePacienteCommand { Id = activeId, CurrentUserId = 999, CurrentPerfilId = profile }, default));
+            await Assert.ThrowsAsync<ResourceNotFoundException>(() => new ReativarPacienteCommandHandler(db).Handle(
+                new ReativarPacienteCommand { Id = inactiveId, CurrentPerfilId = profile }, default));
+        }
+
+        await using var check = new PlatformDbContext(options);
+        Assert.True(await check.Pacientes.AnyAsync(x => x.Id == activeId && x.Ativo && x.InativadoEm == null));
+        Assert.True(await check.Pacientes.AnyAsync(x => x.Id == inactiveId && !x.Ativo));
+        Assert.True(await check.PacienteArquivos.AnyAsync(x => x.PacienteId == activeId));
+    }
+
+    private static async Task<(Paciente Patient, User PatientUser)> SeedDeletionPatientAsync(AppDbContext db)
+    {
+        var owner = DeletionUser("owner", Perfil.MedicosId);
+        var patientUser = DeletionUser("patient", Perfil.PacientesId);
+        patientUser.FotoPerfil = "private-photo";
+        db.Users.AddRange(owner, patientUser);
+        await db.SaveChangesAsync();
+        var patient = new Paciente { UserId = patientUser.Id, NomePaciente = "Private patient", MedicoUserId = owner.Id };
+        patient.Arquivos.Add(DeletionFile(Clinica.DefaultId));
+        db.Pacientes.Add(patient);
+        await db.SaveChangesAsync();
+        return (patient, patientUser);
+    }
+
+    private sealed class FixedTime(DateTime utcNow) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(utcNow, TimeSpan.Zero);
     }
 
     private static PacienteArquivo DeletionFile(int clinicId) => new()

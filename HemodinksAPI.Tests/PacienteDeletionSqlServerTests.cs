@@ -4,15 +4,15 @@ using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Logging.Abstractions;
 
 namespace HemodinksAPI.Tests;
 
 public partial class PacienteCommandHandlerTests
 {
+    // #369: no SQL Server real, inativar nao apaga linha nem arquivo e nao alcanca outra clinica.
     [Fact]
     [Trait("Category", "SqlServer")]
-    public async Task DeletePaciente_SqlServer_EnforcesScopeAndCascadesOnlyAuthorizedPatient()
+    public async Task InativarPaciente_SqlServer_PreservaDadosERespeitaTenant()
     {
         SqlServerTestConnection.RequireConfigured();
 
@@ -27,9 +27,7 @@ public partial class PacienteCommandHandlerTests
             seed.Clinicas.Add(remoteClinic);
             await seed.SaveChangesAsync();
             var caller = DeletionUser("sql-caller", Perfil.MedicosId);
-            var owner = DeletionUser("sql-owner", Perfil.MedicosId);
-            var local = new Paciente { User = DeletionUser("sql-patient", Perfil.PacientesId),
-                NomePaciente = "Local", MedicoUser = owner };
+            var local = new Paciente { User = DeletionUser("sql-patient", Perfil.PacientesId), NomePaciente = "Local" };
             var remoteUser = DeletionUser("sql-remote", Perfil.PacientesId);
             remoteUser.ClinicaId = remoteClinic.Id;
             var remote = new Paciente { ClinicaId = remoteClinic.Id, User = remoteUser, NomePaciente = "Remote" };
@@ -39,42 +37,24 @@ public partial class PacienteCommandHandlerTests
             seed.Pacientes.AddRange(local, remote);
             await seed.SaveChangesAsync();
 
-            var photos = new FakeProfilePhotoStorage();
-            var files = new FakePatientFileStorage();
             await using (var scoped = new AppDbContext(options, ClinicaContextFactory.CreateDefaultResolved()))
             {
-                var handler = new DeletePacienteCommandHandler(scoped, photos, files,
-                    NullLogger<DeletePacienteCommandHandler>.Instance);
-                await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(new DeletePacienteCommand
+                var handler = new DeletePacienteCommandHandler(scoped);
+                await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(new DeletePacienteCommand
                     { Id = local.Id, CurrentUserId = caller.Id, CurrentPerfilId = Perfil.MedicosId }, default));
-                foreach (var profile in new[] { Perfil.MedicosId, Perfil.AdministradorId, Perfil.SuperAdministradorId })
+                foreach (var profile in new[] { Perfil.AdministradorId, Perfil.SuperAdministradorId })
                     await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(new DeletePacienteCommand
                         { Id = remote.Id, CurrentUserId = caller.Id, CurrentPerfilId = profile }, default));
-            }
-            Assert.Equal(0, photos.Deletions);
-            Assert.Equal(0, files.Deletions);
-            Assert.Equal(2, await seed.PacienteArquivos.CountAsync());
-
-            var group = new GrupoMedico { Nome = "Authorized SQL group" };
-            seed.GrupoMedicoUsuarios.AddRange(
-                new GrupoMedicoUsuario { GrupoMedico = group, UserId = caller.Id },
-                new GrupoMedicoUsuario { GrupoMedico = group, UserId = owner.Id });
-            await seed.SaveChangesAsync();
-            await using (var scoped = new AppDbContext(options, ClinicaContextFactory.CreateDefaultResolved()))
-            {
-                var handler = new DeletePacienteCommandHandler(scoped, photos, files,
-                    NullLogger<DeletePacienteCommandHandler>.Instance);
                 await handler.Handle(new DeletePacienteCommand
-                    { Id = local.Id, CurrentUserId = caller.Id, CurrentPerfilId = Perfil.MedicosId }, default);
+                    { Id = local.Id, CurrentUserId = caller.Id, CurrentPerfilId = Perfil.AdministradorId }, default);
             }
+
             seed.ChangeTracker.Clear();
-            Assert.False(await seed.Users.AnyAsync(x => x.Id == local.UserId));
-            Assert.False(await seed.Pacientes.AnyAsync(x => x.Id == local.Id));
-            Assert.False(await seed.PacienteArquivos.AnyAsync(x => x.PacienteId == local.Id));
-            Assert.True(await seed.Users.AnyAsync(x => x.Id == remote.UserId));
-            Assert.True(await seed.PacienteArquivos.AnyAsync(x => x.PacienteId == remote.Id));
-            Assert.Equal(1, photos.Deletions);
-            Assert.Equal(1, files.Deletions);
+            Assert.True(await seed.Users.AnyAsync(x => x.Id == local.UserId));
+            Assert.True(await seed.Pacientes.AnyAsync(x => x.Id == local.Id && !x.Ativo && x.InativadoPorUserId == caller.Id));
+            Assert.True(await seed.PacienteArquivos.AnyAsync(x => x.PacienteId == local.Id));
+            Assert.True(await seed.Pacientes.AnyAsync(x => x.Id == remote.Id && x.Ativo));
+            Assert.Equal(2, await seed.PacienteArquivos.CountAsync());
         }
         finally
         {

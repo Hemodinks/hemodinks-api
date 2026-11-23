@@ -13,7 +13,7 @@ SQL_REQUIRED = {
     "HemodinksAPI.Tests.SurgeryTypeSqlServerTests.SurgeryType_EmAutorizacaoIsAcceptedAndRollbackRefusesItInEitherTable",
     "HemodinksAPI.Tests.SurgeryStatusSqlServerTests.SurgeryStatus_MigrationBackfillsFromConsolidationDateAndAllowsOldWriters",
     "HemodinksAPI.Tests.EventCreatorMigrationTests.CreatorMigration_PreservesLegacyUnknownCreatorAndRejectsCrossClinicAtDatabaseBoundary",
-    "HemodinksAPI.Tests.PacienteCommandHandlerTests.DeletePaciente_SqlServer_EnforcesScopeAndCascadesOnlyAuthorizedPatient",
+    "HemodinksAPI.Tests.PacienteCommandHandlerTests.InativarPaciente_SqlServer_PreservaDadosERespeitaTenant",
 }
 BROWSER_REQUIRED = {
     f'HemodinksAPI.Tests.LoginBrowserTests.Browser_UsesRealApi(scenario: "{scenario}")'

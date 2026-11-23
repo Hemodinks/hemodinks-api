@@ -25,6 +25,7 @@ public static partial class PacienteEndpointExtensions
         HemodinksAPI.Domain.Models.TipoCirurgia? tipoCirurgia,
         HemodinksAPI.Domain.Models.StatusCirurgia? statusCirurgia,
         bool? pendenciaDataConsolidacao,
+        string? situacao,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
@@ -52,6 +53,7 @@ public static partial class PacienteEndpointExtensions
                 TipoCirurgia = tipoCirurgia,
                 StatusCirurgia = statusCirurgia,
                 PendenciaDataConsolidacao = pendenciaDataConsolidacao == true,
+                Situacao = situacao,
                 CurrentUserId = currentUser.Id,
                 CurrentPerfilId = currentUser.PerfilId,
                 CurrentEquipeId = currentUser.EquipeId
@@ -128,7 +130,27 @@ public static partial class PacienteEndpointExtensions
             }, cancellationToken);
 
             return Results.NoContent();
-        }, logger, "Erro ao excluir paciente", "Erro ao excluir paciente");
+        }, logger, "Erro ao inativar paciente", "Erro ao inativar paciente");
+    }
+
+    private static Task<IResult> ReativarPaciente(
+        int id,
+        ClaimsPrincipal claimsPrincipal,
+        IMediator mediator,
+        ILogger<Program> logger,
+        CancellationToken cancellationToken)
+    {
+        return EndpointExecution.RunAsync(async () =>
+        {
+            var currentUser = GetRequiredCurrentUser(claimsPrincipal);
+            await mediator.Send(new ReativarPacienteCommand
+            {
+                Id = id,
+                CurrentPerfilId = currentUser.PerfilId
+            }, cancellationToken);
+
+            return Results.NoContent();
+        }, logger, "Erro ao reativar paciente", "Erro ao reativar paciente");
     }
 
     private static Task<IResult> GetDataConsolidacaoPendencias(
