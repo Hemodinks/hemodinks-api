@@ -42,11 +42,18 @@ public static partial class PacienteEndpointExtensions
             .RequireAuthorization("EquipeOperacaoSensivel")
             .WithPacienteAudit("paciente.editar");
 
+        // #369: DELETE so inativa (prontuario e arquivos preservados); restrito a Administrador.
         group.MapDelete("/{id}", DeletePaciente)
             .WithName("DeletePaciente")
-            .WithSummary("Excluir paciente")
+            .WithSummary("Inativar paciente")
             .RequireAuthorization("PacienteExcluir")
-            .WithPacienteAudit("paciente.excluir");
+            .WithPacienteAudit("paciente.inativar");
+
+        group.MapPost("/{id}/reativacao", ReativarPaciente)
+            .WithName("ReativarPaciente")
+            .WithSummary("Reativar paciente inativado")
+            .RequireAuthorization("PacienteExcluir")
+            .WithPacienteAudit("paciente.reativar");
 
         group.MapPost("/{id}/arquivos", UploadArquivo)
             .WithName("UploadPacienteArquivo")

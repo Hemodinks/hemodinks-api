@@ -40,6 +40,8 @@ internal static class PacienteMapper
             Pagamento = paciente.Pagamento,
             RepasseGlosa = paciente.RepasseGlosa,
             StatusPago = paciente.StatusPago,
+            Inativado = !paciente.Ativo,
+            InativadoEm = paciente.InativadoEm,
             Cpf = paciente.User.Cpf,
             Email = paciente.User.Email,
             Telefone = paciente.User.Telefone,

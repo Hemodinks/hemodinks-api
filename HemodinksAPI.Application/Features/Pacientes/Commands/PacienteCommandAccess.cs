@@ -21,7 +21,18 @@ internal static class PacienteCommandAccess
 
     public static async Task<bool> CanEditPacienteAsync(IPatientFeatureDbContext context, Paciente paciente, int perfilId, int currentUserId, int? equipeId, CancellationToken cancellationToken)
     {
-        if (Perfil.IsAdministradorOuSuper(perfilId) || perfilId == Perfil.ControllerId)
+        if (Perfil.IsAdministradorOuSuper(perfilId))
+        {
+            return true;
+        }
+
+        // #369: paciente inativado so pode ser alterado pelo Administrador.
+        if (!paciente.Ativo)
+        {
+            return false;
+        }
+
+        if (perfilId == Perfil.ControllerId)
         {
             return true;
         }

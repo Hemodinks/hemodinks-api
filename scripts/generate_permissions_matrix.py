@@ -156,7 +156,8 @@ API_MATRIX = [
     ("Usuários", ["CRUD", "~R/U próprio", "~R/U próprio limitado", "~R próprio", "CRUD", "~R membros"]),
     ("Resetar senha de terceiro", ["Sim", NO, NO, NO, "Sim", NO]),
     ("Equipes (`/api/equipes`)", ["CRUD", NO, NO, NO, "CRUD", "~Trocar PIN próprio"]),
-    ("Pacientes e cirurgias", ["CRUD", "~CRUD · escopo", "~R próprio", "CRU", "CRUD", "~CRU · escopo"]),
+    ("Pacientes e cirurgias", ["CRUD", "~CRU · escopo", "~R próprio", "CRU", "CRUD", "~CRU · escopo"]),
+    ("Inativar, listar inativos e reativar paciente", ["Sim", NO, NO, NO, "Sim", NO]),
     ("Pendências de cadastro de pacientes (ano da consolidação)", ["R clínica", "~R · escopo", NO, "R clínica", "R clínica", NO]),
     ("Arquivos de pacientes", ["CRD", "~CRD · escopo", "~R próprios", "CRD", "CRD", "~CRD · escopo"]),
     ("Observações de pacientes", ["CRU", "~CRU · escopo", NO, "CRU", "CRU", "~CRU · escopo"]),
@@ -194,7 +195,7 @@ MENU = [
 ]
 
 DIVERGENCES = [
-    ("Médico exclui paciente", "Botão de exclusão só para Administrador/SuperAdministrador", "Permite excluir paciente do escopo (`PacienteExcluir`)", "Interface mais restritiva que a API."),
+    ("Médico exclui paciente", "Botão de exclusão só para Administrador/SuperAdministrador", "`PacienteExcluir` só Administrador/SuperAdministrador; `DELETE` inativa (#369)", "Alinhado. Texto do botão deve virar \"Inativar\"."),
     ("Administrador em módulo não contratado", "Oculta o módulo (só o SuperAdministrador ignora o plano)", "Administrador e SuperAdministrador não são bloqueados pelo plano", "Interface mais restritiva que a API."),
     ("Equipe sem operador identificado", "Modo somente leitura", "Operações sensíveis exigem operador (`EquipeOperacaoSensivel`)", "Alinhado."),
     ("Paciente em Meu cadastro", "Edita nome, telefone, nascimento e foto", "`PUT` próprio preserva e-mail, CPF, perfil, status e dados médicos", "Alinhado."),
@@ -282,7 +283,7 @@ O perfil `Equipe` possui um fluxo de autenticação próprio e não deve ser cri
 
 - A exclusão de clínica é lógica: a clínica é desativada e seus dados são preservados (somente SuperAdministrador).
 - Usuários somente podem ser excluídos por Administrador ou SuperAdministrador.
-- Pacientes podem ser excluídos por Administrador, SuperAdministrador e Médico (no seu escopo). Controller e Equipe não excluem pacientes.
+- Pacientes não são excluídos fisicamente: `DELETE` inativa o cadastro e preserva prontuário e arquivos (guarda legal). Só Administrador e SuperAdministrador inativam, listam inativos (`situacao=inativos`) e reativam; os demais perfis não enxergam pacientes inativos.
 - Eventos podem ser excluídos pelo proprietário; Administrador e SuperAdministrador gerenciam todos os eventos da clínica.
 
 ## Menu atual da interface

@@ -100,7 +100,7 @@ public sealed class ClinicAuditTrailTests : ApiEndpointTestBase
             $"observacao.listar|paciente|{id}",
             $"paciente.resumo-financeiro|paciente|{id}",
             "exportacao.solicitar|pacientes|",
-            $"paciente.excluir|paciente|{id}",
+            $"paciente.inativar|paciente|{id}",
         ], actions);
 
         var serialized = JsonSerializer.Serialize(rows);
@@ -144,7 +144,7 @@ public sealed class ClinicAuditTrailTests : ApiEndpointTestBase
             ("arquivo.baixar", await client.GetAsync($"/api/pacientes/{id}/arquivos/1/download")),
             ("observacao.listar", await client.GetAsync($"/api/pacientes/{id}/observacoes")),
             ("paciente.resumo-financeiro", await client.GetAsync($"/api/pacientes/{id}/resumo-financeiro")),
-            ("paciente.excluir", await client.DeleteAsync($"/api/pacientes/{id}")),
+            ("paciente.inativar", await client.DeleteAsync($"/api/pacientes/{id}")),
         };
 
         var rows = await ReadTrailAsync(factory);
@@ -180,7 +180,7 @@ public sealed class ClinicAuditTrailTests : ApiEndpointTestBase
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             db.AuditoriasClinica.AddRange(
                 Row(Clinica.DefaultId, "paciente.ler", "111"),
-                Row(Clinica.DefaultId, "paciente.excluir", "112"),
+                Row(Clinica.DefaultId, "paciente.inativar", "112"),
                 Row(beta.Id, "paciente.ler", "221"));
             await db.SaveChangesAsync();
         }

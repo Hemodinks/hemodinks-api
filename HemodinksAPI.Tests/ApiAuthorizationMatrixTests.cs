@@ -35,8 +35,9 @@ public sealed class ApiAuthorizationMatrixTests : ApiEndpointTestBase
     ];
     private static readonly int[] UserReaders =
         [Perfil.AdministradorId, Perfil.SuperAdministradorId, Perfil.EquipeId];
+    // #369: DELETE inativa; inativar e reativar sao exclusivos do Administrador.
     private static readonly int[] PatientDeleters =
-        [Perfil.AdministradorId, Perfil.SuperAdministradorId, Perfil.MedicosId];
+        [Perfil.AdministradorId, Perfil.SuperAdministradorId];
     private static readonly int[] PatientPendingViewers =
         [Perfil.AdministradorId, Perfil.MedicosId, Perfil.ControllerId, Perfil.SuperAdministradorId];
 
@@ -136,6 +137,7 @@ public sealed class ApiAuthorizationMatrixTests : ApiEndpointTestBase
             Probe("Pacientes", "Cadastrar", HttpMethod.Post, "/api/pacientes/", ClinicalOperators, BodyKind.EmptyJson),
             Probe("Pacientes", "Alterar", HttpMethod.Put, "/api/pacientes/999999", ClinicalOperators, BodyKind.EmptyJson),
             Probe("Pacientes", "Excluir", HttpMethod.Delete, "/api/pacientes/999999", PatientDeleters),
+            Probe("Pacientes", "Reativar", HttpMethod.Post, "/api/pacientes/999999/reativacao", PatientDeleters),
 
             Probe("Faturamento medico", "Visualizar", HttpMethod.Get, "/api/faturamentos-medicos/", ClinicalOperators),
 

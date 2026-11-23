@@ -21,6 +21,13 @@ internal sealed class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
         entity.Property(e => e.ClinicaId)
             .IsRequired();
 
+        // #369: sem HasDefaultValue de proposito (o sentinela false seria omitido no INSERT);
+        // a migration preenche as linhas existentes como ativas.
+        entity.Property(e => e.Ativo)
+            .IsRequired();
+
+        entity.HasIndex(e => new { e.ClinicaId, e.Ativo });
+
         entity.Property(e => e.TipoCirurgia)
             .HasConversion<string>()
             .HasMaxLength(20)

@@ -53,6 +53,10 @@ public class Paciente : IClinicaOwnedEntity
     public string? Pagamento { get; set; }
     public string? RepasseGlosa { get; set; }
     public bool StatusPago { get; set; }
+    // #369: exclusao vira inativacao; prontuario e arquivos sao preservados (guarda legal).
+    public bool Ativo { get; set; } = true;
+    public DateTime? InativadoEm { get; set; }
+    public int? InativadoPorUserId { get; set; }
     public FaturamentoMedico? FaturamentoMedico { get; set; }
     public ICollection<PacienteProcedimento> Procedimentos { get; set; } = new List<PacienteProcedimento>();
     public ICollection<PacienteArquivo> Arquivos { get; set; } = new List<PacienteArquivo>();

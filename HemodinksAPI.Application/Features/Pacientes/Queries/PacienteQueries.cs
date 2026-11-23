@@ -37,6 +37,9 @@ public class PacienteDto
     public string? Pagamento { get; set; }
     public string? RepasseGlosa { get; set; }
     public bool StatusPago { get; set; }
+    // #369: cadastro inativado (DELETE); "Ativo" abaixo continua sendo o login do usuario paciente.
+    public bool Inativado { get; set; }
+    public DateTime? InativadoEm { get; set; }
     public string? Cpf { get; set; }
     public string Email { get; set; } = null!;
     public string Telefone { get; set; } = null!;
@@ -131,6 +134,9 @@ public class GetAllPacientesQuery : IRequest<PagedResult<PacienteDto>>
 
     // Somente cadastros com ano da data da consolidação fora da faixa permitida.
     public bool PendenciaDataConsolidacao { get; set; }
+
+    // #369: ativos (padrao), inativos ou todos; so o Administrador ve inativos.
+    public string? Situacao { get; set; }
 
     public int CurrentUserId { get; set; }
 

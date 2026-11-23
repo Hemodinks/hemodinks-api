@@ -343,13 +343,14 @@ medicos, agenda e usuarios tambem dependem do modulo contratado no plano `Parcia
 | `GET` | `/api/pacientes/pendencias/data-consolidacao` | Adm, Méd, Ctrl, SA |
 | `GET` | `/api/pacientes/{id}` | Autenticado |
 | `PUT` | `/api/pacientes/{id}` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
-| `DELETE` | `/api/pacientes/{id}` | Adm, Méd, SA |
+| `DELETE` | `/api/pacientes/{id}` | Adm, SA |
 | `POST` | `/api/pacientes/{id}/arquivos` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
 | `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
 | `GET` | `/api/pacientes/{id}/arquivos/{arquivoId}/download` | Autenticado |
 | `GET` | `/api/pacientes/{id}/observacoes` | Adm, Méd, Ctrl, SA, Eq |
 | `POST` | `/api/pacientes/{id}/observacoes` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
 | `POST` | `/api/pacientes/{id}/observacoes/marcar-lidas` | Adm, Méd, Ctrl, SA, Eq |
+| `POST` | `/api/pacientes/{id}/reativacao` | Adm, SA |
 | `GET` | `/api/pacientes/{id}/resumo-financeiro` | Autenticado |
 
 ### Auditoria de pacientes

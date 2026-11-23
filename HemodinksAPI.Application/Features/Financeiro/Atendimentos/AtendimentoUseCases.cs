@@ -24,6 +24,9 @@ public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, 
             request.MedicoAuxiliar2Id, request.CurrentPerfilId, request.CurrentUserId, ct);
         var paciente = await db.Pacientes.SingleOrDefaultAsync(x => x.Id == request.PacienteId, ct)
             ?? throw new ResourceNotFoundException("Paciente nao encontrado.");
+        // #369: so o Administrador registra atendimento de paciente inativado.
+        if (!paciente.Ativo && !Perfil.IsAdministradorOuSuper(request.CurrentPerfilId))
+            throw new ResourceNotFoundException("Paciente nao encontrado.");
         var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
             ? await ClinicalReferenceResolver.ResolveHospitalAsync(db, clinicaId, request.HospitalId, request.Hospital, ct)
             : null;
@@ -80,6 +83,7 @@ public sealed class ListarAtendimentosQueryHandler(IFinanceFeatureDbContext db) 
             .Include(x => x.OpmeFornecedor).Include(x => x.Procedimentos).Include(x => x.Arquivos).AsQueryable();
         if (request.CurrentPerfilId == Perfil.MedicosId)
             query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId || x.MedicoAuxiliar1Id == request.CurrentUserId || x.MedicoAuxiliar2Id == request.CurrentUserId);
+        if (!Perfil.IsAdministradorOuSuper(request.CurrentPerfilId)) query = query.Where(x => x.Paciente.Ativo);
         if (request.PacienteId.HasValue) query = query.Where(x => x.PacienteId == request.PacienteId);
         TipoCirurgiaRules.Validate(request.TipoCirurgia);
         if (request.TipoCirurgia.HasValue) query = query.Where(x => x.TipoCirurgia == request.TipoCirurgia);
