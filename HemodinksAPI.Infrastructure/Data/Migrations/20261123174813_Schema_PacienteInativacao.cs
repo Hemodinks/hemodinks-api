@@ -16,7 +16,6 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                 table: "Pacientes",
                 type: "bit",
                 nullable: false,
-                // #369: todos os pacientes existentes continuam ativos.
                 defaultValue: true);
 
             migrationBuilder.AddColumn<DateTime>(

@@ -12,7 +12,7 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace HemodinksAPI.Infrastructure.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20261123170105_Schema_PacienteInativacao")]
+    [Migration("20261123174813_Schema_PacienteInativacao")]
     partial class Schema_PacienteInativacao
     {
         /// <inheritdoc />
@@ -2160,7 +2160,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
                     b.Property<bool>("Ativo")
-                        .HasColumnType("bit");
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
 
                     b.Property<string>("Autorizacao")
                         .HasMaxLength(255)

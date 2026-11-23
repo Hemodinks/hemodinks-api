@@ -21,10 +21,12 @@ internal sealed class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
         entity.Property(e => e.ClinicaId)
             .IsRequired();
 
-        // #369: sem HasDefaultValue de proposito (o sentinela false seria omitido no INSERT);
-        // a migration preenche as linhas existentes como ativas.
+        // #369: default true no banco para linhas existentes e escritores antigos (blue/green).
+        // Sentinela true: o EF so omite a coluna quando o valor e true; false e sempre enviado.
         entity.Property(e => e.Ativo)
-            .IsRequired();
+            .IsRequired()
+            .HasDefaultValue(true)
+            .HasSentinel(true);
 
         entity.HasIndex(e => new { e.ClinicaId, e.Ativo });
 
