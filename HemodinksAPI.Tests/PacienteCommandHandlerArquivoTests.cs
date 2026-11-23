@@ -120,7 +120,7 @@ public partial class PacienteCommandHandlerTests
     }
 
     [Fact]
-    public async Task DeletePacienteArquivo_WhenLoggedDoctorIsRelated_DeletesArquivo()
+    public async Task DeletePacienteArquivo_WhenLoggedDoctorIsRelated_MarksExcluidoAndKeepsRowAndStorage()
     {
         await using var context = TestDbContextFactory.Create();
         var doctor = new User
@@ -162,9 +162,10 @@ public partial class PacienteCommandHandlerTests
         context.PacienteArquivos.Add(arquivo);
         await context.SaveChangesAsync();
 
+        var storage = new FakePatientFileStorage();
         var handler = new DeletePacienteArquivoCommandHandler(
             context,
-            new FakePatientFileStorage(),
+            storage,
             NullLogger<DeletePacienteArquivoCommandHandler>.Instance);
 
         await handler.Handle(new DeletePacienteArquivoCommand
@@ -175,7 +176,16 @@ public partial class PacienteCommandHandlerTests
             CurrentPerfilId = Perfil.MedicosId
         }, CancellationToken.None);
 
-        Assert.Empty(await context.PacienteArquivos.ToListAsync());
+        // Exclusao logica: linha e storage preservados (guarda do prontuario).
+        var stored = await context.PacienteArquivos.SingleAsync();
+        Assert.NotNull(stored.ExcluidoEm);
+        Assert.Equal(doctor.Id, stored.ExcluidoPorUserId);
+        Assert.Equal(0, storage.Deletions);
+        await Assert.ThrowsAsync<HemodinksAPI.Domain.Exceptions.ResourceNotFoundException>(() => handler.Handle(
+            new DeletePacienteArquivoCommand
+            {
+                PacienteId = paciente.Id, ArquivoId = arquivo.Id, CurrentUserId = doctor.Id, CurrentPerfilId = Perfil.MedicosId
+            }, CancellationToken.None));
     }
 
 }

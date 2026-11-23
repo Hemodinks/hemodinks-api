@@ -97,6 +97,12 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
 
+                    b.Property<DateTime?>("ExcluidoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ExcluidoPorUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("NomeOriginal")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -2358,6 +2364,12 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<DateTime?>("ExcluidoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ExcluidoPorUserId")
+                        .HasColumnType("int");
 
                     b.Property<string>("NomeOriginal")
                         .IsRequired()

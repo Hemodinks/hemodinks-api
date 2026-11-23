@@ -1,5 +1,5 @@
 -- Issue #184: logical integrity of an isolated, quiescent restored copy ONLY.
--- Schema contract: 20261123190740_Schema_AtendimentoCancelamento and the current EF model.
+-- Schema contract: 20261123195221_Schema_ArquivoExclusaoLogica and the current EF model.
 -- Run in a dedicated connection after setting SESSION_CONTEXT key
 -- Restore184ExpectedDatabase to the exact restored database name (nvarchar).
 -- Require database SELECT + VIEW DEFINITION. Execute with a client that exits on
@@ -32,7 +32,7 @@ BEGIN TRY
         THROW 51841, 'Restore verification refused: required current schema is missing or incompatible.', 1;
     DECLARE @currentSchema bit;
     EXEC sys.sp_executesql
-        N'SELECT @valid = CASE WHEN MAX(MigrationId) = N''20261123190740_Schema_AtendimentoCancelamento'' THEN 1 ELSE 0 END FROM dbo.__EFMigrationsHistory;',
+        N'SELECT @valid = CASE WHEN MAX(MigrationId) = N''20261123195221_Schema_ArquivoExclusaoLogica'' THEN 1 ELSE 0 END FROM dbo.__EFMigrationsHistory;',
         N'@valid bit OUTPUT', @valid = @currentSchema OUTPUT;
     IF COALESCE(@currentSchema, 0) <> 1
         THROW 51841, 'Restore verification refused: required current schema is missing or incompatible.', 1;
