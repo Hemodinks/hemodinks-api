@@ -36,14 +36,22 @@ def chain_after(s,i):
         elif c==';' and d<=0: break
         j+=1
     return s[i:j]
+GROUP_RE=r'(?:var\s+(\w+)\s*=|return)\s*(\w+)\.MapGroup\("([^"]+)"\)'
+
+def file_groups(s):
+  return {m.group(1) or 'group':(m.group(3),chain_after(s,m.end())) for m in re.finditer(GROUP_RE,s)}
+
 def collect(root):
   rows=[]
-  for f in sorted(glob.glob(root+'/HemodinksAPI.Api/**/*.cs',recursive=True)):
-      if '/obj/' in f: continue
+  files=[f for f in sorted(glob.glob(root+'/HemodinksAPI.Api/**/*.cs',recursive=True)) if '/obj/' not in f]
+  # Partials (X.Mfa.cs) recebem o grupo como parametro: herdam os MapGroup do arquivo principal (X.cs).
+  shared={}
+  for f in files:
+      shared.setdefault(os.path.basename(f).split('.')[0],{}).update(file_groups(open(f,encoding='utf-8-sig').read()))
+  for f in files:
       s=open(f,encoding='utf-8-sig').read()
-      groups={}
-      for m in re.finditer(r'(?:var\s+(\w+)\s*=|return)\s*(\w+)\.MapGroup\("([^"]+)"\)',s):
-          groups[m.group(1) or 'group']=(m.group(3),chain_after(s,m.end()))
+      groups=dict(shared.get(os.path.basename(f).split('.')[0],{}))
+      groups.update(file_groups(s))
       for m in re.finditer(r'(\w+)\.Map(Get|Post|Put|Delete|Patch)\(\s*"([^"]*)"',s):
           g,verb,path=m.groups()
           close=match_paren(s,s.index('(',m.start()))

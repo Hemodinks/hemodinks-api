@@ -9,8 +9,9 @@ Esta documentação descreve o comportamento efetivamente aplicado na API e a vi
 3. Assinatura suspensa, cancelada ou vencida e licenças individuais de médicos podem bloquear funcionalidades licenciadas (`Dashboard.Visualizar`, `Pacientes.Visualizar`, `Pacientes.Gerenciar`, `Cbhpm.Consultar`).
 4. Médicos enxergam pacientes, faturamentos, atendimentos, arquivos, observações e eventos conforme seu vínculo e seus grupos médicos.
 5. O Administrador permanece restrito à própria clínica, inclusive nas rotas de plataforma; somente o SuperAdministrador cria, desativa e alterna entre clínicas.
-6. O perfil `Equipe` usa identidade coletiva; operações sensíveis exigem equipe ativa e operador identificado no token e são auditadas.
-7. Cadastro de quem é SuperAdministrador (nesta ou em outra clínica) só é alterado, inativado, reativado, excluído ou recebe senha temporária por outro SuperAdministrador; perfis inferiores apenas consultam (`403`). O próprio titular continua editando o seu cadastro.
+6. MFA (TOTP) é opcional para Administrador e SuperAdministrador: com ele ativo, a senha certa só devolve um desafio de 5 minutos e a sessão abre com o código do aplicativo ou um código de recuperação de uso único. Desativar exige senha e código; o SuperAdministrador redefine o MFA de usuários da clínica ativa e as sessões do titular são encerradas.
+7. O perfil `Equipe` usa identidade coletiva; operações sensíveis exigem equipe ativa e operador identificado no token e são auditadas.
+8. Cadastro de quem é SuperAdministrador (nesta ou em outra clínica) só é alterado, inativado, reativado, excluído ou recebe senha temporária por outro SuperAdministrador; perfis inferiores apenas consultam (`403`). O próprio titular continua editando o seu cadastro.
 
 O inventário completo de rotas com o acesso por perfil está no [README](../README.md#endpoints-principais).
 
@@ -49,6 +50,8 @@ Esta é a fonte de verdade para segurança. Ocultar um botão na interface não 
 | Sessões ativas da plataforma | — | — | — | — | R | — |
 | Usuários | CRUD | R/U próprio | R/U próprio limitado | R próprio | CRUD | R membros |
 | Resetar senha de terceiro | Sim | — | — | — | Sim | — |
+| Verificação em duas etapas (MFA) da própria conta | Ativa/desativa | — | — | — | Ativa/desativa | — |
+| Redefinir MFA de terceiro | — | — | — | — | Sim · clínica ativa | — |
 | Equipes (`/api/equipes`) | CRUD | — | — | — | CRUD | Trocar PIN próprio |
 | Pacientes e cirurgias | CRUD | CRU · escopo | R próprio | CRU | CRUD | CRU · escopo |
 | Inativar, listar inativos e reativar paciente | Sim | — | — | — | Sim | — |

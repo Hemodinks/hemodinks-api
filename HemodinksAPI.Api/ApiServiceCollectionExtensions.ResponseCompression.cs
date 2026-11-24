@@ -21,7 +21,9 @@ public static partial class ApiServiceCollectionExtensions
     {
         "password",
         "pin",
-        "membros"
+        "membros",
+        // #150: segredo TOTP e codigos de recuperacao.
+        "mfa"
     };
 
     public static IServiceCollection AddApiResponseCompression(this IServiceCollection services)

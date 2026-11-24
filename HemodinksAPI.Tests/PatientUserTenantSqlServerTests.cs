@@ -58,6 +58,8 @@ public sealed class PatientUserTenantSqlServerTests
             // migration removes the composite Users key, then restore them after its Up.
             var creatorMigration = new AddEventAuthenticatedCreator();
             var emailMigration = new AddEventEmailDeliveries();
+            var mfaMigration = new Schema_Mfa();
+            await ExecuteOperations(context, mfaMigration.DownOperations);
             await ExecuteOperations(context, creatorMigration.DownOperations);
             await ExecuteOperations(context, emailMigration.DownOperations);
             await ExecuteOperations(context, migration.DownOperations);
@@ -75,6 +77,7 @@ public sealed class PatientUserTenantSqlServerTests
             await ExecuteOperations(context, migration.UpOperations);
             await ExecuteOperations(context, emailMigration.UpOperations);
             await ExecuteOperations(context, creatorMigration.UpOperations);
+            await ExecuteOperations(context, mfaMigration.UpOperations);
 
             // Raw SQL bypasses SaveChanges validation and exercises actual database constraints.
             await AssertForeignKeyViolation(() => context.Database.ExecuteSqlInterpolatedAsync(

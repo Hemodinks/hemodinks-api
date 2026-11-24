@@ -31,7 +31,8 @@ public interface IMfaDbContext : IUnitOfWork
 
 public sealed record MfaStatusDto(bool Elegivel, bool Habilitado, DateTime? HabilitadoEm, int CodigosRecuperacaoRestantes);
 public sealed record MfaSetupDto(string Segredo, string OtpAuthUri);
-public sealed record MfaRecoveryCodesDto(IReadOnlyList<string> CodigosRecuperacao);
+// SecurityVersion nova: sessoes abertas antes do MFA caem; o endpoint renova so a de quem ativou.
+public sealed record MfaActivation(IReadOnlyList<string> CodigosRecuperacao, Guid SecurityVersion);
 public sealed record MfaLoginChallengeDto(string Token, DateTime ExpiraEm);
 public sealed record MfaVerifiedLogin(User User, GlobalAuthenticationContext Authentication);
 
@@ -77,7 +78,8 @@ public sealed class MfaService(
         return new MfaSetupDto(secret, Totp.BuildOtpAuthUri(Issuer, global.Email, secret));
     }
 
-    public async Task<MfaRecoveryCodesDto> ActivateAsync(CurrentUserContext user, string? code, CancellationToken ct)
+    // Senha + codigo: uma sessao roubada nao consegue prender o titular com um autenticador do atacante.
+    public async Task<MfaActivation> ActivateAsync(CurrentUserContext user, string? senha, string? code, CancellationToken ct)
     {
         EnsureEligible(user);
         var global = await LoadGlobalAsync(user, ct);
@@ -86,10 +88,12 @@ public sealed class MfaService(
         var pending = global.MfaSegredoPendenteProtegido is { } protectedPending ? protector.TryUnprotect(protectedPending) : null;
         if (pending == null)
             throw new BusinessRuleException("Inicie a configuração da verificação em duas etapas novamente.");
-        if (!Totp.TryVerify(pending, code, timeProvider.GetUtcNow(), null, out var step))
+        var passwordOk = !string.IsNullOrEmpty(senha) && passwordHasher.VerifyPassword(senha, global.Senha);
+        long step = 0;
+        if (!passwordOk || !Totp.TryVerify(pending, code, timeProvider.GetUtcNow(), null, out step))
         {
             await WriteAuditAsync(global, user.Id, "mfa.enable", false, ct);
-            throw new BusinessRuleException("Código inválido. Confira o horário do celular e tente de novo.");
+            throw new BusinessRuleException("Senha ou código inválidos. Confira o horário do celular e tente de novo.");
         }
 
         var now = UtcNow;
@@ -99,10 +103,11 @@ public sealed class MfaService(
         global.MfaHabilitadoEm = now;
         global.MfaUltimoPassoUsado = step;
         global.DataAtualizacao = now;
+        global.SecurityVersion = Guid.NewGuid();
         var codes = ReplaceRecoveryCodes(global.Id, now);
         await db.SaveChangesAsync(ct);
         await WriteAuditAsync(global, user.Id, "mfa.enable", true, ct);
-        return new MfaRecoveryCodesDto(codes);
+        return new MfaActivation(codes, global.SecurityVersion);
     }
 
     public async Task DeactivateAsync(CurrentUserContext user, string? senha, string? code, CancellationToken ct)
@@ -136,6 +141,10 @@ public sealed class MfaService(
         var membership = await db.UsuariosClinicas.Include(item => item.UsuarioGlobal)
             .FirstOrDefaultAsync(item => item.UserId == target.Id && item.ClinicaId == target.ClinicaId, ct)
             ?? throw new ResourceNotFoundException("Usuario nao encontrado");
+        // Sem senha e codigo, um SuperAdministrador nao tira o MFA de outro nem o proprio (desativacao normal).
+        if (target.Id == actor.Id || target.PerfilId == Perfil.SuperAdministradorId
+            || membership.PerfilId == Perfil.SuperAdministradorId || membership.UsuarioGlobalId == actor.UsuarioGlobalId)
+            throw new UnauthorizedAccessException("A verificação em duas etapas deste usuário não pode ser redefinida por aqui.");
         var global = membership.UsuarioGlobal;
         if (!global.MfaHabilitado && global.MfaSegredoPendenteProtegido == null)
             return;
@@ -149,6 +158,10 @@ public sealed class MfaService(
     {
         var token = EquipeAuthenticationRules.GenerateChallengeToken();
         var expiresAt = UtcNow.Add(ChallengeLifetime);
+        var globalId = authentication.UsuarioGlobal.Id;
+        var stale = UtcNow;
+        // Desafios vencidos do proprio usuario saem aqui: a tabela nao acumula.
+        db.MfaLoginDesafios.RemoveRange(db.MfaLoginDesafios.Where(item => item.UsuarioGlobalId == globalId && item.ExpiraEm < stale));
         db.MfaLoginDesafios.Add(new MfaLoginDesafio
         {
             ClinicaId = user.ClinicaId,

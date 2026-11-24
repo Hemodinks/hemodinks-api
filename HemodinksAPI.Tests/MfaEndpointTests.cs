@@ -37,16 +37,21 @@ public sealed class MfaEndpointTests : ApiEndpointTestBase
         var secret = setupJson.RootElement.GetProperty("segredo").GetString()!;
         Assert.StartsWith("otpauth://totp/", setupJson.RootElement.GetProperty("otpAuthUri").GetString());
 
-        using (var wrong = await admin.PostAsJsonAsync("/api/users/me/mfa/ativacao", new { codigo = WrongCode(secret) }))
-            Assert.Equal(HttpStatusCode.BadRequest, wrong.StatusCode);
-
         var activationStep = Totp.CurrentStep(DateTimeOffset.UtcNow);
-        using var activation = await admin.PostAsJsonAsync("/api/users/me/mfa/ativacao", new { codigo = CodeAt(secret, activationStep) });
+        // Sessao roubada nao basta: sem a senha, nem o codigo certo ativa.
+        using (var noPassword = await admin.PostAsJsonAsync("/api/users/me/mfa/ativacao",
+                   new { senha = "SenhaErrada@123", codigo = CodeAt(secret, activationStep) }))
+            Assert.Equal(HttpStatusCode.BadRequest, noPassword.StatusCode);
+
+        using var activation = await admin.PostAsJsonAsync("/api/users/me/mfa/ativacao",
+            new { senha = TestPasswords.Valid, codigo = CodeAt(secret, activationStep) });
         Assert.Equal(HttpStatusCode.OK, activation.StatusCode);
         using var activationJson = await ReadJsonAsync(activation);
         var recoveryCodes = activationJson.RootElement.GetProperty("codigosRecuperacao").EnumerateArray()
             .Select(item => item.GetString()!).ToList();
         Assert.Equal(MfaService.RecoveryCodeCount, recoveryCodes.Count);
+        // Sessoes abertas antes do MFA (sem segundo fator) caem com a SecurityVersion nova.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await admin.GetAsync("/api/users/me/mfa")).StatusCode);
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -71,9 +76,15 @@ public sealed class MfaEndpointTests : ApiEndpointTestBase
         {
             Assert.Equal(HttpStatusCode.OK, completed.StatusCode);
             using var json = await ReadJsonAsync(completed);
-            Assert.False(string.IsNullOrWhiteSpace(json.RootElement.GetProperty("token").GetString()));
+            var token = json.RootElement.GetProperty("token").GetString();
+            Assert.False(string.IsNullOrWhiteSpace(token));
             Assert.True(completed.Headers.Contains("Set-Cookie"));
+            admin.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         }
+
+        // O mesmo codigo nao abre um segundo login (anti-replay entre desafios).
+        var replay = await LoginAsync(anonymous, Clinica.DefaultSlug);
+        Assert.Equal(HttpStatusCode.Unauthorized, (await CompleteAsync(anonymous, Clinica.DefaultSlug, replay, CodeAt(secret, activationStep + 1))).StatusCode);
 
         // Desafio e de uso unico, mesmo com outro fator valido.
         Assert.Equal(HttpStatusCode.Unauthorized, (await CompleteAsync(anonymous, Clinica.DefaultSlug, challenge, recoveryCodes[0])).StatusCode);
@@ -176,8 +187,11 @@ public sealed class MfaEndpointTests : ApiEndpointTestBase
     [Fact]
     public async Task SuperAdministrator_ResetsMfaOnlyInsideOwnClinic_AndEndsTheHolderSessions()
     {
+        const string targetEmail = "admin.alpha@hemodinks.test";
         using var factory = new HemodinksApiFactory();
         var beta = await SeedClinicaBetaAsync(factory);
+        await AddUserAsync(factory, 1, targetEmail, Perfil.AdministradorId);
+        await EnableAsync(factory, targetEmail);
         await EnableAsync(factory, AdminEmail);
         int targetUserId;
         Guid previousVersion;
@@ -185,7 +199,7 @@ public sealed class MfaEndpointTests : ApiEndpointTestBase
         {
             var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
             var member = await db.UsuariosClinicas.Include(item => item.UsuarioGlobal)
-                .SingleAsync(item => item.ClinicaId == 1 && item.UsuarioGlobal.Email == AdminEmail);
+                .SingleAsync(item => item.ClinicaId == 1 && item.UsuarioGlobal.Email == targetEmail);
             targetUserId = member.UserId;
             previousVersion = member.UsuarioGlobal.SecurityVersion;
         }
@@ -198,20 +212,33 @@ public sealed class MfaEndpointTests : ApiEndpointTestBase
         Assert.Equal(HttpStatusCode.NotFound, (await betaSuper.PostAsync($"/api/users/{targetUserId}/mfa/redefinicao", null)).StatusCode);
         using (var unchanged = factory.Services.CreateScope())
             Assert.True((await unchanged.ServiceProvider.GetRequiredService<PlatformDbContext>().UsuariosGlobais
-                .SingleAsync(item => item.Email == AdminEmail)).MfaHabilitado);
+                .SingleAsync(item => item.Email == targetEmail)).MfaHabilitado);
 
         using var alphaSuper = factory.CreateClient();
         await AuthenticateAsync(alphaSuper, Clinica.DefaultSlug, "sa.alpha@hemodinks.test");
+        int otherSuperId, selfId;
+        using (var ids = factory.Services.CreateScope())
+        {
+            var users = ids.ServiceProvider.GetRequiredService<PlatformDbContext>().Users.IgnoreQueryFilters();
+            otherSuperId = (await users.SingleAsync(item => item.ClinicaId == 1 && item.Email == AdminEmail)).Id;
+            selfId = (await users.SingleAsync(item => item.ClinicaId == 1 && item.Email == "sa.alpha@hemodinks.test")).Id;
+        }
+
+        // Outro SuperAdministrador (ou o proprio) so desativa com senha e codigo.
+        Assert.Equal(HttpStatusCode.Forbidden, (await alphaSuper.PostAsync($"/api/users/{otherSuperId}/mfa/redefinicao", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await alphaSuper.PostAsync($"/api/users/{selfId}/mfa/redefinicao", null)).StatusCode);
         Assert.Equal(HttpStatusCode.NoContent, (await alphaSuper.PostAsync($"/api/users/{targetUserId}/mfa/redefinicao", null)).StatusCode);
 
         using var verify = factory.Services.CreateScope();
         var reset = await verify.ServiceProvider.GetRequiredService<PlatformDbContext>().UsuariosGlobais
-            .SingleAsync(item => item.Email == AdminEmail);
+            .SingleAsync(item => item.Email == targetEmail);
         Assert.False(reset.MfaHabilitado);
         Assert.Null(reset.MfaSegredoProtegido);
         Assert.NotEqual(previousVersion, reset.SecurityVersion);
+        Assert.True((await verify.ServiceProvider.GetRequiredService<PlatformDbContext>().UsuariosGlobais
+            .SingleAsync(item => item.Email == AdminEmail)).MfaHabilitado);
         using var plain = factory.CreateClient();
-        await AuthenticateAsync(plain, Clinica.DefaultSlug);
+        await AuthenticateAsync(plain, Clinica.DefaultSlug, targetEmail);
     }
 
     private static string Code(string secret, int offset) =>

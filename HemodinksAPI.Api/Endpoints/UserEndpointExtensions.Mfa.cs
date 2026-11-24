@@ -7,7 +7,7 @@ namespace HemodinksAPI.Api;
 // #150: verificacao em duas etapas (TOTP) para Administrador e SuperAdministrador.
 public static partial class UserEndpointExtensions
 {
-    public sealed record MfaCodeRequest(string? Codigo);
+    public sealed record MfaActivationRequest(string? Senha, string? Codigo);
     public sealed record MfaDisableRequest(string? Senha, string? Codigo);
 
     internal static void MapUserMfaEndpoints(RouteGroupBuilder group)
@@ -30,12 +30,19 @@ public static partial class UserEndpointExtensions
                 }, logger, "Falha ao configurar MFA", "Erro ao configurar a verificacao em duas etapas"))
             .WithName("BeginMyMfaSetup").RequireAuthorization("Administrador").RequireRateLimiting("PasswordReset");
 
-        group.MapPost("/me/mfa/ativacao", (MfaCodeRequest request, ClaimsPrincipal principal, MfaService mfa, HttpContext http,
-                ILogger<Program> logger, CancellationToken ct) =>
+        group.MapPost("/me/mfa/ativacao", (MfaActivationRequest request, ClaimsPrincipal principal, MfaService mfa, HttpContext http,
+                HemodinksAPI.Application.Features.Sessions.AuthenticationSessionService sessions, AuthenticationSessionCookie cookie,
+                IConfiguration configuration, ILogger<Program> logger, CancellationToken ct) =>
                 EndpointExecution.RunAsync(async () =>
                 {
                     http.Response.Headers.CacheControl = "no-store";
-                    return Results.Ok(await mfa.ActivateAsync(GetRequiredCurrentUser(principal), request.Codigo, ct));
+                    var actor = GetRequiredCurrentUser(principal);
+                    var activation = await mfa.ActivateAsync(actor, request.Senha, request.Codigo, ct);
+                    // Todas as sessoes anteriores ao MFA cairam (SecurityVersion). Quem acabou de provar senha e
+                    // codigo recebe uma sessao nova, so em requisicao confiavel (mesma regra da troca de email, #335).
+                    var renewed = SessionRequestSecurity.IsTrusted(http, configuration)
+                        && await TryRenewSessionAsync(actor, activation.SecurityVersion, http, sessions, cookie, logger, ct);
+                    return Results.Ok(new { codigosRecuperacao = activation.CodigosRecuperacao, sessionRenewed = renewed });
                 }, logger, "Falha ao ativar MFA", "Erro ao ativar a verificacao em duas etapas"))
             .WithName("ActivateMyMfa").RequireAuthorization("Administrador").RequireRateLimiting("PasswordReset");
 
