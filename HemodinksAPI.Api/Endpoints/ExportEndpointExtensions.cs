@@ -18,7 +18,8 @@ public static class ExportEndpointExtensions
             .WithName("RequestFileExport")
             .WithSummary("Solicitar exportacao PDF/XLSX")
             .WithDescription("Enfileira uma exportacao de pacientes, faturamentos medicos ou CBHPM para processamento no HemodinksAPI.Workers. O endpoint responde 202 Accepted.")
-            .WithClinicAudit("exportacao.solicitar", ResolveAuditedExportResource);
+            .WithClinicAudit("exportacao.solicitar", ResolveAuditedExportResource)
+            .RequireRateLimiting("Exports");
     }
 
     // #368: so exportacoes com dados de pacientes entram na trilha (CBHPM e tabela publica).
