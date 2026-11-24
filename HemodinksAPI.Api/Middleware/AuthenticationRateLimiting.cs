@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
@@ -19,7 +20,14 @@ public sealed class AuthenticationRateLimitOptions
     public int IpWindowSeconds { get; set; } = 60;
     public int SessionPermitLimit { get; set; } = 300;
     public int SessionWindowSeconds { get; set; } = 60;
-    public bool IsValid() => LoginPermitLimit is >= 1 and <= 10000
+    // #374: rotas autenticadas por identidade (usuario global, ou operador da equipe) e exportacoes.
+    public int AuthenticatedPermitLimit { get; set; } = 300;
+    public int AuthenticatedWindowSeconds { get; set; } = 60;
+    public int ExportPermitLimit { get; set; } = 10;
+    public int ExportWindowSeconds { get; set; } = 3600;
+    public bool IsValid() => AuthenticatedPermitLimit is >= 1 and <= 100000 && AuthenticatedWindowSeconds is >= 1 and <= 86400
+        && ExportPermitLimit is >= 1 and <= 10000 && ExportWindowSeconds is >= 1 and <= 86400
+        && LoginPermitLimit is >= 1 and <= 10000
         && OperatorPermitLimit is >= 1 and <= 10000 && RecoveryPermitLimit is >= 1 and <= 10000
         && IpPermitLimit is >= 1 and <= 100000 && SessionPermitLimit is >= 1 and <= 100000
         && SubjectWindowSeconds is >= 1 and <= 86400 && IpWindowSeconds is >= 1 and <= 86400
@@ -89,6 +97,20 @@ public sealed class AuthenticationRateLimitFilter(AuthenticationRateLimits limit
 
 internal static class RateLimitResponse
 {
+    internal static readonly EventId AuthenticatedRejectedEvent = new(4410, "AuthenticatedRateLimited");
+
+    // Particao das rotas autenticadas: a identidade global (uma sessao roubada nao multiplica o limite abrindo
+    // outras sessoes); na equipe, cada operador identificado tem a sua. Sem identidade -> null (rotas anonimas
+    // ja tem politicas proprias).
+    internal static string? IdentityKey(ClaimsPrincipal user)
+    {
+        if (user.Identity?.IsAuthenticated != true) return null;
+        var global = user.FindFirst(HemodinksAPI.Application.Authentication.GlobalIdentityClaimTypes.UsuarioGlobalId)?.Value;
+        if (string.IsNullOrEmpty(global)) return null;
+        var operatorId = user.FindFirst(HemodinksAPI.Application.Authentication.GlobalIdentityClaimTypes.EquipeOperadorId)?.Value;
+        return string.IsNullOrEmpty(operatorId) ? $"user:{global}" : $"user:{global}:op:{operatorId}";
+    }
+
     internal static IResult Result(HttpContext context, RateLimitLease lease)
     {
         var seconds = lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)

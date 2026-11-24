@@ -129,6 +129,19 @@ Troque o `LIKE` por `'StartupCompleted%'` para ver os startups. As linhas só t�
 senha, token ou connection string (testes em `CpfReconciliationSchedulingTests` e `StartupMilestoneLogTests`).
 Custo: zero (mesma cota de ingestão de logs do New Relic já usada).
 
+### Limite de taxa autenticado (#374)
+
+Cada `429` de uma identidade autenticada (limite global de 300/min ou de exportações, 10/h) gera um Warning
+`4410 AuthenticatedRateLimited` com só o endpoint (`Limite de taxa autenticado excedido em <endpoint>`), sem
+usuário, clínica ou token. Consulta:
+
+```sql
+SELECT count(*) FROM Log WHERE entity.name = 'Hemodinks API' AND message LIKE 'Limite de taxa autenticado%'
+FACET message SINCE 1 day ago TIMESERIES
+```
+
+Picos indicam raspagem por sessão comprometida, script do cliente ou limite baixo demais para o uso real.
+
 ## Teste de disparo controlado
 
 Fazer após a primeira aplicação e registrar abaixo.

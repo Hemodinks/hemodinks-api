@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using System.Threading.RateLimiting;
 using System.Net;
 using HemodinksAPI.Application.Features.Licencas;
@@ -157,7 +158,36 @@ public static partial class ApiServiceCollectionExtensions
         {
             options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             options.OnRejected = async (rejected, cancellationToken) =>
+            {
+                // #374: excesso de uma identidade autenticada fica retido no New Relic (Warning, sem dado pessoal).
+                if (RateLimitResponse.IdentityKey(rejected.HttpContext.User) != null)
+                    rejected.HttpContext.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("HemodinksAPI.RateLimiting")
+                        .LogWarning(RateLimitResponse.AuthenticatedRejectedEvent, "Limite de taxa autenticado excedido em {Endpoint}",
+                            rejected.HttpContext.GetEndpoint()?.DisplayName ?? "unknown");
                 await RateLimitResponse.Result(rejected.HttpContext, rejected.Lease).ExecuteAsync(rejected.HttpContext);
+            };
+            // #374: todo request autenticado conta no limite da identidade; anonimos seguem so as politicas abaixo.
+            options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+            {
+                var key = RateLimitResponse.IdentityKey(context.User);
+                if (key == null) return RateLimitPartition.GetNoLimiter("anonymous");
+                var limits = context.RequestServices.GetRequiredService<IOptions<AuthenticationRateLimitOptions>>().Value;
+                return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = limits.AuthenticatedPermitLimit, Window = TimeSpan.FromSeconds(limits.AuthenticatedWindowSeconds),
+                    QueueLimit = 0, AutoReplenishment = true
+                });
+            });
+            options.AddPolicy("Exports", context =>
+            {
+                var limits = context.RequestServices.GetRequiredService<IOptions<AuthenticationRateLimitOptions>>().Value;
+                var key = RateLimitResponse.IdentityKey(context.User) ?? $"ip:{context.Connection.RemoteIpAddress}";
+                return RateLimitPartition.GetFixedWindowLimiter(key, _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = limits.ExportPermitLimit, Window = TimeSpan.FromSeconds(limits.ExportWindowSeconds),
+                    QueueLimit = 0, AutoReplenishment = true
+                });
+            });
             options.AddPolicy("Warmup", context =>
                 RateLimitPartition.GetFixedWindowLimiter(context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                     _ => new FixedWindowRateLimiterOptions

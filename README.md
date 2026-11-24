@@ -206,6 +206,12 @@ Features atuais de licenca:
 
 A matriz completa de perfis x recursos esta em [docs/MATRIZ_PERFIS_PERMISSOES.md](docs/MATRIZ_PERFIS_PERMISSOES.md).
 
+Limite de taxa (#374): toda requisicao autenticada conta no limite da identidade (usuario global; na equipe, cada
+operador identificado), padrao 300 por minuto, e `POST /api/exports` tem limite proprio de 10 por hora por identidade.
+Excesso responde `429` com `Retry-After` e `{ code: "rate_limited" }`, sem afetar outros usuarios. Configuracao em
+`AuthenticationRateLimiting` (`AuthenticatedPermitLimit`, `AuthenticatedWindowSeconds`, `ExportPermitLimit`,
+`ExportWindowSeconds`). Rotas anonimas seguem as politicas proprias (login, recuperacao, warmup, clinicas publicas).
+
 ## Endpoints principais
 
 Inventario gerado por `python3 scripts/generate_route_inventory.py` a partir dos `Map*` e `RequireAuthorization` dos endpoints. Legenda: Adm = Administrador,
@@ -656,6 +662,16 @@ dotnet test HemodinksAPI.slnx --filter "FullyQualifiedName~<ClasseDeTeste>"     
 Testes `*SqlServerTests` exigem `HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING` (ou `HEMODINKS_TEST_LOCALDB=1`); sem isso sao ignorados localmente,
 mas o CI os executa e `scripts/check-test-results.py` falha se algum teste obrigatorio for pulado.
 `LoginBrowserTests` rodam no workflow `Login integration E2E`.
+
+## Protecao de branches (#375)
+
+- `main`: exige `Build and test`, `CodeQL` (alertas novos do PR), `Analyze (csharp)`, `Analyze (actions)` e
+  `Login integration E2E / Login browser scenarios (12 required)`; `enforce_admins` ativo.
+- `developer`: exige `Build and test`; `enforce_admins` ativo, sem force push nem exclusao.
+
+Renomear um job desses no workflow exige atualizar a protecao (Settings -> Branches), senao o PR fica esperando
+um check que nunca chega. Falso positivo do CodeQL e dispensado no Code Scanning com justificativa, nunca
+contornado no codigo.
 
 ## Documentos relacionados
 
