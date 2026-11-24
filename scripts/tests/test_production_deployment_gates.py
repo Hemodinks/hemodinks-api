@@ -300,6 +300,51 @@ curl() {
         self.assertNotIn("result=passed", output)
 
 
+class ImageScanGateTests(unittest.TestCase):
+    """#372: o publish escaneia o digest publicado, gera SBOM/SARIF e bloqueia CVE alta/critica corrigivel."""
+
+    DIGEST_PIN = re.compile(r"TRIVY_IMAGE: aquasec/trivy@sha256:[0-9a-f]{64} # v\d+\.\d+\.\d+$", re.M)
+
+    def publish(self):
+        return job_body(PUBLISH, "publish")
+
+    def test_trivy_runs_from_digest_pinned_image_not_third_party_action(self):
+        publish = self.publish()
+        self.assertEqual(2, len(self.DIGEST_PIN.findall(publish)), "scan and gate must pin the Trivy image by digest")
+        self.assertNotIn("aquasecurity/trivy-action", PUBLISH.read_text(encoding="utf-8"))
+        self.assertIn("IMAGE_REF: ${{ matrix.image }}@${{ steps.build.outputs.digest }}", publish)
+
+    def test_gate_blocks_fixable_high_and_critical_before_digest_is_released(self):
+        publish = self.publish()
+        gate_at = publish.index("- name: Fail on fixable HIGH/CRITICAL image vulnerabilities")
+        gate = publish[gate_at:publish.index("- name:", gate_at + 10)]
+        for flag in ("--severity HIGH,CRITICAL", "--ignore-unfixed", "--ignorefile /src/.trivyignore", "--exit-code 1"):
+            with self.subTest(flag=flag):
+                self.assertIn(flag, gate)
+        self.assertNotIn("continue-on-error", gate)
+        self.assertLess(publish.index("- name: Upload Trivy results to Code Scanning"), gate_at)
+        self.assertLess(gate_at, publish.index("- name: Record validated image digest"))
+
+    def test_sbom_and_sarif_are_published_with_minimal_permissions(self):
+        publish = self.publish()
+        self.assertIn("--format spdx-json --output /out/sbom.spdx.json", publish)
+        self.assertIn("name: sbom-${{ matrix.service }}-${{ github.sha }}", publish)
+        self.assertIn("github/codeql-action/upload-sarif@", publish)
+        permissions = re.search(r"\n    permissions:\n((?:      .*\n)+)", publish)
+        self.assertIsNotNone(permissions)
+        self.assertEqual(
+            {"contents: read", "packages: write", "security-events: write"},
+            {line.strip() for line in permissions.group(1).splitlines()})
+
+    def test_trivy_allowlist_entries_are_justified(self):
+        lines = (ROOT / ".trivyignore").read_text(encoding="utf-8").splitlines()
+        for index, line in enumerate(lines):
+            if line.strip() and not line.lstrip().startswith("#"):
+                with self.subTest(entry=line):
+                    self.assertTrue(index > 0 and lines[index - 1].lstrip().startswith("#"),
+                                    "each .trivyignore entry needs a justification comment right above it")
+
+
 class RollbackRuntimeCredentialTests(unittest.TestCase):
     """#204: rollback never targets a revision whose SQL connection is not the restricted runtime secret."""
 
