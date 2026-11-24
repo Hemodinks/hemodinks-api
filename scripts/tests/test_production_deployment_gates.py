@@ -343,6 +343,33 @@ class ImageScanGateTests(unittest.TestCase):
                 with self.subTest(entry=line):
                     self.assertTrue(index > 0 and lines[index - 1].lstrip().startswith("#"),
                                     "each .trivyignore entry needs a justification comment right above it")
+class ContainerImageHardeningTests(unittest.TestCase):
+    """#371: a API roda sem root e a imagem nao leva logs ou arquivos locais do build."""
+
+    def final_stage(self):
+        source = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        parts = re.split(r"(?m)^FROM .* AS final$", source)
+        self.assertEqual(2, len(parts), "Dockerfile must keep a single 'final' stage")
+        return parts[1]
+
+    def test_final_stage_drops_root_after_preparing_writable_dirs(self):
+        final = self.final_stage()
+        users = re.findall(r"(?m)^USER\s+(\S+)\s*$", final)
+        self.assertEqual(["$APP_UID"], users, "final stage must switch to the base image non-root user once")
+        user_at = final.index("USER $APP_UID")
+        chown_at = final.index('chown "$APP_UID" /app/logs /app/local-storage')
+        self.assertLess(chown_at, user_at, "writable dirs must be prepared (as root) before dropping privileges")
+        self.assertLess(user_at, final.index("ENTRYPOINT"), "the API process must start as the non-root user")
+        # O chown so pode tocar os diretorios gravaveis, nunca /app inteiro (binario e agente New Relic).
+        chown_lines = [line for line in final.splitlines() if "chown" in line]
+        self.assertEqual(1, len(chown_lines))
+        self.assertNotRegex(chown_lines[0], r"\s/app(\s|$)", "binaries and New Relic agent must stay root-owned")
+
+    def test_build_context_excludes_logs_and_local_storage_at_any_depth(self):
+        ignored = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+        for pattern in ("**/logs", "**/*.log", "**/local-storage", "**/.env"):
+            with self.subTest(pattern=pattern):
+                self.assertIn(pattern, ignored)
 
 
 class RollbackRuntimeCredentialTests(unittest.TestCase):

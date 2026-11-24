@@ -30,6 +30,14 @@ EXPOSE 8080
 
 COPY --from=publish /app/publish .
 
+# #371: roda sem root. O binario, o agente New Relic e a configuracao continuam de root (somente
+# leitura para o processo); so os diretorios gravados em runtime pertencem ao usuario `app` da
+# imagem base ($APP_UID): logs (Serilog, observacoes de seguranca, New Relic) e o storage local
+# usado fora de producao sem Azure Storage.
+RUN mkdir -p /app/logs /app/local-storage \
+    && chown "$APP_UID" /app/logs /app/local-storage
+USER $APP_UID
+
 ENV ASPNETCORE_ENVIRONMENT=Production
 ENV ASPNETCORE_URLS=http://+:8080
 # Configuration files are immutable in the container. Avoid consuming an

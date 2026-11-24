@@ -8,5 +8,6 @@
 .env
 .env.*
 !.env.example
-logs
-*.log
+**/logs
+**/*.log
+**/local-storage
