@@ -1,0 +1,6 @@
+# Allowlist do gate de imagem do conteiner (#372). Vazia por padrao.
+# Cada excecao exige: o ID (CVE-... ou GHSA-...), um comentario com justificativa, o issue que acompanha a
+# correcao e a data de revisao. Exemplo:
+#   # Sem impacto: o binario afetado nao e usado pela API; acompanhar #NNN; revisar ate AAAA-MM-DD.
+#   CVE-0000-00000
+# Veja docs/container-image-scan.md.
