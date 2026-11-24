@@ -340,19 +340,26 @@ public sealed partial class AuthenticationSessionService
             return;
         }
 
-        if (rotated.RevokedAt == null && rotated.RefreshRotatedAt.HasValue
-            && now - rotated.RefreshRotatedAt.Value <= RefreshReuseGraceWindow)
+        // A janela so protege sessao realmente valida (mesmas checagens do caminho normal); o 409 nao
+        // emite token nem estende a sessao, so faz a aba repetir com o cookie atual.
+        if (rotated.RefreshRotatedAt.HasValue
+            && now - rotated.RefreshRotatedAt.Value <= RefreshReuseGraceWindow
+            && IsActive(rotated)
+            && IsActive(rotated.UsuarioClinica))
         {
             _logger.LogInformation("Refresh com token recem-rotacionado dentro da janela de concorrencia");
             throw new SessionRefreshConflictException();
         }
 
-        if (rotated.RevokedAt == null)
+        if (rotated.RevokedAt != null)
         {
-            rotated.RevokedAt = now;
-            await SaveRevocationAsync(cancellationToken);
+            _logger.LogInformation("Refresh com token rotacionado de sessao ja revogada");
+            return;
         }
 
+        // Revogacao atomica no banco (nao depende do ChangeTracker): uma renovacao concorrente do atacante
+        // nao pode descartar a revogacao.
+        await _store.RevokeByIdAsync(rotated.Id, now, cancellationToken);
         _logger.LogWarning("Reuso de refresh token rotacionado detectado; sessao revogada");
         if (_auditWriter == null)
         {

@@ -98,6 +98,30 @@ public sealed partial class SessionRenewalEndpointTests
         Assert.Null(audit.DetalhesJson);
     }
 
+    [Theory]
+    [InlineData("revoked")]
+    [InlineData("security")]
+    public async Task Rotated_token_inside_grace_window_of_invalid_session_is_401_not_conflict(string scenario)
+    {
+        var clock = new Clock();
+        using var factory = new HemodinksApiFactory(s => s.AddSingleton<TimeProvider>(clock));
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        var login = await Login(client);
+        (await Refresh(client, login.Id, login.Membership, login.Cookie)).EnsureSuccessStatusCode();
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            var session = await db.AuthenticationSessions.Include(s => s.UsuarioGlobal).SingleAsync(s => s.Id == login.Id);
+            if (scenario == "revoked") session.RevokedAt = clock.Now.UtcDateTime;
+            else session.UsuarioGlobal.SecurityVersion = Guid.NewGuid();
+            await db.SaveChangesAsync();
+        }
+
+        var stale = await Refresh(client, login.Id, login.Membership, login.Cookie);
+        Assert.Equal(HttpStatusCode.Unauthorized, stale.StatusCode);
+        Assert.False(stale.Headers.Contains("Set-Cookie"));
+    }
+
     [Fact]
     public async Task Rotated_token_with_mismatched_session_pair_is_rejected_without_revoking()
     {
