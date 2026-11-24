@@ -116,7 +116,7 @@ public sealed class SurgicalTeamEndpointTests : ApiEndpointTestBase
         using var list = await client.GetAsync($"/api/atendimentos-cirurgicos/?pacienteId={seed.PacienteId}");
         Assert.Equal(HttpStatusCode.OK, list.StatusCode);
         using var listJson = await ReadJsonAsync(list);
-        Assert.Single(listJson.RootElement.EnumerateArray());
+        Assert.Single(listJson.RootElement.GetProperty("items").EnumerateArray());
         using var scope = factory.Services.CreateScope();
         scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetCurrent(1, Clinica.DefaultSlug);
         var stored = await scope.ServiceProvider.GetRequiredService<AppDbContext>().AtendimentosCirurgicos.SingleAsync(x => x.Id == id);

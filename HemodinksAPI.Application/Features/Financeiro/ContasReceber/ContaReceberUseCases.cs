@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Features.Common;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
@@ -49,22 +50,28 @@ public sealed class GerarContaReceberCommandHandler(IFinanceFeatureDbContext db,
     }
 }
 
-public sealed class ListarContasReceberQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ListarContasReceberQuery, List<ContaReceberDto>>
+public sealed class ListarContasReceberQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ListarContasReceberQuery, PagedResult<ContaReceberDto>>
 {
-    public async Task<List<ContaReceberDto>> Handle(ListarContasReceberQuery request, CancellationToken ct)
+    public async Task<PagedResult<ContaReceberDto>> Handle(ListarContasReceberQuery request, CancellationToken ct)
     {
         TipoCirurgiaRules.Validate(request.TipoCirurgia);
-        var accounts = await db.ContasReceber.Include(x => x.Paciente).Include(x => x.Recebimentos)
-            .Where(x => !request.TipoCirurgia.HasValue || x.Faturamento.AtendimentoCirurgico.TipoCirurgia == request.TipoCirurgia)
+        var (page, pageSize) = FinanceiroPaging.Normalize(request.Page, request.PageSize);
+        var filtered = db.ContasReceber
+            .Where(x => !request.TipoCirurgia.HasValue || x.Faturamento.AtendimentoCirurgico.TipoCirurgia == request.TipoCirurgia);
+        var total = await filtered.CountAsync(ct);
+        // Continua rastreado de proposito: o GET recalcula e grava o status vencido, agora so da pagina.
+        var accounts = await filtered.Include(x => x.Paciente).Include(x => x.Recebimentos)
             .OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro)
-            .ThenByDescending(x => x.Id).ToListAsync(ct);
+            .ThenByDescending(x => x.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .ToListAsync(ct);
         var changed = false;
         foreach (var account in accounts)
         {
             var old = account.Status; FinanceiroCalculations.Recalculate(account, DateTime.UtcNow); changed |= old != account.Status;
         }
         if (changed) await db.SaveChangesAsync(ct);
-        return accounts.Select(FinanceiroMapper.ToDto).ToList();
+        return new PagedResult<ContaReceberDto>(accounts.Select(FinanceiroMapper.ToDto).ToList(), page, pageSize, total);
     }
 }
 

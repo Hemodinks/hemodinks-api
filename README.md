@@ -213,6 +213,8 @@ Méd = Medicos, Pac = Pacientes, Ctrl = Controller, SA = SuperAdministrador, Eq 
 qualquer perfil, mas o handler restringe ao proprio registro, ao escopo medico/equipe ou a clinica da sessao.
 Rotas da plataforma restringem o Administrador a clinica atual. Rotas de pacientes, faturamento medico, grupos
 medicos, agenda e usuarios tambem dependem do modulo contratado no plano `Parcial` (403 quando ausente).
+Listas paginadas devolvem `{ items, page, pageSize, totalItems, totalPages }`; `pageSize` e limitado a 1..100. Isso vale tambem para
+`GET /api/atendimentos-cirurgicos/`, `GET /api/faturamentos/` e `GET /api/financeiro/contas-receber/` (`page`, `pageSize`; padrao 20) desde #373.
 
 ### Sessão
 

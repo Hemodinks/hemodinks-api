@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Features.Common;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
@@ -59,12 +60,20 @@ public sealed class CriarFaturamentoCommandHandler(IFinanceFeatureDbContext db, 
     }
 }
 
-public sealed class ListarFaturamentosQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ListarFaturamentosQuery, List<FaturamentoDto>>
+public sealed class ListarFaturamentosQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ListarFaturamentosQuery, PagedResult<FaturamentoDto>>
 {
-    public async Task<List<FaturamentoDto>> Handle(ListarFaturamentosQuery request, CancellationToken ct) =>
-        (await ApplyScope(ForResponse(db.Faturamentos.AsNoTracking()), request)
+    public async Task<PagedResult<FaturamentoDto>> Handle(ListarFaturamentosQuery request, CancellationToken ct)
+    {
+        var (page, pageSize) = FinanceiroPaging.Normalize(request.Page, request.PageSize);
+        var scoped = ApplyScope(db.Faturamentos.AsNoTracking(), request);
+        var total = await scoped.CountAsync(ct);
+        var items = (await ApplyScope(ForResponse(db.Faturamentos.AsNoTracking()), request)
             .OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro)
-            .ThenByDescending(x => x.Id).ToListAsync(ct)).Select(FinanceiroMapper.ToDto).ToList();
+            .ThenByDescending(x => x.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .ToListAsync(ct)).Select(FinanceiroMapper.ToDto).ToList();
+        return new PagedResult<FaturamentoDto>(items, page, pageSize, total);
+    }
     private static IQueryable<Faturamento> ApplyScope(IQueryable<Faturamento> query, ListarFaturamentosQuery request)
     {
         TipoCirurgiaRules.Validate(request.TipoCirurgia);

@@ -75,12 +75,12 @@ public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, 
     }
 }
 
-public sealed class ListarAtendimentosQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ListarAtendimentosQuery, List<AtendimentoDto>>
+public sealed class ListarAtendimentosQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ListarAtendimentosQuery, PagedResult<AtendimentoDto>>
 {
-    public async Task<List<AtendimentoDto>> Handle(ListarAtendimentosQuery request, CancellationToken ct)
+    public async Task<PagedResult<AtendimentoDto>> Handle(ListarAtendimentosQuery request, CancellationToken ct)
     {
-        var query = db.AtendimentosCirurgicos.AsNoTracking().Include(x => x.Paciente)
-            .Include(x => x.OpmeFornecedor).Include(x => x.Procedimentos).Include(x => x.Arquivos).AsQueryable();
+        var (page, pageSize) = FinanceiroPaging.Normalize(request.Page, request.PageSize);
+        var query = db.AtendimentosCirurgicos.AsNoTracking().AsQueryable();
         if (request.CurrentPerfilId == Perfil.MedicosId)
             query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId || x.MedicoAuxiliar1Id == request.CurrentUserId || x.MedicoAuxiliar2Id == request.CurrentUserId);
         if (!Perfil.IsAdministradorOuSuper(request.CurrentPerfilId)) query = query.Where(x => x.Paciente.Ativo);
@@ -90,8 +90,14 @@ public sealed class ListarAtendimentosQueryHandler(IFinanceFeatureDbContext db) 
         if (request.PacienteId.HasValue) query = query.Where(x => x.PacienteId == request.PacienteId);
         TipoCirurgiaRules.Validate(request.TipoCirurgia);
         if (request.TipoCirurgia.HasValue) query = query.Where(x => x.TipoCirurgia == request.TipoCirurgia);
-        return (await query.OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro)
-            .ThenByDescending(x => x.Id).ToListAsync(ct)).Select(FinanceiroMapper.ToDto).ToList();
+        var total = await query.CountAsync(ct);
+        var items = (await query.Include(x => x.Paciente).Include(x => x.OpmeFornecedor)
+            .Include(x => x.Procedimentos).Include(x => x.Arquivos)
+            .OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro)
+            .ThenByDescending(x => x.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .ToListAsync(ct)).Select(FinanceiroMapper.ToDto).ToList();
+        return new PagedResult<AtendimentoDto>(items, page, pageSize, total);
     }
 }
 

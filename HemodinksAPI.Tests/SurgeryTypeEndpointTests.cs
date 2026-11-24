@@ -100,8 +100,8 @@ public sealed class SurgeryTypeEndpointTests : ApiEndpointTestBase
         Assert.Equal(HttpStatusCode.NotFound, (await client.PutAsJsonAsync(path + id,
             new { nomePaciente = "Attempt", tipoCirurgia = "Eletiva", procedimentos = Array.Empty<object>() })).StatusCode);
         using var list = await ReadJsonAsync(await client.GetAsync(path + "?tipoCirurgia=Urgencia&clinicaId=2"));
-        if (attendance) Assert.Equal(0, list.RootElement.GetArrayLength());
-        else Assert.Equal(0, list.RootElement.GetProperty("totalItems").GetInt32());
+        // #373: atendimentos tambem paginados, mesmo formato da lista de pacientes.
+        Assert.Equal(0, list.RootElement.GetProperty("totalItems").GetInt32());
         using var verify = factory.Services.CreateScope();
         verify.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
         var verifyDb = verify.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -159,7 +159,7 @@ public sealed class SurgeryTypeEndpointTests : ApiEndpointTestBase
         async Task<int[]> ListIds(string type)
         {
             using var list = await ReadJsonAsync(await client.GetAsync($"{path}?tipoCirurgia={type}"));
-            var items = attendance ? list.RootElement : list.RootElement.GetProperty("items");
+            var items = list.RootElement.GetProperty("items");
             return items.EnumerateArray().Select(item => item.GetProperty("id").GetInt32()).ToArray();
         }
         Assert.Equal(new[] { id }, await ListIds("EmAutorizacao"));
