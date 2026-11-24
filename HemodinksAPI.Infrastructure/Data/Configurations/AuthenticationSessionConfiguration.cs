@@ -23,7 +23,10 @@ internal sealed class AuthenticationSessionConfiguration : IEntityTypeConfigurat
         entity.Property(item => item.RowVersion).IsRowVersion();
         entity.Property(item => item.ContextVersion).IsConcurrencyToken();
 
+        entity.Property(item => item.PreviousRefreshTokenHash).HasMaxLength(64);
+
         entity.HasIndex(item => item.RefreshTokenHash).IsUnique();
+        entity.HasIndex(item => item.PreviousRefreshTokenHash);
         entity.HasIndex(item => new { item.UsuarioGlobalId, item.RevokedAt, item.LastActivityAt });
         entity.HasIndex(item => item.UsuarioClinicaId);
 

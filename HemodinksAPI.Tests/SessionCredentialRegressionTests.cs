@@ -46,7 +46,8 @@ public sealed partial class SessionRenewalEndpointTests
         var currentRefresh = await Refresh(client, login.Id, target.Membership, login.Cookie);
         currentRefresh.EnsureSuccessStatusCode();
         Assert.NotEqual(login.Cookie, Cookie(currentRefresh));
-        Assert.Equal(HttpStatusCode.Unauthorized, (await Refresh(client, login.Id, target.Membership, login.Cookie)).StatusCode);
+        // #376: cookie recem-rotacionado reusado dentro da janela = corrida entre abas (409), sem revogar.
+        Assert.Equal(HttpStatusCode.Conflict, (await Refresh(client, login.Id, target.Membership, login.Cookie)).StatusCode);
         using var scope = factory.Services.CreateScope();
         var saved = await scope.ServiceProvider.GetRequiredService<PlatformDbContext>().AuthenticationSessions.SingleAsync(s => s.Id == login.Id);
         Assert.Equal(target.Membership, saved.UsuarioClinicaId);
