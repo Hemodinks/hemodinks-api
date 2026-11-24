@@ -529,6 +529,18 @@ jobs:
           PREVIOUS_REVISION: ${{ steps.candidate.outputs.previous_revision }}
           CANDIDATE_REVISION: ${{ steps.candidate.outputs.candidate_revision }}
         run: bash scripts/deploy/promote-candidate.sh
+      # Marcador "Deployments" no APM do New Relic. So apos promocao real (nao em already-current);
+      # nunca bloqueia: o trafego ja foi trocado quando este passo roda.
+      - name: Record deployment in New Relic
+        if: steps.promotion.outputs.result == 'promoted'
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          NEW_RELIC_ACCOUNT_ID: ${{ vars.NEW_RELIC_ACCOUNT_ID }}
+          NEW_RELIC_REGION: ${{ vars.NEW_RELIC_REGION }}
+          CANDIDATE_REVISION: ${{ steps.candidate.outputs.candidate_revision }}
+        run: python3 -B scripts/newrelic_change_tracking.py
       - name: Enforce CURRENT/PREVIOUS revision policy
         if: steps.candidate.outputs.already_current != 'true'
         id: cleanup

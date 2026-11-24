@@ -142,6 +142,20 @@ FACET message SINCE 1 day ago TIMESERIES
 
 Picos indicam raspagem por sessão comprometida, script do cliente ou limite baixo demais para o uso real.
 
+## Marcadores de deploy (Change Tracking)
+
+Cada deploy de produção vira um marcador no card **Deployments** e nos gráficos do APM `Hemodinks API`,
+para cruzar picos de latência ou 5xx com a versão publicada.
+
+- Quem registra: passo **Record deployment in New Relic** do job `deploy-api` (`publish-container.yml`),
+  via `scripts/newrelic_change_tracking.py` (mutation `changeTrackingCreateDeployment`, tipo `BLUE_GREEN`).
+- Quando: só após promoção real (`result == promoted`); reexecução do mesmo SHA (`already-current`) não duplica.
+- Conteúdo: versão (SHA curto), commit, revisão promovida, autor do run e link para o run. Nada de dado de paciente.
+- Usa os mesmos `NEW_RELIC_API_KEY`, `NEW_RELIC_ACCOUNT_ID` e `NEW_RELIC_REGION` da tabela acima.
+- Nunca bloqueia o deploy: sem configuração gera `::notice::`; falha da NerdGraph gera `::warning::`
+  (e o passo tem `continue-on-error`). Custo: um evento de poucos KB por deploy, dentro da cota de ingestão.
+- O front (`hemodinks-front`) registra os seus no app Browser pelo próprio workflow de deploy.
+
 ## Teste de disparo controlado
 
 Fazer após a primeira aplicação e registrar abaixo.
