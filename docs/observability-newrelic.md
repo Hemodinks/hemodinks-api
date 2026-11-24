@@ -105,6 +105,30 @@ Variáveis do workflow **New Relic Observability** (`.github/workflows/newrelic-
 Localmente: `python scripts/newrelic_observability.py validate` (offline, também roda no CI);
 `plan`/`apply` exigem as mesmas variáveis de ambiente.
 
+## Logs de startup retidos (#277)
+
+O ambiente do Container Apps não tem destino de logs (sem Log Analytics, que é pago). Os logs de startup ficam
+consultáveis depois do deploy pelo **encaminhamento de logs do agente New Relic**, já ativo em produção
+(`NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED=true`). O encaminhamento descarta Information e abaixo, então
+os marcos de startup saem como **Warning proposital com `EventId`** (não são alerta):
+
+| EventId | Mensagem | Quando |
+| --- | --- | --- |
+| 4400 `CpfReconciliationCompleted` | `Reconciliacao de CPF concluida: N verificados, N atualizados, N cifras ilegiveis, N falhas, N cifras pendentes de recifragem` | fim de cada reconciliação de CPF (#227) |
+| 4401 `StartupCompleted` | `StartupCompleted: HTTP pronto em N ms` | fim do startup da réplica |
+
+Consulta (New Relic → Logs → Query, conta da API):
+
+```sql
+SELECT timestamp, message, hostname FROM Log
+WHERE entity.name = 'Hemodinks API' AND message LIKE 'Reconciliacao de CPF concluida%'
+SINCE 1 day ago
+```
+
+Troque o `LIKE` por `'StartupCompleted%'` para ver os startups. As linhas só têm contagens e tempos: nunca CPF,
+senha, token ou connection string (testes em `CpfReconciliationSchedulingTests` e `StartupMilestoneLogTests`).
+Custo: zero (mesma cota de ingestão de logs do New Relic já usada).
+
 ## Teste de disparo controlado
 
 Fazer após a primeira aplicação e registrar abaixo.

@@ -17,6 +17,8 @@ public sealed class CpfProtectionReconciliationService(
     CpfReconciliationSchedule schedule,
     ILogger<CpfProtectionReconciliationService> logger) : BackgroundService
 {
+    public static readonly EventId CpfReconciliationCompletedEvent = new(4400, "CpfReconciliationCompleted");
+
     private const int BatchSize = 500;
     private const int MaximumPasses = 3;
 
@@ -137,7 +139,11 @@ public sealed class CpfProtectionReconciliationService(
             }
         }
 
-        logger.LogInformation(
+        // #277: Warning de proposito, nao e alerta. O encaminhamento de logs do New Relic descarta Information,
+        // e esta linha e o criterio de fim do deploy e da rotacao de certificado (docs/observability-newrelic.md).
+        // So contagens, nunca CPF. Filtre pelo EventId/mensagem.
+        logger.LogWarning(
+            CpfReconciliationCompletedEvent,
             "Reconciliacao de CPF concluida: {Checked} verificados, {Updated} atualizados, {Unreadable} cifras ilegiveis, {Failed} falhas, {PendingReprotection} cifras pendentes de recifragem",
             total.Checked, total.Updated, total.Unreadable, total.Failed, total.PendingReprotection);
         if (total.Unreadable > 0)
