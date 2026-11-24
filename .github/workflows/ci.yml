@@ -90,6 +90,9 @@ jobs:
       - name: Test release source decisions without GitHub API
         run: python3 -B -m unittest discover -s scripts/tests -p test_release_source.py -v
 
+      - name: Test homologation preflight without Render
+        run: python3 -B -m unittest discover -s scripts/tests -p test_check_homologation.py -v
+
       - name: Test SQL identity separation without database access
         run: python3 -B -m unittest discover -s scripts/tests -p test_sql_identity_separation.py -v
 
