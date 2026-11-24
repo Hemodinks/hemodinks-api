@@ -1,4 +1,5 @@
 // Storage de produção: fotos de perfil, arquivos de pacientes, exports e pacote das Functions.
+// Também guarda os containers *-confirmation da homologação.
 param name string
 param location string
 
@@ -9,6 +10,9 @@ var containers = [
   'exports'
   'patient-files'
   'profile-photos'
+  // Homologacao (Render) usa a mesma conta, com containers proprios (render.confirmation.yaml).
+  'patient-files-confirmation'
+  'profile-photos-confirmation'
 ]
 
 resource account 'Microsoft.Storage/storageAccounts@2023-05-01' = {
