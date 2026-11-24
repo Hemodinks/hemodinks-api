@@ -62,11 +62,56 @@ public sealed partial class SessionRenewalEndpointTests
         using var scope = factory.Services.CreateScope();
         var stored = await scope.ServiceProvider.GetRequiredService<PlatformDbContext>().AuthenticationSessions.SingleAsync(s => s.Id == login.Id);
         Assert.Equal(clock.Now.UtcDateTime, stored.LastActivityAt);
+        // #376: o cookie anterior dentro da janela e outra aba que perdeu a corrida: 409, sessao preservada.
         var stale = await Refresh(client, login.Id, login.Membership, login.Cookie);
-        Assert.Equal(HttpStatusCode.Unauthorized, stale.StatusCode);
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
         Assert.False(stale.Headers.Contains("Set-Cookie"));
         clock.Now = clock.Now.AddMinutes(29);
         (await Refresh(client, login.Id, login.Membership, Cookie(response))).EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task Reused_rotated_refresh_token_after_grace_window_revokes_the_whole_session()
+    {
+        var clock = new Clock();
+        using var factory = new HemodinksApiFactory(s => s.AddSingleton<TimeProvider>(clock));
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        var login = await Login(client);
+        var renewed = await Refresh(client, login.Id, login.Membership, login.Cookie);
+        renewed.EnsureSuccessStatusCode();
+        var currentCookie = Cookie(renewed);
+
+        // Cookie antigo (copiado) volta depois da janela de concorrencia: reuso detectado.
+        clock.Now = clock.Now.AddSeconds(31);
+        var reuse = await Refresh(client, login.Id, login.Membership, login.Cookie);
+        Assert.Equal(HttpStatusCode.Unauthorized, reuse.StatusCode);
+        Assert.False(reuse.Headers.Contains("Set-Cookie"));
+
+        // A sessao inteira cai: nem o token legitimo mais recente renova.
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Refresh(client, login.Id, login.Membership, currentCookie)).StatusCode);
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        Assert.NotNull((await db.AuthenticationSessions.SingleAsync(s => s.Id == login.Id)).RevokedAt);
+        var audit = await db.AuditoriasPlataforma.SingleAsync(a => a.Acao == "session.refresh.reuse");
+        Assert.Equal(login.Id.ToString(), audit.EntidadeId);
+        Assert.False(audit.Sucesso);
+        Assert.Null(audit.DetalhesJson);
+    }
+
+    [Fact]
+    public async Task Rotated_token_with_mismatched_session_pair_is_rejected_without_revoking()
+    {
+        var clock = new Clock();
+        using var factory = new HemodinksApiFactory(s => s.AddSingleton<TimeProvider>(clock));
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        var login = await Login(client);
+        var renewed = await Refresh(client, login.Id, login.Membership, login.Cookie);
+        renewed.EnsureSuccessStatusCode();
+        clock.Now = clock.Now.AddMinutes(2);
+
+        var mismatched = await Refresh(client, Guid.NewGuid(), login.Membership, login.Cookie);
+        Assert.Equal(HttpStatusCode.Unauthorized, mismatched.StatusCode);
+        (await Refresh(client, login.Id, login.Membership, Cookie(renewed))).EnsureSuccessStatusCode();
     }
 
     [Theory]
@@ -175,6 +220,7 @@ public sealed partial class SessionRenewalEndpointTests
         public Task<HemodinksAPI.Domain.Models.UsuarioClinica?> FindActiveMembershipAsync(int globalId, int userId, int clinicId, CancellationToken ct) => inner.FindActiveMembershipAsync(globalId, userId, clinicId, ct);
         public Task<HemodinksAPI.Domain.Models.AuthenticationSession?> FindByRefreshTokenHashAsync(string hash, CancellationToken ct) => inner.FindByRefreshTokenHashAsync(hash, ct);
         public Task<HemodinksAPI.Domain.Models.AuthenticationSession?> FindByIdAsync(Guid id, CancellationToken ct) => inner.FindByIdAsync(id, ct);
+        public Task<HemodinksAPI.Domain.Models.AuthenticationSession?> FindByPreviousRefreshTokenHashAsync(string hash, CancellationToken ct) => inner.FindByPreviousRefreshTokenHashAsync(hash, ct);
         public Task<HemodinksAPI.Application.Features.Sessions.SessionTeamBinding?> FindTeamBindingAsync(HemodinksAPI.Domain.Models.AuthenticationSession session, DateTime now, CancellationToken ct) => inner.FindTeamBindingAsync(session, now, ct);
         public void Add(HemodinksAPI.Domain.Models.AuthenticationSession session) => inner.Add(session);
         public Task SaveChangesAsync(CancellationToken ct) => inner.SaveChangesAsync(ct);

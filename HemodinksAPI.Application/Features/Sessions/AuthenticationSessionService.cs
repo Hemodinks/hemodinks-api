@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using HemodinksAPI.Application.Auditing;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Domain.Models;
 
@@ -52,13 +53,18 @@ public sealed partial class AuthenticationSessionService
     private readonly TimeProvider _timeProvider;
     private readonly SessionLifetimePolicy _lifetime;
     private readonly ILogger<AuthenticationSessionService> _logger;
+    private readonly IPlatformAuditWriter? _auditWriter;
+
+    // #376: janela em que um token recem-rotacionado ainda e aceito como corrida entre abas.
+    public static readonly TimeSpan RefreshReuseGraceWindow = TimeSpan.FromSeconds(30);
 
     public AuthenticationSessionService(
         IAuthenticationSessionStore store,
         IJwtTokenService jwtTokenService,
         AuthenticationSessionOptions options,
         TimeProvider timeProvider,
-        ILogger<AuthenticationSessionService> logger)
+        ILogger<AuthenticationSessionService> logger,
+        IPlatformAuditWriter? auditWriter = null)
     {
         _store = store;
         _jwtTokenService = jwtTokenService;
@@ -66,6 +72,7 @@ public sealed partial class AuthenticationSessionService
         _timeProvider = timeProvider;
         _lifetime = new SessionLifetimePolicy(options, timeProvider);
         _logger = logger;
+        _auditWriter = auditWriter;
     }
 
     public async Task<IssuedAuthenticationSession?> StartAsync(
@@ -141,7 +148,7 @@ public sealed partial class AuthenticationSessionService
         }
         if (session == null)
         {
-            _logger.LogWarning("Refresh token de sessao nao encontrado");
+            await HandleUnknownRefreshTokenAsync(tokenHash, now, expectedSessionId, expectedMembershipId, cancellationToken);
             return null;
         }
 
@@ -170,6 +177,8 @@ public sealed partial class AuthenticationSessionService
         // A refresh timer alone is not user activity. Only foreground interactions extend idle time.
         if (touchActivity) session.LastActivityAt = Later(session.LastActivityAt, now);
         session.UsuarioClinica.PerfilId = session.UsuarioClinica.User.PerfilId;
+        session.PreviousRefreshTokenHash = session.RefreshTokenHash;
+        session.RefreshRotatedAt = now;
         session.RefreshTokenHash = HashRefreshToken(newRefreshToken);
 
         if (!await _store.TrySaveChangesAsync(cancellationToken))
@@ -310,6 +319,66 @@ public sealed partial class AuthenticationSessionService
         // An old bearer may revoke its own session, but must never delete a different
         // session's cookie (or an unrecognized cookie rotated by another request).
         return new(false, false);
+    }
+
+    // #376 (refresh token rotation with reuse detection): um token ja rotacionado que volta depois da janela
+    // de concorrencia indica copia do cookie; a sessao inteira e revogada. Dentro da janela e uma aba que
+    // perdeu a corrida: trata como conflito (o front repete com o cookie novo), sem derrubar a sessao.
+    private async Task HandleUnknownRefreshTokenAsync(string tokenHash, DateTime now, Guid? expectedSessionId,
+        int? expectedMembershipId, CancellationToken cancellationToken)
+    {
+        var rotated = await _store.FindByPreviousRefreshTokenHashAsync(tokenHash, cancellationToken);
+        // Mesmo criterio do token atual: par sessao/vinculo divergente so e recusado, sem efeito colateral.
+        if (rotated != null && ((expectedSessionId.HasValue && rotated.Id != expectedSessionId)
+            || (expectedMembershipId.HasValue && rotated.UsuarioClinicaId != expectedMembershipId)))
+        {
+            return;
+        }
+        if (rotated == null)
+        {
+            _logger.LogWarning("Refresh token de sessao nao encontrado");
+            return;
+        }
+
+        if (rotated.RevokedAt == null && rotated.RefreshRotatedAt.HasValue
+            && now - rotated.RefreshRotatedAt.Value <= RefreshReuseGraceWindow)
+        {
+            _logger.LogInformation("Refresh com token recem-rotacionado dentro da janela de concorrencia");
+            throw new SessionRefreshConflictException();
+        }
+
+        if (rotated.RevokedAt == null)
+        {
+            rotated.RevokedAt = now;
+            await SaveRevocationAsync(cancellationToken);
+        }
+
+        _logger.LogWarning("Reuso de refresh token rotacionado detectado; sessao revogada");
+        if (_auditWriter == null)
+        {
+            return;
+        }
+
+        try
+        {
+            await _auditWriter.WriteAsync(new PlatformAuditEntry(
+                rotated.UsuarioGlobalId,
+                rotated.UsuarioClinica.ClinicaId,
+                rotated.UsuarioClinica.UserId,
+                "session.refresh.reuse",
+                "session",
+                rotated.Id.ToString(),
+                null,
+                null,
+                null,
+                null,
+                false,
+                now), cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogError("Falha ao auditar reuso de refresh token: {ErrorType}", exception.GetType().Name);
+        }
     }
 
     private static bool IsActive(UsuarioClinica membership)

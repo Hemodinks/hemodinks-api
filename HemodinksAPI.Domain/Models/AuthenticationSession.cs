@@ -23,6 +23,11 @@ public class AuthenticationSession
 
     public string RefreshTokenHash { get; set; } = null!;
 
+    // #376: hash do refresh token imediatamente anterior e quando foi rotacionado, para detectar reuso.
+    public string? PreviousRefreshTokenHash { get; set; }
+
+    public DateTime? RefreshRotatedAt { get; set; }
+
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
     public DateTime LastActivityAt { get; set; } = DateTime.UtcNow;
