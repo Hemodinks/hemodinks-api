@@ -73,6 +73,7 @@ public sealed class AuthenticationRateLimitFilter(AuthenticationRateLimits limit
             ResolveLoginClinicsCommand command => limits.SubjectKey("login", command.Email, email: true),
             ResetUserPasswordByEmailCommand command => limits.SubjectKey("recovery", command.Email, email: true),
             ConfirmPasswordResetCommand command => limits.SubjectKey("recovery-confirm", command.Token?.Trim()),
+            HemodinksAPI.Application.Features.Users.Mfa.CompleteMfaLoginCommand command => limits.SubjectKey("mfa", command.Desafio?.Trim()),
             IdentificarEquipeRequest request => limits.SubjectKey("operator", request.Token + ":" + request.OperadorId.ToString(CultureInfo.InvariantCulture)),
             _ => null
         }).FirstOrDefault(value => value != null);

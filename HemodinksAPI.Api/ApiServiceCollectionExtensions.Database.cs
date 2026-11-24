@@ -67,6 +67,7 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<IPrivacyPreferenceDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<IFinanceEndpointDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<HemodinksAPI.Application.Auditing.IClinicAuditDbContext>(provider => provider.GetRequiredService<AppDbContext>());
+        services.AddScoped<HemodinksAPI.Application.Features.Users.Mfa.IMfaDbContext>(provider => provider.GetRequiredService<AppDbContext>());
         services.AddScoped<EfDataExecution>();
         services.AddScoped<IDataExecutionStrategy>(provider => provider.GetRequiredService<EfDataExecution>());
         services.AddScoped<IDataTransactionManager>(provider => provider.GetRequiredService<EfDataExecution>());

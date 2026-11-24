@@ -34,6 +34,8 @@ public static partial class UserEndpointExtensions
             .AllowAnonymous()
             .AddEndpointFilter<AuthenticationRateLimitFilter>();
 
+        MapUserMfaEndpoints(group);
+
         group.MapGet("/", GetAllUsers)
             .WithName("GetAllUsers")
             .WithSummary("Listar todos os usuarios")

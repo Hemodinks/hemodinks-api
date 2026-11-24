@@ -28,7 +28,8 @@ public partial class AppDbContext : DbContext,
     IPasswordResetOperationsDbContext,
     ILegalAcceptanceDbContext,
     IPrivacyPreferenceDbContext,
-    HemodinksAPI.Application.Auditing.IClinicAuditDbContext
+    HemodinksAPI.Application.Auditing.IClinicAuditDbContext,
+    HemodinksAPI.Application.Features.Users.Mfa.IMfaDbContext
 {
     private static readonly MethodInfo ApplyClinicaQueryFilterMethod = typeof(AppDbContext)
         .GetMethod(nameof(ApplyClinicaQueryFilter), BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -66,6 +67,10 @@ public partial class AppDbContext : DbContext,
     public DbSet<EquipeOperador> EquipeOperadores { get; set; } = null!;
 
     public DbSet<EquipeLoginDesafio> EquipeLoginDesafios { get; set; } = null!;
+
+    public DbSet<MfaCodigoRecuperacao> MfaCodigosRecuperacao { get; set; } = null!;
+
+    public DbSet<MfaLoginDesafio> MfaLoginDesafios { get; set; } = null!;
 
     /// <summary>
     /// DbSet de usuários
