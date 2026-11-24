@@ -43,6 +43,12 @@ public static partial class UserEndpointExtensions
                 httpContext.Items[SecurityObservationMiddleware.CredentialOnly] = true;
                 return Results.Ok(result);
             }
+            // #150: so o desafio do segundo fator; nenhum dado do usuario antes do MFA.
+            if (result.MfaDesafio != null)
+            {
+                httpContext.Items[SecurityObservationMiddleware.CredentialOnly] = true;
+                return Results.Ok(new { mfaDesafio = result.MfaDesafio });
+            }
             var session = await SessionLoginIssuer.StartAsync(result, httpContext, sessionService, cancellationToken);
             if (session == null)
             {

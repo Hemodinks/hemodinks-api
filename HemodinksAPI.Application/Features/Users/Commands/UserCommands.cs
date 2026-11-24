@@ -95,6 +95,8 @@ public class AuthenticateUserResponse
     public IReadOnlyList<string> ModulosLiberados { get; set; } = [];
     public LicencaDto? Licenca { get; set; }
     public EquipeLoginChallengeDto? EquipeDesafio { get; set; }
+    // #150: preenchido sozinho quando a senha esta certa e falta o segundo fator (nenhum outro dado volta).
+    public HemodinksAPI.Application.Features.Users.Mfa.MfaLoginChallengeDto? MfaDesafio { get; set; }
 }
 
 public sealed record EquipeLoginChallengeDto(

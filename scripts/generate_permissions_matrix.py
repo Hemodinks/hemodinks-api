@@ -155,6 +155,8 @@ API_MATRIX = [
     ("Sessões ativas da plataforma", [NO, NO, NO, NO, "!R", NO]),
     ("Usuários", ["CRUD", "~R/U próprio", "~R/U próprio limitado", "~R próprio", "CRUD", "~R membros"]),
     ("Resetar senha de terceiro", ["Sim", NO, NO, NO, "Sim", NO]),
+    ("Verificação em duas etapas (MFA) da própria conta", ["Ativa/desativa", NO, NO, NO, "Ativa/desativa", NO]),
+    ("Redefinir MFA de terceiro", [NO, NO, NO, NO, "~Sim · clínica ativa", NO]),
     ("Equipes (`/api/equipes`)", ["CRUD", NO, NO, NO, "CRUD", "~Trocar PIN próprio"]),
     ("Pacientes e cirurgias", ["CRUD", "~CRU · escopo", "~R próprio", "CRU", "CRUD", "~CRU · escopo"]),
     ("Inativar, listar inativos e reativar paciente", ["Sim", NO, NO, NO, "Sim", NO]),
@@ -207,6 +209,7 @@ RULES = [
     "Assinatura suspensa, cancelada ou vencida e licenças individuais de médicos podem bloquear funcionalidades licenciadas (`Dashboard.Visualizar`, `Pacientes.Visualizar`, `Pacientes.Gerenciar`, `Cbhpm.Consultar`).",
     "Médicos enxergam pacientes, faturamentos, atendimentos, arquivos, observações e eventos conforme seu vínculo e seus grupos médicos.",
     "O Administrador permanece restrito à própria clínica, inclusive nas rotas de plataforma; somente o SuperAdministrador cria, desativa e alterna entre clínicas.",
+    "MFA (TOTP) é opcional para Administrador e SuperAdministrador: com ele ativo, a senha certa só devolve um desafio de 5 minutos e a sessão abre com o código do aplicativo ou um código de recuperação de uso único. Desativar exige senha e código; o SuperAdministrador redefine o MFA de usuários da clínica ativa e as sessões do titular são encerradas.",
     "O perfil `Equipe` usa identidade coletiva; operações sensíveis exigem equipe ativa e operador identificado no token e são auditadas.",
     "Cadastro de quem é SuperAdministrador (nesta ou em outra clínica) só é alterado, inativado, reativado, excluído ou recebe senha temporária por outro SuperAdministrador; perfis inferiores apenas consultam (`403`). O próprio titular continua editando o seu cadastro.",
 ]

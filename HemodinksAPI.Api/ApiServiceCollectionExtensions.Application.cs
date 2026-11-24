@@ -69,6 +69,11 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<IPlatformAuditWriter, EfPlatformAuditWriter>();
         services.AddScoped<PlatformAuditService>();
         services.AddScoped<IClinicAuditWriter, EfClinicAuditWriter>();
+        // #150 MFA: o segredo TOTP usa o mesmo provider de Data Protection do CPF (subproposito proprio).
+        services.AddSingleton<HemodinksAPI.Application.Features.Users.Mfa.IMfaSecretProtector>(provider =>
+            provider.GetRequiredService<HemodinksAPI.Application.Security.ICpfProtector>() as HemodinksAPI.Application.Features.Users.Mfa.IMfaSecretProtector
+            ?? throw new InvalidOperationException("O protetor de dados configurado nao suporta segredos de MFA."));
+        services.AddScoped<HemodinksAPI.Application.Features.Users.Mfa.MfaService>();
         // Retencao da trilha de pacientes (#368): desligada sem AuditoriaClinica:RetencaoDias positivo.
         var clinicAuditRetentionDays = configuration.GetValue<int?>("AuditoriaClinica:RetencaoDias") ?? 0;
         if (clinicAuditRetentionDays > 0)

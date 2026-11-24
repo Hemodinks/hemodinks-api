@@ -235,11 +235,16 @@ Listas paginadas devolvem `{ items, page, pageSize, totalItems, totalPages }`; `
 | `GET` | `/api/users` | Adm, SA, Eq |
 | `POST` | `/api/users` | Adm, SA |
 | `POST` | `/api/users/authenticate` | Público |
+| `POST` | `/api/users/authenticate/mfa` | Público |
 | `POST` | `/api/users/email/change` | Autenticado |
 | `POST` | `/api/users/email/change/cancel` | Autenticado |
 | `POST` | `/api/users/email/change/confirm` | Autenticado |
 | `GET` | `/api/users/email/{email}` | Adm, SA |
 | `POST` | `/api/users/login-context` | Público |
+| `GET` | `/api/users/me/mfa` | Autenticado |
+| `POST` | `/api/users/me/mfa/ativacao` | Adm, SA |
+| `POST` | `/api/users/me/mfa/configuracao` | Adm, SA |
+| `POST` | `/api/users/me/mfa/desativacao` | Autenticado |
 | `POST` | `/api/users/password/reset` | Público |
 | `POST` | `/api/users/password/reset/confirm` | Público |
 | `POST` | `/api/users/password/temporary/complete` | Autenticado |
@@ -251,6 +256,7 @@ Listas paginadas devolvem `{ items, page, pageSize, totalItems, totalPages }`; `
 | `DELETE` | `/api/users/{id}/arquivos/{arquivoId}` | Autenticado |
 | `GET` | `/api/users/{id}/arquivos/{arquivoId}/download` | Autenticado |
 | `GET` | `/api/users/{id}/foto-perfil` | Autenticado |
+| `POST` | `/api/users/{id}/mfa/redefinicao` | SA |
 | `PUT` | `/api/users/{id}/password` | Autenticado |
 | `PUT` | `/api/users/{id}/password/reset` | Adm, SA |
 

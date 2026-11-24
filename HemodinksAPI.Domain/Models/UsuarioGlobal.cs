@@ -26,5 +26,18 @@ public class UsuarioGlobal
 
     public DateTime? BloqueadoAte { get; set; }
 
+    // #150 MFA (TOTP). Segredos so cifrados (Data Protection); nunca em claro, log ou resposta apos a ativacao.
+    public bool MfaHabilitado { get; set; }
+
+    public string? MfaSegredoProtegido { get; set; }
+
+    // Segredo gerado no setup e ainda nao confirmado por um codigo valido.
+    public string? MfaSegredoPendenteProtegido { get; set; }
+
+    public DateTime? MfaHabilitadoEm { get; set; }
+
+    // Ultimo passo TOTP aceito (anti-replay do mesmo codigo).
+    public long? MfaUltimoPassoUsado { get; set; }
+
     public ICollection<UsuarioClinica> Clinicas { get; set; } = new List<UsuarioClinica>();
 }
