@@ -244,6 +244,9 @@ republicar ou trocar o secret dela para o de runtime e tarefa operacional do #20
 
 ## Diagnostico
 
+Logs de startup de uma revisão já iniciada (inclusive `Reconciliacao de CPF concluida`) ficam no New Relic
+Logs; consulta em `docs/observability-newrelic.md`, seção "Logs de startup retidos (#277)".
+
 Smoke test:
 
 - confirme que a revisao esta `Healthy`, `Running` e `Provisioned`;
