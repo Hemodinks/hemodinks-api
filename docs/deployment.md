@@ -371,6 +371,12 @@ Variaveis que devem diferir da producao:
 | `AsyncQueues__PasswordResetEmailQueueName` | `password-reset-emails-confirmation` |
 | `AsyncQueues__FileExportQueueName` | `file-export-jobs-confirmation` |
 
+Storage da homologacao: `AzureStorage__ConnectionString` aponta para `stghemodinksprod01` (mesma conta da producao,
+containers `*-confirmation` declarados em `infra/modules/storage.bicep`). Sem ela a API grava no disco efemero do
+Render e fotos/arquivos somem a cada deploy ou hibernacao. O preflight do `Publish Homologation`
+(`scripts/check_homologation.py`, modos `diagnose` e `publish`) bloqueia connection string vazia, de outra conta ou
+containers de producao, sem exibir o valor.
+
 O banco de homologacao deve ser Azure SQL ou uma instancia SQL Server com Full-Text
 Search habilitado. Antes de aplicar migrations, valide que
 `SELECT FULLTEXTSERVICEPROPERTY('IsFullTextInstalled')` retorna `1`.

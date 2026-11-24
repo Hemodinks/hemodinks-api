@@ -9,7 +9,41 @@ class PreflightError(Exception):
     pass
 
 
-def validate(service, variables, expected_host, connection):
+# Homologacao usa a conta de storage compartilhada com containers proprios (render.confirmation.yaml).
+# Sem connection string a API grava no disco efemero do Render e fotos/arquivos somem a cada deploy ou hibernacao.
+STORAGE_CONTAINERS = {
+    "AzureStorage__ContainerName": "profile-photos-confirmation",
+    "AzureStorage__PatientFilesContainerName": "patient-files-confirmation",
+}
+
+
+def storage_account(connection_string):
+    """Nome da conta na connection string (AccountName ou BlobEndpoint), sem expor a chave."""
+    parts = {}
+    for segment in (connection_string or "").split(";"):
+        key, separator, value = segment.partition("=")
+        if separator:
+            parts[key.strip().lower()] = value.strip()
+    if parts.get("accountname"):
+        return parts["accountname"].lower()
+    endpoint = parts.get("blobendpoint", "")
+    host = endpoint.split("://", 1)[-1].split("/", 1)[0]
+    return host.split(".", 1)[0].lower() if host.endswith(".blob.core.windows.net") else None
+
+
+def validate_storage(values, expected_account):
+    connection_string = values.get("AzureStorage__ConnectionString")
+    if not connection_string or not connection_string.strip():
+        raise PreflightError("AzureStorage__ConnectionString vazia ou ausente no servico Render: fotos e arquivos "
+                             "iriam para o disco efemero e sumiriam no proximo deploy.")
+    if storage_account(connection_string) != expected_account.lower():
+        raise PreflightError(f"AzureStorage__ConnectionString do Render nao aponta para a conta {expected_account}.")
+    for key, container in STORAGE_CONTAINERS.items():
+        if values.get(key) != container:
+            raise PreflightError(f"Configure {key}={container} no servico Render (homologacao nunca usa o container de producao).")
+
+
+def validate(service, variables, expected_host, connection, expected_storage_account):
     if service.get("serviceDetails", {}).get("url") != "https://" + expected_host:
         raise PreflightError("Destino Render diferente da homologacao esperada.")
     if service.get("branch") != "developer":
@@ -27,6 +61,7 @@ def validate(service, variables, expected_host, connection):
         raise PreflightError("ConnectionStrings__DefaultConnection nao encontrada diretamente no servico Render.")
     if values["ConnectionStrings__DefaultConnection"] != connection:
         raise PreflightError("HOMOLOGATION_SQL_RUNTIME_CONNECTION_STRING difere da conexao configurada no Render. Copie o valor exato, sem espacos ou quebras extras.")
+    validate_storage(values, expected_storage_account)
 
 
 def main():
@@ -51,9 +86,11 @@ def main():
     # Fail closed on truncation rather than ignoring missing environment variables.
     if len(variables) >= 100:
         raise PreflightError("Lista Render atingiu limite de 100 variaveis; revisar paginacao antes do deploy.")
+    if not os.environ.get("EXPECTED_STORAGE_ACCOUNT"):
+        raise PreflightError("Defina EXPECTED_STORAGE_ACCOUNT no workflow.")
     validate(service, variables, os.environ["EXPECTED_RENDER_HOST"],
-             os.environ["ConnectionStrings__DefaultConnection"])
-    print("Preflight aprovado: destino, branch, auto-deploy, flags e conexao correspondem. Nenhum banco foi acessado.")
+             os.environ["ConnectionStrings__DefaultConnection"], os.environ["EXPECTED_STORAGE_ACCOUNT"])
+    print("Preflight aprovado: destino, branch, auto-deploy, flags, conexao SQL e storage correspondem. Nenhum banco foi acessado.")
 
 
 if __name__ == "__main__":
