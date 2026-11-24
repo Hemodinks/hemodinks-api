@@ -459,6 +459,13 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Property<int?>("OperadorVersaoSessao")
                         .HasColumnType("int");
 
+                    b.Property<string>("PreviousRefreshTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("RefreshRotatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("RefreshTokenHash")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -487,6 +494,8 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PreviousRefreshTokenHash");
 
                     b.HasIndex("RefreshTokenHash")
                         .IsUnique();

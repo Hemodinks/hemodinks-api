@@ -17,6 +17,11 @@ public interface IAuthenticationSessionStore
 
     Task<AuthenticationSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken);
 
+    // #376: sessao cujo refresh token anterior (ja rotacionado) tem este hash.
+    Task<AuthenticationSession?> FindByPreviousRefreshTokenHashAsync(
+        string refreshTokenHash,
+        CancellationToken cancellationToken);
+
     Task<SessionTeamBinding?> FindTeamBindingAsync(AuthenticationSession session, DateTime now, CancellationToken cancellationToken);
     void Add(AuthenticationSession session);
 

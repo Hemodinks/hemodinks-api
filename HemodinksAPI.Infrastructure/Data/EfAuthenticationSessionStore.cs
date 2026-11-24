@@ -29,6 +29,14 @@ public sealed class EfAuthenticationSessionStore(PlatformDbContext context) : IA
             .FirstOrDefaultAsync(item => item.RefreshTokenHash == refreshTokenHash, cancellationToken);
     }
 
+    public Task<AuthenticationSession?> FindByPreviousRefreshTokenHashAsync(
+        string refreshTokenHash,
+        CancellationToken cancellationToken)
+    {
+        return SessionsWithMembership()
+            .FirstOrDefaultAsync(item => item.PreviousRefreshTokenHash == refreshTokenHash, cancellationToken);
+    }
+
     public Task<AuthenticationSession?> FindByIdAsync(Guid sessionId, CancellationToken cancellationToken)
     {
         return SessionsWithMembership()
