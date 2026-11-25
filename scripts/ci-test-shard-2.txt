@@ -1,0 +1,15 @@
+# Classes de teste que rodam na parte 2 do "Build and test" (CI da API). Todo o resto roda na parte 1,
+# inclusive qualquer classe nova. Escolhidas pela duracao (~50% do tempo serial da suite em 25/11/2026);
+# rebalancear quando uma parte ficar bem mais lenta que a outra. Uma classe por linha, nome completo.
+HemodinksAPI.Tests.SessionRenewalEndpointTests
+HemodinksAPI.Tests.SurgeryTypeExportTests
+HemodinksAPI.Tests.TeamLoginSecurityTests
+HemodinksAPI.Tests.FullMigrationReplaySqlServerTests
+HemodinksAPI.Tests.ApiEndpointClinicTests
+HemodinksAPI.Tests.SurgicalTeamEndpointTests
+HemodinksAPI.Tests.PacienteDateEndpointTests
+HemodinksAPI.Tests.DataConsolidacaoPendenciaEndpointTests
+HemodinksAPI.Tests.ApiEndpointPasswordPolicyTests
+HemodinksAPI.Tests.PlatformActiveSessionsEndpointTests
+HemodinksAPI.Tests.AuthenticationRateLimitingEndpointTests
+HemodinksAPI.Tests.SuperAdministradorProtectionEndpointTests

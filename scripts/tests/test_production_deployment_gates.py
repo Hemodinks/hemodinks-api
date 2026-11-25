@@ -167,10 +167,15 @@ class ReleaseReuseWorkflowTests(unittest.TestCase):
         ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         steps = ci.split("  build-test:\n", 1)[1]
         record = steps.index("      - name: Record tested tree for Publish Production")
-        for earlier in ("      - name: Test\n", "      - name: Require critical SQL tests and zero silent skips",
+        # O portao so grava a prova depois de exigir as duas partes de teste verdes e o resultado combinado.
+        self.assertIn("    needs: [scope, build-test-part]\n", steps)
+        self.assertIn('if [ "$PARTS_RESULT" != "success" ]; then', steps)
+        for earlier in ("      - name: Require both test parts", "      - name: Require critical SQL tests and zero silent skips",
                         "      - name: Test result gate regressions"):
             with self.subTest(step=earlier.strip()):
                 self.assertLess(steps.index(earlier), record)
+        parts = ci.split("  build-test-part:\n", 1)[1].split("  build-test:\n", 1)[0]
+        self.assertIn("      - name: Test\n", parts)
         self.assertEqual(2, ci.count("if: github.event_name == 'pull_request' && github.base_ref == 'main'"))
         self.assertIn("name: ci-tested-tree-${{ env.TESTED_TREE }}", ci)
 

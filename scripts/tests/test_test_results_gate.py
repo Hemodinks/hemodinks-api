@@ -18,6 +18,31 @@ SCENARIOS = ("individual", "selection", "pin", "invalid-pin", "anonymous",
 
 
 class TestResultsGateTests(unittest.TestCase):
+    def run_split_gate(self, parts):
+        """Cada parte e uma lista de (nome, testId); grava um TRX por parte e roda o gate com todos."""
+        with tempfile.TemporaryDirectory() as folder:
+            paths = []
+            for number, items in enumerate(parts, start=1):
+                root = ET.Element("TestRun", xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010")
+                results = ET.SubElement(root, "Results")
+                for name, test_id in items:
+                    ET.SubElement(results, "UnitTestResult", testName=name, outcome="Passed", testId=test_id)
+                path = Path(folder) / f"part-{number}.trx"
+                ET.ElementTree(root).write(path)
+                paths.append(str(path))
+            return subprocess.run([sys.executable, str(GATE), "--suite", "api", *paths], capture_output=True, text=True)
+
+    def test_api_results_split_across_parallel_parts_pass_only_without_overlap(self):
+        required = sorted(gate.SQL_REQUIRED)
+        half = len(required) // 2
+        first = [(name, f"a{index}") for index, name in enumerate(required[:half])] + [("OutroTeste", "x1")]
+        second = [(name, f"b{index}") for index, name in enumerate(required[half:])]
+        self.assertEqual(0, self.run_split_gate([first, second]).returncode)
+        # O mesmo teste nas duas partes (mesmo ID) significa filtros sobrepostos: falha.
+        self.assertNotEqual(0, self.run_split_gate([first, second + [("OutroTeste", "x1")]]).returncode)
+        # Uma parte sem o teste SQL obrigatorio que deveria estar nela tambem falha.
+        self.assertNotEqual(0, self.run_split_gate([first]).returncode)
+
     def run_gate(self, outcomes, *, exists=True, suite="login-e2e", duplicate_ids=False, escaped=False):
         with tempfile.TemporaryDirectory() as folder:
             path = Path(folder) / "results.trx"
