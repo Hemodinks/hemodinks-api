@@ -201,6 +201,7 @@ jobs:
             --data '{"value":"true"}' \
             "https://api.render.com/v1/services/$RENDER_SERVICE_ID/env-vars/Database__SchemaManagedByDeployment"
       - name: Deploy the verified commit and wait for Render
+        id: render
         shell: bash
         run: |
           jq -n --arg commit "$GITHUB_SHA" '{commitId: $commit}' > deploy-request.json
@@ -216,6 +217,7 @@ jobs:
             case "$status" in
               live)
                 echo "Homologation deployed: $GITHUB_SHA ($deploy_id)" >> "$GITHUB_STEP_SUMMARY"
+                echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"
                 exit 0 ;;
               build_failed|update_failed|pre_deploy_failed|canceled|deactivated)
                 echo "::error::Render deploy failed: $status. Applied migrations were not rolled back."
@@ -225,3 +227,16 @@ jobs:
           done
           echo "::error::Render deploy status timed out. Check Render before retrying."
           exit 1
+      # Marcador "Deployments" no APM "Hemodinks API Confirmation". So depois do Render live;
+      # nunca bloqueia: o deploy ja foi feito quando este passo roda.
+      - name: Record deployment in New Relic
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          NEW_RELIC_ACCOUNT_ID: ${{ vars.NEW_RELIC_ACCOUNT_ID }}
+          NEW_RELIC_REGION: ${{ vars.NEW_RELIC_REGION }}
+          NEW_RELIC_APM_APP_NAME: Hemodinks API Confirmation
+          DEPLOY_ENVIRONMENT: homologation
+          RENDER_DEPLOY_ID: ${{ steps.render.outputs.deploy_id }}
+        run: python3 -B scripts/newrelic_change_tracking.py

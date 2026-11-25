@@ -63,6 +63,33 @@ class ChangeTrackingTests(unittest.TestCase):
                           "description": "Producao: revisao hemodinks-api-prod--abc1234 promovida", "user": "deployer",
                           "deepLink": "https://github.com/Hemodinks/hemodinks-api/actions/runs/42"}, deployment)
 
+    def test_homologation_records_basic_deployment_on_the_confirmation_app(self):
+        client = FakeNerdGraph(entities=[{"guid": "GUID-HML", "name": "Hemodinks API Confirmation"}])
+        env = {**ENV, "NEW_RELIC_APM_APP_NAME": "Hemodinks API Confirmation", "DEPLOY_ENVIRONMENT": "homologation",
+               "RENDER_DEPLOY_ID": "dep-abc123", "CANDIDATE_REVISION": ""}
+        code, out = run(env, client)
+        self.assertEqual(0, code)
+        self.assertIn("name = 'Hemodinks API Confirmation'", client.calls[0][1]["query"])
+        deployment = client.calls[1][1]["deployment"]
+        self.assertEqual("GUID-HML", deployment["entityGuid"])
+        self.assertEqual("BASIC", deployment["deploymentType"])
+        self.assertEqual("Homologacao: deploy Render dep-abc123", deployment["description"])
+
+    def test_homologation_never_falls_back_to_the_production_app(self):
+        client = FakeNerdGraph(entities=[{"guid": "GUID-API", "name": "Hemodinks API"}])
+        env = {**ENV, "NEW_RELIC_APM_APP_NAME": "Hemodinks API Confirmation", "DEPLOY_ENVIRONMENT": "homologation"}
+        code, out = run(env, client)
+        self.assertEqual(0, code)
+        self.assertIn("nao encontrada", out)
+        self.assertEqual(1, len(client.calls))
+
+    def test_unknown_environment_is_not_recorded(self):
+        client = FakeNerdGraph()
+        code, out = run({**ENV, "DEPLOY_ENVIRONMENT": "staging"}, client)
+        self.assertEqual(0, code)
+        self.assertIn("DEPLOY_ENVIRONMENT", out)
+        self.assertEqual(1, len(client.calls))
+
     def test_missing_configuration_skips_without_calling_new_relic(self):
         for missing in ("NEW_RELIC_API_KEY", "NEW_RELIC_ACCOUNT_ID"):
             with self.subTest(missing=missing):
@@ -108,6 +135,19 @@ class WorkflowWiringTests(unittest.TestCase):
         self.assertIn("run: python3 -B scripts/newrelic_change_tracking.py", step)
         self.assertLess(body.index("Promote candidate and verify Production traffic"),
                         body.index("Record deployment in New Relic"))
+
+    def test_homologation_records_marker_only_after_render_is_live_and_never_blocks(self):
+        text = (ROOT / ".github/workflows/publish-homologation.yml").read_text(encoding="utf-8")
+        body = re.search(r"^  deploy:\n(.*?)(?=^  [\w-]+:|\Z)", text, re.M | re.S).group(1)
+        step = body.split("      - name: Record deployment in New Relic\n", 1)[1].split("      - name:", 1)[0]
+        self.assertIn("continue-on-error: true", step)
+        self.assertIn("NEW_RELIC_APM_APP_NAME: Hemodinks API Confirmation", step)
+        self.assertIn("DEPLOY_ENVIRONMENT: homologation", step)
+        self.assertIn("RENDER_DEPLOY_ID: ${{ steps.render.outputs.deploy_id }}", step)
+        self.assertNotIn("if:", step)
+        self.assertLess(body.index("Deploy the verified commit and wait for Render"),
+                        body.index("Record deployment in New Relic"))
+        self.assertIn('echo "deploy_id=$deploy_id" >> "$GITHUB_OUTPUT"', body)
 
 
 if __name__ == "__main__":
