@@ -92,6 +92,14 @@ jobs:
           HEMODINKS_SQL_MIGRATION_CONNECTION_STRING: ${{ secrets.AZURE_SQL_MIGRATION_CONNECTION_STRING }}
         run: dotnet tools/Hemodinks.SchemaGuard/bin/Release/net10.0/Hemodinks.SchemaGuard.dll --validate-connections
 
+      # #204: so leitura e so booleanos; informa se a migration ainda usa credencial administrativa. Nao bloqueia.
+      - name: Report migration identity privilege (read-only)
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          HEMODINKS_SQL_MIGRATION_CONNECTION_STRING: ${{ secrets.AZURE_SQL_MIGRATION_CONNECTION_STRING }}
+        run: dotnet tools/Hemodinks.SchemaGuard/bin/Release/net10.0/Hemodinks.SchemaGuard.dll --report-migration-identity
+
       - name: Select production schema action
         id: schema_mode
         env:

@@ -54,6 +54,13 @@ jobs:
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_RUNTIME_CONNECTION_STRING }}
         run: dotnet tools/Hemodinks.SchemaGuard/bin/Release/net10.0/Hemodinks.SchemaGuard.dll
+      # #204: so leitura e so booleanos; informa se a migration ainda usa credencial administrativa.
+      - name: Report migration identity privilege (read-only)
+        timeout-minutes: 5
+        if: inputs.mode == 'diagnose-sql'
+        env:
+          HEMODINKS_SQL_MIGRATION_CONNECTION_STRING: ${{ secrets.HOMOLOGATION_SQL_MIGRATION_CONNECTION_STRING }}
+        run: dotnet tools/Hemodinks.SchemaGuard/bin/Release/net10.0/Hemodinks.SchemaGuard.dll --report-migration-identity
   prepare:
     name: Prepare audited migration artifacts (no database access)
     if: github.ref == 'refs/heads/developer' && inputs.mode != 'diagnose' && inputs.mode != 'diagnose-sql'
