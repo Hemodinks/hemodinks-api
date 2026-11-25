@@ -62,6 +62,43 @@ public sealed class ClinicAuditDetailTests : ApiEndpointTestBase
     }
 
     [Fact]
+    public async Task ClinicaB_NaoReativaNemAlteraAtendimentoDaA_Responde404SemRegistrarDetalhe()
+    {
+        using var factory = new HemodinksApiFactory();
+        var seed = await SeedFinanceiroAsync(factory);
+        using var admin = factory.CreateClient();
+        var beta = await SeedClinicaBetaAsync(factory);
+        await AuthenticateAsync(admin, Clinica.DefaultSlug);
+        await SetAuditoriaAsync(admin, true);
+        var atendimentoId = await CriarAtendimentoAsync(admin, seed);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.InativarPacienteAsync(seed.PacienteId, "Transferido")).StatusCode);
+
+        using var betaClient = factory.CreateClient();
+        await AuthenticateAsync(betaClient, beta.Slug);
+        await SetAuditoriaAsync(betaClient, true);
+        var before = (await ReadTrailAsync(factory)).Count;
+
+        Assert.Equal(HttpStatusCode.NotFound, (await betaClient.ReativarPacienteAsync(seed.PacienteId, "Tentativa")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await betaClient.PutAsJsonAsync($"/api/atendimentos-cirurgicos/{atendimentoId}", new
+        {
+            id = atendimentoId, dataProcedimento = new DateTime(2026, 7, 12), medicoResponsavelId = seed.MedicoId,
+            procedimentos = Array.Empty<object>()
+        })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await betaClient.DeleteAsync($"/api/atendimentos-cirurgicos/{atendimentoId}?motivo=Tentativa")).StatusCode);
+
+        Assert.False(await IsAtivoAsync(factory, seed.PacienteId));
+        var novas = (await ReadTrailAsync(factory)).Skip(before).ToList();
+        // So a tentativa de reativar fica na trilha da beta, como falha e sem motivo; atendimentos falhos nao entram.
+        var row = Assert.Single(novas);
+        Assert.Equal((beta.Id, "paciente.reativar", false), (row.ClinicaId, row.Acao, row.Sucesso));
+        Assert.Null(row.Detalhe);
+        // A clinica A nao ve nada da tentativa da beta.
+        Assert.DoesNotContain(await ListAsync(admin, $"pacienteId={seed.PacienteId}"),
+            item => item.GetProperty("acao").GetString() == "paciente.reativar");
+    }
+
+    [Fact]
     public async Task Configuracao_ComecaDesligada_SoAdministrador_E_ValeSoParaAPropriaClinica()
     {
         using var factory = new HemodinksApiFactory();

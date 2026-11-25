@@ -1,8 +1,10 @@
 namespace HemodinksAPI.Domain.Models;
 
 // #368: trilha de quem viu ou alterou dado de paciente. Nunca guarda nome, CPF, conteudo clinico,
-// query string nem payload: so identificadores, acao e resultado. Detalhe so com motivo informado pelo
-// administrador ou antes/depois de campos estruturados (ver Detalhe). Sem FK para usuario ou paciente
+// query string nem payload: so identificadores, acao e resultado. Excecao decidida pelo responsavel: Detalhe
+// guarda o motivo informado (inativar/reativar/cancelar) e, com "Auditar atendimentos" ligado, antes/depois
+// de campos estruturados do cadastro cirurgico (status, datas, hospital, convenio, equipe, procedimentos,
+// pagamento). Texto clinico livre nunca: so "alterado". Apagado pela retencao (AuditoriaClinica:RetencaoDias). Sem FK para usuario ou paciente
 // de proposito, para a trilha sobreviver a exclusoes.
 public class AuditoriaClinica : IClinicaOwnedEntity
 {
