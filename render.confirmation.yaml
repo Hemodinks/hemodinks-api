@@ -25,8 +25,9 @@ services:
       - key: Seed__UsersOnStartup
         value: "false"
       # SchemaManagedByDeployment is set only by the successful migration job.
+      # APM New Relic ligado (o publish-homologation grava estas variaveis a cada publicacao).
       - key: CORECLR_ENABLE_PROFILING
-        value: "0"
+        value: "1"
       - key: ConnectionStrings__DefaultConnection
         sync: false
       - key: JwtSettings__SecretKey

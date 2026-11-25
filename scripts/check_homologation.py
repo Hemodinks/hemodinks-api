@@ -17,6 +17,39 @@ STORAGE_CONTAINERS = {
 }
 
 
+# Agente New Relic (APM) da homologacao: valores nao secretos podem aparecer no diagnostico; a chave nunca.
+NEW_RELIC_EXPECTED = {
+    "CORECLR_ENABLE_PROFILING": "1",
+    "NEW_RELIC_APP_NAME": "Hemodinks API Confirmation",
+    "NEW_RELIC_DISTRIBUTED_TRACING_ENABLED": "true",
+    "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED": "true",
+    "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_LOG_LEVEL_DENYLIST": "VERBOSE,TRACE,DEBUG,INFORMATION,INFO",
+    "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_ENABLED": "true",
+    "NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_INCLUDE":
+        "RequestId,ClinicId,UsuariosOnline,TotalSessoes,Clinicas,SnapshotClinicaId,SnapshotUsuarios,SnapshotSessoes",
+}
+NEW_RELIC_SECRETS = {"NEW_RELIC_LICENSE_KEY"}
+NEW_RELIC_PREFIXES = ("NEW_RELIC", "NEWRELIC", "CORECLR", "NRIA")
+
+
+def newrelic_report(service, values):
+    """Linhas de diagnostico do agente no Render. So nomes e valores nao secretos; nunca a chave."""
+    details = service.get("serviceDetails", {})
+    lines = [f"Render: plano={details.get('plan', '?')} regiao={details.get('region', '?')} "
+             f"instancias={details.get('numInstances', '?')}"]
+    for key in sorted(NEW_RELIC_SECRETS):
+        lines.append(f"{key}: {'definida' if values.get(key) else 'AUSENTE'}")
+    for key, expected in NEW_RELIC_EXPECTED.items():
+        current = values.get(key)
+        status = "ok" if current == expected else ("AUSENTE" if current is None else "DIFERENTE")
+        shown = "" if current is None else f" ({current[:120]})"
+        lines.append(f"{key}: {status}{shown}")
+    known = set(NEW_RELIC_EXPECTED) | NEW_RELIC_SECRETS
+    extras = sorted(key for key in values if key.upper().startswith(NEW_RELIC_PREFIXES) and key not in known)
+    lines.append("Outras variaveis do agente (so nomes): " + (", ".join(extras) if extras else "nenhuma"))
+    return lines
+
+
 def storage_account(connection_string):
     """Nome da conta na connection string (AccountName ou BlobEndpoint), sem expor a chave."""
     parts = {}
@@ -90,6 +123,11 @@ def main():
         raise PreflightError("Defina EXPECTED_STORAGE_ACCOUNT no workflow.")
     validate(service, variables, os.environ["EXPECTED_RENDER_HOST"],
              os.environ["ConnectionStrings__DefaultConnection"], os.environ["EXPECTED_STORAGE_ACCOUNT"])
+    if os.environ.get("NEW_RELIC_DIAGNOSTICS") == "1":
+        values = {item["envVar"]["key"]: item["envVar"].get("value") for item in variables}
+        print("Diagnostico New Relic (somente leitura):")
+        for line in newrelic_report(service, values):
+            print("  " + line)
     print("Preflight aprovado: destino, branch, auto-deploy, flags, conexao SQL e storage correspondem. Nenhum banco foi acessado.")
 
 

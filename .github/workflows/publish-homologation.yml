@@ -41,6 +41,8 @@ jobs:
           EXPECTED_RENDER_HOST: hemodinks-api-1-90nb.onrender.com
           EXPECTED_STORAGE_ACCOUNT: stghemodinksprod01
           ConnectionStrings__DefaultConnection: ${{ secrets.HOMOLOGATION_SQL_RUNTIME_CONNECTION_STRING }}
+          # So no diagnose: nomes das variaveis do agente e valores nao secretos (a chave nunca).
+          NEW_RELIC_DIAGNOSTICS: "1"
         run: python scripts/check_homologation.py
       - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
         if: inputs.mode == 'diagnose-sql'
