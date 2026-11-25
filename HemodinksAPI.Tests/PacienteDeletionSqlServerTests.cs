@@ -46,7 +46,7 @@ public partial class PacienteCommandHandlerTests
                     await Assert.ThrowsAsync<ResourceNotFoundException>(() => handler.Handle(new DeletePacienteCommand
                         { Id = remote.Id, CurrentUserId = caller.Id, CurrentPerfilId = profile }, default));
                 await handler.Handle(new DeletePacienteCommand
-                    { Id = local.Id, CurrentUserId = caller.Id, CurrentPerfilId = Perfil.AdministradorId }, default);
+                    { Id = local.Id, CurrentUserId = caller.Id, CurrentPerfilId = Perfil.AdministradorId, Motivo = "Transferido" }, default);
             }
 
             seed.ChangeTracker.Clear();
