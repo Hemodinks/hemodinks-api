@@ -16,6 +16,9 @@ internal static class SchemaGuardProgram
 {
     public static async Task<int> Main(string[] args)
     {
+        if (args.Length == 1 && args[0] == "--report-migration-identity")
+            return await ReportMigrationIdentityAsync();
+
         var connectionString = Environment.GetEnvironmentVariable("ConnectionStrings__DefaultConnection");
         if (string.IsNullOrWhiteSpace(connectionString))
         {
@@ -117,4 +120,7 @@ internal static class SchemaGuardProgram
             return 2;
         }
     }
+
+    private static Task<int> ReportMigrationIdentityAsync() => SqlMigrationIdentityReport.RunAsync(
+        Environment.GetEnvironmentVariable("HEMODINKS_SQL_MIGRATION_CONNECTION_STRING"), Console.Out, Console.Error);
 }

@@ -427,6 +427,14 @@ jobs:
           chmod +x artifacts/schema-guard/Hemodinks.SchemaGuard
           ./artifacts/schema-guard/Hemodinks.SchemaGuard --validate-connections
 
+      # #204: so leitura e so booleanos; informa se a migration ainda usa credencial administrativa. Nao bloqueia.
+      - name: Report migration identity privilege (read-only)
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          HEMODINKS_SQL_MIGRATION_CONNECTION_STRING: ${{ secrets.AZURE_SQL_MIGRATION_CONNECTION_STRING }}
+        run: ./artifacts/schema-guard/Hemodinks.SchemaGuard --report-migration-identity
+
       - name: Verify SQL runtime privileges and history
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_RUNTIME_CONNECTION_STRING }}
