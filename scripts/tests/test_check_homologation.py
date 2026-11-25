@@ -81,3 +81,29 @@ class PreflightTests(unittest.TestCase):
                 self.values[key] = old
 
 if __name__ == "__main__": unittest.main()
+
+
+class NewRelicReportTests(unittest.TestCase):
+    def test_report_never_prints_license_key_and_flags_drift(self):
+        ch = m
+        values = dict(ch.NEW_RELIC_EXPECTED)
+        values["CORECLR_ENABLE_PROFILING"] = "0"
+        values["NEW_RELIC_LICENSE_KEY"] = "segredo-de-licenca-123"
+        values["NEW_RELIC_ENABLED"] = "false"
+        values["ConnectionStrings__DefaultConnection"] = "Server=x;Password=y"
+        service = {"serviceDetails": {"plan": "free", "region": "virginia", "numInstances": 1}}
+        text = "\n".join(ch.newrelic_report(service, values))
+        self.assertNotIn("segredo-de-licenca-123", text)
+        self.assertNotIn("Password", text)
+        self.assertIn("NEW_RELIC_LICENSE_KEY: definida", text)
+        self.assertIn("CORECLR_ENABLE_PROFILING: DIFERENTE (0)", text)
+        self.assertIn("NEW_RELIC_APP_NAME: ok", text)
+        self.assertIn("Outras variaveis do agente (so nomes): NEW_RELIC_ENABLED", text)
+        self.assertIn("plano=free", text)
+
+    def test_report_marks_missing_values(self):
+        ch = m
+        text = "\n".join(ch.newrelic_report({}, {}))
+        self.assertIn("NEW_RELIC_LICENSE_KEY: AUSENTE", text)
+        self.assertIn("CORECLR_ENABLE_PROFILING: AUSENTE", text)
+        self.assertIn("nenhuma", text)
