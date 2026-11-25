@@ -20,7 +20,9 @@ var databases = [
   {
     name: 'HemodinksDBConfirmation'
     capacity: 1
-    autoPauseDelay: -1
+    // Homologacao: pausa apos 15 min sem uso (25/11/2026). Com -1 o banco nunca pausava e esgotava a
+    // cota gratuita mensal de vCore em poucos dias (alerta cota-gratuita-baixa-HemodinksDBConfirmation).
+    autoPauseDelay: 15
   }
 ]
 
@@ -103,6 +105,8 @@ resource db 'Microsoft.Sql/servers/databases@2023-08-01' = [
       requestedBackupStorageRedundancy: 'Local'
       isLedgerOn: false
       useFreeLimit: true
+      // A Azure nao permite voltar de BillOverUsage para AutoPause (ProvisioningDisabled): esgotada a cota
+      // gratuita, o uso passa a ser cobrado. O controle de custo e o autoPauseDelay acima.
       freeLimitExhaustionBehavior: 'BillOverUsage'
       maintenanceConfigurationId: subscriptionResourceId('Microsoft.Maintenance/publicMaintenanceConfigurations', 'SQL_Default')
     }
