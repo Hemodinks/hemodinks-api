@@ -13,6 +13,11 @@ on:
           - diagnose-sql
           - prepare
           - publish
+      newrelic_agent_console_log:
+        description: Diagnostico temporario - log do agente New Relic no console do Render (desliga na proxima publicacao sem marcar)
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   contents: read
@@ -209,6 +214,7 @@ jobs:
         shell: bash
         env:
           NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+          AGENT_CONSOLE_LOG: ${{ inputs.newrelic_agent_console_log && 'true' || 'false' }}
         run: |
           set -euo pipefail
           if [ -z "${NEW_RELIC_LICENSE_KEY:-}" ]; then
@@ -231,7 +237,9 @@ jobs:
           put_env NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_ENABLED true
           put_env NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_INCLUDE \
             "RequestId,ClinicId,UsuariosOnline,TotalSessoes,Clinicas,SnapshotClinicaId,SnapshotUsuarios,SnapshotSessoes"
-          echo "New Relic APM settings applied to Render (Hemodinks API Confirmation)."
+          # Log do proprio agente no console do Render (aba Logs), so para diagnostico; nao vai ao New Relic.
+          put_env NEWRELIC_LOG_CONSOLE "$AGENT_CONSOLE_LOG"
+          echo "New Relic APM settings applied to Render (Hemodinks API Confirmation). Agent console log: $AGENT_CONSOLE_LOG"
       - name: Deploy the verified commit and wait for Render
         id: render
         shell: bash
