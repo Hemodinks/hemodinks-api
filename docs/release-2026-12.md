@@ -8,7 +8,7 @@ primeiro**. Ensaio feito em 25/11/2026, sem alterar producao.
 
 ### Migrations
 
-As 7 migrations novas (`main` termina em `20261116221408_Schema_EmailChangeConfirmationAttempts`):
+As 8 migrations novas (`main` termina em `20261116221408_Schema_EmailChangeConfirmationAttempts`):
 
 | Migration | O que faz no `Up` |
 | --- | --- |
@@ -19,6 +19,7 @@ As 7 migrations novas (`main` termina em `20261116221408_Schema_EmailChangeConfi
 | `20261123195221_Schema_ArquivoExclusaoLogica` | 4 colunas anulaveis |
 | `20261124131933_Schema_RefreshTokenReuseDetection` | 2 colunas anulaveis, indice nao unico |
 | `20261124140539_Schema_Mfa` | `MfaHabilitado` (NOT NULL, default `false`), colunas anulaveis, 2 tabelas novas |
+| `20261125150814_Schema_AuditoriaDetalhe` | `AuditoriasClinica.PacienteId`/`Detalhe` anulaveis, `ConfiguracoesSistema.AuditarAtendimentos` (NOT NULL, default `false`), indice nao unico; preenche `PacienteId` das linhas de paciente ja existentes (`TRY_CONVERT`, so na propria tabela) |
 
 - Todas sao aditivas: `Drop*` so nos `Down`; colunas obrigatorias tem default; indices
   unicos so em tabelas novas (vazias). Nenhuma pode falhar por causa de dados existentes.
@@ -33,7 +34,9 @@ As 7 migrations novas (`main` termina em `20261116221408_Schema_EmailChangeConfi
 - Ensaio local nao foi possivel: o LocalDB nao tem Full-Text Search, exigido pela
   baseline. A imagem `sqlserver/Dockerfile.fts` (a mesma do CI) serve para isso se o
   Docker Desktop estiver ligado.
-- Marcador de schema `20261124140539_Schema_Mfa` conferido em
+- A `20261125150814_Schema_AuditoriaDetalhe` entrou depois do ensaio de 25/11: confirmar a aplicacao
+  na homologacao (run do `publish-homologation`) antes do release.
+- Marcador de schema `20261125150814_Schema_AuditoriaDetalhe` conferido em
   `scripts/ValidateRestoredDatabase.sql`, `HemodinksAPI.Tests/RestoreDatabaseIntegrityTests.cs`
   e `docs/issue-184-backup-recovery.md`.
 

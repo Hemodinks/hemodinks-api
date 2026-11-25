@@ -98,6 +98,24 @@ public class DeletePacienteCommand : IRequest
     public int Id { get; set; }
     public int CurrentUserId { get; set; }
     public int CurrentPerfilId { get; set; }
+    // Obrigatorio (ate 500 caracteres); vai para a trilha de auditoria.
+    public string? Motivo { get; set; }
+}
+
+// Corpo de inativar/reativar paciente.
+public sealed record PacienteMotivoRequest(string? Motivo);
+
+internal static class PacienteMotivoRules
+{
+    public static string Validate(string? motivo, string acao)
+    {
+        var trimmed = motivo?.Trim();
+        if (string.IsNullOrEmpty(trimmed))
+            throw new HemodinksAPI.Domain.Exceptions.BusinessRuleException($"Informe o motivo para {acao} o paciente.");
+        if (trimmed.Length > HemodinksAPI.Application.Auditing.ClinicAuditDetail.MaxMotivoLength)
+            throw new HemodinksAPI.Domain.Exceptions.BusinessRuleException("O motivo deve ter no maximo 500 caracteres.");
+        return trimmed;
+    }
 }
 
 public class PacienteProcedimentoCommandDto

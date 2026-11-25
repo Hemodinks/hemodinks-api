@@ -30,7 +30,7 @@ public static class FinanceiroEndpointExtensions
             command = command with { CurrentUserId = user.Id, CurrentPerfilId = user.PerfilId };
             var result = await mediator.Send(command, ct);
             return Results.Created($"/api/atendimentos-cirurgicos/{result.Id}", result);
-        }).RequireAuthorization("AtendimentoGerenciar");
+        }).RequireAuthorization("AtendimentoGerenciar").WithAtendimentoAudit("atendimento.criar");
         atendimentos.MapGet("/{id:int}", async (int id, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
@@ -43,7 +43,7 @@ public static class FinanceiroEndpointExtensions
             return Results.Ok(await mediator.Send(
                 command with { Id = id, CurrentUserId = user.Id, CurrentPerfilId = user.PerfilId },
                 ct));
-        }).RequireAuthorization("AtendimentoGerenciar");
+        }).RequireAuthorization("AtendimentoGerenciar").WithAtendimentoAudit("atendimento.editar");
         // DELETE cancela logicamente (nada e apagado); motivo opcional na query string.
         atendimentos.MapDelete("/{id:int}", async (int id, string? motivo, ClaimsPrincipal principal,
             FinanceiroFileUseCases files, CancellationToken ct) =>
@@ -51,7 +51,7 @@ public static class FinanceiroEndpointExtensions
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
             await files.DeleteAtendimentoAsync(id, user, motivo, ct);
             return Results.NoContent();
-        }).RequireAuthorization("AtendimentoGerenciar");
+        }).RequireAuthorization("AtendimentoGerenciar").WithAtendimentoAudit("atendimento.cancelar");
         atendimentos.MapPost("/{id:int}/arquivos", async (int id, IFormFile arquivo,
             ClaimsPrincipal principal, FinanceiroFileUseCases files, CancellationToken ct) =>
         {

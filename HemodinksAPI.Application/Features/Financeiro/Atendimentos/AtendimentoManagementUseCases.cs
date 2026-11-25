@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Auditing;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
 using HemodinksAPI.Domain.Services;
@@ -22,7 +23,8 @@ public sealed class ObterAtendimentoQueryHandler(IFinanceFeatureDbContext db) : 
     }
 }
 
-public sealed class AtualizarAtendimentoCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<AtualizarAtendimentoCommand, AtendimentoDto>
+public sealed class AtualizarAtendimentoCommandHandler(IFinanceFeatureDbContext db, IClinicAuditRecorder? audit = null)
+    : IRequestHandler<AtualizarAtendimentoCommand, AtendimentoDto>
 {
     public async Task<AtendimentoDto> Handle(AtualizarAtendimentoCommand request, CancellationToken ct)
     {
@@ -48,6 +50,7 @@ public sealed class AtualizarAtendimentoCommandHandler(IFinanceFeatureDbContext 
             request.MedicoAuxiliar2Id, request.CurrentPerfilId, request.CurrentUserId, ct);
         if (request.ValorGlosa < 0 || request.ValorGlosa > 0 && string.IsNullOrWhiteSpace(request.MotivoGlosa))
             throw new BusinessRuleException("Informe um valor de glosa valido e o respectivo motivo.");
+        var antes = AtendimentoAuditSnapshot.Capture(item);
         var previousGlosa = item.ValorGlosa;
         var previousMotivoGlosa = item.MotivoGlosa;
         var previousDataProcedimento = item.DataProcedimento;
@@ -120,11 +123,21 @@ public sealed class AtualizarAtendimentoCommandHandler(IFinanceFeatureDbContext 
                 });
             }
         }
-        await db.SaveChangesAsync(ct); return FinanceiroMapper.ToDto(item);
+        await db.SaveChangesAsync(ct);
+        if (audit is not null && await audit.AuditarAtendimentosAsync(ct))
+        {
+            audit.ForPaciente(item.PacienteId);
+            audit.Request();
+            var detalhe = await AtendimentoAuditSnapshot.CompareAsync(db, antes, AtendimentoAuditSnapshot.Capture(item), ct);
+            if (detalhe.HasChanges)
+                audit.SetDetalhe(detalhe);
+        }
+        return FinanceiroMapper.ToDto(item);
     }
 }
 
-public sealed class ExcluirAtendimentoCommandHandler(IFinanceFeatureDbContext db) : IRequestHandler<ExcluirAtendimentoCommand>
+public sealed class ExcluirAtendimentoCommandHandler(IFinanceFeatureDbContext db, IClinicAuditRecorder? audit = null)
+    : IRequestHandler<ExcluirAtendimentoCommand>
 {
     public async Task Handle(ExcluirAtendimentoCommand request, CancellationToken ct)
     {
@@ -149,6 +162,13 @@ public sealed class ExcluirAtendimentoCommandHandler(IFinanceFeatureDbContext db
         item.MotivoCancelamento = string.IsNullOrEmpty(motivo) ? null : motivo;
         item.DataAtualizacao = now;
         await db.SaveChangesAsync(ct);
+        if (audit is not null && await audit.AuditarAtendimentosAsync(ct))
+        {
+            audit.ForPaciente(item.PacienteId);
+            audit.Request();
+            if (!string.IsNullOrEmpty(item.MotivoCancelamento))
+                audit.SetDetalhe(ClinicAuditDetail.ComMotivo(item.MotivoCancelamento));
+        }
     }
 }
 
