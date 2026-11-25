@@ -13,6 +13,14 @@ on:
         options:
           - plan
           - apply
+      environment:
+        description: production (alertas, SLOs e dashboard) ou homologation (so o dashboard da homologacao)
+        required: true
+        type: choice
+        default: production
+        options:
+          - production
+          - homologation
 
 permissions:
   contents: read
@@ -40,7 +48,8 @@ jobs:
           NEW_RELIC_ACCOUNT_ID: ${{ vars.NEW_RELIC_ACCOUNT_ID }}
           NEW_RELIC_REGION: ${{ vars.NEW_RELIC_REGION }}
           NEW_RELIC_BROWSER_APP_NAME: ${{ vars.NEW_RELIC_BROWSER_APP_NAME }}
-        run: python3 -B scripts/newrelic_observability.py plan
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        run: python3 -B scripts/newrelic_observability.py plan --environment "$TARGET_ENVIRONMENT"
 
   apply:
     name: Apply
@@ -61,4 +70,5 @@ jobs:
           NEW_RELIC_ACCOUNT_ID: ${{ vars.NEW_RELIC_ACCOUNT_ID }}
           NEW_RELIC_REGION: ${{ vars.NEW_RELIC_REGION }}
           NEW_RELIC_BROWSER_APP_NAME: ${{ vars.NEW_RELIC_BROWSER_APP_NAME }}
-        run: python3 -B scripts/newrelic_observability.py apply
+          TARGET_ENVIRONMENT: ${{ inputs.environment }}
+        run: python3 -B scripts/newrelic_observability.py apply --environment "$TARGET_ENVIRONMENT"
