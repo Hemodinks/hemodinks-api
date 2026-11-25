@@ -29,6 +29,8 @@ NEW_RELIC_EXPECTED = {
         "RequestId,ClinicId,UsuariosOnline,TotalSessoes,Clinicas,SnapshotClinicaId,SnapshotUsuarios,SnapshotSessoes",
 }
 NEW_RELIC_SECRETS = {"NEW_RELIC_LICENSE_KEY"}
+# Opcionais conhecidas: aparecem com valor, sem marcar como diferenca.
+NEW_RELIC_OPTIONAL = {"NEWRELIC_LOG_CONSOLE"}
 NEW_RELIC_PREFIXES = ("NEW_RELIC", "NEWRELIC", "CORECLR", "NRIA")
 
 
@@ -44,7 +46,9 @@ def newrelic_report(service, values):
         status = "ok" if current == expected else ("AUSENTE" if current is None else "DIFERENTE")
         shown = "" if current is None else f" ({current[:120]})"
         lines.append(f"{key}: {status}{shown}")
-    known = set(NEW_RELIC_EXPECTED) | NEW_RELIC_SECRETS
+    for key in sorted(NEW_RELIC_OPTIONAL):
+        lines.append(f"{key}: {values.get(key) or 'nao definida'}")
+    known = set(NEW_RELIC_EXPECTED) | NEW_RELIC_SECRETS | NEW_RELIC_OPTIONAL
     extras = sorted(key for key in values if key.upper().startswith(NEW_RELIC_PREFIXES) and key not in known)
     lines.append("Outras variaveis do agente (so nomes): " + (", ".join(extras) if extras else "nenhuma"))
     return lines
