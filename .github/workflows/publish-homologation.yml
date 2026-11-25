@@ -200,6 +200,36 @@ jobs:
             -X PUT -H "Authorization: Bearer $RENDER_API_KEY" -H 'Content-Type: application/json' \
             --data '{"value":"true"}' \
             "https://api.render.com/v1/services/$RENDER_SERVICE_ID/env-vars/Database__SchemaManagedByDeployment"
+      # APM da homologacao no New Relic ("Hemodinks API Confirmation"), com a mesma politica de logs da producao
+      # (so Warning+, contexto sem UserId). Gravado no Render antes do deploy, que reinicia com as variaveis.
+      # Sem o secret, so avisa: o deploy segue e a configuracao existente no Render nao e alterada.
+      - name: Configure New Relic APM on Render
+        shell: bash
+        env:
+          NEW_RELIC_LICENSE_KEY: ${{ secrets.NEW_RELIC_LICENSE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${NEW_RELIC_LICENSE_KEY:-}" ]; then
+            echo "::notice::New Relic APM not configured on Render: NEW_RELIC_LICENSE_KEY secret is missing."
+            exit 0
+          fi
+          put_env() {
+            # Valor via jq e stdin: a chave nunca vai para a linha de comando nem para o log.
+            jq -n --arg value "$2" '{value: $value}' \
+              | curl --fail --silent --show-error --max-time 30 --output /dev/null \
+                  -X PUT -H "Authorization: Bearer $RENDER_API_KEY" -H 'Content-Type: application/json' \
+                  --data-binary @- "https://api.render.com/v1/services/$RENDER_SERVICE_ID/env-vars/$1"
+          }
+          put_env NEW_RELIC_LICENSE_KEY "$NEW_RELIC_LICENSE_KEY"
+          put_env CORECLR_ENABLE_PROFILING 1
+          put_env NEW_RELIC_APP_NAME "Hemodinks API Confirmation"
+          put_env NEW_RELIC_DISTRIBUTED_TRACING_ENABLED true
+          put_env NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED true
+          put_env NEW_RELIC_APPLICATION_LOGGING_FORWARDING_LOG_LEVEL_DENYLIST "VERBOSE,TRACE,DEBUG,INFORMATION,INFO"
+          put_env NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_ENABLED true
+          put_env NEW_RELIC_APPLICATION_LOGGING_FORWARDING_CONTEXT_DATA_INCLUDE \
+            "RequestId,ClinicId,UsuariosOnline,TotalSessoes,Clinicas,SnapshotClinicaId,SnapshotUsuarios,SnapshotSessoes"
+          echo "New Relic APM settings applied to Render (Hemodinks API Confirmation)."
       - name: Deploy the verified commit and wait for Render
         id: render
         shell: bash
