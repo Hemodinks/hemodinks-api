@@ -69,6 +69,7 @@ public static partial class ApiServiceCollectionExtensions
         services.AddScoped<IPlatformAuditWriter, EfPlatformAuditWriter>();
         services.AddScoped<PlatformAuditService>();
         services.AddScoped<IClinicAuditWriter, EfClinicAuditWriter>();
+        services.AddScoped<IClinicAuditRecorder, ClinicAuditRecorder>();
         // #150 MFA: o segredo TOTP usa o mesmo provider de Data Protection do CPF (subproposito proprio).
         services.AddSingleton<HemodinksAPI.Application.Features.Users.Mfa.IMfaSecretProtector>(provider =>
             provider.GetRequiredService<HemodinksAPI.Application.Security.ICpfProtector>() as HemodinksAPI.Application.Features.Users.Mfa.IMfaSecretProtector

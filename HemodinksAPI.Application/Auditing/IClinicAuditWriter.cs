@@ -12,7 +12,9 @@ public sealed record ClinicAuditEntry(
     string? RecursoId,
     int StatusCode,
     string? IpTruncado,
-    DateTime DataUtc);
+    DateTime DataUtc,
+    int? PacienteId = null,
+    string? Detalhe = null);
 
 public interface IClinicAuditWriter
 {
@@ -26,4 +28,7 @@ public interface IClinicAuditDbContext
     // So para exibir nomes na consulta (sob o mesmo filtro de tenant); a trilha guarda apenas ids.
     DbSet<User> Users { get; }
     DbSet<EquipeOperador> EquipeOperadores { get; }
+    // So para exibir o nome do paciente e aplicar os filtros da tela de Pacientes (mesmo filtro de tenant).
+    DbSet<Paciente> Pacientes { get; }
+    DbSet<ConfiguracaoSistema> ConfiguracoesSistema { get; }
 }

@@ -114,6 +114,7 @@ public static partial class PacienteEndpointExtensions
 
     private static Task<IResult> DeletePaciente(
         int id,
+        [Microsoft.AspNetCore.Mvc.FromBody] PacienteMotivoRequest? body,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
@@ -126,7 +127,8 @@ public static partial class PacienteEndpointExtensions
             {
                 Id = id,
                 CurrentUserId = currentUser.Id,
-                CurrentPerfilId = currentUser.PerfilId
+                CurrentPerfilId = currentUser.PerfilId,
+                Motivo = body?.Motivo
             }, cancellationToken);
 
             return Results.NoContent();
@@ -135,6 +137,7 @@ public static partial class PacienteEndpointExtensions
 
     private static Task<IResult> ReativarPaciente(
         int id,
+        [Microsoft.AspNetCore.Mvc.FromBody] PacienteMotivoRequest? body,
         ClaimsPrincipal claimsPrincipal,
         IMediator mediator,
         ILogger<Program> logger,
@@ -146,7 +149,8 @@ public static partial class PacienteEndpointExtensions
             await mediator.Send(new ReativarPacienteCommand
             {
                 Id = id,
-                CurrentPerfilId = currentUser.PerfilId
+                CurrentPerfilId = currentUser.PerfilId,
+                Motivo = body?.Motivo
             }, cancellationToken);
 
             return Results.NoContent();
