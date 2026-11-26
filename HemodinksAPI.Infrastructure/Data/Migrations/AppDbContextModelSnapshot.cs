@@ -516,6 +516,36 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.ToTable("AuthenticationSessions", (string)null);
                 });
 
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.AuthenticationSessionRefreshHistory", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Hash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("RotatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Hash");
+
+                    b.HasIndex("RotatedAt");
+
+                    b.HasIndex("SessionId");
+
+                    b.ToTable("AuthenticationSessionRefreshHistory", (string)null);
+                });
+
             modelBuilder.Entity("HemodinksAPI.Domain.Models.CbhpmGeral", b =>
                 {
                     b.Property<int>("Id")
@@ -3401,6 +3431,17 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Navigation("UsuarioClinica");
 
                     b.Navigation("UsuarioGlobal");
+                });
+
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.AuthenticationSessionRefreshHistory", b =>
+                {
+                    b.HasOne("HemodinksAPI.Domain.Models.AuthenticationSession", "Session")
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Session");
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.ConfiguracaoSistema", b =>

@@ -14,6 +14,10 @@ SQL_REQUIRED = {
     "HemodinksAPI.Tests.SurgeryStatusSqlServerTests.SurgeryStatus_MigrationBackfillsFromConsolidationDateAndAllowsOldWriters",
     "HemodinksAPI.Tests.EventCreatorMigrationTests.CreatorMigration_PreservesLegacyUnknownCreatorAndRejectsCrossClinicAtDatabaseBoundary",
     "HemodinksAPI.Tests.PacienteCommandHandlerTests.InativarPaciente_SqlServer_PreservaDadosERespeitaTenant",
+    "HemodinksAPI.Tests.RefreshTokenFamilySqlServerTests.SqlServer_TokenTwoRotationsBack_RevokesSessionAndFamilyHoldsOnlyHashes",
+    "HemodinksAPI.Tests.RefreshTokenFamilySqlServerTests.SqlServer_ConcurrentRotation_LoserGetsConflictAndLeavesNoFamilyRow",
+    "HemodinksAPI.Tests.RefreshTokenFamilySqlServerTests.SqlServer_RefreshPurgesExpiredFamilyRows_AndDeletingSessionCascades",
+    "HemodinksAPI.Tests.RefreshTokenFamilySqlServerTests.SqlServer_FamilyTokenFromClinicA_NeverRevokesOrRenewsSessionsOfClinicB",
 }
 BROWSER_REQUIRED = {
     f'HemodinksAPI.Tests.LoginBrowserTests.Browser_UsesRealApi(scenario: "{scenario}")'

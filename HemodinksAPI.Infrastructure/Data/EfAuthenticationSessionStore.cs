@@ -6,6 +6,8 @@ namespace HemodinksAPI.Infrastructure.Data;
 
 public sealed class EfAuthenticationSessionStore(PlatformDbContext context) : IAuthenticationSessionStore
 {
+    internal const int PurgeBatchSize = 200;
+
     public Task<UsuarioClinica?> FindMembershipAsync(int globalId, int membershipId, CancellationToken cancellationToken) =>
         ActiveMemberships().FirstOrDefaultAsync(m => m.Id == membershipId && m.UsuarioGlobalId == globalId, cancellationToken);
     public Task<UsuarioClinica?> FindActiveMembershipAsync(
@@ -67,6 +69,39 @@ public sealed class EfAuthenticationSessionStore(PlatformDbContext context) : IA
     }
 
     public void Add(AuthenticationSession session) => context.AuthenticationSessions.Add(session);
+
+    public async Task<RotatedRefreshToken?> FindRotatedRefreshTokenAsync(string refreshTokenHash, CancellationToken cancellationToken)
+    {
+        var rotation = await context.AuthenticationSessionRefreshHistory.AsNoTracking()
+            .Where(item => item.Hash == refreshTokenHash)
+            .OrderByDescending(item => item.RotatedAt)
+            .Select(item => new { item.SessionId, item.RotatedAt })
+            .FirstOrDefaultAsync(cancellationToken);
+        if (rotation == null) return null;
+        var session = await SessionsWithMembership().FirstOrDefaultAsync(item => item.Id == rotation.SessionId, cancellationToken);
+        return session == null ? null : new RotatedRefreshToken(session, rotation.RotatedAt);
+    }
+
+    public void AddRotatedRefreshToken(Guid sessionId, string refreshTokenHash, DateTime rotatedAt) =>
+        context.AuthenticationSessionRefreshHistory.Add(new AuthenticationSessionRefreshHistory
+        {
+            SessionId = sessionId,
+            Hash = refreshTokenHash,
+            RotatedAt = rotatedAt
+        });
+
+    public async Task<int> PurgeRotatedRefreshTokensAsync(DateTime rotatedBefore, CancellationToken cancellationToken)
+    {
+        // Lote pequeno: roda a cada renovacao; o que sobrar sai nas proximas (o volume por sessao e limitado).
+        var query = context.AuthenticationSessionRefreshHistory.Where(item => item.RotatedAt < rotatedBefore)
+            .OrderBy(item => item.Id).Take(PurgeBatchSize);
+        if (context.Database.IsRelational())
+            return await query.ExecuteDeleteAsync(cancellationToken);
+        var expired = await query.ToListAsync(cancellationToken);
+        context.AuthenticationSessionRefreshHistory.RemoveRange(expired);
+        await context.SaveChangesAsync(cancellationToken);
+        return expired.Count;
+    }
 
     public async Task<bool> RevokeByIdAsync(Guid sessionId, DateTime revokedAt, CancellationToken cancellationToken)
     {

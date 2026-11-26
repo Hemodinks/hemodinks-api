@@ -106,7 +106,7 @@ public sealed class RestoreDatabaseIntegrityTests
             // marker for this fixture; operational copies must retain their real history.
             await db.Database.ExecuteSqlRawAsync("""
                 CREATE TABLE dbo.__EFMigrationsHistory (MigrationId nvarchar(150) NOT NULL PRIMARY KEY, ProductVersion nvarchar(32) NOT NULL);
-                INSERT dbo.__EFMigrationsHistory VALUES (N'20261125150814_Schema_AuditoriaDetalhe', N'10.0.0');
+                INSERT dbo.__EFMigrationsHistory VALUES (N'20261126174803_Schema_RefreshTokenFamily', N'10.0.0');
                 """);
             await db.Database.OpenConnectionAsync();
             var connection = (SqlConnection)db.Database.GetDbConnection();
@@ -129,7 +129,7 @@ public sealed class RestoreDatabaseIntegrityTests
 
             await db.Database.ExecuteSqlRawAsync("UPDATE dbo.__EFMigrationsHistory SET MigrationId = N'20990101000000_UnknownFutureSchema'");
             Assert.Equal(51841, (await RunChecker(connection, script, name)).Error?.Number);
-            await db.Database.ExecuteSqlRawAsync("UPDATE dbo.__EFMigrationsHistory SET MigrationId = N'20261125150814_Schema_AuditoriaDetalhe'");
+            await db.Database.ExecuteSqlRawAsync("UPDATE dbo.__EFMigrationsHistory SET MigrationId = N'20261126174803_Schema_RefreshTokenFamily'");
 
             await db.Database.ExecuteSqlRawAsync("ALTER TABLE dbo.Pacientes DROP CONSTRAINT CK_Pacientes_TipoCirurgia");
             Assert.Equal(51841, (await RunChecker(connection, script, name)).Error?.Number);

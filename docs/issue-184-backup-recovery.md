@@ -293,7 +293,7 @@ copiar depois de restaurar aqui não elimina a exposição inicial.
 ## Integridade e segurança antes de liberar a cópia
 
 O verificador `scripts/ValidateRestoredDatabase.sql` atende ao contrato de schema
-`20261125150814_Schema_AuditoriaDetalhe` deste checkout. Exige banco com prefixo
+`20261126174803_Schema_RefreshTokenFamily` deste checkout. Exige banco com prefixo
 literal `restore184-`, confirmação exata do nome (case e tamanho), permissões
 `SELECT` e `VIEW DEFINITION` e cópia sem escritores. Em conexão dedicada da cópia
 **já isolada**, definir primeiro e então executar o arquivo na mesma sessão:

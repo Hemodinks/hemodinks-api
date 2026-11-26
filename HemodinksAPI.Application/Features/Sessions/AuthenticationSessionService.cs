@@ -177,6 +177,9 @@ public sealed partial class AuthenticationSessionService
         // A refresh timer alone is not user activity. Only foreground interactions extend idle time.
         if (touchActivity) session.LastActivityAt = Later(session.LastActivityAt, now);
         session.UsuarioClinica.PerfilId = session.UsuarioClinica.User.PerfilId;
+        // #389: o hash que sai de uso entra na familia da sessao, no mesmo SaveChanges da rotacao (conflito
+        // de concorrencia descarta os dois juntos).
+        _store.AddRotatedRefreshToken(session.Id, session.RefreshTokenHash, now);
         session.PreviousRefreshTokenHash = session.RefreshTokenHash;
         session.RefreshRotatedAt = now;
         session.RefreshTokenHash = HashRefreshToken(newRefreshToken);
@@ -197,7 +200,25 @@ public sealed partial class AuthenticationSessionService
             await _store.RevokeByIdAsync(session.Id, UtcNow(), cancellationToken);
             throw new SessionAbsoluteExpiredException();
         }
+        await PurgeExpiredRefreshFamilyAsync(now);
         return await IssueAsync(session, session.UsuarioClinica, newRefreshToken, cancellationToken);
+    }
+
+    // #389: nenhuma sessao viva tem historico mais antigo que o prazo absoluto (as rotacoes sao posteriores
+    // ao CreatedAt). AuthenticationSession:AbsoluteLifetimeHours precisa ser igual nos slots blue/green: um slot
+    // com prazo menor apagaria a familia de sessoes que o outro ainda considera vivas.
+    // Limpeza oportunista no refresh, porque nao ha job de manutencao em producao. Sem o token
+    // da requisicao e sem propagar falha: a renovacao ja foi gravada e o cookie novo precisa sair.
+    private async Task PurgeExpiredRefreshFamilyAsync(DateTime now)
+    {
+        try
+        {
+            await _store.PurgeRotatedRefreshTokensAsync(now.AddHours(-_options.AbsoluteLifetimeHours), CancellationToken.None);
+        }
+        catch (Exception exception)
+        {
+            _logger.LogWarning("Falha ao limpar o historico de refresh tokens: {ErrorType}", exception.GetType().Name);
+        }
     }
 
     public async Task<AuthenticationSessionValidation> ValidateAndTouchAsync(
@@ -324,10 +345,14 @@ public sealed partial class AuthenticationSessionService
     // #376 (refresh token rotation with reuse detection): um token ja rotacionado que volta depois da janela
     // de concorrencia indica copia do cookie; a sessao inteira e revogada. Dentro da janela e uma aba que
     // perdeu a corrida: trata como conflito (o front repete com o cookie novo), sem derrubar a sessao.
+    // #389: a busca cobre toda a familia da sessao (T0 -> T1 -> T2: T0 ainda revoga); o campo do token
+    // imediatamente anterior fica como fallback para sessoes rotacionadas antes do historico existir.
     private async Task HandleUnknownRefreshTokenAsync(string tokenHash, DateTime now, Guid? expectedSessionId,
         int? expectedMembershipId, CancellationToken cancellationToken)
     {
-        var rotated = await _store.FindByPreviousRefreshTokenHashAsync(tokenHash, cancellationToken);
+        var family = await _store.FindRotatedRefreshTokenAsync(tokenHash, cancellationToken);
+        var rotated = family?.Session ?? await _store.FindByPreviousRefreshTokenHashAsync(tokenHash, cancellationToken);
+        var rotatedAt = family?.RotatedAt ?? rotated?.RefreshRotatedAt;
         // Mesmo criterio do token atual: par sessao/vinculo divergente so e recusado, sem efeito colateral.
         if (rotated != null && ((expectedSessionId.HasValue && rotated.Id != expectedSessionId)
             || (expectedMembershipId.HasValue && rotated.UsuarioClinicaId != expectedMembershipId)))
@@ -342,8 +367,8 @@ public sealed partial class AuthenticationSessionService
 
         // A janela so protege sessao realmente valida (mesmas checagens do caminho normal); o 409 nao
         // emite token nem estende a sessao, so faz a aba repetir com o cookie atual.
-        if (rotated.RefreshRotatedAt.HasValue
-            && now - rotated.RefreshRotatedAt.Value <= RefreshReuseGraceWindow
+        if (rotatedAt.HasValue
+            && now - rotatedAt.Value <= RefreshReuseGraceWindow
             && IsActive(rotated)
             && IsActive(rotated.UsuarioClinica))
         {

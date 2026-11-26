@@ -138,6 +138,124 @@ public sealed partial class SessionRenewalEndpointTests
         (await Refresh(client, login.Id, login.Membership, Cookie(renewed))).EnsureSuccessStatusCode();
     }
 
+    private static string TokenHash(string cookie) => Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+        System.Text.Encoding.UTF8.GetBytes(cookie.Split('=', 2)[1])));
+
+    // #389: T0 -> T1 -> T2 (o atacante renovou duas vezes); T0 voltando ainda revoga a sessao inteira.
+    [Fact]
+    public async Task Token_two_rotations_back_revokes_the_whole_session()
+    {
+        var clock = new Clock();
+        using var factory = new HemodinksApiFactory(s => s.AddSingleton<TimeProvider>(clock));
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        var login = await Login(client);
+        clock.Now = clock.Now.AddMinutes(1);
+        var t1 = await Refresh(client, login.Id, login.Membership, login.Cookie);
+        t1.EnsureSuccessStatusCode();
+        clock.Now = clock.Now.AddMinutes(1);
+        var t2 = await Refresh(client, login.Id, login.Membership, Cookie(t1));
+        t2.EnsureSuccessStatusCode();
+
+        clock.Now = clock.Now.AddMinutes(1);
+        var reuse = await Refresh(client, login.Id, login.Membership, login.Cookie);
+        Assert.Equal(HttpStatusCode.Unauthorized, reuse.StatusCode);
+        Assert.False(reuse.Headers.Contains("Set-Cookie"));
+        Assert.Equal(HttpStatusCode.Unauthorized, (await Refresh(client, login.Id, login.Membership, Cookie(t2))).StatusCode);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        Assert.NotNull((await db.AuthenticationSessions.SingleAsync(s => s.Id == login.Id)).RevokedAt);
+        var audit = await db.AuditoriasPlataforma.SingleAsync(a => a.Acao == "session.refresh.reuse");
+        Assert.Equal(login.Id.ToString(), audit.EntidadeId);
+        Assert.Null(audit.DetalhesJson);
+    }
+
+    // #389: a janela entre abas vale para o token da familia que acabou de sair de uso, mesmo com outra rotacao
+    // em seguida; a aba atrasada recebe 409 e a sessao continua.
+    [Fact]
+    public async Task Family_token_inside_grace_window_is_conflict_and_keeps_the_session()
+    {
+        var clock = new Clock();
+        using var factory = new HemodinksApiFactory(s => s.AddSingleton<TimeProvider>(clock));
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        var login = await Login(client);
+        var t1 = await Refresh(client, login.Id, login.Membership, login.Cookie);
+        t1.EnsureSuccessStatusCode();
+        var t2 = await Refresh(client, login.Id, login.Membership, Cookie(t1));
+        t2.EnsureSuccessStatusCode();
+
+        clock.Now = clock.Now.AddSeconds(20);
+        var stale = await Refresh(client, login.Id, login.Membership, login.Cookie);
+        Assert.Equal(HttpStatusCode.Conflict, stale.StatusCode);
+        Assert.False(stale.Headers.Contains("Set-Cookie"));
+        (await Refresh(client, login.Id, login.Membership, Cookie(t2))).EnsureSuccessStatusCode();
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+        Assert.Null((await db.AuthenticationSessions.SingleAsync(s => s.Id == login.Id)).RevokedAt);
+        Assert.False(await db.AuditoriasPlataforma.AnyAsync(a => a.Acao == "session.refresh.reuse"));
+    }
+
+    // #389: token antigo da familia com par sessao/vinculo trocado e so recusado, sem revogar a sessao alheia.
+    [Theory]
+    [InlineData("session")]
+    [InlineData("membership")]
+    public async Task Family_token_with_mismatched_pair_is_rejected_without_revoking(string mismatch)
+    {
+        var clock = new Clock();
+        using var factory = new HemodinksApiFactory(s => s.AddSingleton<TimeProvider>(clock));
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        var login = await Login(client);
+        clock.Now = clock.Now.AddMinutes(1);
+        var t1 = await Refresh(client, login.Id, login.Membership, login.Cookie);
+        t1.EnsureSuccessStatusCode();
+        clock.Now = clock.Now.AddMinutes(1);
+        var t2 = await Refresh(client, login.Id, login.Membership, Cookie(t1));
+        t2.EnsureSuccessStatusCode();
+        clock.Now = clock.Now.AddMinutes(1);
+
+        var forged = await Refresh(client, mismatch == "session" ? Guid.NewGuid() : login.Id,
+            mismatch == "membership" ? login.Membership + 10000 : login.Membership, login.Cookie);
+        Assert.Equal(HttpStatusCode.Unauthorized, forged.StatusCode);
+        (await Refresh(client, login.Id, login.Membership, Cookie(t2))).EnsureSuccessStatusCode();
+    }
+
+    // #389: a familia guarda so hashes SHA-256 e se limpa no proprio refresh depois do prazo absoluto.
+    [Fact]
+    public async Task Family_stores_only_hashes_and_purges_entries_older_than_absolute_lifetime()
+    {
+        var clock = new Clock();
+        using var factory = new HemodinksApiFactory(s => s.AddSingleton<TimeProvider>(clock));
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions { HandleCookies = false });
+        var login = await Login(client);
+        var t1 = await Refresh(client, login.Id, login.Membership, login.Cookie);
+        t1.EnsureSuccessStatusCode();
+        var t2 = await Refresh(client, login.Id, login.Membership, Cookie(t1));
+        t2.EnsureSuccessStatusCode();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<PlatformDbContext>();
+            var family = await db.AuthenticationSessionRefreshHistory.Where(h => h.SessionId == login.Id).ToListAsync();
+            Assert.Equal(new[] { TokenHash(login.Cookie), TokenHash(Cookie(t1)) }, family.OrderBy(h => h.Id).Select(h => h.Hash));
+            foreach (var cookie in new[] { login.Cookie, Cookie(t1), Cookie(t2) })
+                Assert.DoesNotContain(family, h => h.Hash == cookie.Split('=', 2)[1]);
+            // Linha rotacionada antes do prazo absoluto (12 h): nenhuma sessao viva pode depender dela.
+            db.AuthenticationSessionRefreshHistory.Add(new HemodinksAPI.Domain.Models.AuthenticationSessionRefreshHistory
+            {
+                SessionId = login.Id, Hash = new string('A', 64), RotatedAt = clock.Now.UtcDateTime.AddHours(-13)
+            });
+            await db.SaveChangesAsync();
+        }
+
+        (await Refresh(client, login.Id, login.Membership, Cookie(t2))).EnsureSuccessStatusCode();
+        using var verify = factory.Services.CreateScope();
+        var remaining = await verify.ServiceProvider.GetRequiredService<PlatformDbContext>()
+            .AuthenticationSessionRefreshHistory.Select(h => h.Hash).ToListAsync();
+        Assert.DoesNotContain(new string('A', 64), remaining);
+        Assert.Contains(TokenHash(login.Cookie), remaining);
+        Assert.Equal(3, remaining.Count);
+    }
+
     [Theory]
     [InlineData("origin", HttpStatusCode.Forbidden)]
     [InlineData("header", HttpStatusCode.Forbidden)]
@@ -245,6 +363,9 @@ public sealed partial class SessionRenewalEndpointTests
         public Task<HemodinksAPI.Domain.Models.AuthenticationSession?> FindByRefreshTokenHashAsync(string hash, CancellationToken ct) => inner.FindByRefreshTokenHashAsync(hash, ct);
         public Task<HemodinksAPI.Domain.Models.AuthenticationSession?> FindByIdAsync(Guid id, CancellationToken ct) => inner.FindByIdAsync(id, ct);
         public Task<HemodinksAPI.Domain.Models.AuthenticationSession?> FindByPreviousRefreshTokenHashAsync(string hash, CancellationToken ct) => inner.FindByPreviousRefreshTokenHashAsync(hash, ct);
+        public Task<HemodinksAPI.Application.Features.Sessions.RotatedRefreshToken?> FindRotatedRefreshTokenAsync(string hash, CancellationToken ct) => inner.FindRotatedRefreshTokenAsync(hash, ct);
+        public void AddRotatedRefreshToken(Guid sessionId, string hash, DateTime rotatedAt) => inner.AddRotatedRefreshToken(sessionId, hash, rotatedAt);
+        public Task<int> PurgeRotatedRefreshTokensAsync(DateTime before, CancellationToken ct) => inner.PurgeRotatedRefreshTokensAsync(before, ct);
         public Task<HemodinksAPI.Application.Features.Sessions.SessionTeamBinding?> FindTeamBindingAsync(HemodinksAPI.Domain.Models.AuthenticationSession session, DateTime now, CancellationToken ct) => inner.FindTeamBindingAsync(session, now, ct);
         public void Add(HemodinksAPI.Domain.Models.AuthenticationSession session) => inner.Add(session);
         public Task SaveChangesAsync(CancellationToken ct) => inner.SaveChangesAsync(ct);

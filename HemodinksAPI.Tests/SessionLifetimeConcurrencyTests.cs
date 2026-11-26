@@ -123,6 +123,9 @@ public sealed class SessionLifetimeConcurrencyTests
         public Task<AuthenticationSession?> FindByRefreshTokenHashAsync(string hash, CancellationToken ct) => inner.FindByRefreshTokenHashAsync(hash, ct);
         public Task<AuthenticationSession?> FindByIdAsync(Guid id, CancellationToken ct) => inner.FindByIdAsync(id, ct);
         public Task<AuthenticationSession?> FindByPreviousRefreshTokenHashAsync(string hash, CancellationToken ct) => inner.FindByPreviousRefreshTokenHashAsync(hash, ct);
+        public Task<HemodinksAPI.Application.Features.Sessions.RotatedRefreshToken?> FindRotatedRefreshTokenAsync(string hash, CancellationToken ct) => inner.FindRotatedRefreshTokenAsync(hash, ct);
+        public void AddRotatedRefreshToken(Guid sessionId, string hash, DateTime rotatedAt) => inner.AddRotatedRefreshToken(sessionId, hash, rotatedAt);
+        public Task<int> PurgeRotatedRefreshTokensAsync(DateTime before, CancellationToken ct) => inner.PurgeRotatedRefreshTokensAsync(before, ct);
         public Task<HemodinksAPI.Application.Features.Sessions.SessionTeamBinding?> FindTeamBindingAsync(HemodinksAPI.Domain.Models.AuthenticationSession session, DateTime now, CancellationToken ct) => inner.FindTeamBindingAsync(session, now, ct);
         public void Add(AuthenticationSession session) => inner.Add(session);
         public Task SaveChangesAsync(CancellationToken ct) => inner.SaveChangesAsync(ct);

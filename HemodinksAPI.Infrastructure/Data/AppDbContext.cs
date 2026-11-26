@@ -52,6 +52,8 @@ public partial class AppDbContext : DbContext,
 
     public DbSet<AuthenticationSession> AuthenticationSessions { get; set; } = null!;
 
+    public DbSet<AuthenticationSessionRefreshHistory> AuthenticationSessionRefreshHistory { get; set; } = null!;
+
     public DbSet<UserLegalAcceptance> UserLegalAcceptances { get; set; } = null!;
 
     public DbSet<UserPrivacyPreference> UserPrivacyPreferences { get; set; } = null!;
