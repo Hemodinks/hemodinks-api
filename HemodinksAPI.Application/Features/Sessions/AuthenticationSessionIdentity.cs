@@ -6,6 +6,8 @@ namespace HemodinksAPI.Application.Features.Sessions;
 public sealed record TeamSessionIdentity(int EquipeId, int? OperadorId, int EquipeVersion,
     int? OperadorVersion, bool Reliable, DateTime AuthenticatedAt);
 public sealed record SessionTeamBinding(Equipe Team, EquipeOperador? Operator);
+// #389: sessao dona de um refresh token ja rotacionado e quando ele saiu de uso.
+public sealed record RotatedRefreshToken(AuthenticationSession Session, DateTime RotatedAt);
 
 public sealed partial class AuthenticationSessionService
 {

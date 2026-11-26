@@ -22,6 +22,15 @@ public interface IAuthenticationSessionStore
         string refreshTokenHash,
         CancellationToken cancellationToken);
 
+    // #389: sessao e instante de rotacao de qualquer refresh token ja rotacionado (familia da sessao).
+    Task<RotatedRefreshToken?> FindRotatedRefreshTokenAsync(string refreshTokenHash, CancellationToken cancellationToken);
+
+    // #389: registra o hash rotacionado; persiste no mesmo SaveChanges da rotacao.
+    void AddRotatedRefreshToken(Guid sessionId, string refreshTokenHash, DateTime rotatedAt);
+
+    // #389: apaga hashes rotacionados antes do corte (nenhuma sessao viva tem historico mais antigo que o prazo absoluto).
+    Task<int> PurgeRotatedRefreshTokensAsync(DateTime rotatedBefore, CancellationToken cancellationToken);
+
     Task<SessionTeamBinding?> FindTeamBindingAsync(AuthenticationSession session, DateTime now, CancellationToken cancellationToken);
     void Add(AuthenticationSession session);
 
