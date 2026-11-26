@@ -24,7 +24,7 @@ RUN case "${TARGETARCH:-amd64}" in amd64) RID=linux-x64 ;; arm64) RID=linux-arm6
        -o /app/publish /p:UseAppHost=false /p:PublishReadyToRun=$PUBLISH_READY_TO_RUN
 
 # Stage 3: Runtime
-FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:11.0 AS final
 WORKDIR /app
 EXPOSE 8080
 
