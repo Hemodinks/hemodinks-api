@@ -23,7 +23,20 @@ public class FunctionBackedProfilePhotoStorage : IProfilePhotoStorage
         // #293: valida antes da Function para foto invalida continuar 400 com mensagem de negocio.
         // Se a Function recusar por regra (ex.: limite configurado menor que o da API), ela devolve 400
         // com a mensagem e o StorageFunctionClient a repassa como BusinessRuleException.
-        ProfilePhotoStorageSupport.EvaluateRequestedChange(fotoPerfil, currentFotoPerfil, _options.MaxBytes);
+        var change = ProfilePhotoStorageSupport.EvaluateRequestedChange(fotoPerfil, currentFotoPerfil, _options.MaxBytes);
+
+        // #399: sem nada a gravar ou apagar, a Function so devolveria o mesmo resultado do armazenamento direto
+        // (AzureBlobProfilePhotoStorage.SaveAsync). Nao chama-la tira criar/editar paciente sem foto do cold start dela.
+        if (change.Kind == ProfilePhotoChangeKind.KeepCurrent)
+        {
+            return currentFotoPerfil;
+        }
+
+        if (change.Kind == ProfilePhotoChangeKind.RemoveCurrent
+            && (string.IsNullOrWhiteSpace(currentFotoPerfil) || ProfilePhotoStorageSupport.IsDataUrl(currentFotoPerfil)))
+        {
+            return null;
+        }
 
         var response = await _storageFunctionClient.PostJsonAsync<RemoteProfilePhotoSaveRequest, RemoteProfilePhotoSaveResponse>(
             "storage/profile-photo",

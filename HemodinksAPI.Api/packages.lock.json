@@ -43,6 +43,12 @@
         "resolved": "10.58.0",
         "contentHash": "gCiozLLrvscIH7AOf8fXRbr0kAg4dD+KlyAY2kzG9ihlUp/anBVcAcIbJwE0WLUVh+PoHRe+A2ZRVRCCJbRswQ=="
       },
+      "NewRelic.Agent.Api": {
+        "type": "Direct",
+        "requested": "[10.58.0, )",
+        "resolved": "10.58.0",
+        "contentHash": "buAaFN1E8T7DjUOdwWaR0FvzTYmipWBR9CNSaf72u4Nqy+8KnQROi6MvsOuDSbbHJ99eb0sLznxUS50TXPXY0A=="
+      },
       "Scalar.AspNetCore": {
         "type": "Direct",
         "requested": "[3.2.0, )",
