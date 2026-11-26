@@ -36,14 +36,22 @@ def chain_after(s,i):
         elif c==';' and d<=0: break
         j+=1
     return s[i:j]
+GROUP_RE=r'(?:var\s+(\w+)\s*=|return)\s*(\w+)\.MapGroup\("([^"]+)"\)'
+
+def file_groups(s):
+  return {m.group(1) or 'group':(m.group(3),chain_after(s,m.end())) for m in re.finditer(GROUP_RE,s)}
+
 def collect(root):
   rows=[]
-  for f in sorted(glob.glob(root+'/HemodinksAPI.Api/**/*.cs',recursive=True)):
-      if '/obj/' in f: continue
+  files=[f for f in sorted(glob.glob(root+'/HemodinksAPI.Api/**/*.cs',recursive=True)) if '/obj/' not in f]
+  # Partials (X.Mfa.cs) recebem o grupo como parametro: herdam os MapGroup do arquivo principal (X.cs).
+  shared={}
+  for f in files:
+      shared.setdefault(os.path.basename(f).split('.')[0],{}).update(file_groups(open(f,encoding='utf-8-sig').read()))
+  for f in files:
       s=open(f,encoding='utf-8-sig').read()
-      groups={}
-      for m in re.finditer(r'(?:var\s+(\w+)\s*=|return)\s*(\w+)\.MapGroup\("([^"]+)"\)',s):
-          groups[m.group(1) or 'group']=(m.group(3),chain_after(s,m.end()))
+      groups=dict(shared.get(os.path.basename(f).split('.')[0],{}))
+      groups.update(file_groups(s))
       for m in re.finditer(r'(\w+)\.Map(Get|Post|Put|Delete|Patch)\(\s*"([^"]*)"',s):
           g,verb,path=m.groups()
           close=match_paren(s,s.index('(',m.start()))
@@ -67,15 +75,15 @@ POL={
  'UsuariosVisualizar':[A,S,E],
  'GrupoMedicoCadastrar':[A,S,C],'GrupoMedicoGerenciar':[A,S,C],
  'PacienteCadastrar':[A,S,C,M,E],'PacienteArquivosGerenciar':[A,S,M,C,E],'PacienteEditar':[A,S,M,C,E],
- 'PacienteExcluir':[A,S,M],'PacientePendenciasVisualizar':[A,S,C,M],'PacienteObservacaoGerenciar':[A,S,M,C,E],
+ 'PacienteExcluir':[A,S],'PacientePendenciasVisualizar':[A,S,C,M],'PacienteObservacaoGerenciar':[A,S,M,C,E],
  'FaturamentoMedicoVisualizar':[A,S,M,C,E],'AtendimentoVisualizar':[A,S,M,C],'AtendimentoGerenciar':[A,S,M,C],
  'FaturamentoVisualizar':[A,S,M,C],'FaturamentoGerenciar':[A,S,C],'FinanceiroVisualizar':[A,S,C],'FinanceiroGerenciar':[A,S,C],
  'TabelaPrecoVisualizar':[A,S,M,C],'TabelaPrecoGerenciar':[A,S,C],
  'LicencaPolicies.PacientesVisualizar':[A,S,M,P,C,E],
 }
 LIC={'LicencaPolicies.DashboardVisualizar':'`Dashboard.Visualizar`','LicencaPolicies.CbhpmConsultar':'`Cbhpm.Consultar`','LicencaPolicies.PacientesGerenciar':'`Pacientes.Gerenciar`'}
-ORDER=['Sessao','Users','Equipes - Autenticacao','Equipes','Plataforma - Clinicas','Plataforma - Auditoria','Plataforma - Sessoes','Clinicas - Publico','ConfiguracoesSistema','Legal','Privacy','Dashboard','Pacientes','Atendimentos cirurgicos','Faturamento medico','Faturamento','Contas a receber','Relatorios financeiros','Precos por convenio','GruposMedicos','Agenda e notificacoes','CBHPM','Hospitais','Convenios','OPME','Licencas','Exports','Monitoramento','?']
-TITLE={'Sessao':'Sessão','Users':'Usuários','Equipes - Autenticacao':'Equipes — autenticação','Equipes':'Equipes','Plataforma - Clinicas':'Plataforma — clínicas','Plataforma - Auditoria':'Plataforma — auditoria','Plataforma - Sessoes':'Plataforma — sessões ativas','Clinicas - Publico':'Clínicas — público','ConfiguracoesSistema':'Configuração do sistema','Legal':'Aceites legais','Privacy':'Preferências de privacidade','Dashboard':'Dashboard','Pacientes':'Pacientes e cirurgias','Atendimentos cirurgicos':'Atendimentos cirúrgicos','Faturamento medico':'Faturamento médico','Faturamento':'Faturamento (lotes, glosas e recursos)','Contas a receber':'Contas a receber','Relatorios financeiros':'Relatórios financeiros','Precos por convenio':'Preços por convênio','GruposMedicos':'Grupos médicos','Agenda e notificacoes':'Agenda e notificações','CBHPM':'CBHPM','Hospitais':'Hospitais','Convenios':'Convênios','OPME':'OPME','Licencas':'Licenças','Exports':'Exportações','Monitoramento':'Monitoramento','?':'Infraestrutura'}
+ORDER=['Sessao','Users','Equipes - Autenticacao','Equipes','Plataforma - Clinicas','Plataforma - Auditoria','Plataforma - Sessoes','Clinicas - Publico','ConfiguracoesSistema','Legal','Privacy','Dashboard','Pacientes','Auditoria clinica','Atendimentos cirurgicos','Faturamento medico','Faturamento','Contas a receber','Relatorios financeiros','Precos por convenio','GruposMedicos','Agenda e notificacoes','CBHPM','Hospitais','Convenios','OPME','Licencas','Exports','Monitoramento','?']
+TITLE={'Sessao':'Sessão','Users':'Usuários','Equipes - Autenticacao':'Equipes — autenticação','Equipes':'Equipes','Plataforma - Clinicas':'Plataforma — clínicas','Plataforma - Auditoria':'Plataforma — auditoria','Plataforma - Sessoes':'Plataforma — sessões ativas','Clinicas - Publico':'Clínicas — público','ConfiguracoesSistema':'Configuração do sistema','Legal':'Aceites legais','Privacy':'Preferências de privacidade','Dashboard':'Dashboard','Pacientes':'Pacientes e cirurgias','Auditoria clinica':'Auditoria de pacientes','Atendimentos cirurgicos':'Atendimentos cirúrgicos','Faturamento medico':'Faturamento médico','Faturamento':'Faturamento (lotes, glosas e recursos)','Contas a receber':'Contas a receber','Relatorios financeiros':'Relatórios financeiros','Precos por convenio':'Preços por convênio','GruposMedicos':'Grupos médicos','Agenda e notificacoes':'Agenda e notificações','CBHPM':'CBHPM','Hospitais':'Hospitais','Convenios':'Convênios','OPME':'OPME','Licencas':'Licenças','Exports':'Exportações','Monitoramento':'Monitoramento','?':'Infraestrutura'}
 def who(r):
     if r['anon'] :
         if r['path'].startswith('/api/session/'): return 'Cookie de sessão (HttpOnly)'

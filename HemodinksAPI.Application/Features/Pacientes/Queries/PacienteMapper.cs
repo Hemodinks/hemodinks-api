@@ -40,15 +40,18 @@ internal static class PacienteMapper
             Pagamento = paciente.Pagamento,
             RepasseGlosa = paciente.RepasseGlosa,
             StatusPago = paciente.StatusPago,
+            Inativado = !paciente.Ativo,
+            InativadoEm = paciente.InativadoEm,
             Cpf = paciente.User.Cpf,
             Email = paciente.User.Email,
             Telefone = paciente.User.Telefone,
             FotoPerfil = paciente.User.FotoPerfil,
             DataNascimento = paciente.User.DataNascimento,
             Ativo = paciente.User.Ativo,
-            ArquivosCount = paciente.Arquivos.Count,
+            ArquivosCount = paciente.Arquivos.Count(arquivo => arquivo.ExcluidoEm == null),
             Faturamento = ToFaturamentoDto(paciente.FaturamentoMedico),
             Arquivos = paciente.Arquivos
+                .Where(arquivo => arquivo.ExcluidoEm == null)
                 .OrderByDescending(arquivo => arquivo.DataUpload)
                 .Select(ToArquivoDto)
                 .ToList()

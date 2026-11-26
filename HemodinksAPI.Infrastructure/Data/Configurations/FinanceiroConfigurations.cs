@@ -17,6 +17,7 @@ internal sealed class AtendimentoCirurgicoConfiguration : IEntityTypeConfigurati
         entity.HasKey(x => x.Id);
         entity.Property(x => x.ClinicaId).IsRequired();
         entity.Property(x => x.DataProcedimento).IsRequired();
+        entity.Property(x => x.MotivoCancelamento).HasMaxLength(500);
         entity.Property(x => x.TipoCirurgia).HasConversion<string>().HasMaxLength(20).HasDefaultValue(TipoCirurgia.Eletiva);
         entity.Property(x => x.Diagnostico).HasMaxLength(1000);
         entity.Property(x => x.TratamentoMedico).HasMaxLength(1000);

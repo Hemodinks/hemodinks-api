@@ -173,10 +173,12 @@ public sealed class CriticalQuerySqlServerTests(ITestOutputHelper output)
             });
             var baselineRows = (await Analyze(db, commands.Statements)).Rows;
             var billing = new ListarFaturamentosQueryHandler(db);
-            await Measure("billing-response", 1, async () =>
+            // #373: lista paginada = COUNT + pagina (2 comandos), ainda sem colecoes desnecessarias.
+            await Measure("billing-response", 2, async () =>
             {
-                var result = await billing.Handle(new(doctor.Id, Perfil.AdministradorId), default);
-                Assert.Equal(JsonSerializer.Serialize(baseline), JsonSerializer.Serialize(result));
+                var result = await billing.Handle(new(doctor.Id, Perfil.AdministradorId) { PageSize = 100 }, default);
+                Assert.Equal(size, result.TotalItems);
+                Assert.Equal(JsonSerializer.Serialize(baseline), JsonSerializer.Serialize(result.Items));
             });
             var responseRows = (await Analyze(db, commands.Statements)).Rows;
             // These DTOs do not contain accounts/receipts. Loading them multiplies result rows needlessly.
@@ -214,12 +216,12 @@ public sealed class CriticalQuerySqlServerTests(ITestOutputHelper output)
             Assert.Empty(hiddenReport.PorCompetencia);
             // Changing the resolved tenant on the same model must not reuse a clinic's cached result.
             tenant.SetCurrent(2, "clinic2");
-            var second = await billing.Handle(new(0, Perfil.SuperAdministradorId), default);
-            Assert.Equal(size, second.Count);
-            Assert.All(second, x => Assert.StartsWith("Clinic2", x.Paciente));
-            Assert.Empty(await billing.Handle(new(doctor.Id, Perfil.MedicosId), default));
+            var second = await billing.Handle(new(0, Perfil.SuperAdministradorId) { PageSize = 100 }, default);
+            Assert.Equal(size, second.Items.Count);
+            Assert.All(second.Items, x => Assert.StartsWith("Clinic2", x.Paciente));
+            Assert.Empty((await billing.Handle(new(doctor.Id, Perfil.MedicosId), default)).Items);
             await using var unresolved = new AppDbContext(measuredOptions, new ClinicaContext());
-            Assert.Empty(await new ListarFaturamentosQueryHandler(unresolved).Handle(new(0, Perfil.SuperAdministradorId), default));
+            Assert.Empty((await new ListarFaturamentosQueryHandler(unresolved).Handle(new(0, Perfil.SuperAdministradorId), default)).Items);
 
             tenant.SetCurrent(1, Clinica.DefaultSlug);
             var notifications = new Notifications();
@@ -286,7 +288,7 @@ public sealed class CriticalQuerySqlServerTests(ITestOutputHelper output)
             var detail = new ObterFaturamentoQueryHandler(db);
             foreach (var doctor in new[] { principal, firstAssistant, secondAssistant })
             {
-                var listed = Assert.Single(await list.Handle(new(doctor.Id, Perfil.MedicosId), default));
+                var listed = Assert.Single((await list.Handle(new(doctor.Id, Perfil.MedicosId), default)).Items);
                 Assert.Equal(bill.Id, listed.Id);
                 var page = await search.Handle(new(1, 5, null, null, null, null, null, doctor.Id, Perfil.MedicosId), default);
                 Assert.Equal(1, page.TotalItems);
@@ -295,7 +297,7 @@ public sealed class CriticalQuerySqlServerTests(ITestOutputHelper output)
                 Assert.Equal(JsonSerializer.Serialize(listed), JsonSerializer.Serialize(found));
             }
 
-            Assert.Empty(await list.Handle(new(unrelated.Id, Perfil.MedicosId), default));
+            Assert.Empty((await list.Handle(new(unrelated.Id, Perfil.MedicosId), default)).Items);
             var hidden = await search.Handle(new(1, 5, null, null, null, null, null, unrelated.Id, Perfil.MedicosId), default);
             Assert.Equal(0, hidden.TotalItems);
             Assert.Empty(hidden.Items);

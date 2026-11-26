@@ -13,7 +13,7 @@ SQL_REQUIRED = {
     "HemodinksAPI.Tests.SurgeryTypeSqlServerTests.SurgeryType_EmAutorizacaoIsAcceptedAndRollbackRefusesItInEitherTable",
     "HemodinksAPI.Tests.SurgeryStatusSqlServerTests.SurgeryStatus_MigrationBackfillsFromConsolidationDateAndAllowsOldWriters",
     "HemodinksAPI.Tests.EventCreatorMigrationTests.CreatorMigration_PreservesLegacyUnknownCreatorAndRejectsCrossClinicAtDatabaseBoundary",
-    "HemodinksAPI.Tests.PacienteCommandHandlerTests.DeletePaciente_SqlServer_EnforcesScopeAndCascadesOnlyAuthorizedPatient",
+    "HemodinksAPI.Tests.PacienteCommandHandlerTests.InativarPaciente_SqlServer_PreservaDadosERespeitaTenant",
 }
 BROWSER_REQUIRED = {
     f'HemodinksAPI.Tests.LoginBrowserTests.Browser_UsesRealApi(scenario: "{scenario}")'
@@ -23,8 +23,11 @@ BROWSER_REQUIRED = {
 }
 
 
-def check(path, suite):
-    results = ET.parse(path).getroot().findall(".//t:UnitTestResult", NS)
+def check(paths, suite):
+    # Aceita um TRX ou varios (partes paralelas do CI): o conjunto e avaliado como uma suite so.
+    if isinstance(paths, (str, Path)):
+        paths = [paths]
+    results = [result for path in paths for result in ET.parse(path).getroot().findall(".//t:UnitTestResult", NS)]
     if not results:
         raise ValueError("TRX contains no executed tests")
     if any(result.get("outcome") != "Passed" for result in results):
@@ -49,7 +52,7 @@ def check(path, suite):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--suite", required=True, choices=("api", "login-e2e"))
-    parser.add_argument("trx", type=Path)
+    parser.add_argument("trx", type=Path, nargs="+")
     args = parser.parse_args()
     try:
         check(args.trx, args.suite)

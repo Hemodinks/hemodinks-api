@@ -91,7 +91,8 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
             var arquivo = await _context.PacienteArquivos
                 .Include(a => a.Paciente)
                 .ThenInclude(p => p.User)
-                .FirstOrDefaultAsync(a => a.Id == request.ArquivoId && a.PacienteId == request.PacienteId, cancellationToken);
+                .FirstOrDefaultAsync(a => a.Id == request.ArquivoId && a.PacienteId == request.PacienteId
+                    && a.ExcluidoEm == null, cancellationToken);
 
             if (arquivo == null)
             {
@@ -103,12 +104,12 @@ public class DeletePacienteArquivoCommandHandler : IRequestHandler<DeletePacient
                 throw new UnauthorizedAccessException("Sem permissao para excluir arquivo do paciente");
             }
 
-            var fileUrl = arquivo.Url;
-            var clinicaId = arquivo.ClinicaId;
-            arquivo.Paciente.User.DataAtualizacao = DateTime.UtcNow;
-            _context.PacienteArquivos.Remove(arquivo);
+            // Exclusao logica: linha e storage preservados (guarda do prontuario); o arquivo some da aplicacao.
+            var now = DateTime.UtcNow;
+            arquivo.ExcluidoEm = now;
+            arquivo.ExcluidoPorUserId = request.CurrentUserId;
+            arquivo.Paciente.User.DataAtualizacao = now;
             await _context.SaveChangesAsync(cancellationToken);
-            await _patientFileStorage.DeleteAsync(fileUrl, clinicaId, cancellationToken);
         }
         catch (Exception ex)
         {

@@ -17,7 +17,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = ROOT / "docs"
-UPDATED = "12/11/2026"
+UPDATED = "23/11/2026"
 
 CSS = r"""
     :root {
@@ -155,11 +155,16 @@ API_MATRIX = [
     ("Sessões ativas da plataforma", [NO, NO, NO, NO, "!R", NO]),
     ("Usuários", ["CRUD", "~R/U próprio", "~R/U próprio limitado", "~R próprio", "CRUD", "~R membros"]),
     ("Resetar senha de terceiro", ["Sim", NO, NO, NO, "Sim", NO]),
+    ("Verificação em duas etapas (MFA) da própria conta", ["Ativa/desativa", NO, NO, NO, "Ativa/desativa", NO]),
+    ("Redefinir MFA de terceiro", [NO, NO, NO, NO, "~Sim · clínica ativa", NO]),
     ("Equipes (`/api/equipes`)", ["CRUD", NO, NO, NO, "CRUD", "~Trocar PIN próprio"]),
-    ("Pacientes e cirurgias", ["CRUD", "~CRUD · escopo", "~R próprio", "CRU", "CRUD", "~CRU · escopo"]),
+    ("Pacientes e cirurgias", ["CRUD", "~CRU · escopo", "~R próprio", "CRU", "CRUD", "~CRU · escopo"]),
+    ("Inativar, listar inativos e reativar paciente (com motivo)", ["Sim", NO, NO, NO, "Sim", NO]),
     ("Pendências de cadastro de pacientes (ano da consolidação)", ["R clínica", "~R · escopo", NO, "R clínica", "R clínica", NO]),
     ("Arquivos de pacientes", ["CRD", "~CRD · escopo", "~R próprios", "CRD", "CRD", "~CRD · escopo"]),
     ("Observações de pacientes", ["CRU", "~CRU · escopo", NO, "CRU", "CRU", "~CRU · escopo"]),
+    ("Auditoria de pacientes (`/api/auditoria-clinica`)", ["R clínica", NO, NO, NO, "R clínica ativa", NO]),
+    ("Ligar auditoria de alterações de pacientes e atendimentos", ["Sim", NO, NO, NO, "Sim · clínica ativa", NO]),
     ("Faturamento médico", ["R clínica", "~R · escopo", NO, "R clínica", "R clínica", "~R · escopo"]),
     ("Histórico de arquivos do faturamento", ["CRD", "~R · escopo", NO, "CRD", "CRD", "~R · escopo"]),
     ("Atendimentos cirúrgicos", ["CRUD", "~CRUD · escopo", NO, "CRUD", "CRUD", NO]),
@@ -193,7 +198,7 @@ MENU = [
 ]
 
 DIVERGENCES = [
-    ("Médico exclui paciente", "Botão de exclusão só para Administrador/SuperAdministrador", "Permite excluir paciente do escopo (`PacienteExcluir`)", "Interface mais restritiva que a API."),
+    ("Médico exclui paciente", "Botão de exclusão só para Administrador/SuperAdministrador", "`PacienteExcluir` só Administrador/SuperAdministrador; `DELETE` inativa (#369)", "Alinhado. Texto do botão deve virar \"Inativar\"."),
     ("Administrador em módulo não contratado", "Oculta o módulo (só o SuperAdministrador ignora o plano)", "Administrador e SuperAdministrador não são bloqueados pelo plano", "Interface mais restritiva que a API."),
     ("Equipe sem operador identificado", "Modo somente leitura", "Operações sensíveis exigem operador (`EquipeOperacaoSensivel`)", "Alinhado."),
     ("Paciente em Meu cadastro", "Edita nome, telefone, nascimento e foto", "`PUT` próprio preserva e-mail, CPF, perfil, status e dados médicos", "Alinhado."),
@@ -205,6 +210,7 @@ RULES = [
     "Assinatura suspensa, cancelada ou vencida e licenças individuais de médicos podem bloquear funcionalidades licenciadas (`Dashboard.Visualizar`, `Pacientes.Visualizar`, `Pacientes.Gerenciar`, `Cbhpm.Consultar`).",
     "Médicos enxergam pacientes, faturamentos, atendimentos, arquivos, observações e eventos conforme seu vínculo e seus grupos médicos.",
     "O Administrador permanece restrito à própria clínica, inclusive nas rotas de plataforma; somente o SuperAdministrador cria, desativa e alterna entre clínicas.",
+    "MFA (TOTP) é opcional para Administrador e SuperAdministrador: com ele ativo, a senha certa só devolve um desafio de 5 minutos e a sessão abre com o código do aplicativo ou um código de recuperação de uso único. Desativar exige senha e código; o SuperAdministrador redefine o MFA de usuários da clínica ativa e as sessões do titular são encerradas.",
     "O perfil `Equipe` usa identidade coletiva; operações sensíveis exigem equipe ativa e operador identificado no token e são auditadas.",
     "Cadastro de quem é SuperAdministrador (nesta ou em outra clínica) só é alterado, inativado, reativado, excluído ou recebe senha temporária por outro SuperAdministrador; perfis inferiores apenas consultam (`403`). O próprio titular continua editando o seu cadastro.",
 ]
@@ -281,7 +287,9 @@ O perfil `Equipe` possui um fluxo de autenticação próprio e não deve ser cri
 
 - A exclusão de clínica é lógica: a clínica é desativada e seus dados são preservados (somente SuperAdministrador).
 - Usuários somente podem ser excluídos por Administrador ou SuperAdministrador.
-- Pacientes podem ser excluídos por Administrador, SuperAdministrador e Médico (no seu escopo). Controller e Equipe não excluem pacientes.
+- Pacientes não são excluídos fisicamente: `DELETE` inativa o cadastro e preserva prontuário e arquivos (guarda legal). Só Administrador e SuperAdministrador inativam, listam inativos (`situacao=inativos`) e reativam; os demais perfis não enxergam pacientes inativos. Inativar também desliga o login do titular (perfil Paciente); reativar religa apenas se foi a inativação que o desligou.
+- Atendimentos cirúrgicos sem faturamento são cancelados logicamente pelo `DELETE` (status Cancelado, autor, data e motivo opcional): registro, procedimentos e arquivos são preservados, saem das listas e não aceitam alteração nem novos arquivos; só o Administrador os lista com `incluirCancelados=true`. Atendimento faturado continua sem poder ser cancelado.
+- Excluir arquivo de paciente ou de atendimento é exclusão lógica: o arquivo some de listas, contagens e download, mas a linha e o arquivo no storage são preservados (guarda do prontuário). As permissões para excluir não mudaram.
 - Eventos podem ser excluídos pelo proprietário; Administrador e SuperAdministrador gerenciam todos os eventos da clínica.
 
 ## Menu atual da interface

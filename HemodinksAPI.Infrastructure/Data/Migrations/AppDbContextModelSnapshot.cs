@@ -97,6 +97,12 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
 
+                    b.Property<DateTime?>("ExcluidoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ExcluidoPorUserId")
+                        .HasColumnType("int");
+
                     b.Property<string>("NomeOriginal")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -126,6 +132,12 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime?>("CanceladoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("CanceladoPorUserId")
+                        .HasColumnType("int");
 
                     b.Property<int>("ClinicaId")
                         .HasColumnType("int");
@@ -159,6 +171,10 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.Property<int?>("MedicoResponsavelId")
                         .HasColumnType("int");
+
+                    b.Property<string>("MotivoCancelamento")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
 
                     b.Property<string>("MotivoGlosa")
                         .HasMaxLength(1000)
@@ -284,6 +300,70 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         });
                 });
 
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.AuditoriaClinica", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<string>("Acao")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<int>("ClinicaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("DataUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Detalhe")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<int?>("EquipeOperadorId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("IpTruncado")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("PacienteId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Recurso")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("nvarchar(60)");
+
+                    b.Property<string>("RecursoId")
+                        .HasMaxLength(40)
+                        .HasColumnType("nvarchar(40)");
+
+                    b.Property<int>("StatusCode")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("Sucesso")
+                        .HasColumnType("bit");
+
+                    b.Property<int?>("UsuarioId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DataUtc");
+
+                    b.HasIndex("ClinicaId", "DataUtc");
+
+                    b.HasIndex("ClinicaId", "PacienteId", "DataUtc");
+
+                    b.HasIndex("ClinicaId", "Recurso", "RecursoId", "DataUtc");
+
+                    b.ToTable("AuditoriasClinica", (string)null);
+                });
+
             modelBuilder.Entity("HemodinksAPI.Domain.Models.AuditoriaPlataforma", b =>
                 {
                     b.Property<long>("Id")
@@ -388,6 +468,13 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Property<int?>("OperadorVersaoSessao")
                         .HasColumnType("int");
 
+                    b.Property<string>("PreviousRefreshTokenHash")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("RefreshRotatedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("RefreshTokenHash")
                         .IsRequired()
                         .HasMaxLength(64)
@@ -416,6 +503,8 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PreviousRefreshTokenHash");
 
                     b.HasIndex("RefreshTokenHash")
                         .IsUnique();
@@ -571,6 +660,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AuditarAtendimentos")
+                        .HasColumnType("bit");
+
                     b.Property<int>("ClinicaId")
                         .HasColumnType("int");
 
@@ -601,6 +693,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         new
                         {
                             Id = 1,
+                            AuditarAtendimentos = false,
                             ClinicaId = 1,
                             DataCadastro = new DateTime(2026, 6, 22, 0, 0, 0, 0, DateTimeKind.Utc),
                             NomeEmpresa = "Hemodinks"
@@ -1973,6 +2066,90 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.ToTable("Licencas", (string)null);
                 });
 
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.MfaCodigoRecuperacao", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CodigoHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime>("DataCadastro")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("UsadoEm")
+                        .IsConcurrencyToken()
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UsuarioGlobalId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UsuarioGlobalId", "CodigoHash")
+                        .IsUnique();
+
+                    b.ToTable("MfaCodigosRecuperacao", (string)null);
+                });
+
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.MfaLoginDesafio", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ClinicaId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("DataCadastro")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("SecurityVersion")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Tentativas")
+                        .IsConcurrencyToken()
+                        .HasColumnType("int");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UsuarioGlobalId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("UtilizadoEm")
+                        .IsConcurrencyToken()
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ExpiraEm");
+
+                    b.HasIndex("UsuarioGlobalId");
+
+                    b.HasIndex("ClinicaId", "TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("ClinicaId", "UserId");
+
+                    b.ToTable("MfaLoginDesafios", (string)null);
+                });
+
             modelBuilder.Entity("HemodinksAPI.Domain.Models.Observacao", b =>
                 {
                     b.Property<int>("Id")
@@ -2101,6 +2278,11 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("Ativo")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(true);
+
                     b.Property<string>("Autorizacao")
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
@@ -2139,6 +2321,17 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     b.Property<int?>("HospitalId")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("InativadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("InativadoPorUserId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("LoginBloqueadoNaInativacao")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Medico")
                         .HasMaxLength(255)
@@ -2232,6 +2425,8 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.HasIndex("UserId")
                         .IsUnique();
 
+                    b.HasIndex("ClinicaId", "Ativo");
+
                     b.HasIndex("ClinicaId", "Data");
 
                     b.HasIndex("ClinicaId", "DataAtendimento");
@@ -2275,6 +2470,12 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("datetime2")
                         .HasDefaultValueSql("GETUTCDATE()");
+
+                    b.Property<DateTime?>("ExcluidoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("ExcluidoPorUserId")
+                        .HasColumnType("int");
 
                     b.Property<string>("NomeOriginal")
                         .IsRequired()
@@ -2930,6 +3131,26 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<bool>("MfaHabilitado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime?>("MfaHabilitadoEm")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("MfaSegredoPendenteProtegido")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("MfaSegredoProtegido")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<long?>("MfaUltimoPassoUsado")
+                        .IsConcurrencyToken()
+                        .HasColumnType("bigint");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -3130,6 +3351,17 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("AtendimentoCirurgico");
+
+                    b.Navigation("Clinica");
+                });
+
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.AuditoriaClinica", b =>
+                {
+                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
+                        .WithMany()
+                        .HasForeignKey("ClinicaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.Navigation("Clinica");
                 });
@@ -3619,6 +3851,45 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Navigation("Clinica");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.MfaCodigoRecuperacao", b =>
+                {
+                    b.HasOne("HemodinksAPI.Domain.Models.UsuarioGlobal", "UsuarioGlobal")
+                        .WithMany()
+                        .HasForeignKey("UsuarioGlobalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("UsuarioGlobal");
+                });
+
+            modelBuilder.Entity("HemodinksAPI.Domain.Models.MfaLoginDesafio", b =>
+                {
+                    b.HasOne("HemodinksAPI.Domain.Models.Clinica", "Clinica")
+                        .WithMany()
+                        .HasForeignKey("ClinicaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("HemodinksAPI.Domain.Models.UsuarioGlobal", "UsuarioGlobal")
+                        .WithMany()
+                        .HasForeignKey("UsuarioGlobalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("HemodinksAPI.Domain.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("ClinicaId", "UserId")
+                        .HasPrincipalKey("ClinicaId", "Id")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Clinica");
+
+                    b.Navigation("User");
+
+                    b.Navigation("UsuarioGlobal");
                 });
 
             modelBuilder.Entity("HemodinksAPI.Domain.Models.Observacao", b =>

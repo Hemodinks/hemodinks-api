@@ -105,7 +105,7 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
     {
         var patientQuery = PacienteAccess.ApplyScope(
             _context,
-            _context.Pacientes.AsNoTracking().AsQueryable(),
+            _context.Pacientes.AsNoTracking().Where(paciente => paciente.Ativo),
             perfilId,
             userId,
             equipeId);
@@ -116,7 +116,7 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
             {
                 PacientesCount = group.Count(),
                 ActivePatientsCount = group.Count(paciente => paciente.User.Ativo),
-                PatientFilesCount = group.Sum(paciente => paciente.Arquivos.Count)
+                PatientFilesCount = group.Sum(paciente => paciente.Arquivos.Count(a => a.ExcluidoEm == null))
             })
             .FirstOrDefaultAsync(cancellationToken);
     }

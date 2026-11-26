@@ -192,6 +192,11 @@ jobs:
     if: ${{ !cancelled() && (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main') && needs.release-source.result == 'success' && needs.release-source.outputs.mode == 'build' && ((needs.validate.result == 'success' && needs.login-e2e.result == 'success') || (needs.release-source.outputs.run_tests == 'false' && needs.validate.result == 'skipped' && needs.login-e2e.result == 'skipped')) }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    # #372: security-events so para enviar o SARIF do Trivy ao Code Scanning.
+    permissions:
+      contents: read
+      packages: write
+      security-events: write
     strategy:
       fail-fast: false
       matrix:
@@ -225,6 +230,56 @@ jobs:
           labels: |
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      # #372: Trivy oficial pela imagem fixada por digest (sem action de terceiros), sobre o digest
+      # recem-publicado. Gera SBOM SPDX e SARIF antes do gate, para existirem mesmo quando ele falha.
+      - name: Scan image with Trivy (SBOM and SARIF)
+        env:
+          IMAGE_REF: ${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          TRIVY_IMAGE: aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb # v0.76.2
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          mkdir -p security "$RUNNER_TEMP/trivy-cache"
+          trivy() {
+            docker run --rm -e TRIVY_USERNAME -e TRIVY_PASSWORD \
+              -v "$RUNNER_TEMP/trivy-cache:/root/.cache/trivy" -v "$PWD:/src:ro" -v "$PWD/security:/out" \
+              "$TRIVY_IMAGE" image --quiet "$@" "$IMAGE_REF"
+          }
+          trivy --format spdx-json --output /out/sbom.spdx.json
+          trivy --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --ignorefile /src/.trivyignore \
+            --format sarif --output /out/trivy-image.sarif
+          test -s security/sbom.spdx.json && test -s security/trivy-image.sarif
+
+      - name: Upload image SBOM
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: sbom-${{ matrix.service }}-${{ github.sha }}
+          path: security/sbom.spdx.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Upload Trivy results to Code Scanning
+        uses: github/codeql-action/upload-sarif@1bd86f2fdb4b86187fa4059f16f31a3202acc9ea # v4.39.4
+        with:
+          sarif_file: security/trivy-image.sarif
+          category: trivy-image-${{ matrix.service }}
+
+      # Gate: CVE HIGH/CRITICAL com correcao disponivel bloqueia o release (o deploy depende deste job).
+      # Excecoes so via .trivyignore versionado (docs/container-image-scan.md).
+      - name: Fail on fixable HIGH/CRITICAL image vulnerabilities
+        env:
+          IMAGE_REF: ${{ matrix.image }}@${{ steps.build.outputs.digest }}
+          TRIVY_IMAGE: aquasec/trivy@sha256:8f6bb947dbc528902e11f2f5be52f7b519f6a39d5d148f41166f2040499768fb # v0.76.2
+          TRIVY_USERNAME: ${{ github.actor }}
+          TRIVY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          docker run --rm -e TRIVY_USERNAME -e TRIVY_PASSWORD \
+            -v "$RUNNER_TEMP/trivy-cache:/root/.cache/trivy" -v "$PWD:/src:ro" \
+            "$TRIVY_IMAGE" image --quiet --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed \
+            --ignorefile /src/.trivyignore --exit-code 1 --format table "$IMAGE_REF"
 
       # #278: o deploy implanta este digest exato, nao a tag.
       - name: Record validated image digest
@@ -372,6 +427,14 @@ jobs:
           chmod +x artifacts/schema-guard/Hemodinks.SchemaGuard
           ./artifacts/schema-guard/Hemodinks.SchemaGuard --validate-connections
 
+      # #204: so leitura e so booleanos; informa se a migration ainda usa credencial administrativa. Nao bloqueia.
+      - name: Report migration identity privilege (read-only)
+        timeout-minutes: 5
+        continue-on-error: true
+        env:
+          HEMODINKS_SQL_MIGRATION_CONNECTION_STRING: ${{ secrets.AZURE_SQL_MIGRATION_CONNECTION_STRING }}
+        run: ./artifacts/schema-guard/Hemodinks.SchemaGuard --report-migration-identity
+
       - name: Verify SQL runtime privileges and history
         env:
           ConnectionStrings__DefaultConnection: ${{ secrets.AZURE_SQL_RUNTIME_CONNECTION_STRING }}
@@ -474,6 +537,18 @@ jobs:
           PREVIOUS_REVISION: ${{ steps.candidate.outputs.previous_revision }}
           CANDIDATE_REVISION: ${{ steps.candidate.outputs.candidate_revision }}
         run: bash scripts/deploy/promote-candidate.sh
+      # Marcador "Deployments" no APM do New Relic. So apos promocao real (nao em already-current);
+      # nunca bloqueia: o trafego ja foi trocado quando este passo roda.
+      - name: Record deployment in New Relic
+        if: steps.promotion.outputs.result == 'promoted'
+        continue-on-error: true
+        timeout-minutes: 2
+        env:
+          NEW_RELIC_API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
+          NEW_RELIC_ACCOUNT_ID: ${{ vars.NEW_RELIC_ACCOUNT_ID }}
+          NEW_RELIC_REGION: ${{ vars.NEW_RELIC_REGION }}
+          CANDIDATE_REVISION: ${{ steps.candidate.outputs.candidate_revision }}
+        run: python3 -B scripts/newrelic_change_tracking.py
       - name: Enforce CURRENT/PREVIOUS revision policy
         if: steps.candidate.outputs.already_current != 'true'
         id: cleanup

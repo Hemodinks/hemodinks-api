@@ -23,6 +23,8 @@ concurrency:
 env:
   API_NAME: hemodinks-api-prod
   API_RESOURCE_GROUP: rg-hemodinks-prod
+  # #204: rollback only to revisions whose SQL connection uses the restricted runtime secret.
+  RUNTIME_SQL_SECRET_PREFIX: connectionstrings-runtime-
 
 jobs:
   rollback:
@@ -104,6 +106,25 @@ jobs:
           if [ -z "$target_revision" ] || [ "$valid" != "true" ] || [ "$target_revision" = "$current_revision" ]; then
             echo "::error::Target must be the different active and Healthy PREVIOUS revision. Scale-to-zero is allowed."
             exit 5
+          fi
+
+          # #204: never roll back to a revision whose SQL connection resolves outside the restricted runtime
+          # credential (e.g. the legacy administrative connectionstrings-defaultconnection). Only secret names
+          # are inspected; values are never read.
+          target_template="$(az containerapp revision show \
+            --name "$API_NAME" \
+            --resource-group "$API_RESOURCE_GROUP" \
+            --revision "$target_revision" \
+            --query properties.template -o json)"
+          sql_credential="$(jq -r --arg prefix "$RUNTIME_SQL_SECRET_PREFIX" '
+            [.containers[]?.env[]? | select(.name == "ConnectionStrings__DefaultConnection")] as $entries
+            | if ($entries | length) == 0 then "missing"
+              elif all($entries[]; (.value == null) and ((.secretRef // "") | startswith($prefix))) then "runtime"
+              else "forbidden" end
+          ' <<<"$target_template")"
+          if [ "$sql_credential" != "runtime" ]; then
+            echo "::error::Rollback target $target_revision does not use the restricted runtime SQL secret (${RUNTIME_SQL_SECRET_PREFIX}*): ${sql_credential}. Production traffic was not changed."
+            exit 9
           fi
 
           if [ "$current_label" = "blue" ]; then target_label="green"; else target_label="blue"; fi

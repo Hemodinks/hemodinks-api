@@ -167,10 +167,15 @@ class ReleaseReuseWorkflowTests(unittest.TestCase):
         ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
         steps = ci.split("  build-test:\n", 1)[1]
         record = steps.index("      - name: Record tested tree for Publish Production")
-        for earlier in ("      - name: Test\n", "      - name: Require critical SQL tests and zero silent skips",
+        # O portao so grava a prova depois de exigir as duas partes de teste verdes e o resultado combinado.
+        self.assertIn("    needs: [scope, build-test-part]\n", steps)
+        self.assertIn('if [ "$PARTS_RESULT" != "success" ]; then', steps)
+        for earlier in ("      - name: Require both test parts", "      - name: Require critical SQL tests and zero silent skips",
                         "      - name: Test result gate regressions"):
             with self.subTest(step=earlier.strip()):
                 self.assertLess(steps.index(earlier), record)
+        parts = ci.split("  build-test-part:\n", 1)[1].split("  build-test:\n", 1)[0]
+        self.assertIn("      - name: Test\n", parts)
         self.assertEqual(2, ci.count("if: github.event_name == 'pull_request' && github.base_ref == 'main'"))
         self.assertIn("name: ci-tested-tree-${{ env.TESTED_TREE }}", ci)
 
@@ -298,6 +303,162 @@ curl() {
         result, output = self.run_smoke("label_failure")
         self.assertEqual(93, result.returncode, result.stderr)
         self.assertNotIn("result=passed", output)
+
+
+class ImageScanGateTests(unittest.TestCase):
+    """#372: o publish escaneia o digest publicado, gera SBOM/SARIF e bloqueia CVE alta/critica corrigivel."""
+
+    DIGEST_PIN = re.compile(r"TRIVY_IMAGE: aquasec/trivy@sha256:[0-9a-f]{64} # v\d+\.\d+\.\d+$", re.M)
+
+    def publish(self):
+        return job_body(PUBLISH, "publish")
+
+    def test_trivy_runs_from_digest_pinned_image_not_third_party_action(self):
+        publish = self.publish()
+        self.assertEqual(2, len(self.DIGEST_PIN.findall(publish)), "scan and gate must pin the Trivy image by digest")
+        self.assertNotIn("aquasecurity/trivy-action", PUBLISH.read_text(encoding="utf-8"))
+        self.assertIn("IMAGE_REF: ${{ matrix.image }}@${{ steps.build.outputs.digest }}", publish)
+
+    def test_gate_blocks_fixable_high_and_critical_before_digest_is_released(self):
+        publish = self.publish()
+        gate_at = publish.index("- name: Fail on fixable HIGH/CRITICAL image vulnerabilities")
+        gate = publish[gate_at:publish.index("- name:", gate_at + 10)]
+        for flag in ("--severity HIGH,CRITICAL", "--ignore-unfixed", "--ignorefile /src/.trivyignore", "--exit-code 1"):
+            with self.subTest(flag=flag):
+                self.assertIn(flag, gate)
+        self.assertNotIn("continue-on-error", gate)
+        self.assertLess(publish.index("- name: Upload Trivy results to Code Scanning"), gate_at)
+        self.assertLess(gate_at, publish.index("- name: Record validated image digest"))
+
+    def test_sbom_and_sarif_are_published_with_minimal_permissions(self):
+        publish = self.publish()
+        self.assertIn("--format spdx-json --output /out/sbom.spdx.json", publish)
+        self.assertIn("name: sbom-${{ matrix.service }}-${{ github.sha }}", publish)
+        self.assertIn("github/codeql-action/upload-sarif@", publish)
+        permissions = re.search(r"\n    permissions:\n((?:      .*\n)+)", publish)
+        self.assertIsNotNone(permissions)
+        self.assertEqual(
+            {"contents: read", "packages: write", "security-events: write"},
+            {line.strip() for line in permissions.group(1).splitlines()})
+
+    def test_trivy_allowlist_entries_are_justified(self):
+        lines = (ROOT / ".trivyignore").read_text(encoding="utf-8").splitlines()
+        for index, line in enumerate(lines):
+            if line.strip() and not line.lstrip().startswith("#"):
+                with self.subTest(entry=line):
+                    self.assertTrue(index > 0 and lines[index - 1].lstrip().startswith("#"),
+                                    "each .trivyignore entry needs a justification comment right above it")
+class ContainerImageHardeningTests(unittest.TestCase):
+    """#371: a API roda sem root e a imagem nao leva logs ou arquivos locais do build."""
+
+    def final_stage(self):
+        source = (ROOT / "Dockerfile").read_text(encoding="utf-8")
+        parts = re.split(r"(?m)^FROM .* AS final$", source)
+        self.assertEqual(2, len(parts), "Dockerfile must keep a single 'final' stage")
+        return parts[1]
+
+    def test_final_stage_drops_root_after_preparing_writable_dirs(self):
+        final = self.final_stage()
+        users = re.findall(r"(?m)^USER\s+(\S+)\s*$", final)
+        self.assertEqual(["$APP_UID"], users, "final stage must switch to the base image non-root user once")
+        user_at = final.index("USER $APP_UID")
+        chown_at = final.index('chown "$APP_UID" /app/logs /app/local-storage')
+        self.assertLess(chown_at, user_at, "writable dirs must be prepared (as root) before dropping privileges")
+        self.assertLess(user_at, final.index("ENTRYPOINT"), "the API process must start as the non-root user")
+        # O chown so pode tocar os diretorios gravaveis, nunca /app inteiro (binario e agente New Relic).
+        chown_lines = [line for line in final.splitlines() if "chown" in line]
+        self.assertEqual(1, len(chown_lines))
+        self.assertNotRegex(chown_lines[0], r"\s/app(\s|$)", "binaries and New Relic agent must stay root-owned")
+
+    def test_build_context_excludes_logs_and_local_storage_at_any_depth(self):
+        ignored = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+        for pattern in ("**/logs", "**/*.log", "**/local-storage", "**/.env"):
+            with self.subTest(pattern=pattern):
+                self.assertIn(pattern, ignored)
+
+
+class RollbackRuntimeCredentialTests(unittest.TestCase):
+    """#204: rollback never targets a revision whose SQL connection is not the restricted runtime secret."""
+
+    TRAFFIC = [
+        {"revisionName": "app--current", "label": "blue", "weight": 100},
+        {"revisionName": "app--previous", "label": "green", "weight": 0},
+    ]
+    REVISIONS = [
+        {"name": "app--current", "properties": {"active": True, "healthState": "Healthy"}},
+        {"name": "app--previous", "properties": {"active": True, "healthState": "Healthy"}},
+    ]
+
+    @staticmethod
+    def template(*db_entries, extra_container=None):
+        env = [{"name": "ASPNETCORE_ENVIRONMENT", "value": "Production"}, *db_entries]
+        containers = [{"name": "api", "env": env}]
+        if extra_container is not None:
+            containers.append(extra_container)
+        return {"containers": containers}
+
+    def run_validation(self, target_template):
+        source = ROLLBACK.read_text(encoding="utf-8").replace("\r\n", "\n")
+        section = source.split("      - name: Validate target and select revision", 1)
+        self.assertEqual(2, len(section), "Rollback validation step must be present")
+        match = re.search(r"        run: \|\n((?:          .*\n|\n)+)", section[1])
+        self.assertIsNotNone(match)
+        script = textwrap.dedent(match.group(1))
+        prefix = re.search(r"^  RUNTIME_SQL_SECRET_PREFIX: (\S+)$", source, re.M)
+        self.assertIsNotNone(prefix, "Runtime SQL secret prefix must be pinned in the workflow env")
+        bash = shutil.which("bash") if os.name != "nt" else str(Path(os.environ.get("ProgramFiles", "C:/Program Files")) / "Git/bin/bash.exe")
+        self.assertTrue(bash and Path(bash).exists(), "Bash is required for offline rollback tests")
+        jq = shutil.which("jq")
+        self.assertTrue(jq, "jq is required to execute the real workflow checks")
+        stubs = '''
+az() {
+  case "$*" in
+    "containerapp show"*"--query name -o tsv") echo hemodinks-api-prod ;;
+    "containerapp show"*"activeRevisionsMode"*) echo Multiple ;;
+    "containerapp show"*"ingress.traffic"*) printf '%s' "$TRAFFIC" ;;
+    "containerapp show"*"ingress.fqdn"*) echo hemodinks-api-prod.region.azurecontainerapps.io ;;
+    "containerapp revision list"*) printf '%s' "$REVISIONS" ;;
+    "containerapp revision show"*"--revision app--previous"*) printf '%s' "$TARGET_TEMPLATE" ;;
+    *) echo "Unexpected Azure command: $*" >&2; exit 99 ;;
+  esac
+}
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "output"
+            env = dict(os.environ, API_NAME="hemodinks-api-prod", API_RESOURCE_GROUP="offline-group",
+                       REQUESTED_REVISION="", RUNTIME_SQL_SECRET_PREFIX=prefix.group(1),
+                       TRAFFIC=json.dumps(self.TRAFFIC), REVISIONS=json.dumps(self.REVISIONS),
+                       TARGET_TEMPLATE=json.dumps(target_template), GITHUB_OUTPUT=output.as_posix(),
+                       PATH=os.pathsep.join([str(Path(jq).parent), os.environ.get("PATH", "")]))
+            result = subprocess.run([bash, "-e", "-c", stubs + script], env=env,
+                                    capture_output=True, text=True, timeout=20)
+            return result, output.read_text() if output.exists() else ""
+
+    def test_runtime_secret_target_is_allowed(self):
+        result, output = self.run_validation(self.template(
+            {"name": "ConnectionStrings__DefaultConnection", "secretRef": "connectionstrings-runtime-prod-v2"}))
+        self.assertEqual(0, result.returncode, result.stdout + result.stderr)
+        self.assertIn("target_revision=app--previous", output)
+
+    def test_legacy_or_unsafe_sql_credentials_block_rollback_before_any_mutation(self):
+        runtime = {"name": "ConnectionStrings__DefaultConnection", "secretRef": "connectionstrings-runtime-prod-v2"}
+        legacy = {"name": "ConnectionStrings__DefaultConnection", "secretRef": "connectionstrings-defaultconnection"}
+        cases = {
+            "legacy administrative secret": self.template(legacy),
+            "inline connection string": self.template(
+                {"name": "ConnectionStrings__DefaultConnection", "value": "Server=x;User ID=admin;Password=unused"}),
+            "missing connection": self.template(),
+            "second container with legacy secret": self.template(
+                runtime, extra_container={"name": "sidecar", "env": [legacy]}),
+            "no containers": {"containers": []},
+        }
+        for name, target_template in cases.items():
+            with self.subTest(name):
+                result, output = self.run_validation(target_template)
+                self.assertEqual(9, result.returncode, result.stdout + result.stderr)
+                self.assertEqual("", output, "No target may be emitted when the credential is rejected")
+                self.assertIn("Production traffic was not changed", result.stdout)
+                self.assertNotIn("Password=unused", result.stdout + result.stderr)
 
 
 class PublishRevisionReuseTests(unittest.TestCase):

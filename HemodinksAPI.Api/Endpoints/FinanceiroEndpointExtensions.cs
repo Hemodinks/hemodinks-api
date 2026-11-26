@@ -13,10 +13,15 @@ public static class FinanceiroEndpointExtensions
     {
         var atendimentos = app.MapGroup("/api/atendimentos-cirurgicos").WithTags("Atendimentos cirurgicos").RequireAuthorization()
             .AddEndpointFilter<FinanceiroAuditFilter>();
-        atendimentos.MapGet("/", async (int? pacienteId, TipoCirurgia? tipoCirurgia, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
+        atendimentos.MapGet("/", async (int? pacienteId, TipoCirurgia? tipoCirurgia, bool? incluirCancelados, int? page, int? pageSize,
+            ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
-            return Results.Ok(await mediator.Send(new ListarAtendimentosQuery(pacienteId, user.Id, user.PerfilId) { TipoCirurgia = tipoCirurgia }, ct));
+            return Results.Ok(await mediator.Send(new ListarAtendimentosQuery(pacienteId, user.Id, user.PerfilId)
+            {
+                TipoCirurgia = tipoCirurgia, IncluirCancelados = incluirCancelados == true,
+                Page = page ?? 1, PageSize = pageSize ?? FinanceiroPaging.DefaultPageSize
+            }, ct));
         })
             .RequireAuthorization("AtendimentoVisualizar");
         atendimentos.MapPost("/", async (CriarAtendimentoCommand command, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
@@ -25,7 +30,7 @@ public static class FinanceiroEndpointExtensions
             command = command with { CurrentUserId = user.Id, CurrentPerfilId = user.PerfilId };
             var result = await mediator.Send(command, ct);
             return Results.Created($"/api/atendimentos-cirurgicos/{result.Id}", result);
-        }).RequireAuthorization("AtendimentoGerenciar");
+        }).RequireAuthorization("AtendimentoGerenciar").WithAtendimentoAudit("atendimento.criar");
         atendimentos.MapGet("/{id:int}", async (int id, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
@@ -38,14 +43,15 @@ public static class FinanceiroEndpointExtensions
             return Results.Ok(await mediator.Send(
                 command with { Id = id, CurrentUserId = user.Id, CurrentPerfilId = user.PerfilId },
                 ct));
-        }).RequireAuthorization("AtendimentoGerenciar");
-        atendimentos.MapDelete("/{id:int}", async (int id, ClaimsPrincipal principal,
+        }).RequireAuthorization("AtendimentoGerenciar").WithAtendimentoAudit("atendimento.editar");
+        // DELETE cancela logicamente (nada e apagado); motivo opcional na query string.
+        atendimentos.MapDelete("/{id:int}", async (int id, string? motivo, ClaimsPrincipal principal,
             FinanceiroFileUseCases files, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
-            await files.DeleteAtendimentoAsync(id, user, ct);
+            await files.DeleteAtendimentoAsync(id, user, motivo, ct);
             return Results.NoContent();
-        }).RequireAuthorization("AtendimentoGerenciar");
+        }).RequireAuthorization("AtendimentoGerenciar").WithAtendimentoAudit("atendimento.cancelar");
         atendimentos.MapPost("/{id:int}/arquivos", async (int id, IFormFile arquivo,
             ClaimsPrincipal principal, FinanceiroFileUseCases files, CancellationToken ct) =>
         {
@@ -69,10 +75,11 @@ public static class FinanceiroEndpointExtensions
 
         var faturamentos = app.MapGroup("/api/faturamentos").WithTags("Faturamento").RequireAuthorization()
             .AddEndpointFilter<FinanceiroAuditFilter>();
-        faturamentos.MapGet("/", async (TipoCirurgia? tipoCirurgia, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
+        faturamentos.MapGet("/", async (TipoCirurgia? tipoCirurgia, int? page, int? pageSize, ClaimsPrincipal principal, IMediator mediator, CancellationToken ct) =>
         {
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
-            return Results.Ok(await mediator.Send(new ListarFaturamentosQuery(user.Id, user.PerfilId) { TipoCirurgia = tipoCirurgia }, ct));
+            return Results.Ok(await mediator.Send(new ListarFaturamentosQuery(user.Id, user.PerfilId)
+                { TipoCirurgia = tipoCirurgia, Page = page ?? 1, PageSize = pageSize ?? FinanceiroPaging.DefaultPageSize }, ct));
         }).RequireAuthorization("FaturamentoVisualizar");
         faturamentos.MapPost("/", async (CriarFaturamentoCommand command, IMediator mediator, CancellationToken ct) =>
         {
@@ -122,8 +129,9 @@ public static class FinanceiroEndpointExtensions
 
         var financeiro = app.MapGroup("/api/financeiro/contas-receber").WithTags("Contas a receber").RequireAuthorization()
             .AddEndpointFilter<FinanceiroAuditFilter>();
-        financeiro.MapGet("/", async (TipoCirurgia? tipoCirurgia, IMediator mediator, CancellationToken ct) =>
-            Results.Ok(await mediator.Send(new ListarContasReceberQuery() { TipoCirurgia = tipoCirurgia }, ct))).RequireAuthorization("FinanceiroVisualizar");
+        financeiro.MapGet("/", async (TipoCirurgia? tipoCirurgia, int? page, int? pageSize, IMediator mediator, CancellationToken ct) =>
+            Results.Ok(await mediator.Send(new ListarContasReceberQuery()
+                { TipoCirurgia = tipoCirurgia, Page = page ?? 1, PageSize = pageSize ?? FinanceiroPaging.DefaultPageSize }, ct))).RequireAuthorization("FinanceiroVisualizar");
         financeiro.MapGet("/{id:int}", async (int id, IMediator mediator, CancellationToken ct) =>
             Results.Ok(await mediator.Send(new ObterContaReceberQuery(id), ct))).RequireAuthorization("FinanceiroVisualizar");
         financeiro.MapGet("/pesquisa", async (int page, int pageSize, string? termo, ContaReceberStatus? status,
@@ -189,7 +197,8 @@ public static class FinanceiroEndpointExtensions
             var user = principal.ToCurrentUserContext() ?? throw new UnauthorizedAccessException();
             return Results.Ok(await mediator.Send(new ObterPacienteFinanceiroResumoQuery(id, user.Id, user.PerfilId)
                 { CurrentEquipeId = user.EquipeId }, ct));
-        }).WithTags("Pacientes").RequireAuthorization(LicencaPolicies.PacientesVisualizar);
+        }).WithTags("Pacientes").RequireAuthorization(LicencaPolicies.PacientesVisualizar)
+            .WithPacienteAudit("paciente.resumo-financeiro");
     }
 }
 internal sealed class FinanceiroAuditFilter(PlatformAuditService audit, IClinicaContext tenant,

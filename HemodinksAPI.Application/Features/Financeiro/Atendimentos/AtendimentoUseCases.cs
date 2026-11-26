@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Auditing;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Common;
 using HemodinksAPI.Application.Tenancy;
@@ -8,7 +9,8 @@ using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
-public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, IClinicaContext tenant)
+public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, IClinicaContext tenant,
+    IClinicAuditRecorder? audit = null)
     : IRequestHandler<CriarAtendimentoCommand, AtendimentoDto>
 {
     public async Task<AtendimentoDto> Handle(CriarAtendimentoCommand request, CancellationToken ct)
@@ -24,6 +26,9 @@ public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, 
             request.MedicoAuxiliar2Id, request.CurrentPerfilId, request.CurrentUserId, ct);
         var paciente = await db.Pacientes.SingleOrDefaultAsync(x => x.Id == request.PacienteId, ct)
             ?? throw new ResourceNotFoundException("Paciente nao encontrado.");
+        // #369: so o Administrador registra atendimento de paciente inativado.
+        if (!paciente.Ativo && !Perfil.IsAdministradorOuSuper(request.CurrentPerfilId))
+            throw new ResourceNotFoundException("Paciente nao encontrado.");
         var hospital = request.HospitalId.HasValue || !string.IsNullOrWhiteSpace(request.Hospital)
             ? await ClinicalReferenceResolver.ResolveHospitalAsync(db, clinicaId, request.HospitalId, request.Hospital, ct)
             : null;
@@ -68,23 +73,38 @@ public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, 
         }
         db.AtendimentosCirurgicos.Add(atendimento);
         await db.SaveChangesAsync(ct);
+        if (audit is not null && await audit.AuditarAtendimentosAsync(ct))
+        {
+            audit.ForPaciente(atendimento.PacienteId);
+            audit.Request();
+        }
         return FinanceiroMapper.ToDto(atendimento);
     }
 }
 
-public sealed class ListarAtendimentosQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ListarAtendimentosQuery, List<AtendimentoDto>>
+public sealed class ListarAtendimentosQueryHandler(IFinanceFeatureDbContext db) : IRequestHandler<ListarAtendimentosQuery, PagedResult<AtendimentoDto>>
 {
-    public async Task<List<AtendimentoDto>> Handle(ListarAtendimentosQuery request, CancellationToken ct)
+    public async Task<PagedResult<AtendimentoDto>> Handle(ListarAtendimentosQuery request, CancellationToken ct)
     {
-        var query = db.AtendimentosCirurgicos.AsNoTracking().Include(x => x.Paciente)
-            .Include(x => x.OpmeFornecedor).Include(x => x.Procedimentos).Include(x => x.Arquivos).AsQueryable();
+        var (page, pageSize) = FinanceiroPaging.Normalize(request.Page, request.PageSize);
+        var query = db.AtendimentosCirurgicos.AsNoTracking().AsQueryable();
         if (request.CurrentPerfilId == Perfil.MedicosId)
             query = query.Where(x => x.MedicoResponsavelId == request.CurrentUserId || x.MedicoAuxiliar1Id == request.CurrentUserId || x.MedicoAuxiliar2Id == request.CurrentUserId);
+        if (!Perfil.IsAdministradorOuSuper(request.CurrentPerfilId)) query = query.Where(x => x.Paciente.Ativo);
+        // Atendimento cancelado via DELETE sai das listas; so o Administrador pode pedir para incluir.
+        if (!(request.IncluirCancelados && Perfil.IsAdministradorOuSuper(request.CurrentPerfilId)))
+            query = query.Where(x => x.CanceladoEm == null);
         if (request.PacienteId.HasValue) query = query.Where(x => x.PacienteId == request.PacienteId);
         TipoCirurgiaRules.Validate(request.TipoCirurgia);
         if (request.TipoCirurgia.HasValue) query = query.Where(x => x.TipoCirurgia == request.TipoCirurgia);
-        return (await query.OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro)
-            .ThenByDescending(x => x.Id).ToListAsync(ct)).Select(FinanceiroMapper.ToDto).ToList();
+        var total = await query.CountAsync(ct);
+        var items = (await query.Include(x => x.Paciente).Include(x => x.OpmeFornecedor)
+            .Include(x => x.Procedimentos).Include(x => x.Arquivos)
+            .OrderByDescending(x => x.DataAtualizacao ?? x.DataCadastro)
+            .ThenByDescending(x => x.Id)
+            .Skip((page - 1) * pageSize).Take(pageSize)
+            .ToListAsync(ct)).Select(FinanceiroMapper.ToDto).ToList();
+        return new PagedResult<AtendimentoDto>(items, page, pageSize, total);
     }
 }
 

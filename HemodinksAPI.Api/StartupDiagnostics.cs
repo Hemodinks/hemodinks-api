@@ -14,10 +14,20 @@ internal sealed class StartupDiagnostics
     // True once: the first non-probe request completed by this process.
     public bool TryMarkFirstApplicationRequest() => Interlocked.Exchange(ref _firstApplicationRequest, 1) == 0;
 
-    public void Record(ILogger logger, string stage, double durationMs) =>
+    // #277: marco de fim do startup encaminhado ao New Relic (que descarta Information); nao e alerta.
+    public static readonly EventId StartupCompletedEvent = new(4401, "StartupCompleted");
+
+    public void Record(ILogger logger, string stage, double durationMs)
+    {
         logger.LogInformation(
             "Startup stage {StartupStage}: {DurationMs} ms; elapsed {StartupElapsedMs} ms",
             stage, durationMs, _elapsed.Elapsed.TotalMilliseconds);
+        if (stage == "http_started")
+        {
+            logger.LogWarning(StartupCompletedEvent, "StartupCompleted: HTTP pronto em {StartupElapsedMs} ms",
+                _elapsed.Elapsed.TotalMilliseconds);
+        }
+    }
 
     public void RecordFirstReady(ILogger logger)
     {

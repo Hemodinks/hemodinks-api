@@ -135,3 +135,5 @@ verde no GitHub. A publicação das alterações depende do fluxo normal de revi
 Status: implementação e validação local concluídas. Permanecem pendentes o
 commit/PR para `developer` e a confirmação de execução dos novos gates no GitHub;
 nenhum commit, push ou PR foi criado automaticamente sem autorização explícita.
+
+> **Obsoleto (#369):** o item 5 foi substituído por `PacienteCommandHandlerTests.InativarPaciente_SqlServer_PreservaDadosERespeitaTenant`; a exclusão física de paciente deixou de existir (DELETE agora inativa).

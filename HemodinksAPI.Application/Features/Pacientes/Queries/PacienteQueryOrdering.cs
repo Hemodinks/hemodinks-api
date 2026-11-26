@@ -51,8 +51,8 @@ internal static class PacienteQueryOrdering
                 ? query.OrderByDescending(paciente => paciente.StatusPago).ThenByDescending(paciente => paciente.Id)
                 : query.OrderBy(paciente => paciente.StatusPago).ThenBy(paciente => paciente.Id),
             "arquivos" => isDescending
-                ? query.OrderByDescending(paciente => paciente.Arquivos.Count).ThenByDescending(paciente => paciente.NomePaciente).ThenByDescending(paciente => paciente.Id)
-                : query.OrderBy(paciente => paciente.Arquivos.Count).ThenBy(paciente => paciente.NomePaciente).ThenBy(paciente => paciente.Id),
+                ? query.OrderByDescending(paciente => paciente.Arquivos.Count(a => a.ExcluidoEm == null)).ThenByDescending(paciente => paciente.NomePaciente).ThenByDescending(paciente => paciente.Id)
+                : query.OrderBy(paciente => paciente.Arquivos.Count(a => a.ExcluidoEm == null)).ThenBy(paciente => paciente.NomePaciente).ThenBy(paciente => paciente.Id),
             _ => isDescending
                 ? query.OrderByDescending(paciente => paciente.User.DataAtualizacao ?? paciente.User.DataCadastro).ThenBy(paciente => paciente.NomePaciente).ThenBy(paciente => paciente.Id)
                 : query.OrderBy(paciente => paciente.User.DataAtualizacao ?? paciente.User.DataCadastro).ThenBy(paciente => paciente.NomePaciente).ThenBy(paciente => paciente.Id),

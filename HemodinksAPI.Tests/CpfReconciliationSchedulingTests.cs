@@ -34,7 +34,11 @@ public sealed class CpfReconciliationSchedulingTests
 
         Assert.Equal(1, harness.ContextResolutions);
         Assert.Equal(TestCpfProtection.Instance.ComputeLookupHash(Cpf), await harness.ReadHashAsync());
-        Assert.DoesNotContain(harness.Logger.Entries, entry => entry.Level >= LogLevel.Warning);
+        Assert.DoesNotContain(harness.Logger.Entries, entry => entry.Level >= LogLevel.Warning && !entry.IsCompletionMilestone);
+        var completed = Assert.Single(harness.Logger.Entries, entry => entry.IsCompletionMilestone);
+        Assert.Equal(LogLevel.Warning, completed.Level);
+        Assert.StartsWith("Reconciliacao de CPF concluida", completed.Message);
+        Assert.DoesNotContain(Cpf, completed.Message);
     }
 
     [Fact]
@@ -49,7 +53,7 @@ public sealed class CpfReconciliationSchedulingTests
 
         Assert.Equal(2, harness.ContextResolutions);
         Assert.Equal(TestCpfProtection.Instance.ComputeLookupHash(Cpf), await harness.ReadHashAsync());
-        var warning = Assert.Single(harness.Logger.Entries, entry => entry.Level == LogLevel.Warning);
+        var warning = Assert.Single(harness.Logger.Entries, entry => entry.Level == LogLevel.Warning && !entry.IsCompletionMilestone);
         Assert.Contains(nameof(TimeoutException), warning.Message);
         Assert.Null(warning.Exception);
         Assert.DoesNotContain(harness.Logger.Entries, entry => entry.Level == LogLevel.Error);
@@ -275,7 +279,11 @@ public sealed class CpfReconciliationSchedulingTests
         }
     }
 
-    internal sealed record LogEntry(LogLevel Level, string Message, Exception? Exception);
+    internal sealed record LogEntry(LogLevel Level, string Message, Exception? Exception, int EventId = 0)
+    {
+        // #277: a conclusao e um Warning proposital (encaminhado ao New Relic), nao um alerta.
+        public bool IsCompletionMilestone => EventId == CpfProtectionReconciliationService.CpfReconciliationCompletedEvent.Id;
+    }
 
     internal sealed class CapturingLogger<T> : ILogger<T>
     {
@@ -284,7 +292,7 @@ public sealed class CpfReconciliationSchedulingTests
         public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
         public bool IsEnabled(LogLevel logLevel) => true;
         public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception,
-            Func<TState, Exception?, string> formatter) => _entries.Enqueue(new(logLevel, formatter(state, exception), exception));
+            Func<TState, Exception?, string> formatter) => _entries.Enqueue(new(logLevel, formatter(state, exception), exception, eventId.Id));
     }
 
     private sealed class TestingEnvironment : IHostEnvironment

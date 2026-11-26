@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Features.Common;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 
@@ -33,16 +34,40 @@ public record RegistrarRecursoGlosaCommand(int GlosaId, DateTime? DataEnvio, str
     decimal ValorRecorrido, DateTime? DataResposta, decimal ValorRecuperado, RecursoGlosaStatus Status, string? Observacao) : IRequest<FaturamentoDto>;
 public record GerarContaReceberCommand(int FaturamentoId, string NumeroDocumento, string Descricao,
     DateTime DataEmissao, DateTime DataVencimento, decimal? ValorOriginal, decimal? ValorAjustado, string? Observacao) : IRequest<ContaReceberDto>;
+// Sem DocumentoComprovante: o caminho de storage so entra pelo upload do comprovante (#268).
 public record RegistrarRecebimentoCommand(int ContaReceberId, DateTime DataRecebimento, decimal ValorRecebido,
-    FormaRecebimento FormaRecebimento, string? ReferenciaBancaria, string? DocumentoComprovante,
+    FormaRecebimento FormaRecebimento, string? ReferenciaBancaria,
     string? Observacao, int UsuarioCadastroId, byte[] RowVersion) : IRequest<ContaReceberDto>;
 public record EstornarRecebimentoCommand(int RecebimentoId, string MotivoEstorno, int UsuarioEstornoId) : IRequest<ContaReceberDto>;
-public record ListarAtendimentosQuery(int? PacienteId = null, int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<List<AtendimentoDto>>
-{ public TipoCirurgia? TipoCirurgia { get; init; } }
-public record ListarFaturamentosQuery(int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<List<FaturamentoDto>>
-{ public TipoCirurgia? TipoCirurgia { get; init; } }
-public record ListarContasReceberQuery() : IRequest<List<ContaReceberDto>>
-{ public TipoCirurgia? TipoCirurgia { get; init; } }
+// #373: listas do Financeiro paginadas no servidor (pageSize limitado a 1..100, como as demais listas).
+public record ListarAtendimentosQuery(int? PacienteId = null, int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<PagedResult<AtendimentoDto>>
+{
+    public TipoCirurgia? TipoCirurgia { get; init; }
+    public bool IncluirCancelados { get; init; }
+    public int Page { get; init; } = 1;
+    public int PageSize { get; init; } = FinanceiroPaging.DefaultPageSize;
+}
+public record ListarFaturamentosQuery(int CurrentUserId = 0, int CurrentPerfilId = 0) : IRequest<PagedResult<FaturamentoDto>>
+{
+    public TipoCirurgia? TipoCirurgia { get; init; }
+    public int Page { get; init; } = 1;
+    public int PageSize { get; init; } = FinanceiroPaging.DefaultPageSize;
+}
+public record ListarContasReceberQuery() : IRequest<PagedResult<ContaReceberDto>>
+{
+    public TipoCirurgia? TipoCirurgia { get; init; }
+    public int Page { get; init; } = 1;
+    public int PageSize { get; init; } = FinanceiroPaging.DefaultPageSize;
+}
+
+public static class FinanceiroPaging
+{
+    public const int DefaultPageSize = 20;
+    public const int MaxPageSize = 100;
+
+    public static (int Page, int PageSize) Normalize(int page, int pageSize) =>
+        (Math.Max(1, page), Math.Clamp(pageSize, 1, MaxPageSize));
+}
 public record SalvarConvenioProcedimentoPrecoCommand(int? Id, int ConvenioId, string CbhpmCodigo,
     decimal ValorNegociado, decimal PercentualPrincipal, decimal PercentualAuxiliar1, decimal PercentualAuxiliar2,
     DateTime VigenciaInicio, DateTime? VigenciaFinal, bool Ativo) : IRequest<ConvenioProcedimentoPrecoDto>;
@@ -68,7 +93,11 @@ public record AtendimentoDto(int Id, int PacienteId, string Paciente, DateTime D
     decimal? ValorGlosa, string? MotivoGlosa, string? Observacao,
     AtendimentoCirurgicoStatus Status, DateTime DataCadastro, DateTime? DataAtualizacao,
     List<AtendimentoProcedimentoDto> Procedimentos, List<AtendimentoArquivoDto> Arquivos)
-{ public TipoCirurgia TipoCirurgia { get; init; } }
+{
+    public TipoCirurgia TipoCirurgia { get; init; }
+    public DateTime? CanceladoEm { get; init; }
+    public string? MotivoCancelamento { get; init; }
+}
 public record FaturamentoItemDto(int Id, int? AtendimentoProcedimentoId, string? Codigo, string Descricao,
     decimal Quantidade, decimal PesoPercentual, decimal ValorUnitario, decimal ValorApresentado,
     decimal ValorGlosado, decimal ValorAprovado, FaturamentoItemStatus Status, int Ordem);

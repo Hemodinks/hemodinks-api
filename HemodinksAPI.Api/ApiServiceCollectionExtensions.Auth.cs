@@ -129,8 +129,9 @@ public static partial class ApiServiceCollectionExtensions
         options.AddPolicy("PacientePendenciasVisualizar", policy =>
             policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.ControllerId.ToString(), Perfil.MedicosId.ToString()));
 
+        // #369: inativar/reativar paciente (DELETE nao remove prontuario) so Administrador.
         options.AddPolicy("PacienteExcluir", policy =>
-            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString()));
+            policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString()));
 
         options.AddPolicy("PacienteObservacaoGerenciar", policy =>
             policy.RequireClaim("perfilId", Perfil.AdministradorId.ToString(), Perfil.SuperAdministradorId.ToString(), Perfil.MedicosId.ToString(), Perfil.ControllerId.ToString(), Perfil.EquipeId.ToString()));

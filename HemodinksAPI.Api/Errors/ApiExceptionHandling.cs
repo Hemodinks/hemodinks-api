@@ -28,6 +28,15 @@ internal sealed class ApiExceptionHandlingMiddleware(
                 LogSanitizer.Clean(context.Request.Path.Value),
                 context.TraceIdentifier);
 
+            // #259: Content-Encoding definido = a compressão já recebeu parte do corpo, ainda em buffer (HasStarted
+            // continua false). Limpar e escrever o erro por cima sairia pelo mesmo stream comprimido sem o cabeçalho:
+            // corpo corrompido. Abortar é o único desfecho íntegro.
+            if (context.Response.Headers.ContainsKey(Microsoft.Net.Http.Headers.HeaderNames.ContentEncoding))
+            {
+                context.Abort();
+                return;
+            }
+
             context.Response.Clear();
             var result = ApiExceptionResults.Map(
                 exception,

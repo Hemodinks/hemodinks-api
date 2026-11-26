@@ -31,6 +31,13 @@ RUNBOOK = ROOT / "docs/observability-newrelic.md"
 RUNBOOK_URL = "https://github.com/Hemodinks/hemodinks-api/blob/main/docs/observability-newrelic.md"
 ENDPOINTS = {"US": "https://api.newrelic.com/graphql", "EU": "https://api.eu.newrelic.com/graphql"}
 DEFAULT_APM_APP = "Hemodinks API"
+# Homologacao (Render + Vercel): so o dashboard, com apps e nome proprios. Alertas, notificacao e SLOs ficam
+# so na producao (o Render Free e o banco de homologacao pausam, o que geraria alarme falso).
+HOMOLOGATION = {
+    "APM_APP": "Hemodinks API Confirmation",
+    "BROWSER_APP": "Hemodinks Front HOMOL",
+    "DASHBOARD_NAME": "HemoDinks - Saude da homologacao",
+}
 EXPIRATION_SECONDS = 3600
 PLACEHOLDER = re.compile(r"\{\{(\w+)\}\}")
 
@@ -348,8 +355,11 @@ class Planner:
     def record(self, action: str, kind: str, name: str):
         self.actions.append(f"{action:<8} {kind:<12} {name}")
 
-    def run(self, config: dict):
+    def run(self, config: dict, dashboard_only: bool = False):
         config = render(config, self.variables_for_render())
+        if dashboard_only:
+            self.dashboard(config["dashboard"])
+            return self.actions
         policy_id = self.policy(config["alerts"]["policy"])
         self.conditions(config["alerts"]["conditions"], policy_id)
         self.notifications(config["alerts"]["notification"], policy_id)
@@ -474,10 +484,19 @@ def prune(config: dict, variables: dict) -> dict:
     return config
 
 
+def for_homologation(config: dict) -> dict:
+    """Copia do dashboard para a homologacao: nome proprio, para nunca atualizar o dashboard de producao."""
+    config = json.loads(json.dumps(config))
+    config["dashboard"]["name"] = HOMOLOGATION["DASHBOARD_NAME"]
+    return config
+
+
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("mode", choices=("validate", "plan", "apply"))
+    parser.add_argument("--environment", choices=("production", "homologation"), default="production")
     args = parser.parse_args(argv)
+    homologation = args.environment == "homologation"
 
     config = load_config()
     errors = validate(config)
@@ -495,13 +514,18 @@ def main(argv: list[str]) -> int:
     if not api_key or not account.isdigit():
         print("::error::defina NEW_RELIC_API_KEY (User key) e NEW_RELIC_ACCOUNT_ID")
         return 2
-    variables = {"APM_APP": os.environ.get("NEW_RELIC_APM_APP_NAME", "").strip() or DEFAULT_APM_APP,
-                 "BROWSER_APP": os.environ.get("NEW_RELIC_BROWSER_APP_NAME", "").strip()}
+    if homologation:
+        # Ignora as variaveis de app do workflow (sao as da producao).
+        variables = {"APM_APP": HOMOLOGATION["APM_APP"], "BROWSER_APP": HOMOLOGATION["BROWSER_APP"]}
+        config = for_homologation(config)
+    else:
+        variables = {"APM_APP": os.environ.get("NEW_RELIC_APM_APP_NAME", "").strip() or DEFAULT_APM_APP,
+                     "BROWSER_APP": os.environ.get("NEW_RELIC_BROWSER_APP_NAME", "").strip()}
     planner = Planner(NerdGraph(api_key, os.environ.get("NEW_RELIC_REGION", "US").strip().upper() or "US"),
                       int(account), variables, apply=args.mode == "apply",
                       alert_email=os.environ.get("NEW_RELIC_ALERT_EMAIL", "").strip() or None)
     try:
-        actions = planner.run(prune(config, variables))
+        actions = planner.run(prune(config, variables), dashboard_only=homologation)
     except (RuntimeError, ConfigError) as error:
         print(f"::error::{error}")
         return 1

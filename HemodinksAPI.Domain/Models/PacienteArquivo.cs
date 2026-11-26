@@ -12,4 +12,7 @@ public class PacienteArquivo : IClinicaOwnedEntity
     public long TamanhoBytes { get; set; }
     public string Url { get; set; } = null!;
     public DateTime DataUpload { get; set; } = DateTime.UtcNow;
+    // Exclusao logica: o arquivo some da aplicacao, mas linha e storage sao preservados (guarda do prontuario).
+    public DateTime? ExcluidoEm { get; set; }
+    public int? ExcluidoPorUserId { get; set; }
 }

@@ -9,7 +9,7 @@ namespace HemodinksAPI.Infrastructure.Security;
 /// Cifra o CPF com ASP.NET Data Protection (proposito dedicado) e gera o hash de busca com HMAC-SHA256.
 /// Nenhuma primitiva criptografica propria: apenas APIs do framework.
 /// </summary>
-public sealed class DataProtectionCpfProtector : ICpfProtector, IDisposable
+public sealed class DataProtectionCpfProtector : ICpfProtector, HemodinksAPI.Application.Features.Users.Mfa.IMfaSecretProtector, IDisposable
 {
     internal const string Purpose = "HemodinksAPI.User.Cpf.v1";
 
@@ -88,6 +88,33 @@ public sealed class DataProtectionCpfProtector : ICpfProtector, IDisposable
 
     public bool RequiresReprotection(string protectedCpf) =>
         _certificateRotation?.IsRetiring(protectedCpf) == true;
+
+    // #150: segredo TOTP no mesmo anel de chaves (protegido por certificado, acompanha a rotacao), com
+    // subproposito proprio: cifras de MFA e de CPF nao sao intercambiaveis.
+    internal const string MfaPurpose = "HemodinksAPI.Mfa.TotpSecret.v1";
+
+    string HemodinksAPI.Application.Features.Users.Mfa.IMfaSecretProtector.Protect(string secret)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(secret);
+        return _protector.CreateProtector(MfaPurpose).Protect(secret);
+    }
+
+    string? HemodinksAPI.Application.Features.Users.Mfa.IMfaSecretProtector.TryUnprotect(string protectedSecret)
+    {
+        if (string.IsNullOrWhiteSpace(protectedSecret))
+        {
+            return null;
+        }
+
+        try
+        {
+            return _protector.CreateProtector(MfaPurpose).Unprotect(protectedSecret);
+        }
+        catch (CryptographicException)
+        {
+            return null;
+        }
+    }
 
     public string Protect(string cpf)
     {

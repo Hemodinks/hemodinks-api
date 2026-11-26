@@ -364,12 +364,18 @@ Variaveis que devem diferir da producao:
 | `JwtSettings__Audience` | `HemodinksAPI.Confirmation` |
 | `CpfProtection__CertificateBase64` / `__CertificatePassword` / `__LookupHashKey` | gerar material proprio da homologacao (#227) |
 | `Frontend__ResetPasswordUrl` | `https://hemodinks-homologacao.gestao-saude.tec.br/reset-password` |
-| `NEW_RELIC_APP_NAME` | `Hemodinks API Confirmation` |
+| `NEW_RELIC_APP_NAME` | `Hemodinks API Confirmation`. Gravado pelo `publish-homologation` a cada publicacao, junto com a chave (secret `NEW_RELIC_LICENSE_KEY`), `CORECLR_ENABLE_PROFILING=1` e a mesma politica de logs da producao (so Warning+, contexto sem `UserId`) |
 | `AzureStorage__ContainerName` | `profile-photos-confirmation` |
 | `AzureStorage__PatientFilesContainerName` | `patient-files-confirmation` |
 | `AsyncQueues__PasswordResetEnabled` | `false` para Render confirmation enviar o reset direto por SMTP e evitar worker antigo |
 | `AsyncQueues__PasswordResetEmailQueueName` | `password-reset-emails-confirmation` |
 | `AsyncQueues__FileExportQueueName` | `file-export-jobs-confirmation` |
+
+Storage da homologacao: `AzureStorage__ConnectionString` aponta para `stghemodinksprod01` (mesma conta da producao,
+containers `*-confirmation` declarados em `infra/modules/storage.bicep`). Sem ela a API grava no disco efemero do
+Render e fotos/arquivos somem a cada deploy ou hibernacao. O preflight do `Publish Homologation`
+(`scripts/check_homologation.py`, modos `diagnose` e `publish`) bloqueia connection string vazia, de outra conta ou
+containers de producao, sem exibir o valor.
 
 O banco de homologacao deve ser Azure SQL ou uma instancia SQL Server com Full-Text
 Search habilitado. Antes de aplicar migrations, valide que

@@ -51,13 +51,15 @@ internal static class PacienteProjection
             Pagamento = p.Pagamento,
             RepasseGlosa = p.RepasseGlosa,
             StatusPago = p.StatusPago,
+            Inativado = !p.Ativo,
+            InativadoEm = p.InativadoEm,
             Cpf = p.User.Cpf,
             Email = p.User.Email,
             Telefone = p.User.Telefone,
             FotoPerfil = p.User.FotoPerfil,
             DataNascimento = p.User.DataNascimento,
             Ativo = p.User.Ativo,
-            ArquivosCount = p.Arquivos.Count,
+            ArquivosCount = p.Arquivos.Count(a => a.ExcluidoEm == null),
             Faturamento = p.FaturamentoMedico == null ? null : new PacienteFaturamentoDto
             {
                 Id = p.FaturamentoMedico.Id,

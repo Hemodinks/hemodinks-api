@@ -105,6 +105,60 @@ Variáveis do workflow **New Relic Observability** (`.github/workflows/newrelic-
 Localmente: `python scripts/newrelic_observability.py validate` (offline, também roda no CI);
 `plan`/`apply` exigem as mesmas variáveis de ambiente.
 
+## Logs de startup retidos (#277)
+
+O ambiente do Container Apps não tem destino de logs (sem Log Analytics, que é pago). Os logs de startup ficam
+consultáveis depois do deploy pelo **encaminhamento de logs do agente New Relic**, já ativo em produção
+(`NEW_RELIC_APPLICATION_LOGGING_FORWARDING_ENABLED=true`). O encaminhamento descarta Information e abaixo, então
+os marcos de startup saem como **Warning proposital com `EventId`** (não são alerta):
+
+| EventId | Mensagem | Quando |
+| --- | --- | --- |
+| 4400 `CpfReconciliationCompleted` | `Reconciliacao de CPF concluida: N verificados, N atualizados, N cifras ilegiveis, N falhas, N cifras pendentes de recifragem` | fim de cada reconciliação de CPF (#227) |
+| 4401 `StartupCompleted` | `StartupCompleted: HTTP pronto em N ms` | fim do startup da réplica |
+
+Consulta (New Relic → Logs → Query, conta da API):
+
+```sql
+SELECT timestamp, message, hostname FROM Log
+WHERE entity.name = 'Hemodinks API' AND message LIKE 'Reconciliacao de CPF concluida%'
+SINCE 1 day ago
+```
+
+Troque o `LIKE` por `'StartupCompleted%'` para ver os startups. As linhas só têm contagens e tempos: nunca CPF,
+senha, token ou connection string (testes em `CpfReconciliationSchedulingTests` e `StartupMilestoneLogTests`).
+Custo: zero (mesma cota de ingestão de logs do New Relic já usada).
+
+### Limite de taxa autenticado (#374)
+
+Cada `429` de uma identidade autenticada (limite global de 300/min ou de exportações, 10/h) gera um Warning
+`4410 AuthenticatedRateLimited` com só o endpoint (`Limite de taxa autenticado excedido em <endpoint>`), sem
+usuário, clínica ou token. Consulta:
+
+```sql
+SELECT count(*) FROM Log WHERE entity.name = 'Hemodinks API' AND message LIKE 'Limite de taxa autenticado%'
+FACET message SINCE 1 day ago TIMESERIES
+```
+
+Picos indicam raspagem por sessão comprometida, script do cliente ou limite baixo demais para o uso real.
+
+## Marcadores de deploy (Change Tracking)
+
+Cada deploy de produção vira um marcador no card **Deployments** e nos gráficos do APM `Hemodinks API`,
+para cruzar picos de latência ou 5xx com a versão publicada.
+
+- Quem registra: passo **Record deployment in New Relic** do job `deploy-api` (`publish-container.yml`),
+  via `scripts/newrelic_change_tracking.py` (mutation `changeTrackingCreateDeployment`, tipo `BLUE_GREEN`).
+- Quando: só após promoção real (`result == promoted`); reexecução do mesmo SHA (`already-current`) não duplica.
+- Conteúdo: versão (SHA curto), commit, revisão promovida, autor do run e link para o run. Nada de dado de paciente.
+- Usa os mesmos `NEW_RELIC_API_KEY`, `NEW_RELIC_ACCOUNT_ID` e `NEW_RELIC_REGION` da tabela acima.
+- Nunca bloqueia o deploy: sem configuração gera `::notice::`; falha da NerdGraph gera `::warning::`
+  (e o passo tem `continue-on-error`). Custo: um evento de poucos KB por deploy, dentro da cota de ingestão.
+- O front (`hemodinks-front`) registra os seus no app Browser pelo próprio workflow de deploy.
+- **Homologação:** o job `deploy` do `Publish Homologation` registra o mesmo marcador (tipo `BASIC`,
+  descrição com o id do deploy no Render) no APM `Hemodinks API Confirmation`, só depois que o Render fica `live`.
+  Usa os mesmos secret e variáveis; não marca o app de produção nem bloqueia o deploy.
+
 ## Teste de disparo controlado
 
 Fazer após a primeira aplicação e registrar abaixo.

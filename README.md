@@ -206,6 +206,12 @@ Features atuais de licenca:
 
 A matriz completa de perfis x recursos esta em [docs/MATRIZ_PERFIS_PERMISSOES.md](docs/MATRIZ_PERFIS_PERMISSOES.md).
 
+Limite de taxa (#374): toda requisicao autenticada conta no limite da identidade (usuario global; na equipe, cada
+operador identificado), padrao 300 por minuto, e `POST /api/exports` tem limite proprio de 10 por hora por identidade.
+Excesso responde `429` com `Retry-After` e `{ code: "rate_limited" }`, sem afetar outros usuarios. Configuracao em
+`AuthenticationRateLimiting` (`AuthenticatedPermitLimit`, `AuthenticatedWindowSeconds`, `ExportPermitLimit`,
+`ExportWindowSeconds`). Rotas anonimas seguem as politicas proprias (login, recuperacao, warmup, clinicas publicas).
+
 ## Endpoints principais
 
 Inventario gerado por `python3 scripts/generate_route_inventory.py` a partir dos `Map*` e `RequireAuthorization` dos endpoints. Legenda: Adm = Administrador,
@@ -213,6 +219,8 @@ Méd = Medicos, Pac = Pacientes, Ctrl = Controller, SA = SuperAdministrador, Eq 
 qualquer perfil, mas o handler restringe ao proprio registro, ao escopo medico/equipe ou a clinica da sessao.
 Rotas da plataforma restringem o Administrador a clinica atual. Rotas de pacientes, faturamento medico, grupos
 medicos, agenda e usuarios tambem dependem do modulo contratado no plano `Parcial` (403 quando ausente).
+Listas paginadas devolvem `{ items, page, pageSize, totalItems, totalPages }`; `pageSize` e limitado a 1..100. Isso vale tambem para
+`GET /api/atendimentos-cirurgicos/`, `GET /api/faturamentos/` e `GET /api/financeiro/contas-receber/` (`page`, `pageSize`; padrao 20) desde #373.
 
 ### Sessão
 
@@ -233,11 +241,16 @@ medicos, agenda e usuarios tambem dependem do modulo contratado no plano `Parcia
 | `GET` | `/api/users` | Adm, SA, Eq |
 | `POST` | `/api/users` | Adm, SA |
 | `POST` | `/api/users/authenticate` | Público |
+| `POST` | `/api/users/authenticate/mfa` | Público |
 | `POST` | `/api/users/email/change` | Autenticado |
 | `POST` | `/api/users/email/change/cancel` | Autenticado |
 | `POST` | `/api/users/email/change/confirm` | Autenticado |
 | `GET` | `/api/users/email/{email}` | Adm, SA |
 | `POST` | `/api/users/login-context` | Público |
+| `GET` | `/api/users/me/mfa` | Autenticado |
+| `POST` | `/api/users/me/mfa/ativacao` | Adm, SA |
+| `POST` | `/api/users/me/mfa/configuracao` | Adm, SA |
+| `POST` | `/api/users/me/mfa/desativacao` | Autenticado |
 | `POST` | `/api/users/password/reset` | Público |
 | `POST` | `/api/users/password/reset/confirm` | Público |
 | `POST` | `/api/users/password/temporary/complete` | Autenticado |
@@ -249,6 +262,7 @@ medicos, agenda e usuarios tambem dependem do modulo contratado no plano `Parcia
 | `DELETE` | `/api/users/{id}/arquivos/{arquivoId}` | Autenticado |
 | `GET` | `/api/users/{id}/arquivos/{arquivoId}/download` | Autenticado |
 | `GET` | `/api/users/{id}/foto-perfil` | Autenticado |
+| `POST` | `/api/users/{id}/mfa/redefinicao` | SA |
 | `PUT` | `/api/users/{id}/password` | Autenticado |
 | `PUT` | `/api/users/{id}/password/reset` | Adm, SA |
 
@@ -343,14 +357,23 @@ medicos, agenda e usuarios tambem dependem do modulo contratado no plano `Parcia
 | `GET` | `/api/pacientes/pendencias/data-consolidacao` | Adm, Méd, Ctrl, SA |
 | `GET` | `/api/pacientes/{id}` | Autenticado |
 | `PUT` | `/api/pacientes/{id}` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
-| `DELETE` | `/api/pacientes/{id}` | Adm, Méd, SA |
+| `DELETE` | `/api/pacientes/{id}` | Adm, SA |
 | `POST` | `/api/pacientes/{id}/arquivos` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
 | `DELETE` | `/api/pacientes/{id}/arquivos/{arquivoId}` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
 | `GET` | `/api/pacientes/{id}/arquivos/{arquivoId}/download` | Autenticado |
 | `GET` | `/api/pacientes/{id}/observacoes` | Adm, Méd, Ctrl, SA, Eq |
 | `POST` | `/api/pacientes/{id}/observacoes` | Adm, Méd, Ctrl, SA, Eq (Eq: operador identificado) |
 | `POST` | `/api/pacientes/{id}/observacoes/marcar-lidas` | Adm, Méd, Ctrl, SA, Eq |
+| `POST` | `/api/pacientes/{id}/reativacao` | Adm, SA |
 | `GET` | `/api/pacientes/{id}/resumo-financeiro` | Autenticado |
+
+### Auditoria de pacientes
+
+| Método | Rota | Acesso |
+| --- | --- | --- |
+| `GET` | `/api/auditoria-clinica` | Adm, SA |
+| `GET` | `/api/auditoria-clinica/configuracao` | Adm, SA |
+| `PUT` | `/api/auditoria-clinica/configuracao` | Adm, SA |
 
 ### Atendimentos cirúrgicos
 
@@ -641,6 +664,16 @@ dotnet test HemodinksAPI.slnx --filter "FullyQualifiedName~<ClasseDeTeste>"     
 Testes `*SqlServerTests` exigem `HEMODINKS_TEST_SQLSERVER_CONNECTION_STRING` (ou `HEMODINKS_TEST_LOCALDB=1`); sem isso sao ignorados localmente,
 mas o CI os executa e `scripts/check-test-results.py` falha se algum teste obrigatorio for pulado.
 `LoginBrowserTests` rodam no workflow `Login integration E2E`.
+
+## Protecao de branches (#375)
+
+- `main`: exige `Build and test`, `CodeQL` (alertas novos do PR), `Analyze (csharp)`, `Analyze (actions)` e
+  `Login integration E2E / Login browser scenarios (12 required)`; `enforce_admins` ativo.
+- `developer`: exige `Build and test`; `enforce_admins` ativo, sem force push nem exclusao.
+
+Renomear um job desses no workflow exige atualizar a protecao (Settings -> Branches), senao o PR fica esperando
+um check que nunca chega. Falso positivo do CodeQL e dispensado no Code Scanning com justificativa, nunca
+contornado no codigo.
 
 ## Documentos relacionados
 

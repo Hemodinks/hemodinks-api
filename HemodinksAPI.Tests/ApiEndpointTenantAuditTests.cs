@@ -79,7 +79,8 @@ public sealed class ApiEndpointTenantAuditTests : ApiEndpointTestBase
         using var client = factory.CreateClient();
         await AuthenticateAsync(client, beta.Slug, "dra.beta@hemodinks.com", TestPasswords.Valid);
         Assert.Equal(HttpStatusCode.NotFound, (await client.GetAsync($"/api/pacientes/{patientId}")).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await client.DeleteAsync($"/api/pacientes/{patientId}")).StatusCode);
+        // #369: Medico nao inativa paciente (403 pela politica, independente de o paciente existir).
+        Assert.Equal(HttpStatusCode.Forbidden, (await client.InativarPacienteAsync(patientId)).StatusCode);
         using var checkScope = factory.Services.CreateScope();
         checkScope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
         Assert.True(await checkScope.ServiceProvider.GetRequiredService<AppDbContext>().Pacientes.AnyAsync(x => x.Id == patientId));

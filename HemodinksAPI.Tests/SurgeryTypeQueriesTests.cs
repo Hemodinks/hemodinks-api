@@ -50,12 +50,12 @@ public sealed class SurgeryTypeQueriesTests
         Assert.Equal(1, medical.TotalItems);
         var attendances = await new ListarAtendimentosQueryHandler(db).Handle(new() { TipoCirurgia = TipoCirurgia.Urgencia,
             CurrentPerfilId = Perfil.AdministradorId }, default);
-        Assert.Equal(urgentAttendance.Id, Assert.Single(attendances).Id);
+        Assert.Equal(urgentAttendance.Id, Assert.Single(attendances.Items).Id);
         var invoices = await new ListarFaturamentosQueryHandler(db).Handle(new() { TipoCirurgia = TipoCirurgia.Urgencia,
             CurrentPerfilId = Perfil.AdministradorId }, default);
-        Assert.Equal(2, invoices.Count);
-        Assert.All(invoices, x => Assert.Equal(TipoCirurgia.Urgencia, x.TipoCirurgia));
-        Assert.Equal(300, invoices.Sum(x => x.ValorApresentado));
+        Assert.Equal(2, invoices.Items.Count);
+        Assert.All(invoices.Items, x => Assert.Equal(TipoCirurgia.Urgencia, x.TipoCirurgia));
+        Assert.Equal(300, invoices.Items.Sum(x => x.ValorApresentado));
         var page = await new PesquisarFaturamentosQueryHandler(db).Handle(new(2, 1, null, null, null, null, null, 0, Perfil.AdministradorId)
             { TipoCirurgia = TipoCirurgia.Urgencia }, default);
         Assert.Equal(2, page.TotalItems);

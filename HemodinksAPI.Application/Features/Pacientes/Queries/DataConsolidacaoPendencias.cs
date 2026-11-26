@@ -52,7 +52,7 @@ public sealed class GetDataConsolidacaoPendenciasQueryHandler(
             throw new UnauthorizedAccessException("Sem permissao para consultar pendencias de pacientes");
 
         var anoMaximo = DataConsolidacaoRules.AnoMaximo(_timeProvider.GetUtcNow());
-        var query = PacienteAccess.ApplyScope(context, context.Pacientes.AsNoTracking(),
+        var query = PacienteAccess.ApplyScope(context, context.Pacientes.AsNoTracking().Where(p => p.Ativo),
             request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId);
         var total = await DataConsolidacaoPendencias
             .Apply(query, request.CurrentPerfilId, request.CurrentUserId, anoMaximo)

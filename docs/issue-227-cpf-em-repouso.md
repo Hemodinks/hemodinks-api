@@ -72,6 +72,8 @@ coluna legada existe. Depois da fase 2, a perda é definitiva. Apague a pasta lo
 1. Secrets configurados no ambiente. Sem isso a nova revisão não sobe, e o blue/green mantém a anterior.
 2. Pipeline normal: a migration é aplicada pelo workflow e só depois a revisão nova recebe tráfego.
 3. Conferir no log `Reconciliacao de CPF concluida` com `0 falhas` e `0 cifras ilegiveis`.
+   > Atualização (#277): depois do startup, a linha fica no New Relic Logs (Warning, `EventId` 4400); consulta em
+   > `docs/observability-newrelic.md`, seção "Logs de startup retidos".
 4. Conferir no banco (só contagens):
 
 ```sql

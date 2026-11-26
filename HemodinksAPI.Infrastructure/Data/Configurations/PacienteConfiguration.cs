@@ -21,6 +21,20 @@ internal sealed class PacienteConfiguration : IEntityTypeConfiguration<Paciente>
         entity.Property(e => e.ClinicaId)
             .IsRequired();
 
+        // #369: default true no banco para linhas existentes e escritores antigos (blue/green).
+        // Sentinela true: o EF so omite a coluna quando o valor e true; false e sempre enviado.
+        entity.Property(e => e.Ativo)
+            .IsRequired()
+            .HasDefaultValue(true)
+            .HasSentinel(true);
+
+        // Default no banco para escritores antigos (blue/green); false e tambem o sentinela padrao.
+        entity.Property(e => e.LoginBloqueadoNaInativacao)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        entity.HasIndex(e => new { e.ClinicaId, e.Ativo });
+
         entity.Property(e => e.TipoCirurgia)
             .HasConversion<string>()
             .HasMaxLength(20)

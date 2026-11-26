@@ -50,7 +50,7 @@ public class GetDashboardNotificationsQueryHandler : IRequestHandler<GetDashboar
     {
         var patientQuery = PacienteAccess.ApplyScope(
             _context,
-            _context.Pacientes.AsNoTracking().AsQueryable(),
+            _context.Pacientes.AsNoTracking().Where(paciente => paciente.Ativo),
             request.CurrentPerfilId,
             request.CurrentUserId,
             request.CurrentEquipeId);

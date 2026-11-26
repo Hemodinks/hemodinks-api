@@ -24,6 +24,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
     private readonly ILoginAccountProtection _loginProtection;
     private readonly TemporaryAccessService? _temporaryAccess;
     private readonly TimeProvider _timeProvider;
+    private readonly HemodinksAPI.Application.Features.Users.Mfa.MfaService? _mfa;
 
     internal AuthenticateUserCommandHandler(
         IUserFeatureDbContext context,
@@ -51,9 +52,11 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
         ILoginAccountProtection loginProtection,
         ILogger<AuthenticateUserCommandHandler> logger,
         TemporaryAccessService? temporaryAccess = null,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        HemodinksAPI.Application.Features.Users.Mfa.MfaService? mfa = null)
     {
         _temporaryAccess = temporaryAccess;
+        _mfa = mfa;
         _timeProvider = timeProvider ?? TimeProvider.System;
         _context = context;
         _passwordHasher = passwordHasher;
@@ -133,6 +136,18 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 _context, _passwordHasher, globalAuthentication, request.Senha, cancellationToken))
                 throw new UnauthorizedAccessException("Email ou senha invalidos");
 
+            // #150: com MFA ativo a senha certa so gera o desafio do segundo fator; o contador de bloqueio
+            // so e zerado depois dele (MfaService). Login coletivo de equipe nao usa MFA.
+            if (equipe == null && globalAuthentication.UsuarioGlobal.MfaHabilitado)
+            {
+                if (_mfa == null)
+                    throw new UnauthorizedAccessException("Email ou senha invalidos");
+                return new AuthenticateUserResponse
+                {
+                    MfaDesafio = await _mfa.CreateLoginChallengeAsync(user, globalAuthentication, cancellationToken)
+                };
+            }
+
             await _loginProtection.RegisterSuccessAsync(globalAuthentication.UsuarioGlobal.Id, cancellationToken);
 
             if (equipe != null)
@@ -199,27 +214,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
             }
 
 
-            return new AuthenticateUserResponse
-            {
-                Id = user.Id,
-                SecurityVersion = globalAuthentication.UsuarioGlobal.SecurityVersion,
-                UsuarioGlobalId = globalAuthentication.UsuarioGlobal.Id,
-                ClinicaId = currentClinicaId,
-                ClinicaSlug = user.Clinica.Slug,
-                Nome = user.Nome,
-                Email = globalAuthentication.UsuarioGlobal.Email,
-                Token = token,
-                Cpf = user.Cpf,
-                Crm = user.Crm,
-                CrmUf = user.CrmUf,
-                FotoPerfil = user.FotoPerfil,
-                PrecisaTrocarSenha = user.PrecisaTrocarSenha || globalAuthentication.UsuarioGlobal.TemporaryPasswordRecovery,
-                PerfilId = user.PerfilId,
-                PerfilNome = UserProfileRules.GetPerfilNome(user),
-                ModulosLiberados = ClinicaModulos.GetEffective(user.Clinica.Plano, user.Clinica.ModulosLiberados),
-                Licenca = licenca,
-                EquipeDesafio = equipeDesafio
-            };
+            return BuildResponse(user, globalAuthentication, currentClinicaId, token, licenca, equipeDesafio);
         }
         catch (DbUpdateConcurrencyException)
         {
@@ -232,4 +227,28 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
             throw;
         }
     }
+
+    // Resposta do login concluido (senha, ou senha + MFA): a mesma nos dois caminhos.
+    internal static AuthenticateUserResponse BuildResponse(User user, GlobalAuthenticationContext authentication,
+        int currentClinicaId, string? token, LicencaDto? licenca, EquipeLoginChallengeDto? equipeDesafio) => new()
+    {
+        Id = user.Id,
+        SecurityVersion = authentication.UsuarioGlobal.SecurityVersion,
+        UsuarioGlobalId = authentication.UsuarioGlobal.Id,
+        ClinicaId = currentClinicaId,
+        ClinicaSlug = user.Clinica.Slug,
+        Nome = user.Nome,
+        Email = authentication.UsuarioGlobal.Email,
+        Token = token,
+        Cpf = user.Cpf,
+        Crm = user.Crm,
+        CrmUf = user.CrmUf,
+        FotoPerfil = user.FotoPerfil,
+        PrecisaTrocarSenha = user.PrecisaTrocarSenha || authentication.UsuarioGlobal.TemporaryPasswordRecovery,
+        PerfilId = user.PerfilId,
+        PerfilNome = UserProfileRules.GetPerfilNome(user),
+        ModulosLiberados = ClinicaModulos.GetEffective(user.Clinica.Plano, user.Clinica.ModulosLiberados),
+        Licenca = licenca,
+        EquipeDesafio = equipeDesafio
+    };
 }
