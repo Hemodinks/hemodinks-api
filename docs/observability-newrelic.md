@@ -155,6 +155,9 @@ para cruzar picos de latência ou 5xx com a versão publicada.
 - Nunca bloqueia o deploy: sem configuração gera `::notice::`; falha da NerdGraph gera `::warning::`
   (e o passo tem `continue-on-error`). Custo: um evento de poucos KB por deploy, dentro da cota de ingestão.
 - O front (`hemodinks-front`) registra os seus no app Browser pelo próprio workflow de deploy.
+- **Homologação:** o job `deploy` do `Publish Homologation` registra o mesmo marcador (tipo `BASIC`,
+  descrição com o id do deploy no Render) no APM `Hemodinks API Confirmation`, só depois que o Render fica `live`.
+  Usa os mesmos secret e variáveis; não marca o app de produção nem bloqueia o deploy.
 
 ## Teste de disparo controlado
 

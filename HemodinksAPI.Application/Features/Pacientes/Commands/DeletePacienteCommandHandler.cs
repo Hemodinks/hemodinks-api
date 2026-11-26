@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Auditing;
 using HemodinksAPI.Application.Authentication;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Domain.Models;
@@ -13,11 +14,14 @@ public class DeletePacienteCommandHandler : IRequestHandler<DeletePacienteComman
 {
     private readonly IPatientFeatureDbContext _context;
     private readonly TimeProvider _timeProvider;
+    private readonly IClinicAuditRecorder? _audit;
 
-    public DeletePacienteCommandHandler(IPatientFeatureDbContext context, TimeProvider? timeProvider = null)
+    public DeletePacienteCommandHandler(IPatientFeatureDbContext context, TimeProvider? timeProvider = null,
+        IClinicAuditRecorder? audit = null)
     {
         _context = context;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _audit = audit;
     }
 
     public async Task Handle(DeletePacienteCommand request, CancellationToken cancellationToken)
@@ -34,6 +38,8 @@ public class DeletePacienteCommandHandler : IRequestHandler<DeletePacienteComman
             .FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken)
             ?? throw new ResourceNotFoundException("Paciente nao encontrado");
 
+        // Depois da busca: paciente de outra clinica continua 404, sem revelar nada pela validacao.
+        var motivo = PacienteMotivoRules.Validate(request.Motivo, "inativar");
         if (!paciente.Ativo)
         {
             return;
@@ -55,6 +61,7 @@ public class DeletePacienteCommandHandler : IRequestHandler<DeletePacienteComman
         }
 
         await _context.SaveChangesAsync(cancellationToken);
+        _audit?.SetDetalhe(ClinicAuditDetail.ComMotivo(motivo));
     }
 }
 
@@ -62,9 +69,11 @@ public class ReativarPacienteCommand : IRequest
 {
     public int Id { get; set; }
     public int CurrentPerfilId { get; set; }
+    public string? Motivo { get; set; }
 }
 
-public class ReativarPacienteCommandHandler(IPatientFeatureDbContext context, TimeProvider? timeProvider = null)
+public class ReativarPacienteCommandHandler(IPatientFeatureDbContext context, TimeProvider? timeProvider = null,
+    IClinicAuditRecorder? audit = null)
     : IRequestHandler<ReativarPacienteCommand>
 {
     public async Task Handle(ReativarPacienteCommand request, CancellationToken cancellationToken)
@@ -74,12 +83,14 @@ public class ReativarPacienteCommandHandler(IPatientFeatureDbContext context, Ti
             throw new UnauthorizedAccessException("Sem permissao para reativar paciente");
         }
 
+
         var paciente = await context.Pacientes
             .Include(p => p.User)
             .AsTracking()
             .FirstOrDefaultAsync(p => p.Id == request.Id, cancellationToken)
             ?? throw new ResourceNotFoundException("Paciente nao encontrado");
 
+        var motivo = PacienteMotivoRules.Validate(request.Motivo, "reativar");
         if (paciente.Ativo)
         {
             return;
@@ -107,5 +118,6 @@ public class ReativarPacienteCommandHandler(IPatientFeatureDbContext context, Ti
         }
 
         await context.SaveChangesAsync(cancellationToken);
+        audit?.SetDetalhe(ClinicAuditDetail.ComMotivo(motivo));
     }
 }

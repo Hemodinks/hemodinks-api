@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Auditing;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Cbhpm;
 using HemodinksAPI.Application.Features.Faturamentos;
@@ -19,6 +20,7 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
     private readonly IClinicaContext _clinicaContext;
     private readonly ILogger<UpdatePacienteCommandHandler> _logger;
     private readonly TimeProvider _timeProvider;
+    private readonly IClinicAuditRecorder? _audit;
 
     internal UpdatePacienteCommandHandler(
         IPatientFeatureDbContext context,
@@ -40,8 +42,10 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
         IProfilePhotoStorage profilePhotoStorage,
         IClinicaContext clinicaContext,
         ILogger<UpdatePacienteCommandHandler> logger,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IClinicAuditRecorder? audit = null)
     {
+        _audit = audit;
         _context = context;
         _cbhpmCache = cbhpmCache;
         _profilePhotoStorage = profilePhotoStorage;
@@ -73,6 +77,8 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             {
                 throw new UnauthorizedAccessException("Sem permissao para atualizar paciente");
             }
+
+            var antes = PacienteAuditSnapshot.Capture(paciente);
 
             // Data legada fora da faixa só é tolerada enquanto não for alterada (pendência sinalizada)
             // e não pode ser apagada: só trocada por uma data válida.
@@ -168,6 +174,13 @@ public class UpdatePacienteCommandHandler : IRequestHandler<UpdatePacienteComman
             var faturamento = FaturamentoMedicoSync.EnsureSynced(paciente, DateTime.UtcNow);
             faturamento.DataPagamento = request.StatusPago ? request.DataPagamento : null;
             await _context.SaveChangesAsync(cancellationToken);
+
+            if (_audit is not null && await _audit.AuditarAtendimentosAsync(cancellationToken))
+            {
+                var detalhe = PacienteAuditSnapshot.Compare(antes, PacienteAuditSnapshot.Capture(paciente));
+                if (detalhe.HasChanges)
+                    _audit.SetDetalhe(detalhe);
+            }
 
             return PacienteMapper.ToDto(paciente);
         }

@@ -54,11 +54,12 @@ Esta é a fonte de verdade para segurança. Ocultar um botão na interface não 
 | Redefinir MFA de terceiro | — | — | — | — | Sim · clínica ativa | — |
 | Equipes (`/api/equipes`) | CRUD | — | — | — | CRUD | Trocar PIN próprio |
 | Pacientes e cirurgias | CRUD | CRU · escopo | R próprio | CRU | CRUD | CRU · escopo |
-| Inativar, listar inativos e reativar paciente | Sim | — | — | — | Sim | — |
+| Inativar, listar inativos e reativar paciente (com motivo) | Sim | — | — | — | Sim | — |
 | Pendências de cadastro de pacientes (ano da consolidação) | R clínica | R · escopo | — | R clínica | R clínica | — |
 | Arquivos de pacientes | CRD | CRD · escopo | R próprios | CRD | CRD | CRD · escopo |
 | Observações de pacientes | CRU | CRU · escopo | — | CRU | CRU | CRU · escopo |
 | Auditoria de pacientes (`/api/auditoria-clinica`) | R clínica | — | — | — | R clínica ativa | — |
+| Ligar auditoria de alterações de pacientes e atendimentos | Sim | — | — | — | Sim · clínica ativa | — |
 | Faturamento médico | R clínica | R · escopo | — | R clínica | R clínica | R · escopo |
 | Histórico de arquivos do faturamento | CRD | R · escopo | — | CRD | CRD | R · escopo |
 | Atendimentos cirúrgicos | CRUD | CRUD · escopo | — | CRUD | CRUD | — |

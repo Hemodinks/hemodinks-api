@@ -27,7 +27,7 @@ public sealed class PacienteInativacaoLoginTests : ApiEndpointTestBase
 
         using var admin = factory.CreateClient();
         await AuthenticateAsync(admin);
-        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/pacientes/{patientId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.InativarPacienteAsync(patientId)).StatusCode);
 
         // O mesmo token, ja emitido, deixa de valer: o vinculo inativo e checado a cada requisicao.
         var blocked = await titular.GetAsync($"/api/pacientes/{patientId}");
@@ -37,7 +37,7 @@ public sealed class PacienteInativacaoLoginTests : ApiEndpointTestBase
         Assert.False(membership.Ativo);
         Assert.True(patient.LoginBloqueadoNaInativacao);
 
-        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsync($"/api/pacientes/{patientId}/reativacao", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.ReativarPacienteAsync(patientId)).StatusCode);
         (user, membership, patient) = await ReadStateAsync(factory, patientId);
         Assert.True(user.Ativo);
         Assert.True(membership.Ativo);
@@ -54,11 +54,11 @@ public sealed class PacienteInativacaoLoginTests : ApiEndpointTestBase
 
         using var admin = factory.CreateClient();
         await AuthenticateAsync(admin);
-        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/pacientes/{patientId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.InativarPacienteAsync(patientId)).StatusCode);
         var (_, _, inactive) = await ReadStateAsync(factory, patientId);
         Assert.False(inactive.LoginBloqueadoNaInativacao);
 
-        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsync($"/api/pacientes/{patientId}/reativacao", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.ReativarPacienteAsync(patientId)).StatusCode);
         var (user, membership, patient) = await ReadStateAsync(factory, patientId);
         Assert.True(patient.Ativo);
         Assert.False(user.Ativo);
@@ -75,7 +75,7 @@ public sealed class PacienteInativacaoLoginTests : ApiEndpointTestBase
         var (patientId, _) = await SeedPatientWithLoginAsync(factory, userActive: true);
         using var admin = factory.CreateClient();
         await AuthenticateAsync(admin);
-        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/pacientes/{patientId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.InativarPacienteAsync(patientId)).StatusCode);
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -88,7 +88,7 @@ public sealed class PacienteInativacaoLoginTests : ApiEndpointTestBase
             await db.SaveChangesAsync();
         }
 
-        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsync($"/api/pacientes/{patientId}/reativacao", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.ReativarPacienteAsync(patientId)).StatusCode);
         var (user, membership, reactivated) = await ReadStateAsync(factory, patientId);
         Assert.True(reactivated.Ativo);
         Assert.False(reactivated.LoginBloqueadoNaInativacao);
@@ -106,7 +106,7 @@ public sealed class PacienteInativacaoLoginTests : ApiEndpointTestBase
 
         using var betaAdmin = factory.CreateClient();
         await AuthenticateAsync(betaAdmin, beta.Slug);
-        Assert.Equal(HttpStatusCode.NotFound, (await betaAdmin.DeleteAsync($"/api/pacientes/{patientId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await betaAdmin.InativarPacienteAsync(patientId)).StatusCode);
 
         var (user, membership, patient) = await ReadStateAsync(factory, patientId);
         Assert.True(patient.Ativo);
@@ -134,7 +134,7 @@ public sealed class PacienteInativacaoLoginTests : ApiEndpointTestBase
         await db.SaveChangesAsync();
 
         await new DeletePacienteCommandHandler(db).Handle(
-            new DeletePacienteCommand { Id = patient.Id, CurrentUserId = 1, CurrentPerfilId = Perfil.AdministradorId }, default);
+            new DeletePacienteCommand { Id = patient.Id, CurrentUserId = 1, CurrentPerfilId = Perfil.AdministradorId, Motivo = "Cadastro anomalo" }, default);
 
         db.ChangeTracker.Clear();
         Assert.True((await db.Users.SingleAsync(u => u.Id == staff.Id)).Ativo);

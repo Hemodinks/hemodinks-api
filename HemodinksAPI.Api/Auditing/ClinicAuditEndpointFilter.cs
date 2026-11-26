@@ -13,7 +13,8 @@ namespace HemodinksAPI.Api;
 /// </summary>
 internal sealed class ClinicAuditEndpointFilter(
     string action,
-    Func<EndpointFilterInvocationContext, string?> resolveResource) : IEndpointFilter
+    Func<EndpointFilterInvocationContext, string?> resolveResource,
+    bool onlyWhenRequested = false) : IEndpointFilter
 {
     public async ValueTask<object?> InvokeAsync(EndpointFilterInvocationContext context, EndpointFilterDelegate next)
     {
@@ -52,7 +53,14 @@ internal sealed class ClinicAuditEndpointFilter(
     {
         try
         {
+            var recorder = http.RequestServices.GetService<IClinicAuditRecorder>();
+            // Atendimentos: so com a auditoria ligada na clinica (o handler confirma via Request()).
+            if (onlyWhenRequested && recorder?.Requested != true)
+                return;
             var writer = http.RequestServices.GetRequiredService<IClinicAuditWriter>();
+            var resourceId = ResolveResourceId(http, result);
+            var pacienteId = recorder?.PacienteId
+                ?? (resource == ClinicAuditEndpointExtensions.PacienteResource && int.TryParse(resourceId, out var id) ? id : null);
             var timeProvider = http.RequestServices.GetRequiredService<TimeProvider>();
             // Sem o token da requisicao: cliente que desconecta nao apaga o rastro do acesso.
             await writer.WriteAsync(new ClinicAuditEntry(
@@ -60,10 +68,13 @@ internal sealed class ClinicAuditEndpointFilter(
                 ParseClaim(http.User, GlobalIdentityClaimTypes.EquipeOperadorId),
                 action,
                 resource,
-                ResolveResourceId(http, result),
+                resourceId,
                 statusCode,
                 TruncateIp(http.Connection.RemoteIpAddress),
-                timeProvider.GetUtcNow().UtcDateTime), CancellationToken.None);
+                timeProvider.GetUtcNow().UtcDateTime,
+                pacienteId,
+                // Detalhe so quando a operacao deu certo: motivo/alteracoes de tentativa falha nao valem.
+                statusCode is >= 200 and < 400 ? recorder?.Detalhe : null), CancellationToken.None);
         }
         catch (Exception exception)
         {
@@ -119,4 +130,10 @@ internal static class ClinicAuditEndpointExtensions
     public static RouteHandlerBuilder WithClinicAudit(this RouteHandlerBuilder builder, string action,
         Func<EndpointFilterInvocationContext, string?> resolveResource) =>
         builder.AddEndpointFilter(new ClinicAuditEndpointFilter(action, resolveResource));
+
+    public const string AtendimentoResource = "atendimento";
+
+    // Atendimentos so entram na trilha com a opcao "Auditar atendimentos" ligada na clinica.
+    public static RouteHandlerBuilder WithAtendimentoAudit(this RouteHandlerBuilder builder, string action) =>
+        builder.AddEndpointFilter(new ClinicAuditEndpointFilter(action, _ => AtendimentoResource, onlyWhenRequested: true));
 }

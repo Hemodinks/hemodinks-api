@@ -38,10 +38,10 @@ public partial class PacienteCommandHandlerTests
         var now = new DateTime(2026, 11, 23, 15, 0, 0, DateTimeKind.Utc);
 
         await new DeletePacienteCommandHandler(db, new FixedTime(now))
-            .Handle(new DeletePacienteCommand { Id = patient.Id, CurrentUserId = 77, CurrentPerfilId = profile }, default);
+            .Handle(new DeletePacienteCommand { Id = patient.Id, CurrentUserId = 77, CurrentPerfilId = profile, Motivo = "Transferido" }, default);
         // Idempotente: inativar de novo nao altera data nem autor.
         await new DeletePacienteCommandHandler(db, new FixedTime(now.AddDays(1)))
-            .Handle(new DeletePacienteCommand { Id = patient.Id, CurrentUserId = 88, CurrentPerfilId = profile }, default);
+            .Handle(new DeletePacienteCommand { Id = patient.Id, CurrentUserId = 88, CurrentPerfilId = profile, Motivo = "Transferido" }, default);
 
         db.ChangeTracker.Clear();
         var inactive = await db.Pacientes.SingleAsync(x => x.Id == patient.Id);
@@ -52,7 +52,7 @@ public partial class PacienteCommandHandlerTests
         Assert.True(await db.PacienteArquivos.AnyAsync(x => x.PacienteId == patient.Id));
 
         await new ReativarPacienteCommandHandler(db)
-            .Handle(new ReativarPacienteCommand { Id = patient.Id, CurrentPerfilId = profile }, default);
+            .Handle(new ReativarPacienteCommand { Id = patient.Id, CurrentPerfilId = profile, Motivo = "Retorno" }, default);
         db.ChangeTracker.Clear();
         var reactivated = await db.Pacientes.SingleAsync(x => x.Id == patient.Id);
         Assert.True(reactivated.Ativo);

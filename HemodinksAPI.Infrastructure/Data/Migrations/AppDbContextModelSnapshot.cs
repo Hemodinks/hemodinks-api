@@ -319,12 +319,19 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.Property<DateTime>("DataUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("Detalhe")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
                     b.Property<int?>("EquipeOperadorId")
                         .HasColumnType("int");
 
                     b.Property<string>("IpTruncado")
                         .HasMaxLength(64)
                         .HasColumnType("nvarchar(64)");
+
+                    b.Property<int?>("PacienteId")
+                        .HasColumnType("int");
 
                     b.Property<string>("Recurso")
                         .IsRequired()
@@ -349,6 +356,8 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                     b.HasIndex("DataUtc");
 
                     b.HasIndex("ClinicaId", "DataUtc");
+
+                    b.HasIndex("ClinicaId", "PacienteId", "DataUtc");
 
                     b.HasIndex("ClinicaId", "Recurso", "RecursoId", "DataUtc");
 
@@ -651,6 +660,9 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<bool>("AuditarAtendimentos")
+                        .HasColumnType("bit");
+
                     b.Property<int>("ClinicaId")
                         .HasColumnType("int");
 
@@ -681,6 +693,7 @@ namespace HemodinksAPI.Infrastructure.Data.Migrations
                         new
                         {
                             Id = 1,
+                            AuditarAtendimentos = false,
                             ClinicaId = 1,
                             DataCadastro = new DateTime(2026, 6, 22, 0, 0, 0, 0, DateTimeKind.Utc),
                             NomeEmpresa = "Hemodinks"

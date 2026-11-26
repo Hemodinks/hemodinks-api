@@ -212,6 +212,22 @@ class PlannerTests(unittest.TestCase):
         for _, variables_sent in client.mutations:
             self.assertNotIn("{{", repr(variables_sent))
 
+    def test_homologation_creates_only_its_own_dashboard(self):
+        client = FakeNerdGraph()
+        variables = {"APM_APP": nr.HOMOLOGATION["APM_APP"], "BROWSER_APP": nr.HOMOLOGATION["BROWSER_APP"]}
+        planner = nr.Planner(client, ACCOUNT, dict(variables), apply=True, alert_email="alertas@example.invalid")
+        actions = planner.run(nr.prune(nr.for_homologation(nr.load_config()), variables), dashboard_only=True)
+        self.assertEqual(["dashboard+"], client.mutation_names())
+        dashboard = next(v for d, v in client.mutations if d is nr.M_DASHBOARD_CREATE)["dashboard"]
+        self.assertEqual("HemoDinks - Saude da homologacao", dashboard["name"])
+        sent = repr(dashboard)
+        self.assertIn("Hemodinks API Confirmation", sent)
+        self.assertIn("Hemodinks Front HOMOL", sent)
+        self.assertNotIn("'Hemodinks API'", sent)
+        self.assertTrue(all("politica" not in a and "SLO" not in a for a in actions), actions)
+        # A copia nunca altera o nome do dashboard de producao versionado.
+        self.assertEqual("HemoDinks - Saude da producao", nr.load_config()["dashboard"]["name"])
+
     def test_notifications_are_skipped_without_email(self):
         client = FakeNerdGraph()
         actions = run(client, apply=True, email=None)

@@ -77,7 +77,7 @@ public sealed class ClinicAuditTrailTests : ApiEndpointTestBase
         })).StatusCode);
         Assert.Equal(HttpStatusCode.Accepted, (await client.PostAsJsonAsync("/api/exports/", new { resource = "cbhpm", format = "xlsx" })).StatusCode);
 
-        Assert.True((await client.DeleteAsync($"/api/pacientes/{id}")).IsSuccessStatusCode);
+        Assert.True((await DeleteWithMotivoAsync(client, $"/api/pacientes/{id}", "Duplicado")).IsSuccessStatusCode);
 
         var rows = await ReadTrailAsync(factory);
         Assert.All(rows, row =>
@@ -144,7 +144,7 @@ public sealed class ClinicAuditTrailTests : ApiEndpointTestBase
             ("arquivo.baixar", await client.GetAsync($"/api/pacientes/{id}/arquivos/1/download")),
             ("observacao.listar", await client.GetAsync($"/api/pacientes/{id}/observacoes")),
             ("paciente.resumo-financeiro", await client.GetAsync($"/api/pacientes/{id}/resumo-financeiro")),
-            ("paciente.inativar", await client.DeleteAsync($"/api/pacientes/{id}")),
+            ("paciente.inativar", await DeleteWithMotivoAsync(client, $"/api/pacientes/{id}", "Tentativa de outra clinica")),
         };
 
         var rows = await ReadTrailAsync(factory);
@@ -296,6 +296,9 @@ public sealed class ClinicAuditTrailTests : ApiEndpointTestBase
         ClinicaId = clinicId, UsuarioId = 1, Acao = action, Recurso = "paciente", RecursoId = resourceId,
         StatusCode = 200, Sucesso = true, DataUtc = when ?? DateTime.UtcNow
     };
+
+    internal static Task<HttpResponseMessage> DeleteWithMotivoAsync(HttpClient client, string url, string? motivo) =>
+        client.SendAsync(new HttpRequestMessage(HttpMethod.Delete, url) { Content = JsonContent.Create(new { motivo }) });
 
     private static async Task<List<AuditoriaClinica>> ReadTrailAsync(HemodinksApiFactory factory)
     {

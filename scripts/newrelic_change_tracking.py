@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
-"""Registra o deploy de producao no Change Tracking do New Relic (marcador "Deployments" do APM).
+"""Registra o deploy no Change Tracking do New Relic (marcador "Deployments" do APM).
 
-Roda no job deploy-api depois da promocao blue/green. Nunca bloqueia o deploy: sem configuracao,
-ou se a NerdGraph falhar, so avisa e sai com 0 (o deploy ja foi feito quando este passo roda).
+Producao: job deploy-api, depois da promocao blue/green (APM "Hemodinks API").
+Homologacao: job deploy do Publish Homologation, depois que o Render fica live (APM "Hemodinks API Confirmation").
+Nunca bloqueia o deploy: sem configuracao, ou se a NerdGraph falhar, so avisa e sai com 0
+(o deploy ja foi feito quando este passo roda).
 
 Ambiente:
   NEW_RELIC_API_KEY       User key (NRAK-...), a mesma do workflow New Relic Observability. Nunca e impressa.
   NEW_RELIC_ACCOUNT_ID    conta New Relic.
   NEW_RELIC_REGION        US (padrao) ou EU.
   NEW_RELIC_APM_APP_NAME  padrao "Hemodinks API".
-  CANDIDATE_REVISION      revisao do Container Apps promovida (vai na descricao).
+  DEPLOY_ENVIRONMENT      production (padrao, BLUE_GREEN) ou homologation (BASIC).
+  CANDIDATE_REVISION      producao: revisao do Container Apps promovida (vai na descricao).
+  RENDER_DEPLOY_ID        homologacao: id do deploy no Render (vai na descricao).
   GITHUB_SHA, GITHUB_ACTOR, GITHUB_SERVER_URL, GITHUB_REPOSITORY, GITHUB_RUN_ID  preenchidos pelo Actions.
 """
 from __future__ import annotations
@@ -24,19 +28,30 @@ import newrelic_observability as nr  # noqa: E402  (NerdGraph, entity_query e re
 M_DEPLOYMENT_CREATE = """mutation($deployment: ChangeTrackingDeploymentInput!) {
   changeTrackingCreateDeployment(deployment: $deployment) { deploymentId entityGuid } }"""
 APM_KIND = "domain = 'APM' AND type = 'APPLICATION'"
+ENVIRONMENTS = {"production": "BLUE_GREEN", "homologation": "BASIC"}
+
+
+def description(env: dict) -> str:
+    if env.get("DEPLOY_ENVIRONMENT", "").strip() == "homologation":
+        render = env.get("RENDER_DEPLOY_ID", "").strip()
+        return f"Homologacao: deploy Render {render}" if render else "Homologacao: deploy Render"
+    revision = env.get("CANDIDATE_REVISION", "").strip()
+    return f"Producao: revisao {revision} promovida" if revision else "Producao: revisao promovida"
 
 
 def deployment_input(guid: str, env: dict) -> dict:
     sha = env.get("GITHUB_SHA", "").strip()
     if len(sha) != 40:
         raise nr.ConfigError("GITHUB_SHA ausente ou invalido")
-    revision = env.get("CANDIDATE_REVISION", "").strip()
+    environment = env.get("DEPLOY_ENVIRONMENT", "").strip() or "production"
+    if environment not in ENVIRONMENTS:
+        raise nr.ConfigError("DEPLOY_ENVIRONMENT deve ser production ou homologation")
     deployment = {
         "entityGuid": guid,
         "version": sha[:7],
         "commit": sha,
-        "deploymentType": "BLUE_GREEN",
-        "description": f"Producao: revisao {revision} promovida" if revision else "Producao: revisao promovida",
+        "deploymentType": ENVIRONMENTS[environment],
+        "description": description(env),
     }
     if env.get("GITHUB_ACTOR"):
         deployment["user"] = env["GITHUB_ACTOR"]

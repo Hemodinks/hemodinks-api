@@ -372,6 +372,8 @@ Listas paginadas devolvem `{ items, page, pageSize, totalItems, totalPages }`; `
 | Método | Rota | Acesso |
 | --- | --- | --- |
 | `GET` | `/api/auditoria-clinica` | Adm, SA |
+| `GET` | `/api/auditoria-clinica/configuracao` | Adm, SA |
+| `PUT` | `/api/auditoria-clinica/configuracao` | Adm, SA |
 
 ### Atendimentos cirúrgicos
 

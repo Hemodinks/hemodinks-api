@@ -29,10 +29,10 @@ public sealed class PacienteInativacaoEndpointTests : ApiEndpointTestBase
 
         Assert.Equal(HttpStatusCode.OK, (await doctor.GetAsync($"/api/pacientes/{patientId}")).StatusCode);
         await AssertDoctorSeesClinicalRecordsAsync(doctor, patientId, attendanceId, visible: true);
-        Assert.Equal(HttpStatusCode.Forbidden, (await doctor.DeleteAsync($"/api/pacientes/{patientId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await doctor.InativarPacienteAsync(patientId)).StatusCode);
 
-        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/pacientes/{patientId}")).StatusCode);
-        Assert.Equal(HttpStatusCode.NoContent, (await admin.DeleteAsync($"/api/pacientes/{patientId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.InativarPacienteAsync(patientId)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.InativarPacienteAsync(patientId)).StatusCode);
 
         using (var scope = factory.Services.CreateScope())
         {
@@ -51,7 +51,7 @@ public sealed class PacienteInativacaoEndpointTests : ApiEndpointTestBase
         Assert.DoesNotContain(PatientName, await doctor.GetStringAsync("/api/pacientes/?page=1&pageSize=50&situacao=todos"));
         var update = await doctor.PutAsJsonAsync($"/api/pacientes/{patientId}", new { nomePaciente = "Alterado", medicoUserId = doctorId });
         Assert.False(update.IsSuccessStatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await doctor.PostAsync($"/api/pacientes/{patientId}/reativacao", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await doctor.ReativarPacienteAsync(patientId)).StatusCode);
         await AssertDoctorSeesClinicalRecordsAsync(doctor, patientId, attendanceId, visible: false);
         using (var attendanceFile = new MultipartFormDataContent())
         {
@@ -79,7 +79,7 @@ public sealed class PacienteInativacaoEndpointTests : ApiEndpointTestBase
             Assert.True(detail.RootElement.GetProperty("inativado").GetBoolean());
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.GetAsync("/api/pacientes/?situacao=apagados")).StatusCode);
 
-        Assert.Equal(HttpStatusCode.NoContent, (await admin.PostAsync($"/api/pacientes/{patientId}/reativacao", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.NoContent, (await admin.ReativarPacienteAsync(patientId)).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await doctor.GetAsync($"/api/pacientes/{patientId}")).StatusCode);
         Assert.Contains(PatientName, await doctor.GetStringAsync("/api/pacientes/?page=1&pageSize=50"));
         await AssertDoctorSeesClinicalRecordsAsync(doctor, patientId, attendanceId, visible: true);
@@ -95,8 +95,8 @@ public sealed class PacienteInativacaoEndpointTests : ApiEndpointTestBase
 
         using var defaultAdmin = factory.CreateClient();
         await AuthenticateAsync(defaultAdmin, Clinica.DefaultSlug);
-        var delete = await defaultAdmin.DeleteAsync($"/api/pacientes/{patientId}");
-        var reactivate = await defaultAdmin.PostAsync($"/api/pacientes/{patientId}/reativacao", null);
+        var delete = await defaultAdmin.InativarPacienteAsync(patientId);
+        var reactivate = await defaultAdmin.ReativarPacienteAsync(patientId);
         var missing = await defaultAdmin.DeleteAsync("/api/pacientes/987654");
 
         Assert.Equal(HttpStatusCode.NotFound, delete.StatusCode);

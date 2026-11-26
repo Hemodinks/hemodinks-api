@@ -1,3 +1,4 @@
+using HemodinksAPI.Application.Auditing;
 using HemodinksAPI.Application.Data;
 using HemodinksAPI.Application.Features.Common;
 using HemodinksAPI.Application.Tenancy;
@@ -8,7 +9,8 @@ using HemodinksAPI.Domain.Exceptions;
 
 namespace HemodinksAPI.Application.Features.Financeiro;
 
-public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, IClinicaContext tenant)
+public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, IClinicaContext tenant,
+    IClinicAuditRecorder? audit = null)
     : IRequestHandler<CriarAtendimentoCommand, AtendimentoDto>
 {
     public async Task<AtendimentoDto> Handle(CriarAtendimentoCommand request, CancellationToken ct)
@@ -71,6 +73,11 @@ public sealed class CriarAtendimentoCommandHandler(IFinanceFeatureDbContext db, 
         }
         db.AtendimentosCirurgicos.Add(atendimento);
         await db.SaveChangesAsync(ct);
+        if (audit is not null && await audit.AuditarAtendimentosAsync(ct))
+        {
+            audit.ForPaciente(atendimento.PacienteId);
+            audit.Request();
+        }
         return FinanceiroMapper.ToDto(atendimento);
     }
 }

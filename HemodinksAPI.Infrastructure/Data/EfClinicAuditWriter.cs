@@ -28,7 +28,9 @@ public sealed class EfClinicAuditWriter(
             StatusCode = entry.StatusCode,
             Sucesso = entry.StatusCode is >= 200 and < 400,
             IpTruncado = entry.IpTruncado,
-            DataUtc = entry.DataUtc
+            DataUtc = entry.DataUtc,
+            PacienteId = entry.PacienteId,
+            Detalhe = entry.Detalhe
         });
         await context.SaveChangesAsync(cancellationToken);
     }

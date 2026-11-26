@@ -60,63 +60,101 @@ jobs:
       contents: read
     uses: ./.github/workflows/login-e2e.yml
 
-  build-test:
-    name: Build and test
+  # Duas partes paralelas com filtros complementares (scripts/ci_test_shards.py): cada teste roda exatamente
+  # uma vez. As verificacoes sem .NET e a auditoria/migrations rodam so na parte 1. Nenhuma parte e o check
+  # obrigatorio: o portao "Build and test" abaixo exige as duas e avalia o resultado combinado.
+  build-test-part:
+    name: Build and test (${{ matrix.part }}/2)
     needs: scope
     if: ${{ !cancelled() && needs.scope.outputs.run_tests != 'false' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        part: [1, 2]
 
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Lint deployment shell scripts
+        if: matrix.part == 1
         run: |
           shellcheck --version
           shellcheck scripts/deploy/*.sh scripts/Enforce-ProductionRevisionPolicy.sh
 
       - name: Test Production approval and rollback gates without Azure
+        if: matrix.part == 1
         run: python3 -B -m unittest discover -s scripts/tests -p test_production_deployment_gates.py -v
 
       # #278: o push na main pode pular a validacao do Publish Production; o CI cobre o que ela cobria.
       - name: Test trusted proxy configuration
+        if: matrix.part == 1
         run: python3 -B -m unittest discover -s scripts/tests -p test_forwarded_headers.py -v
 
       - name: Test bootstrap proxy payload without Azure
+        if: matrix.part == 1
         shell: pwsh
         run: ./scripts/tests/test_bootstrap_proxy.ps1
 
       - name: Test release source decisions without GitHub API
+        if: matrix.part == 1
         run: python3 -B -m unittest discover -s scripts/tests -p test_release_source.py -v
 
       - name: Test homologation preflight without Render
+        if: matrix.part == 1
         run: python3 -B -m unittest discover -s scripts/tests -p test_check_homologation.py -v
 
       - name: Test SQL identity separation without database access
+        if: matrix.part == 1
         run: python3 -B -m unittest discover -s scripts/tests -p test_sql_identity_separation.py -v
 
       - name: Test Functions network restriction rules without Azure
+        if: matrix.part == 1
         run: python3 -B -m unittest discover -s scripts/tests -p test_functions_network_restrictions.py -v
 
       - name: Test GitHub Actions pinned by SHA
+        if: matrix.part == 1
         run: python3 -B -m unittest discover -s scripts/tests -p test_actions_pinned.py -v
 
       # #289: alertas/SLOs/dashboard versionados; validacao offline, sem chave do New Relic.
       - name: Validate New Relic observability config
+        if: matrix.part == 1
         run: |
           python3 -B -m unittest discover -s scripts/tests -p test_newrelic_observability.py -v
           python3 -B -m unittest discover -s scripts/tests -p test_newrelic_change_tracking.py -v
           python3 -B scripts/newrelic_observability.py validate
 
+      - name: Test parallel test split rules
+        if: matrix.part == 1
+        run: python3 -B -m unittest discover -s scripts/tests -p test_ci_test_shards.py -v
+
+      # Imagem SQL Server + Full-Text em cache, chaveada pelo Dockerfile: so e reconstruida quando ele muda.
+      - name: Restore SQL Server image cache
+        id: sqlserver-cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ runner.temp }}/sqlserver-image
+          key: sqlserver-fts-${{ runner.os }}-${{ hashFiles('sqlserver/Dockerfile.fts') }}
+
       - name: Start SQL Server for relational tests
         shell: bash
+        env:
+          SQLSERVER_CACHE_HIT: ${{ steps.sqlserver-cache.outputs.cache-hit }}
+          SQLSERVER_IMAGE_DIR: ${{ runner.temp }}/sqlserver-image
         run: |
           test_password="Test_${GITHUB_RUN_ID}_Aa!"
-          docker build \
-            --file sqlserver/Dockerfile.fts \
-            --tag hemodinks-sqlserver:2022-fts-ci \
-            .
+          if [ "$SQLSERVER_CACHE_HIT" = "true" ] && [ -f "$SQLSERVER_IMAGE_DIR/image.tar" ]; then
+            docker load --input "$SQLSERVER_IMAGE_DIR/image.tar"
+          else
+            docker build \
+              --file sqlserver/Dockerfile.fts \
+              --tag hemodinks-sqlserver:2022-fts-ci \
+              .
+            mkdir -p "$SQLSERVER_IMAGE_DIR"
+            docker save --output "$SQLSERVER_IMAGE_DIR/image.tar" hemodinks-sqlserver:2022-fts-ci
+          fi
 
           docker run --detach --name hemodinks-test-sqlserver \
             --env ACCEPT_EULA=Y \
@@ -159,9 +197,11 @@ jobs:
 
       # #286: High/Critical em pacote direto ou transitivo falha o build; exceção só com prazo na allowlist.
       - name: Test NuGet vulnerability gate rules
+        if: matrix.part == 1
         run: python3 -B -m unittest discover -s scripts/tests -p test_nuget_vulnerabilities.py -v
 
       - name: Audit NuGet vulnerabilities
+        if: matrix.part == 1
         run: |
           dotnet list ./HemodinksAPI.slnx package --vulnerable --include-transitive --format json > "$RUNNER_TEMP/nuget-vulnerabilities.json"
           python3 -B scripts/check_nuget_vulnerabilities.py "$RUNNER_TEMP/nuget-vulnerabilities.json"
@@ -170,12 +210,12 @@ jobs:
         run: dotnet build ./HemodinksAPI.slnx --configuration Release --no-restore
 
       - name: Validate migrations (dev-local)
-        if: github.ref_name == 'dev-local' || github.base_ref == 'dev-local'
+        if: matrix.part == 1 && (github.ref_name == 'dev-local' || github.base_ref == 'dev-local')
         shell: pwsh
         run: ./scripts/Test-Migrations.ps1 -Configuration Release
 
       - name: Validate migrations
-        if: github.ref_name != 'dev-local' && github.base_ref != 'dev-local'
+        if: matrix.part == 1 && github.ref_name != 'dev-local' && github.base_ref != 'dev-local'
         shell: pwsh
         run: ./scripts/Test-Migrations.ps1 -NoBuild -Configuration Release
 
@@ -183,23 +223,78 @@ jobs:
       - name: Test
         id: test
         timeout-minutes: 25
-        run: dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --filter "FullyQualifiedName!~LoginBrowserTests" --timeout 20m --verbosity normal --report-xunit-trx --report-xunit-trx-filename test-results.trx --results-directory ./TestResults --coverlet --coverlet-output-format cobertura --coverlet-exclude-by-file "**/Migrations/*.cs"
+        env:
+          TEST_PART: ${{ matrix.part }}
+        run: |
+          filter="$(python3 -B scripts/ci_test_shards.py "$TEST_PART")"
+          dotnet test ./HemodinksAPI.slnx --configuration Release --no-build --filter "$filter" --timeout 20m --verbosity normal --report-xunit-trx --report-xunit-trx-filename "test-results-$TEST_PART.trx" --results-directory ./TestResults --coverlet --coverlet-output-format cobertura --coverlet-exclude-by-file "**/Migrations/*.cs"
+
+      # Nome com a parte: os relatorios das duas partes vao para a mesma pasta no portao e nao podem se sobrescrever.
+      - name: Name coverage reports by part
+        if: always()
+        env:
+          TEST_PART: ${{ matrix.part }}
+        shell: bash
+        run: |
+          for report in TestResults/coverage.cobertura.*.xml; do
+            [ -e "$report" ] && mv "$report" "${report%.xml}.part$TEST_PART.xml"
+          done
+          exit 0
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-results-part-${{ matrix.part }}
+          path: |
+            TestResults/*.trx
+            TestResults/coverage.cobertura.*.xml
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Check obrigatorio na main. Passa so com as duas partes verdes e o resultado combinado aprovado:
+  # zero falhas/ignorados, IDs unicos (sem teste repetido entre partes), testes SQL criticos e pisos de cobertura.
+  build-test:
+    name: Build and test
+    needs: [scope, build-test-part]
+    if: ${{ !cancelled() && needs.scope.outputs.run_tests != 'false' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Require both test parts
+        env:
+          PARTS_RESULT: ${{ needs.build-test-part.result }}
+        run: |
+          if [ "$PARTS_RESULT" != "success" ]; then
+            echo "::error::Build and test parts did not all succeed ($PARTS_RESULT)."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download test results of both parts
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: test-results-part-*
+          path: TestResults
+          merge-multiple: true
 
       - name: Test coverage gate rules
-        if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
         run: python3 -B -m unittest discover -s scripts/tests -p test_coverage_gate.py -v
 
-      # Sem gate global: resumo por projeto no run e piso so para autenticacao e tenant.
+      # Sem gate global: resumo por projeto no run e piso so para autenticacao e tenant (relatorios somados).
       - name: Coverage summary and high-risk floors
-        if: ${{ !cancelled() && steps.test.outcome != 'skipped' }}
         run: python3 -B scripts/check_coverage.py TestResults/coverage.cobertura.*.xml
-
-      - name: Require critical SQL tests and zero silent skips
-        if: always()
-        run: python3 -B scripts/check-test-results.py --suite api TestResults/test-results.trx
 
       - name: Test result gate regressions
         run: python3 -B -m unittest discover -s scripts/tests -p test_test_results_gate.py -v
+
+      - name: Require critical SQL tests and zero silent skips
+        run: python3 -B scripts/check-test-results.py --suite api TestResults/test-results-1.trx TestResults/test-results-2.trx
 
       # #278: prova, para o push na main, de que esta arvore exata passou. So depois de todos os testes.
       - name: Record tested tree for Publish Production
@@ -218,7 +313,7 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
-      - name: Upload test results
+      - name: Upload combined test results
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

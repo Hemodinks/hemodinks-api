@@ -15,11 +15,13 @@ internal sealed class AuditoriaClinicaConfiguration : IEntityTypeConfiguration<A
         entity.Property(item => item.Recurso).IsRequired().HasMaxLength(60);
         entity.Property(item => item.RecursoId).HasMaxLength(40);
         entity.Property(item => item.IpTruncado).HasMaxLength(64);
+        entity.Property(item => item.Detalhe).HasMaxLength(4000);
         entity.Property(item => item.DataUtc).IsRequired();
 
         entity.HasIndex(item => new { item.ClinicaId, item.DataUtc });
         entity.HasIndex(item => new { item.ClinicaId, item.Recurso, item.RecursoId, item.DataUtc });
         entity.HasIndex(item => item.DataUtc);
+        entity.HasIndex(item => new { item.ClinicaId, item.PacienteId, item.DataUtc });
 
         entity.HasOne(item => item.Clinica)
             .WithMany()

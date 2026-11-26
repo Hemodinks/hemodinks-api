@@ -16,6 +16,10 @@ public class ConfiguracaoSistema : IClinicaOwnedEntity
 
     public string? FotoEmpresa { get; set; }
 
+    // Liga o registro de alteracoes (antes/depois) de pacientes e atendimentos na trilha de auditoria.
+    // Inativacao e reativacao de paciente sao sempre auditadas.
+    public bool AuditarAtendimentos { get; set; }
+
     public DateTime DataCadastro { get; set; } = DateTime.UtcNow;
 
     public DateTime? DataAtualizacao { get; set; }
