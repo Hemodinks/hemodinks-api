@@ -7,6 +7,47 @@
 > Esta restricao substitui as autorizacoes historicas descritas neste runbook;
 > #198 permanece aberta com restore e RPO/RTO reais bloqueados por orcamento.
 
+## Ensaio local do procedimento — 26/11/2026 (#206)
+
+Teste sintético local permitido pela restrição acima: SQL Server 2022 com Full-Text em Docker (mesma imagem do
+CI), dados 100% sintéticos, sem Azure. Valida o **procedimento e o método de medição**, não a capacidade da
+produção: restore real continua n=0 e RPO/RTO reais continuam não medidos. Evidência completa no
+[comentário da #206](https://github.com/Hemodinks/hemodinks-api/issues/206#issuecomment-7196527782). As seções
+seguintes não mudam; as lições abaixo complementam o "Ensaio isolado" e a "Integridade e segurança".
+
+Resumo: backup full com checksum e de log a cada 60 s; um escritor marcou um commit por segundo; um UPDATE
+errado corrompeu os pacientes de uma clínica; o restore foi feito com `STOPAT` no instante do incidente. Foi recuperado o
+último commit válido anterior ao incidente (0 perdidos), sem a corrupção. CHECKDB passou, e
+`ValidateRestoredDatabase.sql` deu 0 violações em 135 checagens. O histórico de migrations batia com o commit, e as
+contagens por clínica, com a baseline do ponto. A API isolada passou nos negativos A/B, trilha e MFA. Tempos
+locais (n=1, não comparáveis com Azure): restore puro 4,6 s, RTO técnico 226 s.
+
+Lições para o procedimento:
+
+1. **Ponto com precisão de `datetime`.** `RESTORE ... STOPAT` aceita no máximo 3 ms. Um instante com 7 casas
+   decimais (`datetime2`) é recusado (Msg 3217) e custou uma tentativa. Registre o instante do incidente já
+   truncado em milissegundos: truncar mantém o ponto antes dele. No Portal, conferir o ponto no resumo
+   (passo 4 do ensaio isolado).
+2. **PITR ressuscita credenciais revogadas.** Na cópia, uma senha trocada na origem *depois* do ponto voltou a
+   funcionar (HTTP 200), e a senha nova foi recusada. Um token emitido pela origem depois do ponto foi recusado
+   (401). Por isso, a reconciliação de segurança deixa de ser só um alerta e vira etapa obrigatória **entre a
+   integridade e a liberação**. Liste as trocas de senha/PIN, revogações, desativações, mudanças de vínculo/perfil e
+   MFA posteriores ao ponto, e reaplique ou bloqueie essas contas antes de qualquer acesso de usuário. O mesmo vale
+   para escritas válidas posteriores ao incidente, que se perdem no restore.
+3. **Baseline no ponto.** Contagens agregadas por clínica (e por estado relevante), tiradas no instante do
+   incidente, bastaram para comparar a cópia sem expor IDs. No ensaio real, defina antes de onde essa baseline vem
+   (monitoramento, trilha ou consulta agregada pré-aprovada).
+4. **Host isolado sem efeitos externos.** Suba a API com `Database__RunMigrationsOnStartup`,
+   `Database__RunMaintenanceOnStartup`, `Seed__CbhpmOnStartup`, `Seed__UsersOnStartup`,
+   `EventReminders__RunHostedProcessor` e `AsyncQueues__*Enabled` em `false`, e SMTP apontando para um destino
+   inexistente. Complementa o passo 5 do ensaio isolado.
+5. **Marcar os tempos pelo relógio do SQL Server** (`SYSUTCDATETIME()`), num registro só: incidente, ponto,
+   submissão, Online, fim da integridade, API pronta e liberação. Registre a decisão e as tentativas falhas à parte.
+
+Não reproduzido localmente: backups gerenciados e cadência real de log do Azure, SKU serverless, firewall e
+servidor lógico compartilhado, usuário contido restaurado e quarentena antes do Online. Os bloqueios de
+isolamento e de orçamento continuam como estão.
+
 ## Revalidação em 26/10/2026
 
 Esta seção atualiza o status; as seções seguintes preservam a evidência histórica
