@@ -32,6 +32,7 @@
     <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.11.1" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.12.0" />
     <PackageVersion Include="NewRelic.Agent" Version="10.58.0" />
+    <PackageVersion Include="NewRelic.Agent.Api" Version="10.58.0" />
     <PackageVersion Include="Scalar.AspNetCore" Version="3.2.0" />
     <PackageVersion Include="Serilog" Version="4.4.0" />
     <PackageVersion Include="Serilog.AspNetCore" Version="10.0.0" />

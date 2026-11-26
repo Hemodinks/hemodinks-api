@@ -132,6 +132,40 @@ public sealed class ProfilePhotoStorageLimitTests
             storage.SaveAsync(CreatePngDataUrl(1024), null, CancellationToken.None));
     }
 
+    // #399: sem mudanca a gravar ou apagar, nao chama a Function (o cold start dela atrasava criar paciente sem foto).
+    [Theory]
+    [InlineData(null, null, null)]
+    [InlineData("", null, null)]
+    [InlineData("   ", "", null)]
+    [InlineData(null, "data:image/png;base64,iVBORw0KGgo=", null)]
+    [InlineData("https://storage.example/profile-photos/a.png", "https://storage.example/profile-photos/a.png",
+        "https://storage.example/profile-photos/a.png")]
+    public async Task FunctionBacked_NothingToStore_ReturnsDirectResultWithoutCallingFunction(
+        string? requested, string? current, string? expected)
+    {
+        var factory = new CountingHttpClientFactory(System.Net.HttpStatusCode.InternalServerError, "nao deveria ser chamada");
+        var storage = CreateFunctionBackedStorage(factory);
+
+        var result = await storage.SaveAsync(requested, current, CancellationToken.None);
+
+        Assert.Equal(expected, result);
+        Assert.Equal(0, factory.Calls);
+    }
+
+    // Upload novo e remocao de foto existente continuam pela Function.
+    [Theory]
+    [InlineData(true, null)]
+    [InlineData(false, "https://storage.example/profile-photos/a.png")]
+    public async Task FunctionBacked_UploadOrRemovingStoredPhoto_StillCallsFunction(bool upload, string? current)
+    {
+        var factory = new CountingHttpClientFactory(System.Net.HttpStatusCode.OK, """{"fotoPerfil":"https://storage.example/novo.png"}""");
+        var storage = CreateFunctionBackedStorage(factory);
+
+        await storage.SaveAsync(upload ? CreatePngDataUrl(1024) : null, current, CancellationToken.None);
+
+        Assert.Equal(1, factory.Calls);
+    }
+
     private static FunctionBackedProfilePhotoStorage CreateFunctionBackedStorage(CountingHttpClientFactory factory)
     {
         var photoOptions = Options.Create(new ProfilePhotoStorageOptions());

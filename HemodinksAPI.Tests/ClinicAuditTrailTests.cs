@@ -291,6 +291,37 @@ public sealed class ClinicAuditTrailTests : ApiEndpointTestBase
         Assert.Equal(0, await disabled.PurgeOnceAsync(CancellationToken.None));
     }
 
+    // #400: a configuracao padrao liga a retencao de 5 anos; evento dentro do prazo fica, fora dele sai.
+    [Fact]
+    public async Task Retencao_PadraoDeCincoAnos_MantemEventosDentroDoPrazo()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var startup = factory.CreateClient();
+        var options = factory.Services.GetRequiredService<ClinicAuditRetentionOptions>();
+        Assert.Equal(1825, options.RetentionDays);
+        Assert.Contains(factory.Services.GetServices<Microsoft.Extensions.Hosting.IHostedService>(),
+            service => service is ClinicAuditRetentionHostedService);
+
+        var now = DateTime.UtcNow;
+        using (var scope = factory.Services.CreateScope())
+        {
+            scope.ServiceProvider.GetRequiredService<ClinicaContext>().SetPlatformScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.AuditoriasClinica.AddRange(
+                Row(Clinica.DefaultId, "quatro-anos", "1", now.AddDays(-4 * 365)),
+                Row(Clinica.DefaultId, "seis-anos", "2", now.AddDays(-6 * 365)));
+            await db.SaveChangesAsync();
+        }
+
+        var service = new ClinicAuditRetentionHostedService(factory.Services, options,
+            new FixedTimeProvider(now), NullLogger<ClinicAuditRetentionHostedService>.Instance);
+        await service.PurgeOnceAsync(CancellationToken.None);
+
+        var remaining = (await ReadTrailAsync(factory)).Select(item => item.Acao).ToList();
+        Assert.Contains("quatro-anos", remaining);
+        Assert.DoesNotContain("seis-anos", remaining);
+    }
+
     private static AuditoriaClinica Row(int clinicId, string action, string resourceId, DateTime? when = null) => new()
     {
         ClinicaId = clinicId, UsuarioId = 1, Acao = action, Recurso = "paciente", RecursoId = resourceId,
