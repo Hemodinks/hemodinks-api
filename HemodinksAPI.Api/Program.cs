@@ -147,6 +147,10 @@ app.UseSerilogRequestLogging(options =>
         // Cold start separation (#201): process age on every request, and a one-time marker on the
         // first non-probe request this process completed (typically the one that scaled it from zero).
         diagnosticContext.Set("ProcessUptimeMs", Math.Round(startupDiagnostics.ElapsedMs));
+        // #399: a mesma idade como atributo da transacao do New Relic (os logs de request nao sao retidos la),
+        // para os SLIs de latencia separarem cold start do regime. Sem agente ativo, a chamada nao faz nada.
+        NewRelic.Api.Agent.NewRelic.GetAgent().CurrentTransaction
+            .AddCustomAttribute("replicaAgeSeconds", Math.Round(startupDiagnostics.ElapsedMs / 1000, 1));
         if (!IsProbeRequest(httpContext.Request.Path) && startupDiagnostics.TryMarkFirstApplicationRequest())
             diagnosticContext.Set("FirstApplicationRequest", true);
 

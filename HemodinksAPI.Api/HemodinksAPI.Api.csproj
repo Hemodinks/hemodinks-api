@@ -15,6 +15,7 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
     <PackageReference Include="NewRelic.Agent" />
+    <PackageReference Include="NewRelic.Agent.Api" />
     <PackageReference Include="Scalar.AspNetCore" />
     <PackageReference Include="Serilog" />
     <PackageReference Include="Serilog.AspNetCore" />

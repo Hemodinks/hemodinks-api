@@ -47,6 +47,12 @@
           "visualization": "viz.line",
           "layout": { "column": 7, "row": 7, "width": 6, "height": 3 },
           "query": "SELECT max(numeric(UsuariosOnline)) AS 'Usuarios online', max(numeric(TotalSessoes)) AS 'Sessoes' FROM Log WHERE entity.name = '{{APM_APP}}' AND message LIKE 'ActiveSessionsSnapshot %' TIMESERIES 15 minutes SINCE 1 day ago"
+        },
+        {
+          "title": "Cold start x replica aquecida - login e rotas criticas (#399)",
+          "visualization": "viz.table",
+          "layout": { "column": 1, "row": 10, "width": 12, "height": 3 },
+          "query": "SELECT count(*) AS 'Requisicoes', percentage(count(*), WHERE duration <= 2) AS '% ate 2 s', percentile(duration, 50, 95) FROM Transaction WHERE appName = '{{APM_APP}}' AND replicaAgeSeconds IS NOT NULL AND (request.uri IN ('/api/users/authenticate', '/api/users/login-context', '/api/session/renovar', '/api/session/restaurar') OR request.uri LIKE '/api/pacientes%' OR request.uri LIKE '/api/events%' OR request.uri LIKE '/api/faturamentos%') FACET CASES(WHERE replicaAgeSeconds < 120 AS 'Cold start (replica < 120 s)', WHERE replicaAgeSeconds >= 120 AS 'Replica aquecida') SINCE 7 days ago"
         }
       ]
     },
