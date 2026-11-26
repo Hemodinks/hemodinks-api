@@ -55,5 +55,14 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 3
+    ignore:
+      # Major das imagens .NET acompanha o TargetFramework (net10.0, LTS): runtime 11 nao executa a API
+      # (framework 10.0 ausente, PR #415) e SDK 11 descasa do CI. Sobe junto com o TargetFramework, por decisao explicita.
+      - dependency-name: "dotnet/*"
+        update-types: ["version-update:semver-major"]
+      # SQL Server de dev/CI: o Dockerfile.fts instala o Full-Text do repositorio do 2022 (Ubuntu 22.04);
+      # o 2025 quebra a instalacao (PR #417). Trocar de versao exige refazer o Dockerfile.fts.
+      - dependency-name: "mssql/server"
+        update-types: ["version-update:semver-major"]
     commit-message:
       prefix: chore(deps)
