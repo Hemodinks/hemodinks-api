@@ -637,7 +637,7 @@
         "type": "Project",
         "dependencies": {
           "Azure.Storage.Blobs": "[12.30.2, )",
-          "Azure.Storage.Queues": "[12.28.1, )",
+          "Azure.Storage.Queues": "[12.28.2, )",
           "HemodinksAPI.Application": "[1.0.0, )",
           "HemodinksAPI.Domain": "[1.0.0, )",
           "Microsoft.EntityFrameworkCore": "[10.0.15, )",
@@ -656,12 +656,12 @@
       },
       "Azure.Storage.Queues": {
         "type": "CentralTransitive",
-        "requested": "[12.28.1, )",
-        "resolved": "12.28.1",
-        "contentHash": "n6WL9zIvfNBQgUbjYugJBhf0fttdIScK89mSNVvF1iKKHvZleN0Y7V+u4e3K38D64PwHTTwEtqVzn8/3nvHTEg==",
+        "requested": "[12.28.2, )",
+        "resolved": "12.28.2",
+        "contentHash": "Dwh8CazXMdskM933zc+rS+gFFAzDGuvWb2GJy6GEMRIg/b6vyCOJAolRrXDSYTZPld1dY0REds4FJkTUh7fQbQ==",
         "dependencies": {
           "Azure.Core": "1.60.0",
-          "Azure.Storage.Common": "12.29.0"
+          "Azure.Storage.Common": "12.29.1"
         }
       },
       "FluentValidation": {
