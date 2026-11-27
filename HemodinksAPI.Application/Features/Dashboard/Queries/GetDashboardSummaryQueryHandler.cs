@@ -10,14 +10,22 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
 {
     private readonly IDashboardFeatureDbContext _context;
     private readonly ILogger<GetDashboardSummaryQueryHandler> _logger;
+    private readonly TimeProvider _timeProvider;
 
     public GetDashboardSummaryQueryHandler(
         IDashboardFeatureDbContext context,
-        ILogger<GetDashboardSummaryQueryHandler> logger)
+        ILogger<GetDashboardSummaryQueryHandler> logger,
+        TimeProvider? timeProvider = null)
     {
         _context = context;
         _logger = logger;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
+
+    // Mesmos perfis da politica FaturamentoMedicoVisualizar: paciente nao recebe valores financeiros.
+    private static bool CanSeeSurgicalBilling(int perfilId) =>
+        Perfil.IsAdministradorOuSuper(perfilId)
+        || perfilId is Perfil.MedicosId or Perfil.ControllerId or Perfil.EquipeId;
 
     public async Task<DashboardSummaryDto> Handle(GetDashboardSummaryQuery request, CancellationToken cancellationToken)
     {
@@ -81,8 +89,16 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
                 && notification.ReadAt == null,
                 cancellationToken);
 
+        var surgicalBilling = CanSeeSurgicalBilling(request.CurrentPerfilId)
+            ? await BuildSurgicalBillingAsync(request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId, cancellationToken)
+            : null;
+
         return new DashboardSummaryDto
         {
+            CirurgiasNaoConsolidadasCount = surgicalBilling?.NaoConsolidadas,
+            CirurgiasAReceberCount = surgicalBilling?.AReceber,
+            ValorAReceber = surgicalBilling?.ValorAReceber,
+            FaturamentoMensal = surgicalBilling?.Mensal,
             UsersCount = usersSummary?.UsersCount ?? 0,
             ActiveUsersCount = usersSummary?.ActiveUsersCount ?? 0,
             PacientesCount = patientSummary?.PacientesCount ?? 0,
@@ -119,6 +135,56 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
                 PatientFilesCount = group.Sum(paciente => paciente.Arquivos.Count(a => a.ExcluidoEm == null))
             })
             .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private sealed record SurgicalBillingSummary(
+        int NaoConsolidadas, int AReceber, decimal ValorAReceber, IReadOnlyList<DashboardMonthlyBillingDto> Mensal);
+
+    private async Task<SurgicalBillingSummary> BuildSurgicalBillingAsync(
+        int perfilId,
+        int userId,
+        int? equipeId,
+        CancellationToken cancellationToken)
+    {
+        // Mesmo recorte do contador de pacientes (tenant pelo filtro global + escopo do perfil).
+        var cirurgias = PacienteAccess.ApplyScope(
+            _context,
+            _context.Pacientes.AsNoTracking().Where(paciente => paciente.Ativo),
+            perfilId,
+            userId,
+            equipeId);
+
+        var naoConsolidadas = await cirurgias.CountAsync(paciente => paciente.DataAtendimento == null, cancellationToken);
+        var aReceber = cirurgias.Where(paciente => paciente.DataAtendimento != null && !paciente.StatusPago);
+        var aReceberCount = await aReceber.CountAsync(cancellationToken);
+        var valorAReceber = await aReceber
+            .SumAsync(paciente => (paciente.FaturamentoMedico!.HonorariosCirurgiao ?? 0m)
+                - (paciente.FaturamentoMedico!.ValorGlosa ?? 0m), cancellationToken);
+
+        var mesAtual = _timeProvider.GetUtcNow().UtcDateTime;
+        var inicio = new DateTime(mesAtual.Year, mesAtual.Month, 1).AddMonths(-11);
+        var fim = new DateTime(mesAtual.Year, mesAtual.Month, 1).AddMonths(1);
+        var porMes = await cirurgias
+            .Where(paciente => paciente.DataAtendimento >= inicio && paciente.DataAtendimento < fim)
+            .GroupBy(paciente => new { paciente.DataAtendimento!.Value.Year, paciente.DataAtendimento!.Value.Month })
+            .Select(grupo => new
+            {
+                grupo.Key.Year,
+                grupo.Key.Month,
+                Cirurgias = grupo.Count(),
+                Faturado = grupo.Sum(paciente => paciente.FaturamentoMedico!.HonorariosCirurgiao ?? 0m),
+                Recebido = grupo.Sum(paciente => paciente.StatusPago ? paciente.FaturamentoMedico!.RepasseMedico ?? 0m : 0m)
+            })
+            .ToListAsync(cancellationToken);
+
+        var mensal = Enumerable.Range(0, 12)
+            .Select(offset => inicio.AddMonths(offset))
+            .Select(mes => porMes.FirstOrDefault(item => item.Year == mes.Year && item.Month == mes.Month) is { } item
+                ? new DashboardMonthlyBillingDto(mes.Year, mes.Month, item.Cirurgias, item.Faturado, item.Recebido)
+                : new DashboardMonthlyBillingDto(mes.Year, mes.Month, 0, 0m, 0m))
+            .ToList();
+
+        return new SurgicalBillingSummary(naoConsolidadas, aReceberCount, valorAReceber, mensal);
     }
 
     private Task<int> CountPendingPaymentsAsync(
