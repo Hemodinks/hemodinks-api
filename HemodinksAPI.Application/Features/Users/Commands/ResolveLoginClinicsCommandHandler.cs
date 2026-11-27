@@ -52,6 +52,8 @@ public sealed class ResolveLoginClinicsCommandHandler : IRequestHandler<ResolveL
 
         if (users.Count == 0)
         {
+            // #431: mesmo custo de uma senha errada, para nao revelar se a conta existe.
+            PasswordTimingEqualizer.VerifyAgainstReference(_passwordHasher, request.Senha);
             throw new UnauthorizedAccessException("Email ou senha invalidos");
         }
 
@@ -145,6 +147,12 @@ public sealed class ResolveLoginClinicsCommandHandler : IRequestHandler<ResolveL
 
         if (options.Count == 0)
         {
+            // #431: conta bloqueada, inativa ou em recuperacao sem credencial nao verificou senha nenhuma.
+            if (verifiedHashes.Count == 0)
+            {
+                PasswordTimingEqualizer.VerifyAgainstReference(_passwordHasher, request.Senha);
+            }
+
             foreach (var globalId in failureGlobalIds)
             {
                 await _loginProtection.RegisterFailureAsync(globalId, cancellationToken);

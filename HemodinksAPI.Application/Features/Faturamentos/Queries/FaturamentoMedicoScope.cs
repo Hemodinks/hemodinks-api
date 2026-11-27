@@ -10,6 +10,15 @@ internal static class FaturamentoMedicoScope
         IQueryable<Paciente> query,
         int perfilId,
         int currentUserId,
+        int? equipeId = null) =>
+        ApplyScope(context.EquipeMembros, query, perfilId, currentUserId, equipeId);
+
+    // Mesmo escopo para quem não tem o contexto de faturamento (ex.: o painel), só com os membros de equipe.
+    public static IQueryable<Paciente> ApplyScope(
+        IQueryable<EquipeMembro> equipeMembros,
+        IQueryable<Paciente> query,
+        int perfilId,
+        int currentUserId,
         int? equipeId = null)
     {
         if (Perfil.IsAdministradorOuSuper(perfilId))
@@ -34,7 +43,7 @@ internal static class FaturamentoMedicoScope
 
         if (perfilId == Perfil.EquipeId && equipeId.HasValue)
         {
-            var memberUserIds = context.EquipeMembros
+            var memberUserIds = equipeMembros
                 .Where(item => item.EquipeId == equipeId.Value && item.Ativo)
                 .Select(item => item.UserId);
             return query.Where(paciente =>

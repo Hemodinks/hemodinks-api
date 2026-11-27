@@ -46,6 +46,45 @@ public sealed class LoginContextEndpointTests
         Assert.DoesNotContain("slug", body, StringComparison.OrdinalIgnoreCase);
     }
 
+    // #430: payload incompleto e erro do cliente (400), nao falha interna (500); nao revela clinicas.
+    [Theory]
+    [InlineData("{}")]
+    [InlineData("{\"login\":\"x\"}")]
+    [InlineData("{\"senha\":\"qualquer-senha\"}")]
+    [InlineData("{\"email\":\"payload-430@example.invalid\"}")]
+    [InlineData("{\"email\":\"   \",\"senha\":\"qualquer-senha\"}")]
+    [InlineData("{\"email\":\"payload-430@example.invalid\",\"senha\":\"\"}")]
+    public async Task IncompletePayload_ReturnsBadRequestWithoutRevealingClinics(string json)
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsync(
+            "/api/users/login-context",
+            new StringContent(json, System.Text.Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var body = await response.Content.ReadAsStringAsync();
+        Assert.DoesNotContain("clinicaId", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("slug", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("payload-430@example.invalid", body, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task UnknownEmail_StillReturnsUnauthorized()
+    {
+        using var factory = new HemodinksApiFactory();
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsJsonAsync("/api/users/login-context", new
+        {
+            email = "naoexiste-430@example.invalid",
+            senha = "senha-qualquer"
+        });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
     [Theory]
     [InlineData("selection")]
     [InlineData("pin")]

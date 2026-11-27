@@ -82,7 +82,9 @@ public sealed class TemporaryAccessService(
         };
     }
 
-    public async Task<GlobalAuthenticationContext?> AuthenticateAsync(User user, UsuarioClinica membership, string password, CancellationToken ct)
+    // #432: o login passa um verificador que conta as verificacoes, para igualar o tempo das falhas.
+    public async Task<GlobalAuthenticationContext?> AuthenticateAsync(User user, UsuarioClinica membership, string password,
+        CancellationToken ct, IPasswordHasher? verifier = null)
     {
         var scopedMembership = await context.UsuariosClinicas.Include(x => x.UsuarioGlobal)
             .SingleOrDefaultAsync(x => x.Id == membership.Id && x.UserId == user.Id && x.ClinicaId == user.ClinicaId, ct);
@@ -94,7 +96,7 @@ public sealed class TemporaryAccessService(
         var credential = await context.TemporaryAccessCredentials.SingleOrDefaultAsync(x => x.UsuarioGlobalId == global.Id
             && x.UserId == user.Id && x.ClinicaId == user.ClinicaId, ct);
         if (credential == null || credential.UsedAtUtc != null || credential.RevokedAtUtc != null
-            || !hasher.VerifyPassword(password, credential.PasswordHash))
+            || !(verifier ?? hasher).VerifyPassword(password, credential.PasswordHash))
             return null;
         var now = clock.GetUtcNow().UtcDateTime;
         if (now >= credential.ExpiresAtUtc)

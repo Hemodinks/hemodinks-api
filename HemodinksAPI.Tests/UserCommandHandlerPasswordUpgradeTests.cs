@@ -78,6 +78,9 @@ public partial class UserCommandHandlerTests
         if (failure == "inactive-user") user.Ativo = false;
         if (failure == "inactive-clinic") (await context.Clinicas.SingleAsync()).Ativa = false;
         await context.SaveChangesAsync();
+        // #432: o hash de referencia do equalizador e gerado uma vez por tipo de hasher; aquecido em outra
+        // instancia para que Hashes conte so upgrades, independente da ordem dos testes.
+        PasswordTimingEqualizer.VerifyAgainstReference(new UpgradeCountingHasher(), "warm-up");
         var hasher = new UpgradeCountingHasher();
         var handler = new AuthenticateUserCommandHandler(context, hasher, new StubJwtTokenService("token"),
             CreateLicencaService(context), ClinicaContextFactory.CreateDefaultResolved(),

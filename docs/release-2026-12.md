@@ -1,6 +1,8 @@
 # Release de dezembro/2026: runbook e ensaio (API #398, front #328)
 
-Promocao `developer` -> `main` da API (52 commits) e do front (30 commits). O front usa o
+Promocao `developer` -> `main` da API (85 commits no PR #414, 46 sem merges) e do front
+(42 commits no PR #335, 22 sem merges). Com os PRs que entraram na `main` depois (#422, #423,
+#425, #428), a API tem 100 commits (51 sem merges) a frente da producao (`36361d9`). O front usa o
 contrato novo da API (paciente "Inativar", MFA, trilha de auditoria), entao a **API sobe
 primeiro**. Ensaio feito em 25/11/2026, sem alterar producao.
 
@@ -8,7 +10,7 @@ primeiro**. Ensaio feito em 25/11/2026, sem alterar producao.
 
 ### Migrations
 
-As 8 migrations novas (`main` termina em `20261116221408_Schema_EmailChangeConfirmationAttempts`):
+As 9 migrations novas (a producao termina em `20261116221408_Schema_EmailChangeConfirmationAttempts`):
 
 | Migration | O que faz no `Up` |
 | --- | --- |
@@ -20,6 +22,7 @@ As 8 migrations novas (`main` termina em `20261116221408_Schema_EmailChangeConfi
 | `20261124131933_Schema_RefreshTokenReuseDetection` | 2 colunas anulaveis, indice nao unico |
 | `20261124140539_Schema_Mfa` | `MfaHabilitado` (NOT NULL, default `false`), colunas anulaveis, 2 tabelas novas |
 | `20261125150814_Schema_AuditoriaDetalhe` | `AuditoriasClinica.PacienteId`/`Detalhe` anulaveis, `ConfiguracoesSistema.AuditarAtendimentos` (NOT NULL, default `false`), indice nao unico; preenche `PacienteId` das linhas de paciente ja existentes (`TRY_CONVERT`, so na propria tabela) |
+| `20261126174803_Schema_RefreshTokenFamily` | tabela nova `AuthenticationSessionRefreshHistory` (familia de refresh tokens, #389), FK com cascade para `AuthenticationSessions`, 3 indices nao unicos |
 
 - Todas sao aditivas: `Drop*` so nos `Down`; colunas obrigatorias tem default; indices
   unicos so em tabelas novas (vazias). Nenhuma pode falhar por causa de dados existentes.
@@ -34,11 +37,19 @@ As 8 migrations novas (`main` termina em `20261116221408_Schema_EmailChangeConfi
 - Ensaio local nao foi possivel: o LocalDB nao tem Full-Text Search, exigido pela
   baseline. A imagem `sqlserver/Dockerfile.fts` (a mesma do CI) serve para isso se o
   Docker Desktop estiver ligado.
+  - **Atualizacao 26/11/2026:** o ensaio local foi feito no Docker com essa imagem, a partir
+    do estado da `main` e pelo caminho de producao (SchemaGuard, efbundle, restore e
+    `ValidateRestoredDatabase.sql`); ver o comentario de 26/11 na #398 e
+    `docs/release-rehearsal-local.md`. Cobriu as 8 primeiras migrations.
 - A `20261125150814_Schema_AuditoriaDetalhe` entrou depois do ensaio de 25/11: confirmar a aplicacao
   na homologacao (run do `publish-homologation`) antes do release.
-- Marcador de schema `20261125150814_Schema_AuditoriaDetalhe` conferido em
+- **A `20261126174803_Schema_RefreshTokenFamily` (#389, PR #420) entrou em 26/11, depois dos
+  ensaios**, e ja esta na `main` (PR #423). Validada no SQL Server do CI e local: replay completo
+  das migrations, `Test-Migrations.ps1` sem drift e testes SQL Server da familia (obrigatorios
+  no CI). Nao passou pela homologacao, que esta pausada por custo.
+- Marcador de schema `20261126174803_Schema_RefreshTokenFamily` conferido em
   `scripts/ValidateRestoredDatabase.sql`, `HemodinksAPI.Tests/RestoreDatabaseIntegrityTests.cs`
-  e `docs/issue-184-backup-recovery.md`.
+  e `docs/issue-184-backup-recovery.md` (antes, `20261125150814_Schema_AuditoriaDetalhe`).
 
 ### Producao hoje (somente leitura)
 
