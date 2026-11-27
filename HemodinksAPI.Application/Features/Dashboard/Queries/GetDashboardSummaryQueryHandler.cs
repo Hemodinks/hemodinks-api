@@ -1,5 +1,7 @@
 using HemodinksAPI.Application.Data;
+using HemodinksAPI.Application.Features.Faturamentos.Queries;
 using HemodinksAPI.Application.Features.Pacientes.Queries;
+using HemodinksAPI.Application.Tenancy;
 using HemodinksAPI.Domain.Models;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -11,21 +13,41 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
     private readonly IDashboardFeatureDbContext _context;
     private readonly ILogger<GetDashboardSummaryQueryHandler> _logger;
     private readonly TimeProvider _timeProvider;
+    private readonly IClinicDirectoryDbContext? _clinicDirectory;
+    private readonly IClinicaContext? _clinicaContext;
 
     public GetDashboardSummaryQueryHandler(
         IDashboardFeatureDbContext context,
         ILogger<GetDashboardSummaryQueryHandler> logger,
-        TimeProvider? timeProvider = null)
+        TimeProvider? timeProvider = null,
+        IClinicDirectoryDbContext? clinicDirectory = null,
+        IClinicaContext? clinicaContext = null)
     {
         _context = context;
         _logger = logger;
         _timeProvider = timeProvider ?? TimeProvider.System;
+        _clinicDirectory = clinicDirectory;
+        _clinicaContext = clinicaContext;
     }
 
     // Mesmos perfis da politica FaturamentoMedicoVisualizar: paciente nao recebe valores financeiros.
     private static bool CanSeeSurgicalBilling(int perfilId) =>
         Perfil.IsAdministradorOuSuper(perfilId)
         || perfilId is Perfil.MedicosId or Perfil.ControllerId or Perfil.EquipeId;
+
+    // Mesma regra do ClinicaModuleAccessMiddleware para /api/faturamentos-medicos: o plano precisa do
+    // modulo Faturamento; Administrador e SuperAdministrador sao dispensados. Sem dados para checar, nega.
+    private async Task<bool> HasBillingModuleAsync(int perfilId, CancellationToken cancellationToken)
+    {
+        if (Perfil.IsAdministradorOuSuper(perfilId)) return true;
+        if (_clinicDirectory == null || _clinicaContext?.ClinicaId is not { } clinicaId) return false;
+        var subscription = await _clinicDirectory.Clinicas.AsNoTracking()
+            .Where(item => item.Id == clinicaId)
+            .Select(item => new { item.Plano, item.ModulosLiberados })
+            .SingleOrDefaultAsync(cancellationToken);
+        return subscription != null && ClinicaModulos.GetEffective(subscription.Plano, subscription.ModulosLiberados)
+            .Contains(ClinicaModulos.Faturamento, StringComparer.OrdinalIgnoreCase);
+    }
 
     public async Task<DashboardSummaryDto> Handle(GetDashboardSummaryQuery request, CancellationToken cancellationToken)
     {
@@ -90,6 +112,7 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
                 cancellationToken);
 
         var surgicalBilling = CanSeeSurgicalBilling(request.CurrentPerfilId)
+            && await HasBillingModuleAsync(request.CurrentPerfilId, cancellationToken)
             ? await BuildSurgicalBillingAsync(request.CurrentPerfilId, request.CurrentUserId, request.CurrentEquipeId, cancellationToken)
             : null;
 
@@ -146,9 +169,10 @@ public class GetDashboardSummaryQueryHandler : IRequestHandler<GetDashboardSumma
         int? equipeId,
         CancellationToken cancellationToken)
     {
-        // Mesmo recorte do contador de pacientes (tenant pelo filtro global + escopo do perfil).
-        var cirurgias = PacienteAccess.ApplyScope(
-            _context,
+        // Mesmo recorte do modulo de faturamento (FaturamentoMedicoScope), nao o de pacientes: o medico so
+        // ve valores das proprias cirurgias, nunca as de colegas do grupo medico. Tenant pelo filtro global.
+        var cirurgias = FaturamentoMedicoScope.ApplyScope(
+            _context.EquipeMembros,
             _context.Pacientes.AsNoTracking().Where(paciente => paciente.Ativo),
             perfilId,
             userId,
