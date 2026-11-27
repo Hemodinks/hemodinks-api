@@ -84,10 +84,12 @@ public sealed class LoginContextWorkTests
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(request, default));
         Assert.Equal(2, protection.Checks);
         Assert.Equal(1, protection.Failures);
+        // #431: conta bloqueada paga uma verificacao de referencia, como uma senha errada.
+        Assert.Equal(2, hasher.Verifications);
         protection.Locked = false;
         request.Senha = "incorrect-password";
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(request, default));
-        Assert.Equal(2, hasher.Verifications);
+        Assert.Equal(3, hasher.Verifications);
         Assert.Equal(3, protection.Checks);
         Assert.Equal(2, protection.Failures);
     }
@@ -121,6 +123,86 @@ public sealed class LoginContextWorkTests
         else
         {
             await Assert.ThrowsAsync<UnauthorizedAccessException>(() => handler.Handle(request, default));
+        }
+    }
+
+    // #431: toda falha custa o mesmo que uma senha errada (uma verificacao PBKDF2), sem revelar a conta.
+    [Theory]
+    [InlineData("wrong-password")]
+    [InlineData("unknown-email")]
+    [InlineData("locked")]
+    [InlineData("inactive-global")]
+    [InlineData("recovery-without-credential")]
+    public async Task EveryFailurePath_PerformsExactlyOnePasswordVerification(string scenario)
+    {
+        await using var context = await SeedAsync();
+        var global = await context.UsuariosGlobais.SingleAsync(item => item.Email == "shared@example.com");
+        if (scenario == "inactive-global") global.Ativo = false;
+        if (scenario == "recovery-without-credential") global.TemporaryPasswordRecovery = true;
+        await context.SaveChangesAsync();
+        var hasher = new CountingHasher();
+        var protection = new RecordingProtection { Locked = scenario == "locked" };
+        var request = new ResolveLoginClinicsCommand
+        {
+            Email = scenario == "unknown-email" ? "unknown-431@example.invalid" : global.Email,
+            Senha = scenario == "wrong-password" ? "incorrect-password" : TestPasswords.Valid
+        };
+
+        var error = await Assert.ThrowsAsync<UnauthorizedAccessException>(
+            () => Handler(context, hasher, protection).Handle(request, default));
+
+        Assert.Equal("Email ou senha invalidos", error.Message);
+        Assert.Equal(1, hasher.Verifications);
+    }
+
+    [Fact]
+    public async Task ReferenceVerification_UsesFullCostHashAndNeverSucceeds()
+    {
+        var hasher = new CapturingHasher();
+        PasswordTimingEqualizer.VerifyAgainstReference(hasher, TestPasswords.Valid);
+        PasswordTimingEqualizer.VerifyAgainstReference(hasher, TestPasswords.Valid);
+
+        var reference = Assert.Single(hasher.VerifiedHashes.Distinct());
+        Assert.StartsWith("PBKDF2-SHA256$600000$", reference);
+        Assert.Equal(2, hasher.VerifiedHashes.Count);
+        Assert.All(hasher.Results, Assert.False);
+    }
+
+    // Revisao #431: trocar nulo por "" faria a referencia rodar PBKDF2 onde a conta real falha na hora.
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    public async Task NullOrEmptyPassword_ReachesHasherUnchangedOnRealAndReferencePaths(string? senha)
+    {
+        await using var context = await SeedAsync();
+        var real = new CapturingHasher();
+        var reference = new CapturingHasher();
+
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => Handler(context, real, new RecordingProtection())
+            .Handle(new ResolveLoginClinicsCommand { Email = "shared@example.com", Senha = senha! }, default));
+        await Assert.ThrowsAsync<UnauthorizedAccessException>(() => Handler(context, reference, new RecordingProtection())
+            .Handle(new ResolveLoginClinicsCommand { Email = "unknown-431@example.invalid", Senha = senha! }, default));
+
+        Assert.Equal(senha, Assert.Single(real.Passwords));
+        Assert.Equal(senha, Assert.Single(reference.Passwords));
+    }
+
+    private sealed class CapturingHasher : IPasswordHasher
+    {
+        private readonly PasswordHasher _inner = new();
+        public List<string?> Passwords { get; } = [];
+        public List<string> VerifiedHashes { get; } = [];
+        public List<bool> Results { get; } = [];
+        public string HashPassword(string password) => _inner.HashPassword(password);
+        public PasswordVerificationResult VerifyPasswordWithRehash(string password, string hash) =>
+            _inner.VerifyPasswordWithRehash(password, hash);
+        public bool VerifyPassword(string password, string hash)
+        {
+            Passwords.Add(password);
+            VerifiedHashes.Add(hash);
+            var result = _inner.VerifyPassword(password, hash);
+            Results.Add(result);
+            return result;
         }
     }
 
