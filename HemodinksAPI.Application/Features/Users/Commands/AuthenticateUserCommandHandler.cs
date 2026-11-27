@@ -69,6 +69,14 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
 
     public async Task<AuthenticateUserResponse> Handle(AuthenticateUserCommand request, CancellationToken cancellationToken)
     {
+        // #432: toda falha antes da verificacao paga o mesmo PBKDF2 de uma senha errada (sem revelar a conta).
+        var verifier = new PasswordVerificationTracker(_passwordHasher);
+        UnauthorizedAccessException InvalidCredentials()
+        {
+            verifier.EqualizeIfNothingVerified(request.Senha);
+            return new UnauthorizedAccessException("Email ou senha invalidos");
+        }
+
         try
         {
             var currentClinicaId = _clinicaContext.GetRequiredClinicaId();
@@ -88,7 +96,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                     ?? await GlobalIdentityService.EnsureForUserAsync(_context, user, cancellationToken);
             if (membership != null && await _loginProtection.IsLockedAsync(membership.UsuarioGlobalId, cancellationToken))
             {
-                throw new UnauthorizedAccessException("Email ou senha invalidos");
+                throw InvalidCredentials();
             }
 
             // Validate the collective account before confirming any legacy credential.
@@ -98,19 +106,19 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                 equipe = await _context.Equipes
                     .AsNoTracking()
                     .FirstOrDefaultAsync(item => item.UsuarioLoginId == user.Id && item.Ativa, cancellationToken)
-                    ?? throw new UnauthorizedAccessException("Email ou senha invalidos");
+                    ?? throw InvalidCredentials();
             }
 
             var globalAuthentication = user == null || membership!.UsuarioGlobal.TemporaryPasswordRecovery ? null : await GlobalIdentityService.AuthenticateAsync(
                     _context,
-                    _passwordHasher,
+                    verifier,
                     user,
                     request.Senha,
                     cancellationToken);
 
             if (user != null && membership != null && globalAuthentication == null && _temporaryAccess != null)
             {
-                globalAuthentication = await _temporaryAccess.AuthenticateAsync(user, membership, request.Senha, cancellationToken);
+                globalAuthentication = await _temporaryAccess.AuthenticateAsync(user, membership, request.Senha, cancellationToken, verifier);
             }
 
             if (user == null || globalAuthentication == null)
@@ -120,7 +128,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
                     await _loginProtection.RegisterFailureAsync(membership.UsuarioGlobalId, cancellationToken);
                 }
 
-                throw new UnauthorizedAccessException("Email ou senha invalidos");
+                throw InvalidCredentials();
             }
 
             EquipeLoginChallengeDto? equipeDesafio = null;
@@ -219,7 +227,7 @@ public class AuthenticateUserCommandHandler : IRequestHandler<AuthenticateUserCo
         catch (DbUpdateConcurrencyException)
         {
             _logger.LogWarning("Autenticacao recusada devido a alteracao concorrente de credenciais");
-            throw new UnauthorizedAccessException("Email ou senha invalidos");
+            throw InvalidCredentials();
         }
         catch (Exception ex)
         {
