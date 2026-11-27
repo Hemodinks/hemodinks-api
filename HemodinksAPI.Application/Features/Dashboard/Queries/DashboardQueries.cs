@@ -25,7 +25,19 @@ public class DashboardSummaryDto
     public int UnreadObservationCount { get; set; }
 
     public int UnreadAgendaNotificationCount { get; set; }
+
+    // Indicadores do registro de cirurgia (Paciente + FaturamentoMedico). Nulos para perfis sem acesso ao faturamento.
+    public int? CirurgiasNaoConsolidadasCount { get; set; }
+
+    public int? CirurgiasAReceberCount { get; set; }
+
+    public decimal? ValorAReceber { get; set; }
+
+    // Ultimos 12 meses (inclui o atual) pela data da consolidacao; meses sem cirurgia vem zerados.
+    public IReadOnlyList<DashboardMonthlyBillingDto>? FaturamentoMensal { get; set; }
 }
+
+public sealed record DashboardMonthlyBillingDto(int Ano, int Mes, int Cirurgias, decimal Faturado, decimal Recebido);
 
 public class DashboardNotificationDto
 {
