@@ -127,6 +127,22 @@ public sealed class SecurityObservationEndpointTests(ITestOutputHelper output)
     }
 
     [Fact]
+    public async Task LoginContextIncompletePayload_IsInvalidRequestNotInfrastructureFailure()
+    {
+        // #430: sem validador registrado, o handler quebrava com NullReference e virava InfrastructureFailure.
+        var sink = new CaptureWriter();
+        using var factory = new HemodinksApiFactory(s => s.AddSingleton<ISecurityObservationWriter>(sink));
+        using var client = factory.CreateClient();
+
+        var response = await client.PostAsync("/api/users/login-context",
+            new StringContent("{\"login\":\"x\"}", System.Text.Encoding.UTF8, "application/json"));
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.DoesNotContain(sink.Events, x => x.Kind == SecurityEventKind.InfrastructureFailure);
+        Assert.Contains(sink.Events, x => x.Kind == SecurityEventKind.AuthenticationRefused && x.Reason == "invalid_request");
+    }
+
+    [Fact]
     public async Task DurableAccountBlock_RemainsGenericAndAuditedWithoutCredentials()
     {
         var sink = new CaptureWriter();
