@@ -1,6 +1,8 @@
 # Release de dezembro/2026: runbook e ensaio (API #398, front #328)
 
-Promocao `developer` -> `main` da API (52 commits) e do front (30 commits). O front usa o
+Promocao `developer` -> `main` da API (85 commits no PR #414, 46 sem merges) e do front
+(42 commits no PR #335, 22 sem merges). Com os PRs que entraram na `main` depois (#422, #423,
+#425, #428), a API tem 100 commits (51 sem merges) a frente da producao (`36361d9`). O front usa o
 contrato novo da API (paciente "Inativar", MFA, trilha de auditoria), entao a **API sobe
 primeiro**. Ensaio feito em 25/11/2026, sem alterar producao.
 
